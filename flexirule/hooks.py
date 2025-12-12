@@ -9,7 +9,55 @@ app_license = "agpl-3.0"
 # ------------------
 
 # required_apps = []
+# JS/CSS includes
+app_include_css = "/assets/flexirule/css/flexirule.css"
+app_include_js = "/assets/flexirule/js/rule_builder.bundle.js"
 
+# Document Events - ALL paths must be to MODULE-LEVEL functions
+# NEVER use class method paths like "module.ClassName.method"
+doc_events = {
+    "*": {
+        "before_insert": "flexirule.ruleflow.hooks.execute_rules",
+        "before_save": "flexirule.ruleflow.hooks.execute_rules",
+        "validate": "flexirule.ruleflow.hooks.execute_rules",
+        "after_insert": "flexirule.ruleflow.hooks.execute_rules",
+        "after_save": "flexirule.ruleflow.hooks.execute_rules",
+        "before_submit": "flexirule.ruleflow.hooks.execute_rules",
+        "on_submit": "flexirule.ruleflow.hooks.execute_rules",
+        "before_cancel": "flexirule.ruleflow.hooks.execute_rules",
+        "on_cancel": "flexirule.ruleflow.hooks.execute_rules",
+        "on_trash": "flexirule.ruleflow.hooks.execute_rules",
+    },
+    "Rule": {
+        "after_save": "flexirule.ruleflow.hooks.clear_rule_cache",
+        "on_trash": "flexirule.ruleflow.hooks.clear_rule_cache"
+    }
+}
+
+doctype_js = {
+    "Rule": "ruleflow/doctype/rule/rule.js"
+}
+
+fixtures = [
+    {
+        "dt": "Process Method",
+        "filters": [["module", "=", "Ruleflow"]]
+    }
+]
+
+flexirule_excluded_doctypes = [
+    "Error Log",
+    "Activity Log", 
+    "Access Log",
+    "Email Queue",
+    "Scheduled Job Log",
+    "Version",
+    "Comment",
+    "Communication",
+    "File"
+]
+
+export_python_type_annotations = True
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
 # 	{
