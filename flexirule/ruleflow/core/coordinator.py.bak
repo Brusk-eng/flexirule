@@ -91,21 +91,8 @@ class RuleCoordinator:
 		# Try cache first
 		cached = frappe.cache().get_value(cache_key)
 		if cached:
-			try:
-				rule_names = json.loads(cached)
-				rules = []
-				for name in rule_names:
-					# Handle stale cache where rule might have been deleted
-					try:
-						rules.append(frappe.get_cached_doc("Rule", name))
-					except (frappe.DoesNotExistError, frappe.ValidationError):
-						# Force refresh if any doc is missing
-						frappe.cache().delete_value(cache_key)
-						return RuleCoordinator.get_applicable_rules(doctype, event_name)
-				return rules
-			except Exception:
-				# If any json or other error, ignore cache
-				pass
+			rule_names = json.loads(cached)
+			return [frappe.get_cached_doc("Rule", name) for name in rule_names]
 		
 		# Load from database
 		rules = frappe.get_all(
@@ -196,10 +183,6 @@ class RuleCoordinator:
 			for event in events:
 				cache_key = f"rules:{doctype}:{event}"
 				frappe.cache().delete_value(cache_key)
-			
-			events_keys = [f"has_rules:{doctype}:{e}" for e in events]
-			for k in events_keys:
-				frappe.cache().delete_value(k)
 		else:
 			# Clear all rule caches
 			frappe.cache().delete_keys("rules:*")

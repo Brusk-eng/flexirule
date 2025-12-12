@@ -8,7 +8,6 @@ Integration tests for Bolton API endpoints
 import frappe
 import unittest
 import json
-from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 
 class TestBoltonAPI(unittest.TestCase):
@@ -34,8 +33,6 @@ class TestBoltonAPI(unittest.TestCase):
     def tearDown(self):
         """Cleanup"""
         frappe.db.rollback()
-        # Clean up cache to prevent DoNotExistError in other tests
-        RuleCoordinator.clear_cache('ToDo')
     
     def test_get_doctype_fields(self):
         """Test getting DocType fields"""
