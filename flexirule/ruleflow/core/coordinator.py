@@ -74,7 +74,7 @@ class RuleCoordinator:
 					)
 	
 	@staticmethod
-	def get_applicable_rules(doctype: str, event_name: str) -> List:
+	def get_applicable_rules(doctype: str, event_name: str, doc=None) -> List:
 		"""
 		Get active rules for a doctype and event
 		Uses caching for performance
@@ -82,6 +82,7 @@ class RuleCoordinator:
 		Args:
 			doctype: DocType name
 			event_name: Trigger event name
+			doc: Optional document for evaluating trigger conditions
 			
 		Returns:
 			List of Rule documents
@@ -90,10 +91,11 @@ class RuleCoordinator:
 		
 		# Try cache first
 		cached = frappe.cache().get_value(cache_key)
+		rules = []
+		
 		if cached:
 			try:
 				rule_names = json.loads(cached)
-				rules = []
 				for name in rule_names:
 					# Handle stale cache where rule might have been deleted
 					try:
@@ -101,30 +103,44 @@ class RuleCoordinator:
 					except (frappe.DoesNotExistError, frappe.ValidationError):
 						# Force refresh if any doc is missing
 						frappe.cache().delete_value(cache_key)
-						return RuleCoordinator.get_applicable_rules(doctype, event_name)
-				return rules
+						return RuleCoordinator.get_applicable_rules(doctype, event_name, doc)
 			except Exception:
 				# If any json or other error, ignore cache
 				pass
+		else:
+			# Load from database
+			rule_list = frappe.get_all(
+				"Rule",
+				filters={
+					"is_active": 1,
+					"document_type": doctype,
+					"trigger_event": event_name
+				},
+				fields=["name"],
+				order_by="priority DESC"
+			)
+			
+			rule_names = [r.name for r in rule_list]
+			
+			# Cache for 5 minutes
+			frappe.cache().set_value(cache_key, json.dumps(rule_names), expires_in_sec=300)
+			
+			rules = [frappe.get_cached_doc("Rule", name) for name in rule_names]
 		
-		# Load from database
-		rules = frappe.get_all(
-			"Rule",
-			filters={
-				"is_active": 1,
-				"document_type": doctype,
-				"trigger_event": event_name
-			},
-			fields=["name"],
-			order_by="priority DESC"
-		)
-		
-		rule_names = [r.name for r in rules]
-		
-		# Cache for 5 minutes
-		frappe.cache().set_value(cache_key, json.dumps(rule_names), expires_in_sec=300)
-		
-		return [frappe.get_cached_doc("Rule", name) for name in rule_names]
+		# Filter by Trigger Condition if doc is provided
+		if doc and rules:
+			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+			filtered_rules = []
+			for rule in rules:
+				# Stage 1: Eligibility (Fast Filter)
+				if rule.trigger_condition:
+					evaluator = ConditionEvaluator(rule.trigger_condition)
+					if not evaluator.evaluate(doc):
+						continue # Skip rule if trigger condition fails
+				filtered_rules.append(rule)
+			return filtered_rules
+			
+		return rules
 	
 	@staticmethod
 	def execute_single_rule(doc, rule_doc):

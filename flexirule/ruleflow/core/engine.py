@@ -14,6 +14,9 @@ Enhanced Rule Engine with:
 import frappe
 import json
 import time
+import traceback
+import jsonschema
+from jsonschema import validate, ValidationError as SchemaValidationError
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from contextlib import contextmanager
 from flexirule.ruleflow.core.exceptions import (
@@ -167,25 +170,31 @@ class RuleEngine:
 		Returns:
 			Execution context with results
 		"""
-		# Pre-execution validation
-		self._validate_execution()
-		
-		# Check role-based skipping
-		if self.rule.get('skip_for_roles'):
-			user_roles = frappe.get_roles()
-			skip_roles = [row.role for row in self.rule.get('skip_for_roles')]
-			# Check if user has ANY of the skip roles
-			if any(role in user_roles for role in skip_roles):
-				self._log("INFO", f"Skipping rule execution for user with role(s): {skip_roles}")
-				return self.context
-		
-		# Initialize context
-		context = self._initialize_context(doc, **kwargs)
-		
-		# Log start
-		self._log("INFO", f"Starting rule execution: {self.rule.name}")
+		# Tracking vars
+		start_time = time.time()
+		status = "Success"
+		error_detail = None
+		self.path_trace = []
 		
 		try:
+			# Pre-execution validation
+			self._validate_execution()
+			
+			# Check role-based skipping
+			if self.rule.get('skip_for_roles'):
+				user_roles = frappe.get_roles()
+				skip_roles = [row.role for row in self.rule.get('skip_for_roles')]
+				if any(role in user_roles for role in skip_roles):
+					self._log("INFO", f"Skipping rule execution for user with role(s): {skip_roles}")
+					status = "Skipped"
+					return self.context
+			
+			# Initialize context
+			context = self._initialize_context(doc, **kwargs)
+			
+			# Log start
+			self._log("INFO", f"Starting rule execution: {self.rule.name}")
+			
 			# Execute with timeout if configured
 			timeout = self.rule.max_execution_time or 30
 			
@@ -204,23 +213,29 @@ class RuleEngine:
 			
 			return result
 			
-		except TimeoutException:
-			error_msg = f"Rule execution exceeded timeout ({timeout}s)"
+		except (TimeoutException, FuturesTimeoutError, BoltonTimeoutError) as e:
+			status = "Failed"
+			error_msg = f"Rule execution exceeded timeout ({timeout if 'timeout' in locals() else 'unknown'}s)"
+			error_detail = traceback.format_exc()
 			self._log("ERROR", error_msg)
-			self._update_rule_stats(success=False, error=error_msg)
-			raise BoltonTimeoutError(error_msg)
-		
-		except FuturesTimeoutError:
-			error_msg = f"Rule execution exceeded timeout ({timeout}s)"
-			self._log("ERROR", error_msg)
-			self._update_rule_stats(success=False, error=error_msg)
+			if context if 'context' in locals() else None:
+				self._update_rule_stats(success=False, error=error_msg)
 			raise BoltonTimeoutError(error_msg)
 		
 		except Exception as e:
+			status = "Failed"
 			error_msg = str(e)
+			error_detail = traceback.format_exc()
 			self._log("ERROR", f"Rule execution failed: {error_msg}")
-			self._update_rule_stats(success=False, error=error_msg)
+			if context if 'context' in locals() else None:
+				self._update_rule_stats(success=False, error=error_msg)
 			raise
+			
+		finally:
+			# Persist Log
+			if not self.context.get('test_mode'):
+				duration = time.time() - start_time
+				self._save_execution_log(status, duration, error_detail)
 	
 	def _validate_execution(self):
 		"""Validate rule is executable"""
@@ -273,41 +288,64 @@ class RuleEngine:
 			
 			visited.add(node_id)
 			execution_path.append(current.action_label)
+			self.path_trace.append({
+				"node": current.action_label,
+				"type": current.action_type,
+				"timestamp": time.time()
+			})
 			
 			# Log execution
 			self._log("INFO", f"Executing action: {current.action_label} (type: {current.action_type})")
 			
-			# Execute node based on type
 			try:
 				result = None
 				next_id = None
 				
+				# === Logic Nodes ===
 				if current.action_type == 'Condition':
 					result = self._execute_condition(current, context)
+					# Strict Logic Node: ONLY decides path, no side effects
 					next_id = current.next_step_if_true if result else current.next_step_if_false
 					self._log("DEBUG", f"Condition result: {result}, next: {next_id}")
+
+				elif current.action_type == 'Switch':
+					# TODO: Implement Switch logic
+					# For now, just follow default path
+					next_id = current.next_step_if_true
 				
+				# === Task Nodes ===
 				elif current.action_type == 'Process':
+					# Task Node: Executes work, returns result, follows ONE path
 					result = self._execute_process(current, context)
 					next_id = current.next_step_if_true
 					self._log("DEBUG", f"Process result: {result}, next: {next_id}")
-				
+					
+				elif current.action_type == 'Sub-Rule':
+					# Executing a sub-rule is a task
+					# TODO: Implement Sub-Rule execution
+					next_id = current.next_step_if_true
+
+				# === Control Nodes ===
 				elif current.action_type == 'Stop':
 					self._log("INFO", "Stop action encountered")
 					break
+					
+				elif current.action_type == 'Wait':
+					# TODO: Implement Wait (async pause)
+					next_id = current.next_step_if_true
 				
 				else:
 					self._log("WARNING", f"Unknown action type: {current.action_type}")
 					next_id = current.next_step_if_true
 				
-				# Store result if variable specified
+				# Store result if variable specified (Only for Task/Logic nodes)
 				if current.return_variable and result is not None:
 					context['vars'][current.return_variable] = result
 					self._log("DEBUG", f"Stored result in variable: {current.return_variable}")
 				
 				# Move to next node
 				current = self._get_action_by_id(next_id) if next_id else None
-				
+
 			except Exception as e:
 				# Handle error based on on_error setting
 				if hasattr(current, 'on_error'):
@@ -422,9 +460,9 @@ class RuleEngine:
 		
 		# Parse configuration
 		config = {}
-		if action.configuration:
+		if action.method_config:
 			try:
-				config = json.loads(action.configuration)
+				config = json.loads(action.method_config)
 			except json.JSONDecodeError as e:
 				raise MethodExecutionError(f"Invalid configuration JSON: {str(e)}")
 		
@@ -432,6 +470,14 @@ class RuleEngine:
 		if action.input_mapping:
 			config = apply_input_mapping(context, action.input_mapping, config)
 		
+		# Validation: Check against Input Schema
+		if process_method.input_schema:
+			try:
+				schema = json.loads(process_method.input_schema)
+				validate(instance=config, schema=schema)
+			except (json.JSONDecodeError, SchemaValidationError) as e:
+				raise MethodExecutionError(f"Input validation failed for {process_method.method_name}: {str(e)}")
+
 		# Execute with retry logic
 		result = self._call_method_with_retry(
 			process_method=process_method,
@@ -516,3 +562,35 @@ class RuleEngine:
 		except Exception as e:
 			# Don't fail execution if stats update fails
 			frappe.logger().error(f"Failed to update rule stats: {str(e)}")
+
+	def _save_execution_log(self, status, duration, error_trace=None):
+		"""Save execution details to Rule Execution Log"""
+		try:
+			# Serialize context snapshot (remove complex objects)
+			context_snapshot = {}
+			if hasattr(self, 'context'):
+				# Only keep serializable vars
+				context_snapshot = {
+					k: v for k, v in self.context.get('vars', {}).items() 
+					if isinstance(v, (str, int, float, bool, list, dict, type(None)))
+				}
+			
+			log_doc = frappe.get_doc({
+				"doctype": "Rule Execution Log",
+				"rule": self.rule.name,
+				"status": status,
+				"duration": duration,
+				"reference_doctype": self.rule.document_type,
+				"reference_docname": self.context.get('doc').name if self.context.get('doc') else None,
+				"executed_by": self.context.get('meta', {}).get('user'),
+				"message": error_trace.split('\n')[-2] if error_trace else "Executed successfully",
+				"execution_path": json.dumps(self.path_trace, default=str),
+				"context_snapshot": json.dumps(context_snapshot, default=str),
+				"error_trace": error_trace
+			})
+			
+			# Use ignore_permissions to ensure log is always written regardless of user
+			log_doc.insert(ignore_permissions=True)
+			
+		except Exception as e:
+			frappe.logger().error(f"Failed to save Rule Execution Log: {str(e)}")

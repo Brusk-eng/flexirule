@@ -54,7 +54,7 @@ class TestRedesignArchitecture(FrappeTestCase):
                     "action_label": "Invalid Action",
                     "action_type": "Process",
                     "process_method": method_path,
-                    "configuration": '{"threshold": "NOT_AN_INT"}', # Invalid type
+                    "method_config": '{"threshold": "NOT_AN_INT"}', # Invalid type
                     "action_id": "ACT-001"
                 }
             ]
@@ -89,7 +89,7 @@ class TestRedesignArchitecture(FrappeTestCase):
                     "action_id": "ACT-MAP-01",
                     # Map context variable 'my_val' to param 'value'
                     "input_mapping": '{"my_val": "value"}', 
-                    "configuration": '{"threshold": 10}'
+                    "method_config": '{"threshold": 10}'
                 }
             ]
         })
@@ -127,7 +127,7 @@ class TestRedesignArchitecture(FrappeTestCase):
                     "action_type": "Process",
                     "process_method": method_path,
                     "action_id": "ACT-OUT-01",
-                    "configuration": '{"threshold": 10}',
+                    "method_config": '{"threshold": 10}',
                     # Pass a value via mapping to ensure result
                     "input_mapping": '{"input_val": "value"}',
                     # Map result "processed_value" to context "final_result"
@@ -145,6 +145,84 @@ class TestRedesignArchitecture(FrappeTestCase):
         # Check if context has 'final_result' = 500
         # dummy_method returns {"processed_value": value}
         self.assertEqual(final_ctx.get('final_result'), 500)
+
+    def test_05_execution_logging(self):
+        """Verify Rule Execution Log creation"""
+        log_rule_name = "Test Logging Rule"
+        if frappe.db.exists("Rule", log_rule_name):
+            frappe.delete_doc("Rule", log_rule_name)
+
+        method_path = "flexirule.ruleflow.tests.test_redesign_architecture.dummy_method"
+        
+        rule = frappe.get_doc({
+            "doctype": "Rule",
+            "rule_name": log_rule_name,
+            "document_type": "User",
+            "trigger_type": "Event",
+            "is_active": 1,
+            "actions": [
+                {
+                    "action_label": "Log Action",
+                    "action_type": "Process",
+                    "process_method": method_path,
+                    "action_id": "ACT-LOG-01",
+                    "method_config": '{"threshold": 10}'
+                }
+            ]
+        })
+        rule.insert()
+        
+        # Execute with test_mode=False to trigger logging
+        ctx = {"my_val": 100}
+        # Explicitly set test_mode to False to ensure logging happens
+        # But we need to be careful about timeouts or errors
+        engine = RuleEngine(rule, execution_context={"test_mode": False})
+        engine.execute(None)
+        
+        # Verify Log Exists
+        logs = frappe.get_all("Rule Execution Log", filters={"rule": log_rule_name}, fields=["name", "status", "execution_path"])
+        self.assertTrue(logs, "Execution Log should be created")
+        self.assertEqual(logs[0].status, "Success")
+        self.assertIn("Log Action", logs[0].execution_path)
+
+    def test_06_test_rule_api(self):
+        """Verify the test_rule whitelisted API"""
+        from flexirule.ruleflow.doctype.rule.rule import test_rule
+        
+        rule_name = "Test API Rule"
+        if frappe.db.exists("Rule", rule_name):
+            frappe.delete_doc("Rule", rule_name)
+            
+        rule = frappe.get_doc({
+            "doctype": "Rule",
+            "rule_name": rule_name,
+            "document_type": "User",
+            "trigger_type": "Event",
+            "is_active": 1,
+            "actions": [] # Empty actions is fine for basic test, or add one
+        })
+        rule.insert()
+        
+        # Test 1: JSON Doc (Empty Rule)
+        res = test_rule(rule_name, document_json='{"doctype": "User", "first_name": "Test"}')
+        self.assertEqual(res['status'], 'Failed')
+        self.assertIn("no enabled actions", res['error'])
+        
+        # Let's add an action to be safe
+        method_path = "flexirule.ruleflow.tests.test_redesign_architecture.dummy_method"
+        rule.append("actions", {
+            "action_label": "Action 1",
+            "action_type": "Process",
+            "process_method": method_path,
+            "action_id": "ACT-TEST-01",
+            "method_config": '{"threshold": 10}'
+        })
+        rule.save()
+        
+        res = test_rule(rule_name, document_json='{"doctype": "User", "first_name": "Test"}')
+        self.assertEqual(res['status'], 'Success')
+        self.assertIn('execution_log', res)     
+
 
 # Define dummy method module function for testing
 def dummy_method(context, value=0, threshold=0):

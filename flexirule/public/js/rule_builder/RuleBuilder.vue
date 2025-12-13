@@ -13,6 +13,15 @@
                     <button class="btn btn-xs btn-default" @click="addNode('stop')" title="Add Stop">
                         <i class="fa fa-stop-circle"></i> Stop
                     </button>
+                    <button class="btn btn-xs btn-default" @click="addNode('switch')" title="Add Switch">
+                        <i class="fa fa-code-fork" style="transform: rotate(90deg)"></i> Switch
+                    </button>
+                    <button class="btn btn-xs btn-default" @click="addNode('wait')" title="Add Wait">
+                        <i class="fa fa-clock-o"></i> Wait
+                    </button>
+                    <button class="btn btn-xs btn-default" @click="addNode('sub-rule')" title="Add Sub-Rule">
+                         <i class="fa fa-cube"></i> Sub-Rule
+                    </button>
                 </div>
             </div>
             
@@ -29,6 +38,9 @@
             </div>
 
             <div class="toolbar-right">
+                <button class="btn btn-xs btn-primary mr-2" @click="testRule()" title="Dry Run">
+                    <i class="fa fa-play"></i> Test Rule
+                </button>
                 <button class="btn btn-xs btn-default" @click="fitView()" title="Fit View">
                     <i class="fa fa-expand"></i>
                 </button>
@@ -187,8 +199,16 @@ function onNodesChange(changes) {
 
 function addNode(type) {
     const id = `${type}-${Date.now()}`;
-    const label = type === 'process' ? 'New Process' : 
-                  type === 'condition' ? 'New Condition' : 'Stop';
+    let label = '';
+    
+    switch(type) {
+        case 'process': label = 'New Process'; break;
+        case 'condition': label = 'New Condition'; break;
+        case 'switch': label = 'New Switch'; break;
+        case 'wait': label = 'Wait'; break;
+        case 'sub-rule': label = 'Sub Rule'; break;
+        default: label = 'Stop';
+    }
     
     const newNode = {
         id,
@@ -213,6 +233,11 @@ function toggleRuleActive(e) {
         store.rule_doc.is_active = e.target.checked ? 1 : 0;
         store.mark_dirty();
     }
+}
+
+function testRule() {
+    frappe.msgprint(__('Test Rule functionality coming soon! This will perform a dry-run execution.'));
+    // TODO: dedicated test runner modal
 }
 </script>
 

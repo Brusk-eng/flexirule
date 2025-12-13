@@ -47,7 +47,7 @@ class Rule(Document):
 
         for action in self.actions:
             # 1. Validate JSON fields syntax
-            self._validate_json_field(action.configuration, f"Action {action.action_label}: Configuration")
+            self._validate_json_field(action.method_config, f"Action {action.action_label}: Configuration")
             self._validate_json_field(action.input_mapping, f"Action {action.action_label}: Input Mapping")
             self._validate_json_field(action.output_mapping, f"Action {action.action_label}: Output Mapping")
             
@@ -74,8 +74,8 @@ class Rule(Document):
         # Note: We prioritize config_schema mostly for UI builder, 
         # but input_schema is for strict validation if present.
         schema = method.input_schema or method.config_schema
-        if schema and action.configuration:
-            validate_config(action.configuration, schema)
+        if schema and action.method_config:
+            validate_config(action.method_config, schema)
 
     def on_update(self):
         """
@@ -83,3 +83,75 @@ class Rule(Document):
         """
         if self.is_active:
             validate_graph_integrity(self)
+
+@frappe.whitelist()
+def test_rule(rule_name, document_json=None, doc_name=None):
+    """
+    Dry-run a rule against a provided document or existing document.
+    Returns the execution log and context.
+    
+    Args:
+        rule_name (str): Name of the Rule to test
+        document_json (str, optional): JSON string of the document to test against
+        doc_name (str, optional): Name of existing document to test against (if document_json not provided)
+    """
+    import json
+    from flexirule.ruleflow.core.engine import RuleEngine
+    
+    if not frappe.has_permission("Rule", "read"):
+        frappe.throw("Insufficient permissions to test rules")
+
+    try:
+        rule = frappe.get_doc("Rule", rule_name)
+    except frappe.DoesNotExistError:
+        frappe.throw(f"Rule {rule_name} not found")
+
+    # effective_doc will be the document we test against
+    effective_doc = None
+    
+    if document_json:
+        try:
+            doc_dict = json.loads(document_json)
+            # Create a transient document structure (not saved)
+            if not doc_dict.get("doctype"):
+                doc_dict["doctype"] = rule.document_type
+            effective_doc = frappe.get_doc(doc_dict)
+        except json.JSONDecodeError:
+            frappe.throw("Invalid Document JSON")
+    elif doc_name:
+        if not frappe.db.exists(rule.document_type, doc_name):
+            frappe.throw(f"Document {doc_name} of type {rule.document_type} not found")
+        effective_doc = frappe.get_doc(rule.document_type, doc_name)
+    else:
+        frappe.throw("Please provide either a Document JSON or a Document Name")
+
+    # Initialize Engine in Test Mode
+    # test_mode = True prevents side-effects (like DB updates committed) 
+    # and ensures execution log is returned but not necessarily persisted if we chose not to.
+    # However, our engine now persists logs even in test_mode if we want, 
+    # but let's say for dry-run we want to see the result.
+    
+    # We explicitly set test_mode=True to avoid stats updates and potential commits
+    context = {"test_mode": True}
+    engine = RuleEngine(rule, execution_context=context)
+    
+    try:
+        result_context = engine.execute(effective_doc)
+        
+        # Extract relevant info for the UI
+        return {
+            "status": "Success",
+            "execution_log": engine.execution_log, # Text logs
+            "path_trace": engine.path_trace,       # Visual path
+            "final_context": {
+                k: v for k, v in result_context.get('vars', {}).items() 
+                if isinstance(v, (str, int, float, bool, list, dict, type(None)))
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "Failed",
+            "error": str(e),
+            "execution_log": engine.execution_log,
+            "path_trace": getattr(engine, 'path_trace', [])
+        }

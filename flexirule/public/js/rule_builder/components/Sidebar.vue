@@ -47,6 +47,9 @@
                         @change="updateActionType($event.target.value)">
                         <option value="Process">Process</option>
                         <option value="Condition">Condition</option>
+                        <option value="Switch">Switch</option>
+                        <option value="Wait">Wait</option>
+                        <option value="Sub-Rule">Sub-Rule</option>
                         <option value="Stop">Stop</option>
                     </select>
                 </div>
