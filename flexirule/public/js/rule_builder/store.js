@@ -263,13 +263,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 
                 // Determine lineage
                 const incoming = edgesList.find(e => e.target === node.id);
-                const is_from_root = incoming && incoming.source === 'start' ? 1 : 0;
+                const is_entry_action = incoming && incoming.source === 'start' ? 1 : 0;
                 // If not from root, prev_action_id comes from the source node's action_id (or id)
                 // Note: The source node in the graph is `incoming.source`.
                 // We need to match this to a node to get its action_id if available, though typically id IS the action_id.
                 // However, `data.action_id` is reliable.
                 let prev_action_id = null;
-                if (!is_from_root && incoming) {
+                if (!is_entry_action && incoming) {
                     const parentNode = nodes.find(n => n.id === incoming.source);
                     prev_action_id = parentNode?.data?.action_id || incoming.source;
                 }
@@ -280,7 +280,7 @@ export const useStore = defineStore("rule-builder-store", () => {
                     action_id: node.data?.action_id || node.id,
                     action_label: node.label,
 
-                    is_from_root: is_from_root,
+                    is_entry_action: is_entry_action,
                     prev_action_id: prev_action_id,
 
                     action_type: node.data?.action_type,

@@ -12,7 +12,7 @@
   "column_break_1",
   "document_type",
   "trigger_event",
-  "document_type_filters",
+  "trigger_filters",
   "apply_to_child_tables",
   "column_break_2",
   "execution_mode",
@@ -84,7 +84,7 @@
   },
   {
    "description": "Python expression evaluated before executing the rule",
-   "fieldname": "document_type_filters",
+   "fieldname": "trigger_filters",
    "fieldtype": "Code",
    "label": "Trigger Filters (Python)",
    "max_height": "50 px",

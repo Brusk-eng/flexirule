@@ -147,17 +147,17 @@
         {
             "default": "0",
             "description": "True if this action is triggered directly from the Start Node",
-            "fieldname": "is_from_root",
+            "fieldname": "is_entry_action",
             "fieldtype": "Check",
             "label": "Is From Root"
         },
         {
-            "depends_on": "eval:doc.is_from_root==0",
+            "depends_on": "eval:doc.is_entry_action==0",
             "description": "ID of the action that triggers this action",
             "fieldname": "prev_action_id",
             "fieldtype": "Data",
             "label": "Previous Action ID",
-            "mandatory_depends_on": "eval:doc.is_from_root==0"
+            "mandatory_depends_on": "eval:doc.is_entry_action==0"
         },
         {
             "description": "Next action node to execute if the condition is true",

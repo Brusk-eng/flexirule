@@ -231,7 +231,6 @@ class RuleEngine:
 			raise EmptyRuleError(f"Rule {self.rule.name} has no enabled actions")
 	
 	def _initialize_context(self, doc, **kwargs):
-		"""Setup execution context with safety checks"""
 		return {
 			**self.context,
 			'doc': doc,
