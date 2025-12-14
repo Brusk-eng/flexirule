@@ -1,9 +1,3 @@
- HEAD
-# FlexiRule
-
-![FlexiRule Logo](flexiRule.png)
-
-## Enterprise-Grade Rule Engine & Data Quality Framework for Frappe / ERPNext
 
 <div align="center">
   <img src="flexiRule.png" alt="FlexiRule Logo" width="200" />
@@ -85,8 +79,10 @@ graph LR
     Action2 -->|Found| Action3[Action: Block Save]
     Action2 -->|None| Action4[Action: Enrich Data]
 =======
+
 ```bash
 cd $PATH_TO_YOUR_BENCH
 bench get-app flexirule
 bench install-app flexirule
  68879cb (Fieldname Standarized)
+```
