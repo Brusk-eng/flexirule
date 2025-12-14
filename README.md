@@ -80,7 +80,8 @@ graph LR
     Action2 -->|None| Action4[Action: Enrich Data]
 =======
 
-```bash
+```
+bash
 cd $PATH_TO_YOUR_BENCH
 bench get-app flexirule
 bench install-app flexirule
