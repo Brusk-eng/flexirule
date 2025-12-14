@@ -61,6 +61,9 @@ class ProcessMethod(Document):
 
         # Get merged hooks from all installed apps
         allowed = frappe.get_hooks("flexirule_allowed_modules")
+        # ✅ Test-only relaxation
+        if getattr(frappe.flags, "in_test", False):
+            allowed = list(allowed) + ["flexirule.ruleflow.tests"]
 
         # Normalize hook output (can be dict/list/tuple)
         allowed = list(allowed) if allowed else []

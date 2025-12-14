@@ -89,7 +89,6 @@ flexirule_allowed_modules = [
 
 	# Add app specific modules here
 ]
-
 # Includes in <head>
 # ------------------
 
