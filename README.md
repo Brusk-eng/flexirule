@@ -1,4 +1,3 @@
-
 <div align="center">
   <img src="flexiRule.png" alt="FlexiRule Logo" width="200" />
   <h1>FlexiRule</h1>
@@ -7,83 +6,179 @@
 
 ---
 
-**FlexiRule** is a powerful, graph-based rule engine designed for Frappe/ERPNext. It allows you to build complex logic flows, validations, data enrichment, and deduplication checks dynamically without writing custom code for every scenario. Rules are defined visually (as graphs) and executed efficiently via a robust Python engine.
+**FlexiRule** is a powerful, graph-based rule and orchestration engine for **Frappe / ERPNext**. It enables you to design complex business logic—validations, deduplication, enrichment, and orchestration—**visually**, without hard‑coding logic into Python hooks.
 
-## 🌟 Key Features
-
-*   **Graph-Based Logic Flows**: define rules as a sequence of connected nodes (Conditions, Processes, Loops).
-*   **Reusable Process Methods**: Library of pre-built methods for **Deduplication**, **Validation**, **Enrichment**, and **Notification**.
-    *   **High-Performance Deduplication**: Integrated with [rapidfuzz](cci:1://file:///home/erpnext/frappe-bench/apps/flexirule/flexirule/ruleflow/methods/deduplication.py:18:0-24:25) for fast fuzzy matching and blocking.
-    *   **Data Enrichment**: Calculate fields, fetch values from linked docs, or apply naming series dynamically.
-*   **Visual Rule Builder**: Drag-and-drop interface to design your business logic.
-*   **Robust Execution Engine**:
-    *   **Safety First**: Sandboxed Python evaluation for conditions ([SafeFrappeAPI](cci:2://file:///home/erpnext/frappe-bench/apps/flexirule/flexirule/ruleflow/core/engine.py:48:0-125:69)).
-    *   **Resilience**: Built-in **Retry** mechanisms with exponential backoff on failure.
-    *   **Timeout Protection**: Prevents infinite loops or long-running processes.
-    *   **Cycle Detection**: Automatically detects and prevents infinite graph cycles.
-*   **Role-Based Security**: Skip rule execution based on User Roles.
-*   **Monitoring & Debugging**: Detailed execution logs, error tracking, and performance statistics for every rule.
-
-## 📦 Installation
- 68879cb (Fieldname Standarized)
-
-FlexiRule is a fully extensible, no-code / low-code rule engine designed to replace hard-coded business logic in ERPNext.  
-Instead of embedding conditions and validations inside Python hooks, FlexiRule allows you to define **Rules**, **Actions**, and **Process Methods** that execute dynamically based on document events.
-
- HEAD
-This project represents the evolution of **UPH → Business Rule Hub → Bolton → FlexiRule**, now offering a cleaner, standardized, and scalable architecture.
+Rules are modeled as **graphs of actions**, executed by a robust and safe Python engine with full observability and control.
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
-- **Graph-Based Execution**  
-  Build complex logic flows using a graph of rule actions.
+* **Graph‑Based Logic Flows**
+  Define rules as connected nodes (Conditions, Processes, Loops, Decisions).
 
-- **Process Methods**  
-  Pluggable functional units written in Python and fully configurable via JSON schemas.
+* **Reusable Process Methods**
+  A growing library of configurable methods for:
 
-- **No-Code Configuration**  
-  The UI auto-generates configuration forms based on each method’s schema.
+  * **Deduplication** (exact & fuzzy)
+  * **Validation**
+  * **Data Enrichment**
+  * **Notifications & Blocking**
 
-- **Data Quality Tools**  
-  Built-in deduplication (fuzzy / exact matching), normalization, and child-table scanning.
+* **High‑Performance Deduplication**
+  Integrated fuzzy matching with blocking strategies for large datasets.
 
-- **Safe Execution**  
-  Timeout-controlled execution with centralized error handling.
+* **Visual Rule Builder**
+  Drag‑and‑drop UI to design and connect rule actions.
 
-- **Extensible Architecture**  
-  Easily add or extend Process Methods without changing core logic.
+* **Robust Execution Engine**
+
+  * Sandboxed and safe condition evaluation
+  * Retry support with exponential backoff
+  * Timeout protection for long‑running rules
+  * Automatic cycle detection to prevent infinite loops
+
+* **Role‑Based Execution Control**
+  Skip or allow rule execution based on user roles.
+
+* **Monitoring & Debugging**
+  Execution logs, error tracking, and performance statistics per rule run.
 
 ---
 
-## 🏗️ Architecture
+## Why FlexiRule?
 
-FlexiRule is built around three core DocTypes:
+Traditional ERPNext customizations rely heavily on Python hooks scattered across apps, which makes logic:
 
-1. **Rule**  
-   Defines the trigger DocType, event, and optional filters.
+* Hard to audit
+* Difficult to change
+* Risky to deploy
 
-2. **Rule Action**  
-   Represents a single step in the execution graph and links to a Process Method.
+**FlexiRule centralizes and standardizes business logic** into a declarative, versionable, and visual system.
 
-3. **Process Method**  
-   A Python function that performs logic and exposes a configuration schema.
+This project represents the evolution of:
+
+**UPH → Business Rule Hub → Bolton → FlexiRule**
+
+with a cleaner, standardized, and scalable architecture.
+
+---
+
+## Core Concepts
+
+FlexiRule is built around three primary DocTypes:
+
+###  Rule
+
+Defines:
+
+* Target DocType
+* Trigger Event (validate, before_save, after_insert, etc.)
+* Optional filters and role conditions
+
+The Rule acts as the **entry point** of execution.
+
+---
+
+### Rule Action
+
+Represents a **node** in the execution graph.
+
+Each action:
+
+* Links to a Process Method
+* Has configurable inputs
+* Defines next actions based on outcomes (success, fail, match, no‑match, etc.)
+
+---
+
+###  Process Method
+
+A Python function that:
+
+* Performs a unit of logic
+* Exposes a **JSON schema** describing its configuration
+* Is reusable across multiple rules
+
+The UI auto‑generates configuration forms from the schema.
+
+---
+
+## Execution Flow (Example)
 
 ```mermaid
 graph LR
     Trigger[Rule Trigger]
-    --> Action1[Action: Validate]
-    Action1 -->|Success| Action2[Action: Check Duplicates]
-    Action1 -->|Fail| Stop[Stop Execution]
-    Action2 -->|Found| Action3[Action: Block Save]
-    Action2 -->|None| Action4[Action: Enrich Data]
-=======
-
+    --> Action1[Validate Data]
+    Action1 -->|Valid| Action2[Check Duplicates]
+    Action1 -->|Invalid| Stop[Stop Execution]
+    Action2 -->|Found| Action3[Block Save]
+    Action2 -->|None| Action4[Enrich Data]
 ```
-bash
+
+---
+
+##  Installation
+
+```bash
 cd $PATH_TO_YOUR_BENCH
 bench get-app flexirule
 bench install-app flexirule
- 68879cb (Fieldname Standarized)
 ```
+
+Restart bench after installation.
+
+---
+
+## Extensibility
+
+FlexiRule is designed to be extended **without modifying core code**.
+
+You can:
+
+* Add new Process Methods
+* Extend schemas for existing methods
+* Override execution behavior via hooks
+
+This makes FlexiRule suitable for **enterprise‑grade customizations**.
+
+---
+
+##  Safety & Stability
+
+* Sandboxed execution context
+* Controlled retries and timeouts
+* Centralized exception handling
+* Safe evaluation of user‑defined conditions
+
+FlexiRule prioritizes **data integrity and system stability**.
+
+---
+
+## Status
+
+* Active development
+* API and data model stabilizing
+* Backward‑compatibility enforced once v1 contract is finalized
+
+---
+
+##  License
+
+MIT License
+
+---
+
+## Contributing
+
+Contributions, ideas, and feedback are welcome.
+
+Please:
+
+* Open issues for bugs or feature requests
+* Submit PRs with clear descriptions
+* Follow Frappe coding standards
+
+---
+
+**FlexiRule** — Declarative, Visual, and Safe Business Logic for Frappe.
