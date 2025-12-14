@@ -145,7 +145,7 @@ export const useStore = defineStore("rule-builder-store", () => {
             data: {
                 document_type: rule_doc.value.document_type,
                 trigger_event: rule_doc.value.trigger_event,
-                document_type_filters: rule_doc.value.document_type_filters
+                trigger_filters: rule_doc.value.trigger_filters
             }
         });
 
@@ -244,10 +244,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 
             // Save Start Node Filters
             const startNode = graph.value.elements.find(el => el.id === 'start');
-            if (startNode?.data?.document_type_filters) {
-                doc.document_type_filters = startNode.data.document_type_filters;
+            if (startNode?.data?.trigger_filters) {
+                doc.trigger_filters = startNode.data.trigger_filters;
             } else {
-                doc.document_type_filters = null;
+                doc.trigger_filters = null;
             }
 
             const nodes = graph.value.elements.filter(el => el.position && el.id !== 'start');

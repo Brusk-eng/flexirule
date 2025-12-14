@@ -13,28 +13,82 @@ def validate_graph_integrity(rule_doc):
 
     actions = {a.action_id: a for a in rule_doc.actions}
     
-    # 1. Check for Orphan Nodes (Unreachable)
-    # Start BFS/DFS from first action (assuming row 1 is start for now, or implicit start)
-    # Note: Real start node logic might depend on triggers. 
-    # For now, we assume implicit start points to the first action or specific triggers.
+    # 1. Check for Cycles (DFS with Recursion Stack)
+    visited = set()
+    recursion_stack = set()
     
-    # 2. Check for Dead Ends (Paths not ending in Stop)
-    for action in rule_doc.actions:
-        if action.action_type == 'Process':
-            # Check transitions
-            if not action.next_step_if_true and action.on_error != 'Stop':
-                # Warning: Process dead end? Could be valid if it's the last step.
-                # Ideally, explicit Stop node is better.
-                pass
+    def detect_cycle(current_id):
+        visited.add(current_id)
+        recursion_stack.add(current_id)
+        
+        current_action = actions.get(current_id)
+        if current_action:
+            # Get neighbors (next steps)
+            neighbors = []
+            if current_action.next_step_if_true:
+                neighbors.append(current_action.next_step_if_true)
+            if current_action.action_type == 'Condition' and current_action.next_step_if_false:
+                neighbors.append(current_action.next_step_if_false)
+                
+            for neighbor in neighbors:
+                if neighbor not in visited:
+                    if detect_cycle(neighbor):
+                        return True
+                elif neighbor in recursion_stack:
+                     if getattr(current_action, 'action_type', '') != 'Loop':
+                        return True
+        
+        recursion_stack.remove(current_id)
+        return False
 
-        if action.action_type == 'Condition':
-             if not action.next_step_if_true:
-                 frappe.throw(_("Condition '{0}' missing True path").format(action.action_label))
-             # False path is optional (fallthrough)
+    # Run cycle detection from all nodes (to catch disconnected cycles too)
+    for action_id in actions:
+        if action_id not in visited:
+            if detect_cycle(action_id):
+                frappe.throw(_("Cycle detected in Rule Graph (involving action {0}). Use 'Loop' type for iterations.").format(action_id))
 
-    # 3. Check for Infinite Loops (unless Loop type)
-    # This requires full cycle detection algorithm. 
-    # Simplified check: Action pointing to itself
+    # 2. Check for Orphan Nodes (Reachability BFS)
+    # Identify Start Node(s)
+    # Nodes with no incoming edges are candidates for Start, 
+    # BUT for now we assume the Rule MUST have a clear entry point.
+    # In V1, we can assume the first defined action or explicitly marked 'is_entry_action' is Start.
+    # Let's rely on 'is_entry_action' or fallback to first.
+    
+    start_nodes = [a.action_id for a in rule_doc.actions if a.is_entry_action]
+    if not start_nodes and rule_doc.actions:
+        # Fallback: Assume row 1 is start if no explicit start
+        start_nodes = [rule_doc.actions[0].action_id]
+
+    reachable = set()
+    queue = list(start_nodes)
+    
+    while queue:
+        node_id = queue.pop(0)
+        if node_id in reachable:
+            continue
+        reachable.add(node_id)
+        
+        action = actions.get(node_id)
+        if action:
+            if action.next_step_if_true:
+                queue.append(action.next_step_if_true)
+            if action.action_type == 'Condition' and action.next_step_if_false:
+                queue.append(action.next_step_if_false)
+                
+    # Check for non-reachable nodes
+    orphans = [qid for qid in actions if qid not in reachable]
+    if orphans:
+        orphan_labels = [actions[o].action_label for o in orphans]
+        frappe.throw(_("Unreachable (Orphan) Actions found: {0}").format(", ".join(orphan_labels)))
+
+    # 3. Check for Dead Ends (Paths not ending in Stop)
     for action in rule_doc.actions:
-        if action.next_step_if_true == action.action_id and action.action_type != 'Loop':
-            frappe.throw(_("Action '{0}' points to itself but is not a Loop type").format(action.action_label))
+        if action.action_type in ['Process', 'Condition', 'Sub-Rule']:
+             # Must have next step OR be explicitly 'Stop' type (which these are not)
+             # Process nodes can be terminal if they are the last thing, but V1 expects explicit Stop?
+             # Let's enforce that Condition MUST have both paths or explicit Stop
+             if action.action_type == 'Condition':
+                 if not action.next_step_if_true:
+                     frappe.throw(_("Condition '{0}' missing True path").format(action.action_label))
+                 if not action.next_step_if_false:
+                      frappe.throw(_("Condition '{0}' missing False path").format(action.action_label))

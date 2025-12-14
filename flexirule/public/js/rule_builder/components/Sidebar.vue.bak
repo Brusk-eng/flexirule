@@ -25,7 +25,7 @@
                         <i class="fa fa-filter"></i> Set Filters
                     </button>
                     
-                    <div v-if="selectedNode.data?.document_type_filters && selectedNode.data.document_type_filters !== '[]'" class="mt-2" style="font-size: 12px; color: var(--text-muted);">
+                    <div v-if="selectedNode.data?.trigger_filters && selectedNode.data.trigger_filters !== '[]'" class="mt-2" style="font-size: 12px; color: var(--text-muted);">
                         <i class="fa fa-check-circle text-success"></i> Filters Configured
                     </div>
                 </div>
@@ -239,7 +239,7 @@ function showMethodDescription() {
 
 function updateStartNodeFilters(filtersJSON) {
     if (!selectedNode.value?.data) return;
-    selectedNode.value.data.document_type_filters = filtersJSON;
+    selectedNode.value.data.trigger_filters = filtersJSON;
     store.mark_dirty();
 }
 
@@ -247,7 +247,7 @@ function editFilters() {
     if (!selectedNode.value?.data?.document_type) return;
 
     const doctype = selectedNode.value.data.document_type;
-    const currentFilters = selectedNode.value.data.document_type_filters;
+    const currentFilters = selectedNode.value.data.trigger_filters;
 
     frappe.model.with_doctype(doctype, () => {
         const dialog = new frappe.ui.Dialog({

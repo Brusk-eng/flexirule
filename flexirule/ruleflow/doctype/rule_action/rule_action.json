@@ -120,7 +120,7 @@
             "fieldname": "on_error",
             "fieldtype": "Select",
             "label": "On Error",
-            "options": "Stop\nContinue\nRetry\nRollback"
+            "options": "Stop\nContinue\nRetry\nRollback\nEscalate"
         },
         {
             "default": "0",

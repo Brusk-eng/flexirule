@@ -253,6 +253,8 @@ class RuleEngine:
 			'vars': {},
 			'meta': {
 				'rule': self.rule.name,
+				'rule_version': 'v1',
+				'engine_version': '1.0',
 				'user': frappe.session.user,
 				'timestamp': frappe.utils.now(),
 				'test_mode': self.context.get('test_mode', False)
@@ -309,9 +311,12 @@ class RuleEngine:
 					self._log("DEBUG", f"Condition result: {result}, next: {next_id}")
 
 				elif current.action_type == 'Switch':
-					# TODO: Implement Switch logic
-					# For now, just follow default path
-					next_id = current.next_step_if_true
+					# Switch Node: Multi-path branching
+					# Expects method_config: {"expression": "...", "cases": {"val1": "next1"}}
+					# Falls back to next_step_if_true as default/else path
+					result = self._execute_switch(current, context)
+					next_id = result if result else current.next_step_if_true
+					self._log("DEBUG", f"Switch result: path -> {next_id}")
 				
 				# === Task Nodes ===
 				elif current.action_type == 'Process':
@@ -321,9 +326,11 @@ class RuleEngine:
 					self._log("DEBUG", f"Process result: {result}, next: {next_id}")
 					
 				elif current.action_type == 'Sub-Rule':
-					# Executing a sub-rule is a task
-					# TODO: Implement Sub-Rule execution
+					# Executing a sub-rule is a task that runs another engine
+					# Expects method_config: {"rule": "RULE-NAME"}
+					self._execute_sub_rule(current, context)
 					next_id = current.next_step_if_true
+					self._log("DEBUG", f"Sub-Rule executed, continuing to: {next_id}")
 
 				# === Control Nodes ===
 				elif current.action_type == 'Stop':
@@ -356,6 +363,9 @@ class RuleEngine:
 					elif current.on_error == 'Rollback':
 						self._log("ERROR", f"Error in action {current.action_label}, rolling back: {str(e)}")
 						frappe.db.rollback()
+						raise
+					elif current.on_error == 'Escalate':
+						self._log("ERROR", f"Error in action {current.action_label}, escalating: {str(e)}")
 						raise
 				
 				# Default: stop on error
@@ -433,10 +443,13 @@ class RuleEngine:
 		
 		# Prepare safe locals
 		safe_locals = {
-			'doc': context['doc'],
-			'vars': context['vars'],
-			'frappe': frappe
+			'doc': context.get('doc'),
+			'vars': context.get('vars'),
+			'frappe': frappe.utils # Limit frappe access in eval if possible, or use safe_eval logic
 		}
+		if 'frappe' in context:
+			# If a safe wrapper is in context, use it
+			safe_locals['frappe'] = context['frappe']
 		
 		try:
 			return frappe.safe_eval(expression, None, safe_locals)
@@ -530,6 +543,85 @@ class RuleEngine:
 		raise MethodExecutionError(
 			f"Method {process_method.method_name} failed after {retry_count + 1} attempts: {str(last_error)}"
 		)
+
+	def _execute_switch(self, action, context):
+		"""Execute Switch logic based on method_config"""
+		if not action.method_config:
+			return None
+			
+		try:
+			config = json.loads(action.method_config)
+			expression = config.get('expression')
+			cases = config.get('cases', {})
+			
+			if not expression:
+				return None
+				
+			# Evaluate expression
+			val = self._evaluate_python_condition(expression, context)
+			
+			# Match case - convert val to string for key lookup as JSON keys are strings
+			# But if val is boolean True/False, json keys might be "true"/"false" or "True"/"False"
+			# Let's try direct lookup first, then string lookup
+			
+			if val in cases:
+				return cases[val]
+			
+			str_val = str(val)
+			if str_val in cases:
+				return cases[str_val]
+				
+			return None # Fallback to default
+			
+		except Exception as e:
+			self._log("ERROR", f"Switch evaluation failed: {str(e)}")
+			raise
+
+	def _execute_sub_rule(self, action, context):
+		"""Execute a Sub-Rule"""
+		if not action.method_config:
+			self._log("WARNING", "Sub-Rule action missing config")
+			return
+			
+		try:
+			config = json.loads(action.method_config)
+			sub_rule_name = config.get('rule')
+			
+			if not sub_rule_name:
+				return
+				
+			if not frappe.db.exists("Rule", sub_rule_name):
+				raise MethodExecutionError(f"Sub-Rule {sub_rule_name} not found")
+				
+			sub_rule_doc = frappe.get_cached_doc("Rule", sub_rule_name)
+			
+			# Recursive Execution
+			# We share 'vars' and 'doc' so mutations propagate
+			# But we might want to isolate 'stop' flag? 
+			# V1 Contract: "vars is the ONLY mutable storage"
+			
+			self._log("INFO", f"BEGIN Sub-Rule: {sub_rule_name}")
+			
+			# Create sub-context sharing vars
+			sub_context = context.copy()
+			sub_context['meta'] = context.get('meta', {}).copy()
+			sub_context['meta']['parent_rule'] = self.rule.name
+			
+			# Instantiate new engine
+			# Avoid cyclic import if lazy loading is better, but Engine is here
+			# Since we are in Engine class, we can just instantiate self.__class__
+			sub_engine = self.__class__(sub_rule_doc, execution_context=sub_context)
+			
+			result_context = sub_engine.execute(context.get('doc'), **{})
+			
+			# Propagate changes back to main context
+			context['vars'].update(result_context.get('vars', {}))
+			
+			self._log("INFO", f"END Sub-Rule: {sub_rule_name}")
+			
+		except Exception as e:
+			self._log("ERROR", f"Sub-Rule execution failed: {str(e)}")
+			raise
 	
 	def _log(self, level, message):
 		"""Add entry to execution log"""

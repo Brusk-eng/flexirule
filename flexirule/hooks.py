@@ -69,6 +69,27 @@ export_python_type_annotations = True
 # 	}
 # ]
 
+# FlexiRule Settings
+# ------------------
+# Allow List for Process Methods (Security)
+# Only modules starting with these prefixes can be used in Process Methods
+flexirule_allowed_modules = [
+	"frappe.utils",
+	"frappe.model",
+	"flexirule.methods",
+    "flexirule.ruleflow.methods.deduplication",
+    "flexirule.ruleflow.methods.validation",
+    "flexirule.ruleflow.methods.logging",
+    "flexirule.ruleflow.methods.mdm",
+    "flexirule.ruleflow.methods.advanced_validation",
+    "flexirule.ruleflow.methods.enrichment",
+    "flexirule.ruleflow.methods.notifications",
+    "flexirule.ruleflow.methods.normalization",
+    "flexirule.ruleflow.methods.utils",
+
+	# Add app specific modules here
+]
+
 # Includes in <head>
 # ------------------
 
@@ -196,23 +217,11 @@ export_python_type_annotations = True
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"flexirule.tasks.all"
-# 	],
-# 	"daily": [
-# 		"flexirule.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"flexirule.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"flexirule.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"flexirule.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"daily": [
+		"flexirule.tasks.clear_old_logs"
+	]
+}
 
 # Testing
 # -------

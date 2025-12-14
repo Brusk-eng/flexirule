@@ -22,7 +22,6 @@ class Rule(Document):
         debug_mode: DF.Check
         description: DF.Text | None
         document_type: DF.Link
-        document_type_filters: DF.Code | None
         execution_count: DF.Int
         execution_mode: DF.Literal["Synchronous", "Asynchronous"]
         is_active: DF.Check
@@ -33,7 +32,9 @@ class Rule(Document):
         priority: DF.Int
         rule_name: DF.Data
         skip_for_roles: DF.TableMultiSelect[HasRole]
+        trigger_condition: DF.Code | None
         trigger_event: DF.Literal["Before Insert", "Before Save", "Validate", "After Insert", "After Save", "Before Submit", "On Submit", "Before Cancel", "On Cancel", "On Trash"]
+        trigger_filters: DF.Code | None
     # end: auto-generated types
     def validate(self):
         """

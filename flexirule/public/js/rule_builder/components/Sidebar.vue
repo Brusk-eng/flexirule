@@ -25,7 +25,7 @@
                         <i class="fa fa-filter"></i> Set Filters
                     </button>
                     
-                    <div v-if="selectedNode.data?.document_type_filters && selectedNode.data.document_type_filters !== '[]'" class="mt-2" style="font-size: 12px; color: var(--text-muted);">
+                    <div v-if="selectedNode.data?.trigger_filters && selectedNode.data.trigger_filters !== '[]'" class="mt-2" style="font-size: 12px; color: var(--text-muted);">
                         <i class="fa fa-check-circle text-success"></i> Filters Configured
                     </div>
                 </div>
@@ -117,6 +117,7 @@
                             <option value="Continue">Continue</option>
                             <option value="Retry">Retry</option>
                             <option value="Rollback">Rollback</option>
+                            <option value="Escalate">Escalate</option>
                         </select>
                     </div>
 
@@ -142,6 +143,30 @@
                                 @change="updateField('is_async', $event.target.checked ? 1 : 0)" />
                             Run Asynchronously
                         </label>
+                    </div>
+                </template>
+
+                <template v-if="selectedNode.data?.action_type === 'Sub-Rule'">
+                    <div class="form-group">
+                        <label>Select Rule</label>
+                        <input type="text" class="form-control" 
+                             :value="selectedNode.data?.sub_rule_name" 
+                             @input="updateSubRuleName($event.target.value)"
+                             placeholder="Rule Name" />
+                         <div class="help-text text-muted" style="font-size:11px">Rule to execute. Context vars are shared.</div>
+                    </div>
+                </template>
+
+                <template v-if="selectedNode.data?.action_type === 'Switch'">
+                    <div class="form-group">
+                        <label>Switch Expression (Python)</label>
+                        <textarea class="form-control" rows="2"
+                            :value="selectedNode.data?.switch_expression"
+                            @input="updateSwitchExpression($event.target.value)"
+                            placeholder="doc.category"></textarea>
+                    </div>
+                    <div class="alert alert-warning" style="font-size:11px; padding: 5px;">
+                        <i class="fa fa-info-circle"></i> Visual branching for cases is not yet supported. Use 'Default Next' for the fallback path. Configuration of specific cases requires generic Method Config adjustments.
                     </div>
                 </template>
                 
@@ -242,7 +267,7 @@ function showMethodDescription() {
 
 function updateStartNodeFilters(filtersJSON) {
     if (!selectedNode.value?.data) return;
-    selectedNode.value.data.document_type_filters = filtersJSON;
+    selectedNode.value.data.trigger_filters = filtersJSON;
     store.mark_dirty();
 }
 
@@ -250,7 +275,7 @@ function editFilters() {
     if (!selectedNode.value?.data?.document_type) return;
 
     const doctype = selectedNode.value.data.document_type;
-    const currentFilters = selectedNode.value.data.document_type_filters;
+    const currentFilters = selectedNode.value.data.trigger_filters;
 
     frappe.model.with_doctype(doctype, () => {
         const dialog = new frappe.ui.Dialog({
@@ -484,6 +509,28 @@ function updateProcessMethod(value) {
     if (!selectedNode.value?.data) return;
     selectedNode.value.data.process_method = value;
     selectedNode.value.data.method_config = null;
+    store.mark_dirty();
+}
+
+function updateSubRuleName(value) {
+    if (!selectedNode.value?.data) return;
+    selectedNode.value.data.sub_rule_name = value;
+    // Store in method_config as expected by Engine
+    selectedNode.value.data.method_config = JSON.stringify({ "rule": value });
+    store.mark_dirty();
+}
+
+function updateSwitchExpression(value) {
+    if (!selectedNode.value?.data) return;
+    selectedNode.value.data.switch_expression = value;
+    // Update method_config with expression. Preserve cases if they exist (though UI doesn't edit them yet)
+    let config = {};
+    try {
+        config = JSON.parse(selectedNode.value.data.method_config || '{}');
+    } catch(e) {}
+    
+    config.expression = value;
+    selectedNode.value.data.method_config = JSON.stringify(config);
     store.mark_dirty();
 }
 

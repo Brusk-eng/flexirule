@@ -34,39 +34,73 @@ class ProcessMethod(Document):
         version: DF.Data | None
     # end: auto-generated types
     def validate(self):
-        self.validate_method_path()
-        self.validate_config_schema()
-        self.validate_input_output_schemas()
-    
-    def validate_method_path(self):
-        """Validate that method_path points to an importable function"""
-        if not self.method_path:
-            return
-        
+        self.method_path = self.method_path.strip() if self.method_path else ""
+		
+		# 1. Check Allow List (Security)
+        self.validate_allowed_module()
+
+		# 2. Check if method exists and is callable
         try:
             method = frappe.get_attr(self.method_path)
             if not callable(method):
-                frappe.throw(f"'{self.method_path}' is not callable")
+                frappe.throw(frappe._("Path '{0}' is not a callable function").format(self.method_path))
+        except ImportError:
+            frappe.throw(frappe._("Could not import module for '{0}'").format(self.method_path))
+        except AttributeError:
+            frappe.throw(frappe._("Method '{0}' not found").format(self.method_path))
         except Exception as e:
-            frappe.throw(f"Cannot import method '{self.method_path}': {str(e)}")
-    
-    def validate_config_schema(self):
-        """Validate config_schema is valid JSON"""
-        if self.config_schema:
+            frappe.throw(frappe._("Invalid method path: {0}").format(str(e)))
+			
+		# 3. Validate Schemas
+        self._validate_json_schema(self.config_schema, "Config Schema")
+        self._validate_json_schema(self.input_schema, "Input Schema")
+        self._validate_json_schema(self.output_schema, "Output Schema")
+
+    def validate_allowed_module(self):
+
+
+        # Get merged hooks from all installed apps
+        allowed = frappe.get_hooks("flexirule_allowed_modules")
+
+        # Normalize hook output (can be dict/list/tuple)
+        allowed = list(allowed) if allowed else []
+
+        # Determine module path (strip function name)
+        module_path = ".".join(self.method_path.split(".")[:-1])
+
+        # 🟡 Policy: If hook is NOT defined at all → allow (dev / legacy)
+        if allowed is None:
+            return
+
+        # 🔴 Hook exists but empty → block everything
+        if not allowed:
+            frappe.throw(
+                frappe._(
+                    "Security Violation: No allowed FlexiRule method modules defined."
+                )
+            )
+
+        # Check prefixes
+        for prefix in allowed:
+            if module_path == prefix or module_path.startswith(prefix + "."):
+                return
+
+        # ❌ Not allowed
+        frappe.throw(
+            frappe._("Security Violation: Module '{0}' is not in the Allowed List.").format(
+                module_path
+            )
+            + "<br>"
+            + frappe._("Allowed prefixes: {0}").format(", ".join(allowed))
+        )
+
+    def _validate_json_schema(self, schema_string, schema_name):
+        """Helper to validate if a string is valid JSON."""
+        if schema_string:
             try:
-                json.loads(self.config_schema)
+                json.loads(schema_string)
             except json.JSONDecodeError as e:
-                frappe.throw(f"Invalid config_schema JSON: {e}")
-    
-    def validate_input_output_schemas(self):
-        """Validate input_schema and output_schema are valid JSON"""
-        for field in ['input_schema', 'output_schema']:
-            value = getattr(self, field, None)
-            if value:
-                try:
-                    json.loads(value)
-                except json.JSONDecodeError as e:
-                    frappe.throw(f"Invalid {field} JSON: {e}")
+                frappe.throw(frappe._("Invalid {0} JSON: {1}").format(schema_name, str(e)))
     
     def execute(self, context, config=None, **kwargs):
         """

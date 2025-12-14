@@ -18,24 +18,35 @@ class RuleCoordinator:
 	@staticmethod
 	def has_active_rules(doctype: str, event_name: str) -> bool:
 		"""
-		Check if a doctype has any active rules for an event
+		Check if there are any active rules for this doctype/event.
+		Uses frappe.local.cache for request-level caching.
 		"""
-		cache_key = f"has_rules:{doctype}:{event_name}"
-		cached = frappe.cache().get_value(cache_key)
-		
-		if cached is not None:
-			return cached
+		cache_key = f"flexirule_active:{doctype}:{event_name}"
+		if cache_key in frappe.local.cache:
+			return frappe.local.cache[cache_key]
 			
-		# Check DB
-		exists = frappe.db.exists("Rule", {
-			"is_active": 1,
-			"document_type": doctype,
-			"trigger_event": event_name
-		})
+		# Check Redis
+		has_rules = frappe.cache().hget('flexirule_active_rules', f"{doctype}:{event_name}")
 		
-		# Cache for 1 hour (cleared on Rule save)
-		frappe.cache().set_value(cache_key, 1 if exists else 0, expires_in_sec=3600)
-		return bool(exists)
+		# If None, it means cache miss/not initialized. 
+		# If 0/False, it means strictly no rules.
+		
+		if has_rules is None:
+			# Rebuild cache for this doctype? 
+			# Or just query DB once. 
+			# Let's query DB to be safe and simple for V1.
+			count = frappe.db.count('Rule', {
+				'document_type': doctype, 
+				'trigger_event': event_name, 
+				'is_active': 1
+			})
+			has_rules = (count > 0)
+			# Update Redis to avoid future DB hits
+			frappe.cache().hset('flexirule_active_rules', f"{doctype}:{event_name}", 1 if has_rules else 0)
+			
+		result = bool(has_rules)
+		frappe.local.cache[cache_key] = result
+		return result
 
 	@staticmethod
 	def execute_rules(doc, event_name: str):
@@ -60,8 +71,23 @@ class RuleCoordinator:
 		if not rules:
 			return
 		
-		# Execute each rule
+			return
+			
+		# Strict Eligibility Check (V1 Contract)
+		from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+		
+		valid_rules = []
 		for rule_doc in rules:
+			is_eligible, reason = RuleCoordinator.check_eligibility(rule_doc, doc, event_name)
+			if is_eligible:
+				valid_rules.append(rule_doc)
+			else:
+				# Optional: Log ineligibility if debug/trace mode is on for this rule
+				if rule_doc.debug_mode:
+					frappe.log_error(title=f"Rule Skipped: {rule_doc.name}", message=reason)
+		
+		# Execute eligible rules
+		for rule_doc in valid_rules:
 			try:
 				RuleCoordinator.execute_single_rule(doc, rule_doc)
 			except Exception as e:
@@ -69,9 +95,54 @@ class RuleCoordinator:
 				rule_doc.db_set('last_error', str(e))
 				if rule_doc.debug_mode:
 					frappe.log_error(
-						title=f"Rule Execution Failed: {rule_doc.rule_name}",
+						title=f"Rule Execution Failed: {rule_doc.name}",
 						message=f"DocType: {doc.doctype}\\nDoc: {doc.name}\\nError: {str(e)}"
 					)
+
+	@staticmethod
+	def check_eligibility(rule_doc, doc, event_name, execution_mode='Synchronous') -> tuple[bool, str]:
+		"""
+		Strict V1 Contract Eligibility Check
+		Returns: (is_eligible: bool, reason: str)
+		"""
+		# 1. Active Check
+		if not rule_doc.is_active:
+			return False, "Rule is not active"
+
+		# 2. Event Check
+		if rule_doc.trigger_event != event_name:
+			# This might happen if cache returns mixed results or during manual triggers
+			return False, f"Event mismatch: Rule expects {rule_doc.trigger_event}, got {event_name}"
+
+		# 3. Mode Check (Strict)
+		# For V1, we enforce that Sync rules run in Sync context.
+		# Async is handled by the executor, but we should flag mismatch if needed.
+		# Currently, we don't have explicit 'mode' passed from hooks, so we assume Sync.
+		# If Rule is Async, it will be queued by execute_single_rule.
+		
+		# 4. JSON Condition (Fast Pre-filter)
+		if rule_doc.trigger_condition:
+			try:
+				# Use ConditionEvaluator for JSON logic
+				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+				evaluator = ConditionEvaluator(rule_doc.trigger_condition)
+				if not evaluator.evaluate(doc):
+					return False, "Trigger Condition (JSON) mismatch"
+			except Exception as e:
+				return False, f"Invalid Trigger Condition JSON: {str(e)}"
+
+		# 5. Python Filters (Expression / Advanced)
+		if rule_doc.trigger_filters:
+			try:
+				# Safe Eval
+				if not frappe.safe_eval(rule_doc.trigger_filters, None, {'doc': doc, 'frappe': frappe}):
+					return False, "Trigger Filters (Python) evaluated to False"
+			except Exception as e:
+				return False, f"Trigger Filters Error: {str(e)}"
+
+		return True, "Eligible"
+
+		return True, "Eligible"
 	
 	@staticmethod
 	def get_applicable_rules(doctype: str, event_name: str, doc=None) -> List:
@@ -204,22 +275,31 @@ class RuleCoordinator:
 		Args:
 			doctype: Optional DocType to clear cache for
 		"""
+		# Clear Redis Hash for active rules check
 		if doctype:
-			# Clear specific doctype
-			events = ['before_insert', 'before_save', 'validate', 'after_insert', 
-					  'after_save', 'before_submit', 'on_submit', 'before_cancel', 
-					  'on_cancel', 'on_trash']
+			events = ['Before Insert', 'Before Save', 'Validate', 'After Insert', 
+					  'After Save', 'Before Submit', 'On Submit', 'Before Cancel', 
+					  'On Cancel', 'On Trash']
 			for event in events:
-				cache_key = f"rules:{doctype}:{event}"
-				frappe.cache().delete_value(cache_key)
-			
-			events_keys = [f"has_rules:{doctype}:{e}" for e in events]
-			for k in events_keys:
-				frappe.cache().delete_value(k)
+				# Clear Hash Field
+				frappe.cache().hdel('flexirule_active_rules', f"{doctype}:{event}")
+				
+				# Clear Old Keys (Legacy support if any)
+				frappe.cache().delete_value(f"rules:{doctype}:{event}")
+				
+				# Clear Local Cache
+				key = f"flexirule_active:{doctype}:{event}"
+				if key in frappe.local.cache:
+					del frappe.local.cache[key]
 		else:
-			# Clear all rule caches
+			# Clear all
+			frappe.cache().delete_key('flexirule_active_rules')
 			frappe.cache().delete_keys("rules:*")
-			frappe.cache().delete_keys("has_rules:*")
+			
+			# Clear local cache (Iterate keys because it's a dict)
+			to_remove = [k for k in frappe.local.cache.keys() if k.startswith("flexirule_active:")]
+			for k in to_remove:
+				del frappe.local.cache[k]
 
 def execute_rules(doc, event_name):
 	"""

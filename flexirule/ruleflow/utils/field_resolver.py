@@ -7,7 +7,7 @@ Handles dot notation, child tables, and aggregate functions
 """
 
 import frappe
-from typing import Any, List
+from typing import Any, List, Dict
 
 
 class FieldResolver:
