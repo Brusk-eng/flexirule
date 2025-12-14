@@ -268,11 +268,15 @@ class RuleEngine:
 		return _safe_frappe
 	
 	def _execute_graph(self, context):
-		"""Execute action graph with cycle detection"""
-		visited = set()
+		"""Execute action graph with cycle detection and loop support"""
+		
+		# Change strict cycle detection to visit counting for loops
+		node_visits = {} # node_id -> count
+		max_visits_per_node = 100 # Safety for infinite loops
+		
 		execution_path = []
 		current = self._get_start_node()
-		max_iterations = 1000
+		max_iterations = 1000 # Total step limit
 		
 		for iteration in range(max_iterations):
 			if not current:
@@ -283,12 +287,16 @@ class RuleEngine:
 				self._log("INFO", "Flow stopped by action")
 				break
 			
-			# Cycle detection
+			# Cycle/Loop detection
 			node_id = current.action_id or current.name
-			if node_id in visited:
-				raise CycleDetectedError(f"Cycle detected at action: {current.action_label}")
 			
-			visited.add(node_id)
+			# Track visits
+			visits = node_visits.get(node_id, 0) + 1
+			node_visits[node_id] = visits
+			
+			if visits > max_visits_per_node:
+				raise CycleDetectedError(f"Infinite loop detected: Action {current.action_label} visited {visits} times")
+			
 			execution_path.append(current.action_label)
 			self.path_trace.append({
 				"node": current.action_label,
@@ -312,8 +320,6 @@ class RuleEngine:
 
 				elif current.action_type == 'Switch':
 					# Switch Node: Multi-path branching
-					# Expects method_config: {"expression": "...", "cases": {"val1": "next1"}}
-					# Falls back to next_step_if_true as default/else path
 					result = self._execute_switch(current, context)
 					next_id = result if result else current.next_step_if_true
 					self._log("DEBUG", f"Switch result: path -> {next_id}")
@@ -327,7 +333,6 @@ class RuleEngine:
 					
 				elif current.action_type == 'Sub-Rule':
 					# Executing a sub-rule is a task that runs another engine
-					# Expects method_config: {"rule": "RULE-NAME"}
 					self._execute_sub_rule(current, context)
 					next_id = current.next_step_if_true
 					self._log("DEBUG", f"Sub-Rule executed, continuing to: {next_id}")
@@ -336,10 +341,23 @@ class RuleEngine:
 				elif current.action_type == 'Stop':
 					self._log("INFO", "Stop action encountered")
 					break
-					
+				
+				# === Loop & Wait Nodes (Added) ===
 				elif current.action_type == 'Wait':
-					# TODO: Implement Wait (async pause)
+					self._execute_wait(current, context)
 					next_id = current.next_step_if_true
+					
+				elif current.action_type == 'Loop':
+					# Execute Loop Logic
+					# If returns True, we are iterating -> Go to Body (next_step_if_true)
+					# If returns False, we are done -> Go to Exit (next_step_if_false)
+					should_loop = self._execute_loop(current, context)
+					if should_loop:
+						next_id = current.next_step_if_true
+						self._log("DEBUG", f"Loop continuing (iteration), next: {next_id}")
+					else:
+						next_id = current.next_step_if_false
+						self._log("DEBUG", f"Loop finished, next: {next_id}")
 				
 				else:
 					self._log("WARNING", f"Unknown action type: {current.action_type}")
@@ -373,7 +391,7 @@ class RuleEngine:
 				raise
 		
 		if iteration >= max_iterations - 1:
-			raise CycleDetectedError(f"Max iterations ({max_iterations}) exceeded")
+			raise CycleDetectedError(f"Max total iterations ({max_iterations}) exceeded")
 		
 		self._log("INFO", f"Execution path: {' → '.join(execution_path)}")
 		return context
@@ -392,6 +410,15 @@ class RuleEngine:
 					has_incoming.add(action_id)
 				if other.next_step_if_false == action_id:
 					has_incoming.add(action_id)
+				
+				# Check Switch cases for incoming edges
+				if other.action_type == 'Switch' and other.method_config:
+					try:
+						config = json.loads(other.method_config)
+						for target_id in config.get('cases', {}).values():
+							if target_id == action_id:
+								has_incoming.add(action_id)
+					except: pass
 		
 		# Find action with no incoming edges (true start node)
 		for action in self.actions:
@@ -456,6 +483,76 @@ class RuleEngine:
 		except Exception as e:
 			self._log("ERROR", f"Python condition evaluation failed: {str(e)}")
 			raise
+
+	def _execute_loop(self, action, context):
+		"""
+		Execute Loop Logic.
+		Manages iteration state in context['vars']['_loops'][action_id]
+		"""
+		if '_loops' not in context['vars']:
+			context['vars']['_loops'] = {}
+			
+		loop_state = context['vars']['_loops'].get(action.action_id, {
+			'index': 0, 'initialized': False
+		})
+		
+		config = {}
+		if action.method_config:
+			try:
+				config = json.loads(action.method_config)
+			except: pass
+			
+		iterator_name = config.get('iterator') # e.g. "doc.items" or "vars.my_list"
+		item_alias = config.get('alias', 'item')
+		
+		items = []
+		if iterator_name:
+			# Resolve iterator
+			items = self._evaluate_python_condition(iterator_name, context)
+			
+		if not isinstance(items, (list, tuple)):
+			self._log("WARNING", f"Loop iterator {iterator_name} is not a list/tuple. Got {type(items)}")
+			items = []
+			
+		current_index = loop_state['index']
+		
+		if current_index < len(items):
+			# Valid iteration
+			item = items[current_index]
+			context['vars'][item_alias] = item
+			context['vars']['loop'] = {
+				'index': current_index,
+				'first': current_index == 0,
+				'last': current_index == len(items) - 1,
+				'length': len(items)
+			}
+			
+			# Advance index for NEXT time
+			loop_state['index'] += 1
+			context['vars']['_loops'][action.action_id] = loop_state
+			return True
+		else:
+			# Loop finished
+			# Cleanup
+			if action.action_id in context['vars']['_loops']:
+				del context['vars']['_loops'][action.action_id]
+			return False
+
+	def _execute_wait(self, action, context):
+		"""Execute Wait (Sleep)"""
+		config = {}
+		if action.method_config:
+			try:
+				config = json.loads(action.method_config)
+			except: pass
+			
+		duration = config.get('duration', 0)
+		if not duration and action.timeout:
+			duration = action.timeout
+			
+		if duration > 0:
+			self._log("INFO", f"Waiting for {duration} seconds...")
+			time.sleep(duration)
 	
 	def _execute_process(self, action, context):
 		"""

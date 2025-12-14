@@ -48,6 +48,7 @@
                         <option value="Process">Process</option>
                         <option value="Condition">Condition</option>
                         <option value="Switch">Switch</option>
+                        <option value="Loop">Loop</option>
                         <option value="Wait">Wait</option>
                         <option value="Sub-Rule">Sub-Rule</option>
                         <option value="Stop">Stop</option>
@@ -146,6 +147,34 @@
                     </div>
                 </template>
 
+                <template v-if="selectedNode.data?.action_type === 'Loop'">
+                    <div class="form-group">
+                        <label>Iterator (Python)</label>
+                        <input type="text" class="form-control" 
+                            :value="getJsonConfig('iterator')"
+                            @input="updateJsonConfig('iterator', $event.target.value)"
+                            placeholder="doc.items" />
+                        <div class="help-text text-muted" style="font-size:11px">List to iterate over.</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Item Alias</label>
+                        <input type="text" class="form-control" 
+                            :value="getJsonConfig('alias')"
+                            @input="updateJsonConfig('alias', $event.target.value)"
+                            placeholder="item" />
+                        <div class="help-text text-muted" style="font-size:11px">Variable name for current item.</div>
+                    </div>
+                </template>
+
+                <template v-if="selectedNode.data?.action_type === 'Wait'">
+                    <div class="form-group">
+                        <label>Duration (Seconds)</label>
+                        <input type="number" class="form-control" 
+                            :value="getJsonConfig('duration')"
+                            @input="updateJsonConfig('duration', parseFloat($event.target.value))" />
+                    </div>
+                </template>
+
                 <template v-if="selectedNode.data?.action_type === 'Sub-Rule'">
                     <div class="form-group">
                         <label>Select Rule</label>
@@ -161,12 +190,39 @@
                     <div class="form-group">
                         <label>Switch Expression (Python)</label>
                         <textarea class="form-control" rows="2"
-                            :value="selectedNode.data?.switch_expression"
-                            @input="updateSwitchExpression($event.target.value)"
+                            :value="getJsonConfig('expression')"
+                            @input="updateJsonConfig('expression', $event.target.value)"
                             placeholder="doc.category"></textarea>
                     </div>
-                    <div class="alert alert-warning" style="font-size:11px; padding: 5px;">
-                        <i class="fa fa-info-circle"></i> Visual branching for cases is not yet supported. Use 'Default Next' for the fallback path. Configuration of specific cases requires generic Method Config adjustments.
+                    
+                    <div class="form-group">
+                        <label>Cases</label>
+                        <div class="case-list">
+                            <div v-for="(nodeId, val) in getJsonConfig('cases', {})" :key="val" class="case-item mb-2 p-2 border rounded bg-light">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong class="text-primary">{{ val }}</strong>
+                                    <button class="btn btn-xs btn-danger" @click="removeSwitchCase(val)">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="text-muted small">
+                                    <i class="fa fa-arrow-right"></i> {{ getNodeLabel(nodeId) }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="add-case mt-2 p-2 border rounded">
+                            <input type="text" class="form-control input-sm mb-1" v-model="newCaseValue" placeholder="Value (e.g. 'Active')" />
+                            <select class="form-control input-sm mb-1" v-model="newCaseTarget">
+                                <option value="" disabled>Select Target Node</option>
+                                <option v-for="node in availableNextNodes" :key="node.id" :value="node.id">
+                                    {{ node.label }}
+                                </option>
+                            </select>
+                            <button class="btn btn-xs btn-default w-100" @click="addSwitchCase" :disabled="!newCaseValue || !newCaseTarget">
+                                <i class="fa fa-plus"></i> Add Case
+                            </button>
+                        </div>
                     </div>
                 </template>
                 
@@ -179,7 +235,12 @@
                 </div>
                 
                 <div class="form-group" v-if="selectedNode.type !== 'stop'">
-                    <label>{{ selectedNode.data?.action_type === 'Condition' ? 'If True →' : 'Next →' }}</label>
+                    <label>{{ 
+                        selectedNode.data?.action_type === 'Condition' ? 'If True →' : 
+                        selectedNode.data?.action_type === 'Loop' ? 'Do (Loop Body) →' :
+                        selectedNode.data?.action_type === 'Switch' ? 'Default (Else) →' :
+                        'Next →' 
+                    }}</label>
                     <select class="form-control"
                         :value="selectedNode.data?.next_step_if_true"
                         @change="updateNextStep('next_step_if_true', $event.target.value)">
@@ -190,8 +251,8 @@
                     </select>
                 </div>
                 
-                <div class="form-group" v-if="selectedNode.data?.action_type === 'Condition'">
-                    <label>If False →</label>
+                <div class="form-group" v-if="selectedNode.data?.action_type === 'Condition' || selectedNode.data?.action_type === 'Loop'">
+                    <label>{{ selectedNode.data?.action_type === 'Loop' ? 'Done (Exit Loop) →' : 'If False →' }}</label>
                     <select class="form-control"
                         :value="selectedNode.data?.next_step_if_false"
                         @change="updateNextStep('next_step_if_false', $event.target.value)">
@@ -210,7 +271,6 @@
                         @change="updateField('is_enabled', $event.target.checked ? 1 : 0)" />
                     Enabled
                 </label>
-                
                 <button class="btn btn-sm btn-danger w-100 mt-3" @click="deleteNode">
                     <i class="fa fa-trash"></i> Delete
                 </button>
@@ -520,18 +580,66 @@ function updateSubRuleName(value) {
     store.mark_dirty();
 }
 
-function updateSwitchExpression(value) {
+// JSON Config Helpers (For Loop, Switch, Wait)
+function getJsonConfig(key, defaultVal) {
+    if (!selectedNode.value?.data?.method_config) return defaultVal;
+    try {
+        const config = JSON.parse(selectedNode.value.data.method_config);
+        return config[key] !== undefined ? config[key] : defaultVal;
+    } catch(e) {
+        return defaultVal;
+    }
+}
+
+function updateJsonConfig(key, value) {
     if (!selectedNode.value?.data) return;
-    selectedNode.value.data.switch_expression = value;
-    // Update method_config with expression. Preserve cases if they exist (though UI doesn't edit them yet)
     let config = {};
     try {
         config = JSON.parse(selectedNode.value.data.method_config || '{}');
     } catch(e) {}
     
-    config.expression = value;
+    config[key] = value;
     selectedNode.value.data.method_config = JSON.stringify(config);
     store.mark_dirty();
+}
+
+const newCaseValue = ref('');
+const newCaseTarget = ref('');
+
+function addSwitchCase() {
+    if (!newCaseValue.value || !newCaseTarget.value) return;
+    
+    let config = {};
+    try {
+        config = JSON.parse(selectedNode.value.data.method_config || '{}');
+    } catch(e) {}
+    
+    if (!config.cases) config.cases = {};
+    config.cases[newCaseValue.value] = newCaseTarget.value;
+    
+    selectedNode.value.data.method_config = JSON.stringify(config);
+    store.mark_dirty();
+    
+    newCaseValue.value = '';
+    newCaseTarget.value = '';
+}
+
+function removeSwitchCase(val) {
+    let config = {};
+    try {
+        config = JSON.parse(selectedNode.value.data.method_config || '{}');
+    } catch(e) {}
+    
+    if (config.cases && config.cases[val]) {
+        delete config.cases[val];
+        selectedNode.value.data.method_config = JSON.stringify(config);
+        store.mark_dirty();
+    }
+}
+
+function getNodeLabel(id) {
+    const node = store.graph.elements.find(el => el.id === id);
+    return node ? (node.label || node.id) : id;
 }
 
 function updateNextStep(field, value) {
@@ -839,6 +947,8 @@ function parseSelectOptions(options) {
     height: 100%;
     display: flex;
     flex-direction: column;
+    background: #fff;
+    border-left: 1px solid var(--border-color);
 }
 
 .sidebar-header {
@@ -944,4 +1054,14 @@ hr {
     gap: 5px;
 }
 .relative { position: relative; }
+.case-list {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 5px;
+}
+.case-item {
+    background-color: var(--bg-light-gray);
+}
 </style>
