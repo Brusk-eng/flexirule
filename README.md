@@ -163,12 +163,6 @@ FlexiRule prioritizes **data integrity and system stability**.
 
 ---
 
-##  License
-
-MIT License
-
----
-
 ## Contributing
 
 Contributions, ideas, and feedback are welcome.
