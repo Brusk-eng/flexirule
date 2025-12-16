@@ -129,10 +129,7 @@ class ProcessMethod(Document):
             
             return result
         except Exception as e:
-            frappe.log_error(
-                title=f"Process Method Error: {self.method_name}",
-                message=f"Config: {params}\nError: {str(e)}"
-            )
+            # Re-raise to let the Engine handle logging
             raise
     
     def update_execution_stats(self, execution_time_ms):
@@ -229,7 +226,6 @@ def test_method(method_name, config=None):
         }
     
     except Exception as e:
-        frappe.log_error("Process Method Test Failed", str(e))
         return {
             'success': False,
             'error': str(e),

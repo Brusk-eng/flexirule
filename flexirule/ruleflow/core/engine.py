@@ -792,6 +792,12 @@ class RuleEngine:
 			sub_context['meta'] = context.get('meta', {}).copy()
 			sub_context['meta']['parent_rule'] = self.rule.name
 			
+			# Recursion Guard
+			current_depth = sub_context['meta'].get('call_depth', 0)
+			if current_depth > 5:
+				raise MethodExecutionError(f"Max sub-rule recursion depth (5) exceeded in {sub_rule_name}")
+			sub_context['meta']['call_depth'] = current_depth + 1
+			
 			# Instantiate new engine
 			# Avoid cyclic import if lazy loading is better, but Engine is here
 			# Since we are in Engine class, we can just instantiate self.__class__
@@ -851,14 +857,33 @@ class RuleEngine:
 					k: v for k, v in self.context.get('vars', {}).items() 
 					if isinstance(v, (str, int, float, bool, list, dict, type(None)))
 				}
+				
+				# Add document snapshot for debugging
+				if self.context.get('doc'):
+					try:
+						# Use as_dict but protect against non-serializable fields if any
+						doc_dict = self.context['doc'].as_dict()
+						context_snapshot['doc'] = doc_dict
+					except:
+						context_snapshot['doc'] = "<Not Serializable>"
 			
+			# Handle Local Documents (New Docs)
+			# If we rollback, the doc might disappear, so the link will be broken.
+			# We still save the name for reference.
+			doc = self.context.get('doc')
+			doc_name = doc.name if doc else None
+			
+			if doc and doc.get('__islocal'):
+				# If it's local, it might not exist after rollback
+				pass
+
 			log_doc = frappe.get_doc({
 				"doctype": "Rule Execution Log",
 				"rule": self.rule.name,
 				"status": status,
 				"duration": duration,
 				"reference_doctype": self.rule.document_type,
-				"reference_docname": self.context.get('doc').name if self.context.get('doc') else None,
+				"reference_docname": doc_name,
 				"executed_by": self.context.get('meta', {}).get('user'),
 				"message": error_trace.split('\n')[-2] if error_trace else "Executed successfully",
 				"execution_path": json.dumps(self.path_trace, default=str),
@@ -866,8 +891,17 @@ class RuleEngine:
 				"error_trace": error_trace
 			})
 			
-			# Use ignore_permissions to ensure log is always written regardless of user
-			log_doc.insert(ignore_permissions=True)
+			# PERSISTENCE LOGIC
+			# If failed, we MUST rollback partial changes to clean up, 
+			# then insert and commit the log so it survives the final rollback by the framework.
+			if status in ('Failed', 'Error') and not self.context.get('test_mode'): 
+				frappe.db.rollback()
+				log_doc.insert(ignore_permissions=True)
+				frappe.db.commit()
+			else:
+				# Success or Test Mode: Just insert (part of current transaction)
+				log_doc.insert(ignore_permissions=True)
 			
 		except Exception as e:
+			# Fallback if logging itself fails
 			frappe.logger().error(f"Failed to save Rule Execution Log: {str(e)}")

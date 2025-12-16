@@ -154,6 +154,19 @@ def test_rule(rule_name, doctype, docname):
         rule_doc = frappe.get_doc("Rule", rule_name)
         doc = frappe.get_doc(doctype, docname)
         
+        # Check if rule is actually applicable (User Request: filters must apply)
+        from flexirule.ruleflow.core.coordinator import RuleCoordinator
+        is_eligible, reason = RuleCoordinator.check_eligibility(
+             rule_doc, doc, event_name="Manual Test", skip_event_check=True
+        )
+        
+        if not is_eligible:
+             return {
+                 "success": False,
+                 "message": _("Rule Skipped: {0}").format(reason),
+                 "execution_log": {}
+             }
+        
         engine = RuleEngine(rule_doc, {'test_mode': True})
         result = engine.execute(doc)
         
@@ -164,7 +177,6 @@ def test_rule(rule_name, doctype, docname):
         }
         
     except Exception as e:
-        frappe.log_error(title=f"Test Rule Failed: {rule_name}")
         return {"success": False, "error": str(e)}
 
 

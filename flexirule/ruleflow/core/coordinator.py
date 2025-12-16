@@ -107,7 +107,7 @@ class RuleCoordinator:
 				# Re-raise blocking exceptions (Stop the save)
 				if isinstance(e, frappe.ValidationError):
 					raise e@staticmethod
-	def check_eligibility(rule_doc, doc, event_name, execution_mode='Synchronous') -> tuple[bool, str]:
+	def check_eligibility(rule_doc, doc, event_name, execution_mode='Synchronous', skip_event_check=False) -> tuple[bool, str]:
 		"""
 		Strict V1 Contract Eligibility Check
 		Returns: (is_eligible: bool, reason: str)
@@ -117,7 +117,7 @@ class RuleCoordinator:
 			return False, "Rule is not active"
 
 		# 2. Event Check
-		if rule_doc.trigger_event != event_name:
+		if not skip_event_check and rule_doc.trigger_event != event_name:
 			# This might happen if cache returns mixed results or during manual triggers
 			return False, f"Event mismatch: Rule expects {rule_doc.trigger_event}, got {event_name}"
 

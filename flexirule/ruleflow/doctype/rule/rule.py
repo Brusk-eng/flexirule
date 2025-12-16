@@ -108,16 +108,35 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
     
     # Capture logs if possible? 
     # The requirement was "return execution logs". 
-    # Coordinator runs it and creates Logs in DB if configured? 
-    # Or should we intercept?
-    # For now, let's run it. The Coordinator's execute_single_rule creates Rule Execution Log if not in test_mode?
-    # Actually, let's capture the result of the engine execution if possible, but coordinator returns None.
-    # We can check the latest log for this rule/doc combination.
+    
+    from flexirule.ruleflow.core.engine import RuleEngine
+    # Check if rule is actually applicable (User Request: filters must apply)
+    from flexirule.ruleflow.core.coordinator import RuleCoordinator
+    
+    is_eligible, reason = RuleCoordinator.check_eligibility(
+            rule, doc, event_name="Manual Test", skip_event_check=True
+    )
+    
+    if not is_eligible:
+            return {
+                "success": False,
+                "status": "Skipped",
+                "message": frappe._("Rule Skipped: {0}").format(reason),
+                "execution_log": {}
+            }
     
     try:
-        RuleCoordinator.execute_single_rule(doc, rule)
+        # Run in test_mode to prevent rollback of the rule itself during tests
+        engine = RuleEngine(rule, {'test_mode': True})
+        engine.execute(doc)
         
-        # Fetch the latest log
+        # Get log from memory (engine.execution_log is list of dicts, not the Doc)
+        # But _save_execution_log inserts a doc. We can fetch it if needed, 
+        # or just rely on what we have.
+        # The test expects 'status', 'message', 'execution_path'.
+        
+        # Fetch the latest log (created by engine even in test mode)
+        # Since we are in the same transaction, we should find it.
         logs = frappe.get_all("Rule Execution Log", 
                              filters={"rule": rule_name, "reference_docname": doc.name},
                              order_by="creation desc",
