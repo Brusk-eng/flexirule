@@ -1,78 +1,144 @@
 frappe.ui.form.on('Rule', {
-    refresh: function (frm) {
-        if (!frm.is_new()) {
-            // Primary button - Visual Builder
-            frm.add_custom_button(__('Visual Builder'), function () {
+    refresh(frm) {
+        if (!frm.doc.__islocal) {
+
+            // primary button
+            frm.page.clear_primary_action();
+            frm.page.set_primary_action(__('Visual Builder'), () => {
                 frappe.set_route('rule-builder', frm.doc.name);
-            }, null, 'primary');
+            });
 
-            // Secondary buttons
-            frm.add_custom_button(__('Test Rule'), function () {
+            // custom buttons
+            frm.page.clear_custom_actions();
+            frm.add_custom_button(__('Test Rule'), () => {
                 test_rule(frm);
-            });
+            }, __('Actions'));
 
-            frm.add_custom_button(__('Clear Cache'), function () {
+            frm.add_custom_button(__('Clear Cache'), () => {
                 clear_rule_cache(frm);
-            });
-        }
+            }, __('Actions'));
 
-        // JSON field helpers
-        add_json_helpers(frm);
+            // JSON helpers
+            add_json_helpers(frm);
+            if (!frm.dashboard) {
+                frm.dashboard = new frappe.ui.form.Dashboard({
+                    parent: frm.fields_dict ? frm.fields_dict['name'].$wrapper : frm.wrapper,
+                    doctype: frm.doc.doctype
+                });
+            }
 
-        // Show execution stats
-        if (frm.doc.execution_count) {
-            frm.dashboard.add_indicator(
-                __('Executed {0} times', [frm.doc.execution_count]),
-                'blue'
-            );
-        }
+            // dashboard indicators
+            if (frm.dashboard && frm.dashboard.wrapper) {
+                frm.dashboard.wrapper.find('.indicator').remove();
 
-        if (frm.doc.last_error) {
-            frm.dashboard.add_indicator(__('Has Errors'), 'red');
+                if (frm.doc.execution_count) {
+                    frm.dashboard.add_indicator(
+                        __('Executed {0} times', [frm.doc.execution_count]),
+                        'blue'
+                    );
+                }
+
+                if (frm.doc.last_error) {
+                    frm.dashboard.add_indicator(__('Has Errors'), 'red');
+                }
+            }
         }
     },
 
-    conditions_json: function (frm) {
+    conditions_json(frm) {
         validate_json(frm, 'conditions_json');
     },
 
-    actions_json: function (frm) {
+    actions_json(frm) {
         validate_json(frm, 'actions_json');
     },
 
-    options_json: function (frm) {
+    options_json(frm) {
         validate_json(frm, 'options_json');
     }
 });
 
-function validate_json(frm, fieldname) {
-    let value = frm.doc[fieldname];
-    if (value) {
-        try {
-            JSON.parse(value);
-            frm.set_df_property(fieldname, 'description', '✓ Valid JSON');
-        } catch (e) {
-            frm.set_df_property(fieldname, 'description', '✗ Invalid JSON: ' + e.message);
+frappe.ui.form.on('Rule Action', {
+    refresh(frm) {
+        frm.trigger('toggle_fields');
+    },
+
+    action_type(frm) {
+        frm.trigger('toggle_fields');
+    },
+
+    toggle_fields(frm) {
+        const type = frm.doc.action_type;
+
+        frm.toggle_display([
+            'process_method',
+            'method_config',
+            'timeout',
+            'retry_count',
+            'is_async',
+            'on_error',
+            'condition_expression',
+            'next_step_if_false',
+            'switch_expression',
+            'loop_expression',
+            'wait_duration',
+            'sub_rule'
+        ], false);
+
+        if (type === 'Process') {
+            frm.toggle_display(
+                ['process_method', 'method_config', 'timeout', 'retry_count', 'is_async', 'on_error'],
+                true
+            );
+        } else if (type === 'Condition') {
+            frm.toggle_display(['condition_expression', 'next_step_if_false'], true);
+        } else if (type === 'Switch') {
+            frm.toggle_display(['condition_expression'], true);
+        } else if (type === 'Loop') {
+            frm.toggle_display(['condition_expression'], true);
+        } else if (type === 'Wait') {
+            frm.toggle_display(['timeout'], true);
+        } else if (type === 'Sub-Rule') {
+            frm.toggle_display(['process_method'], true);
         }
+    }
+});
+
+function validate_json(frm, fieldname) {
+    const value = frm.doc[fieldname];
+    if (!value) return;
+
+    try {
+        JSON.parse(value);
+        frm.set_df_property(fieldname, 'description', '✓ Valid JSON');
+    } catch (e) {
+        frm.set_df_property(fieldname, 'description', '✗ Invalid JSON: ' + e.message);
     }
 }
 
 function add_json_helpers(frm) {
-    // Add format buttons for JSON fields
     ['conditions_json', 'actions_json', 'options_json'].forEach(fieldname => {
         const field = frm.fields_dict[fieldname];
-        if (field && field.$wrapper && !field.$wrapper.find('.format-btn').length) {
-            const $btn = $(`<button class="btn btn-xs btn-default format-btn" style="margin-top:5px">
+        if (!field || !field.$wrapper || field.$wrapper.find('.format-btn').length) return;
+
+        const $btn = $(`
+            <button class="btn btn-xs btn-default format-btn" style="margin-top:5px">
                 <i class="fa fa-align-left"></i> Format
-            </button>`);
-            $btn.on('click', () => {
-                try {
-                    const formatted = JSON.stringify(JSON.parse(frm.doc[fieldname] || '{}'), null, 2);
-                    frm.set_value(fieldname, formatted);
-                } catch { }
-            });
-            field.$wrapper.find('.control-value').append($btn);
-        }
+            </button>
+        `);
+
+        $btn.on('click', () => {
+            try {
+                const formatted = JSON.stringify(
+                    JSON.parse(frm.doc[fieldname] || '{}'),
+                    null,
+                    2
+                );
+                frm.set_value(fieldname, formatted);
+            } catch {}
+        });
+
+        field.$wrapper.find('.control-value').append($btn);
     });
 }
 
@@ -97,7 +163,7 @@ function test_rule(frm) {
             }
         ],
         primary_action_label: __('Test'),
-        primary_action: function (values) {
+        primary_action(values) {
             frappe.call({
                 method: 'flexirule.ruleflow.api.test_rule',
                 args: {
@@ -105,7 +171,7 @@ function test_rule(frm) {
                     doctype: values.doctype,
                     docname: values.docname
                 },
-                callback: function (r) {
+                callback(r) {
                     if (r.message && r.message.success) {
                         frappe.msgprint({
                             title: __('Test Complete'),
@@ -124,6 +190,7 @@ function test_rule(frm) {
             });
         }
     });
+
     d.show();
 }
 
@@ -131,7 +198,7 @@ function clear_rule_cache(frm) {
     frappe.call({
         method: 'flexirule.ruleflow.api.clear_cache',
         args: { doctype: frm.doc.document_type },
-        callback: function () {
+        callback() {
             frappe.show_alert({
                 message: __('Cache cleared'),
                 indicator: 'green'

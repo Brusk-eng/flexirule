@@ -77,7 +77,14 @@
                                 :key="m.name" 
                                 class="suggestion-item"
                                 @click="selectMethod(m)">
-                                <div class="suggestion-name">{{ m.method_name }}</div>
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div class="suggestion-name">{{ m.method_name }}</div>
+                                    <div class="method-badges">
+                                        <span v-if="m.transactional" class="badge badge-warning" title="Transactional" style="font-size:9px; padding:2px 4px; margin-left:2px">Tx</span>
+                                        <span v-if="m.side_effects === 'Pure'" class="badge badge-success" title="Pure" style="font-size:9px; padding:2px 4px; margin-left:2px">Pure</span>
+                                        <span v-if="m.creates_new_docs" class="badge badge-info" title="Creates Docs" style="font-size:9px; padding:2px 4px; margin-left:2px">New</span>
+                                    </div>
+                                </div>
                                 <div class="suggestion-path" v-if="m.method_path">{{ m.method_path }}</div>
                             </div>
                             <div v-if="!store.process_methods.length" class="p-2 text-muted">No methods found</div>
@@ -129,21 +136,53 @@
                             @input="updateField('retry_count', parseInt($event.target.value))" />
                     </div>
 
-                    <div class="form-group">
-                        <label>Return Variable</label>
-                        <input type="text" class="form-control" 
-                            :value="selectedNode.data?.return_variable"
-                            @input="updateField('return_variable', $event.target.value)" 
-                            placeholder="result_var_name" />
+                    <!-- Output Mapping Section -->
+                    <div class="form-group" v-if="!selectedNode.data?.is_async">
+                         <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="mb-0" style="font-weight:600">Output Assignments</label>
+                        </div>
+                        
+                        <div v-if="outputFields.length">
+                            <div v-for="field in outputFields" :key="field.key" class="mb-2">
+                                <small class="text-muted d-block">{{ field.label }} ({{ field.type }})</small>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text" style="font-size:11px; background:#f0f0f0;">vars.</span>
+                                    <input type="text" class="form-control" 
+                                        :value="getOutputMapping(field.key)"
+                                        @input="updateOutputMapping(field.key, $event.target.value)" 
+                                        :placeholder="field.key === '__self__' ? 'result_var' : field.key"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else class="text-muted small">
+                             <div class="mb-1">Map result to variable:</div>
+                             <div class="input-group input-group-sm">
+                                <span class="input-group-text" style="font-size:11px; background:#f0f0f0;">vars.</span>
+                                <input type="text" class="form-control" 
+                                    :value="getOutputMapping('__self__')"
+                                    @input="updateOutputMapping('__self__', $event.target.value)" 
+                                    placeholder="result_var"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="alert alert-warning p-2 small mt-2">
+                        <i class="fa fa-info-circle"></i> Async actions cannot return values to the context.
                     </div>
 
                     <div class="form-group">
-                        <label class="checkbox-label">
+                        <label class="checkbox-label" :class="{ 'text-muted': selectedMethod?.transactional }" :title="selectedMethod?.transactional ? 'Transactional methods cannot run asynchronously' : ''">
                             <input type="checkbox" 
                                 :checked="selectedNode.data?.is_async"
+                                :disabled="selectedMethod?.transactional"
                                 @change="updateField('is_async', $event.target.checked ? 1 : 0)" />
                             Run Asynchronously
+                            <span v-if="selectedMethod?.transactional" class="ml-1 text-warning"><i class="fa fa-lock"></i></span>
                         </label>
+                        <div v-if="selectedMethod?.transactional" class="help-text text-danger mt-1" style="font-size:10px">
+                            Transactional methods must run synchronously.
+                        </div>
                     </div>
                 </template>
 
@@ -287,6 +326,10 @@ const emit = defineEmits(['close']);
 const store = useStore();
 
 const selectedNode = computed(() => store.graph.selected);
+const selectedMethod = computed(() => {
+    if (!selectedNode.value?.data?.process_method) return null;
+    return store.process_methods.find(m => m.name === selectedNode.value.data.process_method);
+});
 
 // Process Method Autocomplete
 const methodSearch = ref('');
@@ -552,9 +595,72 @@ function updateLabel(value) {
     store.mark_dirty();
 }
 
-function updateField(field, value) {
+const outputFields = computed(() => {
+    if (!selectedMethod.value?.output_schema) return [];
+    try {
+        const schema = JSON.parse(selectedMethod.value.output_schema);
+        if (Array.isArray(schema)) {
+             // Frappe field list format
+             return schema.map(f => ({
+                 key: f.fieldname,
+                 label: f.label || f.fieldname,
+                 type: f.fieldtype
+             }));
+        } else if (schema.properties) {
+             // JSON Schema format (fallback)
+             return Object.entries(schema.properties).map(([k, v]) => ({
+                 key: k,
+                 label: v.title || k,
+                 type: v.type
+             }));
+        }
+        return [];
+    } catch (e) {
+        return [];
+    }
+});
+
+function getOutputMapping(key) {
+    const mappingStr = selectedNode.value.data?.output_mapping;
+    if (!mappingStr) return '';
+    try {
+        const mapping = JSON.parse(mappingStr);
+        // Structure: source_key -> target_var
+        // Use 'vars.' prefix if not present for display? No, store purely the name?
+        // Proposal says "Map to Variable Name". Usually users type "my_score".
+        // Engine updates `vars.my_score`. 
+        // Let's assume user types just the variable name "my_score", and we PREPEND "vars." in storage?
+        // OR user types "vars.my_score"? 
+        // The UI shows "vars." prefix in a span. So input is "my_score".
+        // Storage should be "my_score" or "vars.my_score"?
+        // Mapping.py `update_context` handles `vars.my_score` or top-level.
+        // It's safer to store `vars.my_score` if we want to be explicit.
+        // Let's store "vars.my_score".
+        
+        let val = mapping[key] || '';
+        if (val.startsWith('vars.')) return val.substring(5);
+        return val;
+    } catch (e) { return ''; }
+}
+
+function updateOutputMapping(key, varName) {
+    const mappingStr = selectedNode.value.data?.output_mapping || '{}';
+    let mapping = {};
+    try { mapping = JSON.parse(mappingStr); } catch (e) {}
+    
+    if (!varName) {
+        delete mapping[key];
+    } else {
+        // Enforce vars. prefix
+        mapping[key] = `vars.${varName}`;
+    }
+    
+    updateField('output_mapping', JSON.stringify(mapping));
+}
+
+function updateField(key, value) {
     if (!selectedNode.value?.data) return;
-    selectedNode.value.data[field] = value;
+    selectedNode.value.data[key] = value;
     store.mark_dirty();
 }
 

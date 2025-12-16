@@ -9,8 +9,26 @@ import frappe
 from frappe import _
 import re
 from .utils import parse_field_list, parse_pattern_type
+from flexirule.ruleflow.decorators import process_method
 
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    return_type="Boolean",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "fields",
+                "fieldtype": "MultiDocField",
+                "label": "Required Fields",
+                "reqd": 1,
+                "options": "parent.document_type"
+            }
+        ]
+    },
+    description="Validate that specified fields have values"
+)
 def validate_required_fields(context, fields=None, **kwargs):
     """
     Validate that specified fields have values
@@ -39,6 +57,42 @@ def validate_required_fields(context, fields=None, **kwargs):
     return True
 
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    return_type="Boolean",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "field",
+                "fieldtype": "DocField",
+                "label": "Field",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "pattern_type",
+                "fieldtype": "Select",
+                "label": "Pattern Type",
+                "reqd": 1,
+                "options": "Email\nPhone\nURL\nAlphanumeric\nNumeric\nCustom Regex",
+                "default": "Email"
+            },
+            {
+                "fieldname": "pattern",
+                "fieldtype": "Data",
+                "label": "Custom Pattern",
+                "depends_on": "eval:doc.pattern_type=='Custom Regex'"
+            },
+            {
+                "fieldname": "error_message",
+                "fieldtype": "Data",
+                "label": "Error Message"
+            }
+        ]
+    },
+    description="Validate field matches a pattern"
+)
 def validate_field_pattern(context, field=None, pattern=None, pattern_type=None, error_message=None, **kwargs):
     """
     Validate that a field value matches a regex pattern
@@ -65,6 +119,33 @@ def validate_field_pattern(context, field=None, pattern=None, pattern_type=None,
     return True
 
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    return_type="Boolean",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "field",
+                "fieldtype": "DocField",
+                "label": "Field",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "min_value",
+                "fieldtype": "Float",
+                "label": "Minimum Value"
+            },
+            {
+                "fieldname": "max_value",
+                "fieldtype": "Float",
+                "label": "Maximum Value"
+            }
+        ]
+    },
+    description="Validate numeric field is within range"
+)
 def validate_value_in_range(context, field=None, min_value=None, max_value=None, **kwargs):
     """
     Validate that a numeric field is within a specified range
@@ -90,6 +171,29 @@ def validate_value_in_range(context, field=None, min_value=None, max_value=None,
     return True
 
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    return_type="Boolean",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "field",
+                "fieldtype": "DocField",
+                "label": "Field",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "ignore_cancelled",
+                "fieldtype": "Check",
+                "label": "Ignore Cancelled",
+                "default": 1
+            }
+        ]
+    },
+    description="Validate field value is unique"
+)
 def validate_unique_field(context, field=None, ignore_cancelled=True, **kwargs):
     """
     Validate field value is unique across documents
@@ -113,6 +217,36 @@ def validate_unique_field(context, field=None, ignore_cancelled=True, **kwargs):
     return True
 
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    return_type="Boolean",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "condition_field",
+                "fieldtype": "DocField",
+                "label": "When Field",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "condition_value",
+                "fieldtype": "Data",
+                "label": "Equals",
+                "reqd": 1
+            },
+            {
+                "fieldname": "required_fields",
+                "fieldtype": "MultiDocField",
+                "label": "Make Required",
+                "reqd": 1,
+                "options": "parent.document_type"
+            }
+        ]
+    },
+    description="Make fields required based on condition"
+)
 def validate_conditional_required(context, condition_field=None, condition_value=None, required_fields=None, **kwargs):
     """
     Make fields required when a condition is met

@@ -15,6 +15,7 @@ import frappe
 from frappe import _
 import re
 from typing import Any, List, Dict, Optional
+from flexirule.ruleflow.decorators import process_method
 
 
 # Built-in transformations (same as NormalizationPipeline)
@@ -37,13 +38,6 @@ TRANSFORMATIONS = {
 def apply_transformations(value: Any, transformations: List[str]) -> Any:
     """
     Apply a list of transformations to a value
-    
-    Args:
-        value: Value to transform
-        transformations: List of transformation names
-        
-    Returns:
-        Transformed value
     """
     if value is None:
         return None
@@ -66,18 +60,38 @@ def apply_transformations(value: Any, transformations: List[str]) -> Any:
     return result
 
 
+@process_method(
+    category="Transformation",
+    side_effects="Modifies Doc",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "source_field",
+                "fieldtype": "DocField",
+                "label": "Source Field",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "target_field",
+                "fieldtype": "DocField",
+                "label": "Target Field",
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "transformations",
+                "fieldtype": "MultiSelect",
+                "label": "Transformations",
+                "reqd": 1,
+                "options": "trim\nlowercase\nuppercase\nremove_spaces\nremove_extra_spaces\nremove_punctuation\nremove_numbers\nslug\ndigits_only\ntitle_case"
+            }
+        ]
+    },
+    description="Normalize a field in-place or to a target field."
+)
 def normalize_field(context, source_field, transformations, target_field=None, **kwargs):
     """
     Normalize a field in-place or to a target field
-    
-    Args:
-        context: Execution context containing 'doc'
-        source_field: Field to normalize
-        transformations: List of transformation names (e.g., ['trim', 'lowercase'])
-        target_field: Optional target field (defaults to source_field)
-        
-    Returns:
-        Normalized value
     """
     doc = context.get('doc')
     
@@ -103,19 +117,39 @@ def normalize_field(context, source_field, transformations, target_field=None, *
     return normalized
 
 
+@process_method(
+    category="Transformation",
+    side_effects="Pure",
+    return_type="String",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "source_field",
+                "fieldtype": "DocField",
+                "label": "Source Field",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "context_key",
+                "fieldtype": "Data",
+                "label": "Variable Name"
+            },
+            {
+                "fieldname": "transformations",
+                "fieldtype": "MultiSelect",
+                "label": "Transformations",
+                "reqd": 1,
+                "options": "trim\nlowercase\nremove_extra_spaces\nremove_punctuation\ndigits_only"
+            }
+        ]
+    },
+    description="Normalize a field and store it in context (vars). Does not modify doc."
+)
 def normalize_field_to_context(context, source_field, transformations, context_key=None, **kwargs):
     """
     Normalize a field value and store in context for fuzzy matching
     Does NOT modify the document
-    
-    Args:
-        context: Execution context (must have 'vars' dict and 'doc')
-        source_field: Field to normalize
-        transformations: List of transformation names
-        context_key: Key to store in context['vars'] (defaults to 'normalized_{source_field}')
-        
-    Returns:
-        The context key where value was stored
     """
     doc = context.get('doc')
     
@@ -144,20 +178,47 @@ def normalize_field_to_context(context, source_field, transformations, context_k
     return key
 
 
+@process_method(
+    category="Transformation",
+    side_effects="Modifies Doc",
+    return_type="Dict",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "field_config",
+                "fieldtype": "Table",
+                "label": "Field Configuration",
+                "reqd": 1,
+                "table_fields": [
+                    {
+                        "fieldname": "fieldname",
+                        "fieldtype": "DocField",
+                        "label": "Field",
+                        "reqd": 1,
+                        "options": "parent.document_type"
+                    },
+                    {
+                        "fieldname": "transformations",
+                        "fieldtype": "MultiSelect",
+                        "label": "Transformations",
+                        "reqd": 1,
+                        "options": "trim\nlowercase\nremove_extra_spaces\nslug"
+                    }
+                ]
+            },
+            {
+                "fieldname": "store_in_context",
+                "fieldtype": "Check",
+                "label": "Store in context",
+                "default": 0
+            }
+        ]
+    },
+    description="Batch normalize multiple fields."
+)
 def normalize_multiple_fields(context, field_config, store_in_context=False, **kwargs):
     """
     Batch normalize multiple fields with their own transformation configs
-    
-    Args:
-        context: Execution context containing 'doc'
-        field_config: List of dicts with keys:
-            - fieldname: Field to normalize
-            - transformations: List of transformation names
-            - target_field: Optional target field
-        store_in_context: If True, store normalized values in context instead of doc
-        
-    Returns:
-        Dict of field -> normalized value
     """
     doc = context.get('doc')
     
@@ -198,6 +259,30 @@ def normalize_multiple_fields(context, field_config, store_in_context=False, **k
     return results
 
 
+@process_method(
+    category="Transformation",
+    side_effects="Pure",
+    return_type="String",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "source_field",
+                "fieldtype": "DocField",
+                "label": "Source Field",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "transformations",
+                "fieldtype": "MultiSelect",
+                "label": "Transformations",
+                "reqd": 1,
+                "options": "trim\nlowercase\nremove_extra_spaces\nremove_punctuation\ndigits_only"
+            }
+        ]
+    },
+    description="Normalize field for comparison only (returns value, no side effects)."
+)
 def normalize_for_comparison(context, source_field, transformations, **kwargs):
     """
     Normalize a field for comparison purposes WITHOUT modifying the document

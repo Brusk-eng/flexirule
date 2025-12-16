@@ -73,7 +73,7 @@
         },
         {
             "fieldname": "message",
-            "fieldtype": "Data",
+            "fieldtype": "Small Text",
             "label": "Message",
             "read_only": 1
         },

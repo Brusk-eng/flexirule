@@ -103,7 +103,6 @@ class TestRedesignArchitecture(FrappeTestCase):
         # We can't easily inspect the 'config' passed to method inside a test without mocking
         # But we can verify no error occurred and result was returned
         self.assertIsNotNone(result)
-
     def test_04_output_mapping(self):
         """Verify Result -> Context Mapping"""
         output_rule_name = "Test Output Mapping Rule"
@@ -128,8 +127,8 @@ class TestRedesignArchitecture(FrappeTestCase):
                     "process_method": method_path,
                     "action_id": "ACT-OUT-01",
                     "method_config": '{"threshold": 10}',
-                    # Pass a value via mapping to ensure result
-                    "input_mapping": '{"input_val": "value"}',
+                    # Corrected input_mapping: Target(config field) -> Source(context variable)
+                    "input_mapping": '{"value": "input_val"}',
                     # Map result "processed_value" to context "final_result"
                     "output_mapping": '{"processed_value": "final_result"}'
                 }
@@ -143,7 +142,6 @@ class TestRedesignArchitecture(FrappeTestCase):
         final_ctx = engine.execute(None)
         
         # Check if context has 'final_result' = 500
-        # dummy_method returns {"processed_value": value}
         self.assertEqual(final_ctx.get('final_result'), 500)
 
     def test_05_execution_logging(self):

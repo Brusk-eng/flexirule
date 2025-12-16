@@ -30,6 +30,9 @@ class ProcessMethod(Document):
         requires_permission: DF.Link | None
         return_type: DF.Literal["None", "Boolean", "String", "Integer", "Float", "Object", "List", "Dict"]
         side_effects: DF.Literal["Pure", "Modifies Doc", "External Call"]
+        transactional: DF.Check
+        creates_new_docs: DF.Check
+        is_managed: DF.Check
         usage_example: DF.Code | None
         version: DF.Data | None
     # end: auto-generated types
@@ -57,25 +60,16 @@ class ProcessMethod(Document):
         self._validate_json_schema(self.output_schema, "Output Schema")
 
     def validate_allowed_module(self):
+        allowed = frappe.get_hooks("flexirule_allowed_modules") or []
+        if frappe.flags.in_test:
+            allowed = list(allowed) + ["flexirule.ruleflow.tests", "flexirule.ruleflow.methods.test_registry"]
 
-
-        # Get merged hooks from all installed apps
-        allowed = frappe.get_hooks("flexirule_allowed_modules")
-        # ✅ Test-only relaxation
-        if getattr(frappe.flags, "in_test", False):
-            allowed = list(allowed) + ["flexirule.ruleflow.tests"]
-
-        # Normalize hook output (can be dict/list/tuple)
         allowed = list(allowed) if allowed else []
 
-        # Determine module path (strip function name)
         module_path = ".".join(self.method_path.split(".")[:-1])
-
-        # 🟡 Policy: If hook is NOT defined at all → allow (dev / legacy)
         if allowed is None:
             return
 
-        # 🔴 Hook exists but empty → block everything
         if not allowed:
             frappe.throw(
                 frappe._(
@@ -83,12 +77,9 @@ class ProcessMethod(Document):
                 )
             )
 
-        # Check prefixes
         for prefix in allowed:
             if module_path == prefix or module_path.startswith(prefix + "."):
                 return
-
-        # ❌ Not allowed
         frappe.throw(
             frappe._("Security Violation: Module '{0}' is not in the Allowed List.").format(
                 module_path

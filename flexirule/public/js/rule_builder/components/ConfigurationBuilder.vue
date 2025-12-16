@@ -17,12 +17,14 @@
                 <div v-else-if="field.fieldtype === 'Column Break'" class="column-break"></div>
                 
                 <!-- Regular fields -->
-                <div v-else class="form-group">
-                    <label v-if="field.label">
-                        {{ __(field.label) }}
-                        <span v-if="field.reqd" class="text-danger">*</span>
-                    </label>
-                    
+                <MappingWrapper 
+                    v-else
+                    :label="field.label"
+                    :reqd="field.reqd"
+                    :mappingValue="mappingValues[field.fieldname]"
+                    @update:mappingValue="updateMapping(field.fieldname, $event)"
+                    @clearStatic="updateValue(field.fieldname, undefined)"
+                >
                     <!-- DocField / FieldPicker -->
                     <FieldPickerControl
                         v-if="field.fieldtype === 'DocField'"
@@ -149,7 +151,7 @@
                            class="form-text text-muted">
                         {{ field.description }}
                     </small>
-                </div>
+                </MappingWrapper>
             </template>
         </div>
         
@@ -172,17 +174,20 @@ import MultiFieldPickerControl from '../controls/MultiFieldPickerControl.vue';
 import InlineTableControl from '../controls/InlineTableControl.vue';
 import PercentSliderControl from '../controls/PercentSliderControl.vue';
 import LinkControl from '../controls/LinkControl.vue';
+import MappingWrapper from './MappingWrapper.vue';
 
 const props = defineProps({
     schema: Object,
-    modelValue: [String, Object],
+    modelValue: [String, Object], // Config JSON
+    inputMapping: [String, Object], // Mapping JSON
     documentType: String
 });
 
-const emit = defineEmits(['update:modelValue', 'validation-change']);
+const emit = defineEmits(['update:modelValue', 'update:inputMapping', 'validation-change']);
 
 const fields = ref([]);
-const values = ref({});
+const values = ref({}); // Static config
+const mappingValues = ref({}); // Input mapping
 const validationErrors = ref([]);
 
 // Parse schema to fields
@@ -202,6 +207,15 @@ watch(() => props.modelValue, (val) => {
         values.value = {};
     }
     validate();
+}, { immediate: true });
+
+// Parse input mapping
+watch(() => props.inputMapping, (val) => {
+    try {
+        mappingValues.value = typeof val === 'string' ? JSON.parse(val) : (val || {});
+    } catch (e) {
+        mappingValues.value = {};
+    }
 }, { immediate: true });
 
 // Filter visible fields based on depends_on
@@ -247,20 +261,49 @@ function getSelectOptions(field) {
 }
 
 function updateValue(fieldname, value) {
-    values.value = { ...values.value, [fieldname]: value };
+    // If value is undefined, remove key
+    if (value === undefined) {
+        const newValues = { ...values.value };
+        delete newValues[fieldname];
+        values.value = newValues;
+    } else {
+        values.value = { ...values.value, [fieldname]: value };
+    }
     emit('update:modelValue', JSON.stringify(values.value));
     validate();
 }
 
+function updateMapping(fieldname, value) {
+    if (value === undefined) {
+        const newMapping = { ...mappingValues.value };
+        delete newMapping[fieldname];
+        mappingValues.value = newMapping;
+    } else {
+        mappingValues.value = { ...mappingValues.value, [fieldname]: value };
+    }
+    emit('update:inputMapping', JSON.stringify(mappingValues.value));
+}
+
 function validate() {
-    const result = validateConfigAgainstSchema(values.value, props.schema);
+    // Note: Validation should check IF mapped OR configured for required fields
+    // This requires merging config + mapping for validation purposes
+    // Or updated validateConfigAgainstSchema to accept mappings.
+    // For now, keeping as is (checks config only). 
+    // Ideally, if a field is mapped, it should be considered "filled".
+    
+    // Merge for validation check
+    const mergedForValidation = { ...values.value, ...mappingValues.value };
+    
+    const result = validateConfigAgainstSchema(mergedForValidation, props.schema);
     validationErrors.value = result.errors || [];
     emit('validation-change', result.valid);
 }
 
 function clearAll() {
     values.value = {};
+    mappingValues.value = {};
     emit('update:modelValue', '{}');
+    emit('update:inputMapping', '{}');
     validate();
 }
 </script>

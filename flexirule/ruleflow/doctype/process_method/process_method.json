@@ -16,6 +16,9 @@
         "requires_permission",
         "version",
         "side_effects",
+        "transactional",
+        "creates_new_docs",
+        "is_managed",
         "section_break_config",
         "config_schema",
         "usage_example",
@@ -177,6 +180,30 @@
             "fieldtype": "Select",
             "label": "Side Effects",
             "options": "Pure\nModifies Doc\nExternal Call",
+            "read_only": 1
+        },
+        {
+            "default": "0",
+            "description": "Method executes database transactions that must run synchronously",
+            "fieldname": "transactional",
+            "fieldtype": "Check",
+            "label": "Transactional",
+            "read_only": 1
+        },
+        {
+            "default": "0",
+            "description": "Method creates new documents (allowed in both Sync and Async)",
+            "fieldname": "creates_new_docs",
+            "fieldtype": "Check",
+            "label": "Creates New Docs",
+            "read_only": 1
+        },
+        {
+            "default": "0",
+            "description": "System managed - synced from code",
+            "fieldname": "is_managed",
+            "fieldtype": "Check",
+            "label": "Managed by Code",
             "read_only": 1
         },
         {

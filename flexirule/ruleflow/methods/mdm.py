@@ -14,28 +14,48 @@ import frappe
 from frappe import _
 from .utils import parse_field_list
 from typing import Dict, List, Any, Optional
+from flexirule.ruleflow.decorators import process_method
 
 
 # ============================================================================
 # DATA REVIEW TASK CREATION
 # ============================================================================
 
+@process_method(
+    category="Integration",
+    side_effects="External Call",
+    creates_new_docs=True,
+    return_type="String",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "task_type",
+                "fieldtype": "Select",
+                "label": "Task Type",
+                "options": "Duplicate Review\nData Quality\nMerge Request",
+                "default": "Data Quality"
+            },
+            {
+                "fieldname": "priority",
+                "fieldtype": "Select",
+                "label": "Priority",
+                "options": "Low\nMedium\nHigh",
+                "default": "Medium"
+            },
+            {
+                "fieldname": "description",
+                "fieldtype": "Text",
+                "label": "Description"
+            }
+        ]
+    },
+    description="Create a Data Review Task (e.g., for duplicate review)."
+)
 def create_data_review_task(context, task_type='Duplicate Review', description=None,
                     priority='Medium', similarity_score=None, 
                     related_document=None, **kwargs):
     """
     Create a Data Review Task for data steward review.
-    
-    Args:
-        context: Execution context containing 'doc'
-        task_type: Type of task (Duplicate Review, Data Quality, Merge Request)
-        description: Task description (supports {doc.field_name} placeholders)
-        priority: Low, Medium, High, Critical
-        similarity_score: Similarity percentage (for duplicate detection)
-        related_document: Name of related document (for duplicate pairs)
-    
-    Returns:
-        Name of created task or None
     """
     doc = context.get('doc')
     if not doc:
@@ -83,6 +103,62 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
         return None
 
 
+@process_method(
+    category="Deduplication",
+    side_effects="External Call",
+    creates_new_docs=True,
+    return_type="List",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "overall_threshold",
+                "fieldtype": "Percent",
+                "label": "Similarity Threshold",
+                "default": 0.8
+            },
+            {
+                "fieldname": "fields_config",
+                "fieldtype": "Table",
+                "label": "Field Configuration",
+                "reqd": 1,
+                "table_fields": [
+                    {
+                        "fieldname": "field",
+                        "fieldtype": "DocField",
+                        "label": "Field",
+                        "options": "parent.document_type"
+                    },
+                    {
+                        "fieldname": "weight",
+                        "fieldtype": "Percent",
+                        "label": "Weight",
+                        "default": 1.0
+                    },
+                    {
+                        "fieldname": "algorithm",
+                        "fieldtype": "Select",
+                        "label": "Algorithm",
+                        "options": "Exact\nFuzzy\nPhonetic\nContains\nNumeric Range\nDate Distance",
+                        "default": "Exact"
+                    },
+                    {
+                        "fieldname": "tolerance",
+                        "fieldtype": "Float",
+                        "label": "Tolerance"
+                    }
+                ]
+            },
+            {
+                "fieldname": "task_type",
+                "fieldtype": "Select",
+                "label": "Task Type",
+                "options": "Duplicate Review\nData Quality",
+                "default": "Duplicate Review"
+            }
+        ]
+    },
+    description="Find duplicates and auto-create review tasks"
+)
 def find_duplicates_and_create_task(context, fields_config=None, 
                                      overall_threshold=0.8,
                                      task_type='Duplicate Review',
@@ -90,17 +166,6 @@ def find_duplicates_and_create_task(context, fields_config=None,
                                      max_tasks=5, **kwargs):
     """
     Find similar records and create Data Review Tasks for review.
-    
-    Args:
-        context: Execution context containing 'doc'
-        fields_config: Field comparison config
-        overall_threshold: Similarity threshold (0-1)
-        task_type: Type of task to create
-        priority: Task priority
-        max_tasks: Maximum number of tasks to create per document
-    
-    Returns:
-        List of created task names
     """
     doc = context.get('doc')
     if not doc or not fields_config:
@@ -160,6 +225,25 @@ def find_duplicates_and_create_task(context, fields_config=None,
 # BATCH NORMALIZATION (Background Job)
 # ============================================================================
 
+@process_method(
+    category="Transformation",
+    transactional=True,
+    side_effects="Modifies Doc",
+    return_type="Integer",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "doctype": {"type": "string"},
+            "field": {"type": "string"},
+            "target_field": {"type": "string"},
+            "transformations": {"type": ["array", "string"]},
+            "batch_size": {"type": "integer", "default": 100},
+            "filters": {"type": "object"}
+        },
+        "required": ["doctype", "field"]
+    },
+    description="Normalize all documents of a type (Synchronous/Long Running)."
+)
 def normalize_all_documents(context, doctype=None, field=None, target_field=None,
                              transformations=None, batch_size=100, 
                              filters=None, **kwargs):
@@ -216,6 +300,35 @@ def normalize_all_documents(context, doctype=None, field=None, target_field=None
     return processed
 
 
+@process_method(
+    category="Transformation",
+    side_effects="External Call",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "field",
+                "fieldtype": "DocField",
+                "label": "Source Field",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "target_field",
+                "fieldtype": "DocField",
+                "label": "Target Field",
+                "description": "Field to store result"
+            },
+            {
+                "fieldname": "transformations",
+                "fieldtype": "MultiSelect",
+                "label": "Transformations",
+                "options": "lowercase\nstrip\nremove_special\ntitle_case",
+                "default": "lowercase\nstrip"
+            }
+        ]
+    },
+    description="Normalize all documents in background"
+)
 def enqueue_normalize_all_documents(context, doctype=None, field=None, 
                                      target_field=None, transformations=None,
                                      batch_size=100, filters=None, **kwargs):
@@ -241,6 +354,20 @@ def enqueue_normalize_all_documents(context, doctype=None, field=None,
     return job
 
 
+@process_method(
+    category="Deduplication",
+    transactional=True,
+    side_effects="External Call",
+    return_type="Integer",
+    input_schema={
+        "type": "object",
+        "properties": {
+             "doctype": {"type": "string"},
+             "fields_config": {"type": "array"}
+        }
+    },
+    description="Run batch duplicate detection."
+)
 def run_batch_duplicate_detection(context, doctype=None, fields_config=None,
                                    overall_threshold=0.8, batch_size=50,
                                    create_tasks=True, **kwargs):

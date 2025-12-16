@@ -38,12 +38,7 @@ doctype_js = {
     "Rule": "ruleflow/doctype/rule/rule.js"
 }
 
-fixtures = [
-    {
-        "dt": "Process Method",
-        "filters": [["module", "=", "Ruleflow"]]
-    }
-]
+fixtures = []
 
 flexirule_excluded_doctypes = [
     "Error Log",
@@ -76,7 +71,7 @@ export_python_type_annotations = True
 flexirule_allowed_modules = [
 	"frappe.utils",
 	"frappe.model",
-	"flexirule.methods",
+
     "flexirule.ruleflow.methods.deduplication",
     "flexirule.ruleflow.methods.validation",
     "flexirule.ruleflow.methods.logging",
@@ -152,6 +147,8 @@ flexirule_allowed_modules = [
 
 # before_install = "flexirule.install.before_install"
 # after_install = "flexirule.install.after_install"
+after_install = "flexirule.ruleflow.core.registry.sync_process_methods"
+after_migrate = "flexirule.ruleflow.core.registry.sync_process_methods"
 
 # Uninstallation
 # ------------

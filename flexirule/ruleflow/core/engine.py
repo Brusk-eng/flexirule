@@ -34,6 +34,39 @@ class TimeoutException(Exception):
 	pass
 
 
+class ReadOnlyDocument:
+	"""Proxy for Document that prevents mutation"""
+	def __init__(self, doc):
+		object.__setattr__(self, "_doc", doc)
+	
+	def __getattr__(self, name):
+		return getattr(self._doc, name)
+		
+	def __getitem__(self, key):
+		return self._doc[key]
+
+	def get(self, key, default=None):
+		return self._doc.get(key, default)
+
+	def __setattr__(self, name, value):
+		raise frappe.ValidationError("Cannot mutate document in Pure method")
+			
+	def __setitem__(self, key, value):
+		raise frappe.ValidationError("Cannot mutate document in Pure method")
+		
+	def save(self, *args, **kwargs):
+		raise frappe.ValidationError("Cannot save document in Pure method")
+		
+	def insert(self, *args, **kwargs):
+		raise frappe.ValidationError("Cannot insert document in Pure method")
+		
+	def delete(self, *args, **kwargs):
+		raise frappe.ValidationError("Cannot delete document in Pure method")
+		
+	def db_set(self, *args, **kwargs):
+		raise frappe.ValidationError("Cannot db_set document in Pure method")
+
+
 @contextmanager
 def time_limit(seconds):
 	"""
@@ -233,9 +266,8 @@ class RuleEngine:
 			
 		finally:
 			# Persist Log
-			if not self.context.get('test_mode'):
-				duration = time.time() - start_time
-				self._save_execution_log(status, duration, error_detail)
+			duration = time.time() - start_time
+			self._save_execution_log(status, duration, error_detail)
 	
 	def _validate_execution(self):
 		"""Validate rule is executable"""
@@ -586,19 +618,75 @@ class RuleEngine:
 				schema = json.loads(process_method.input_schema)
 				validate(instance=config, schema=schema)
 			except (json.JSONDecodeError, SchemaValidationError) as e:
-				raise MethodExecutionError(f"Input validation failed for {process_method.method_name}: {str(e)}")
+				raise MethodExecutionError(
+					f"Input contract violation in {process_method.method_name}. "
+					f"Inputs do not match Input Schema: {str(e)}"
+				)
+
+		# Validation: Execution Mode Constraints
+		# 1. Rule Level Async Checks
+		resolved_rule_mode = self.rule.execution_mode
+		if resolved_rule_mode == 'Asynchronous' and process_method.transactional:
+			raise MethodExecutionError(
+				f"Transactional method '{process_method.method_name}' cannot be executed in Asynchronous Rule."
+			)
+
+		# 2. Action Level Async Checks (Fire & Forget Enforcement)
+		if action.is_async:
+			if action.output_mapping:
+				raise MethodExecutionError(
+					f"Async action '{action.action_label}' cannot have output mapping."
+				)
+			if action.next_step_if_true: # Note: Logic nodes control flow, Process usually just has next_step_if_true
+				raise MethodExecutionError(
+					 f"Async action '{action.action_label}' cannot contribute to flow control (next_step found)."
+				)
+			if process_method.transactional:
+				raise MethodExecutionError(
+					f"Transactional method '{process_method.method_name}' cannot be executed as Async action."
+				)
+			if process_method.side_effects == 'Modifies Doc':
+				raise MethodExecutionError(
+					 f"Method '{process_method.method_name}' that modifies document cannot be executed as Async action."
+				)
+
+		# Execution Context Preparation
+		exec_context = context
+		if process_method.side_effects == 'Pure' or action.is_async:
+			# Create a safe context with ReadOnlyDocument
+			# For Pure: Contract enforcement
+			# For Async: Race condition prevention (trigger doc must be immutable)
+			exec_context = context.copy()
+			exec_context['doc'] = ReadOnlyDocument(context['doc'])
 
 		# Execute with retry logic
 		result = self._call_method_with_retry(
 			process_method=process_method,
 			config=config,
-			context=context,
+			context=exec_context,
 			retry_count=action.retry_count or 0,
 			timeout=action.timeout or 30
 		)
+
+		# Validation: Output Schema
+		if process_method.output_schema:
+			try:
+				output_schema = json.loads(process_method.output_schema)
+				# 1. Type Check & Required Fields
+				validate(instance=result, schema=output_schema)
+				
+			except (json.JSONDecodeError, SchemaValidationError) as e:
+				raise MethodExecutionError(
+					f"Output contract violation in {process_method.method_name}. "
+					f"Result does not match Output Schema: {str(e)}"
+				)
 		
 		# Apply Output Mapping (Result -> Context)
 		if action.output_mapping:
+			# Re-verify sync enforcement (double check)
+			if action.is_async:
+				 raise MethodExecutionError("Async actions cannot map outputs")
+				 
 			apply_output_mapping(result, action.output_mapping, context)
 			
 		return result

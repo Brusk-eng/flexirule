@@ -7,13 +7,44 @@ Notification process methods for the Bolton Rule Engine
 
 import frappe
 from frappe import _
+from frappe import _
 from .utils import parse_field_list
+from flexirule.ruleflow.decorators import process_method
 
-
+@process_method(
+    category="Notification",
+    side_effects="External Call",
+    description="Send email to recipients",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "recipients",
+                "fieldtype": "Small Text",
+                "label": "Recipients",
+                "reqd": 1,
+                "description": "Email addresses (one per line)"
+            },
+            {
+                "fieldname": "subject",
+                "fieldtype": "Data",
+                "label": "Subject",
+                "reqd": 1
+            },
+            {
+                "fieldname": "message",
+                "fieldtype": "Text Editor",
+                "label": "Message",
+                "reqd": 1
+            },
+            {
+                "fieldname": "attach_document",
+                "fieldtype": "Check",
+                "label": "Attach Document PDF"
+            }
+        ]
+    }
+)
 def send_email_notification(context, recipients=None, subject=None, message=None, attach_document=False, **kwargs):
-    """
-    Send email to recipients
-    """
     doc = context.get('doc')
     
     # Parse recipients
@@ -46,6 +77,36 @@ def send_email_notification(context, recipients=None, subject=None, message=None
     return recipient_list
 
 
+@process_method(
+    category="Notification",
+    side_effects="External Call",
+    creates_new_docs=True,
+    description="Create a TODO task",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "assigned_to",
+                "fieldtype": "Link",
+                "label": "Assign To",
+                "reqd": 1,
+                "options": "User"
+            },
+            {
+                "fieldname": "description",
+                "fieldtype": "Small Text",
+                "label": "Description",
+                "reqd": 1
+            },
+            {
+                "fieldname": "priority",
+                "fieldtype": "Select",
+                "label": "Priority",
+                "options": "Low\nMedium\nHigh",
+                "default": "Medium"
+            }
+        ]
+    }
+)
 def create_todo(context, assigned_to=None, description=None, priority='Medium', **kwargs):
     """
     Create a TODO task for a user
@@ -66,6 +127,35 @@ def create_todo(context, assigned_to=None, description=None, priority='Medium', 
     return todo.name
 
 
+@process_method(
+    category="Notification",
+    side_effects="External Call",
+    creates_new_docs=True,
+    description="Create in-app notification",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "for_user",
+                "fieldtype": "Link",
+                "label": "For User",
+                "reqd": 1,
+                "options": "User"
+            },
+            {
+                "fieldname": "subject",
+                "fieldtype": "Data",
+                "label": "Subject",
+                "reqd": 1
+            },
+            {
+                "fieldname": "message",
+                "fieldtype": "Small Text",
+                "label": "Message",
+                "reqd": 1
+            }
+        ]
+    }
+)
 def create_notification_log(context, for_user=None, subject=None, message=None, **kwargs):
     """
     Create in-app notification
@@ -89,6 +179,29 @@ def create_notification_log(context, for_user=None, subject=None, message=None, 
     return notification.name
 
 
+@process_method(
+    category="Notification",
+    side_effects="External Call",
+    creates_new_docs=True,
+    description="Add a comment to the document",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "comment_text",
+                "fieldtype": "Small Text",
+                "label": "Comment",
+                "reqd": 1
+            },
+            {
+                "fieldname": "comment_type",
+                "fieldtype": "Select",
+                "label": "Type",
+                "options": "Comment\nInfo\nWorkflow",
+                "default": "Comment"
+            }
+        ]
+    }
+)
 def create_comment(context, comment_text=None, comment_type='Comment', **kwargs):
     """
     Add a comment to the document

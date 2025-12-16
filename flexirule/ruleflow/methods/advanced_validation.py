@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 """
-Advanced Validation process methods for the Bolton Rule Engine
+Advanced Validation process methods for the FlexiRule Rule Engine
 
 Includes:
 - Child table row validation
@@ -14,12 +14,62 @@ import frappe
 from frappe import _
 from .utils import parse_field_list
 from typing import Dict, List, Any, Optional
+from flexirule.ruleflow.decorators import process_method
 
 
 # ============================================================================
 # CHILD TABLE VALIDATION
 # ============================================================================
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "child_table",
+                "fieldtype": "Data",
+                "label": "Child Table Name",
+                "reqd": 1
+            },
+            {
+                "fieldname": "validations",
+                "fieldtype": "Table",
+                "label": "Validation Rules",
+                "reqd": 1,
+                "table_fields": [
+                    {
+                        "fieldname": "type",
+                        "fieldtype": "Select",
+                        "label": "Validation Type",
+                        "options": "fields_not_equal\nfields_equal\nfield_required\nfield_greater_than\neither_field_required"
+                    },
+                    {
+                        "fieldname": "field1",
+                        "fieldtype": "Data",
+                        "label": "Field 1"
+                    },
+                    {
+                        "fieldname": "field2",
+                        "fieldtype": "Data",
+                        "label": "Field 2"
+                    },
+                    {
+                        "fieldname": "value",
+                        "fieldtype": "Data",
+                        "label": "Value"
+                    },
+                    {
+                        "fieldname": "error_message",
+                        "fieldtype": "Data",
+                        "label": "Error Message"
+                    }
+                ]
+            }
+        ]
+    },
+    description="Validate rows in a child table against configured rules."
+)
 def validate_child_table_rows(context, child_table=None, validations=None, **kwargs):
     """
     Validate each row in a child table against specified rules.
@@ -177,6 +227,47 @@ def validate_child_table_rows(context, child_table=None, validations=None, **kwa
 # COMPOSITE UNIQUENESS (PARENT + CHILD)
 # ============================================================================
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "parent_fields",
+                "fieldtype": "MultiDocField",
+                "label": "Parent Fields to Match",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "child_table",
+                "fieldtype": "Data",
+                "label": "Child Table Name",
+                "reqd": 1
+            },
+            {
+                "fieldname": "child_fields",
+                "fieldtype": "MultiDocField",
+                "label": "Child Fields to Match",
+                "reqd": 1,
+                "options": "child_table"
+            },
+            {
+                "fieldname": "match_mode",
+                "fieldtype": "Select",
+                "label": "Match Mode",
+                "options": "any\nall",
+                "default": "any"
+            },
+            {
+                "fieldname": "error_message",
+                "fieldtype": "Data",
+                "label": "Error Message"
+            }
+        ]
+    },
+    description="Check for duplicates based on parent and child table fields."
+)
 def check_duplicate_with_child_fields(context, parent_fields=None, child_table=None,
                                        child_fields=None, match_mode='any',
                                        error_message=None, **kwargs):
@@ -291,6 +382,26 @@ def check_duplicate_with_child_fields(context, parent_fields=None, child_table=N
     return True
 
 
+    return True
+
+
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "date_field": {"type": "string"},
+            "child_table": {"type": "string"},
+            "party_field": {"type": "string"},
+            "amount_field": {"type": "string"},
+            "amount_tolerance": {"type": "number", "default": 0},
+            "error_message": {"type": "string"}
+        },
+        "required": ["date_field", "child_table", "party_field"]
+    },
+    description="Check for duplicate Journal Entries (Date + Party + Amount)."
+)
 def check_duplicate_with_amount(context, date_field=None, child_table=None,
                                  party_field=None, amount_field=None,
                                  amount_tolerance=0, error_message=None, **kwargs):
@@ -390,6 +501,23 @@ def check_duplicate_with_amount(context, date_field=None, child_table=None,
 # ROLE-BASED CHECKS
 # ============================================================================
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    return_type="Boolean",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "roles",
+                "fieldtype": "MultiSelect",
+                "label": "Roles",
+                "reqd": 1,
+                "options": "Role"
+            }
+        ]
+    },
+    description="Check if current user has any of the specified roles (returns True if they do)."
+)
 def check_user_has_role(context, roles=None, **kwargs):
     """
     Check if current user has any of the specified roles.
@@ -418,6 +546,19 @@ def check_user_has_role(context, roles=None, **kwargs):
     return False
 
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    return_type="Boolean",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "roles": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["roles"]
+    },
+    description="Check if current user does NOT have permitted roles (returns True if missing roles)."
+)
 def check_user_not_has_role(context, roles=None, **kwargs):
     """
     Inverse of check_user_has_role.
@@ -427,6 +568,19 @@ def check_user_not_has_role(context, roles=None, **kwargs):
     return not check_user_has_role(context, roles=roles, **kwargs)
 
 
+@process_method(
+    category="Validation",
+    side_effects="Pure",
+    return_type="Boolean",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "doctype": {"type": "string"},
+            "perm_type": {"type": "string", "enum": ["read", "write", "create", "delete", "submit", "cancel"], "default": "read"}
+        }
+    },
+    description="Check if user has specific permission on document."
+)
 def check_user_permission(context, doctype=None, perm_type='read', **kwargs):
     """
     Check if current user has specific permission on a doctype.

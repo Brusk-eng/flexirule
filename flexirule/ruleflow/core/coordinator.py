@@ -91,15 +91,22 @@ class RuleCoordinator:
 			try:
 				RuleCoordinator.execute_single_rule(doc, rule_doc)
 			except Exception as e:
-				# Log error but don't break on single rule failure
-				rule_doc.db_set('last_error', str(e))
+				# Log error
+				error_msg = str(e)
+				if len(error_msg) > 139:
+					error_msg = error_msg[:139]
+				
+				rule_doc.db_set('last_error', error_msg)
+				
 				if rule_doc.debug_mode:
 					frappe.log_error(
 						title=f"Rule Execution Failed: {rule_doc.name}",
-						message=f"DocType: {doc.doctype}\\nDoc: {doc.name}\\nError: {str(e)}"
+						message=f"DocType: {doc.doctype} Doc: {doc.name}Error: {str(e)}"
 					)
-
-	@staticmethod
+				
+				# Re-raise blocking exceptions (Stop the save)
+				if isinstance(e, frappe.ValidationError):
+					raise e@staticmethod
 	def check_eligibility(rule_doc, doc, event_name, execution_mode='Synchronous') -> tuple[bool, str]:
 		"""
 		Strict V1 Contract Eligibility Check
@@ -135,8 +142,11 @@ class RuleCoordinator:
 		if rule_doc.trigger_filters:
 			try:
 				# Safe Eval
-				if not frappe.safe_eval(rule_doc.trigger_filters, None, {'doc': doc, 'frappe': frappe}):
-					return False, "Trigger Filters (Python) evaluated to False"
+		# Expose doc fields directly for convenience (e.g. 'status == "Open"')
+				eval_globals = {'doc': doc, 'frappe': frappe}
+				eval_globals.update(doc.as_dict())
+				
+				if not frappe.safe_eval(rule_doc.trigger_filters, None, eval_globals):					return False, "Trigger Filters (Python) evaluated to False"
 			except Exception as e:
 				return False, f"Trigger Filters Error: {str(e)}"
 

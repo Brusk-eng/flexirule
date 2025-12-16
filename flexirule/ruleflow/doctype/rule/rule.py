@@ -22,6 +22,7 @@ class Rule(Document):
         debug_mode: DF.Check
         description: DF.Text | None
         document_type: DF.Link
+        trigger_filters: DF.Code | None
         execution_count: DF.Int
         execution_mode: DF.Literal["Synchronous", "Asynchronous"]
         is_active: DF.Check
@@ -32,9 +33,7 @@ class Rule(Document):
         priority: DF.Int
         rule_name: DF.Data
         skip_for_roles: DF.TableMultiSelect[HasRole]
-        trigger_condition: DF.Code | None
         trigger_event: DF.Literal["Before Insert", "Before Save", "Validate", "After Insert", "After Save", "Before Submit", "On Submit", "Before Cancel", "On Cancel", "On Trash"]
-        trigger_filters: DF.Code | None
     # end: auto-generated types
     def validate(self):
         """
@@ -86,73 +85,56 @@ class Rule(Document):
             validate_graph_integrity(self)
 
 @frappe.whitelist()
-def test_rule(rule_name, document_json=None, doc_name=None):
+def test_rule(rule_name, doctype=None, docname=None, document_json=None):
     """
-    Dry-run a rule against a provided document or existing document.
-    Returns the execution log and context.
-    
-    Args:
-        rule_name (str): Name of the Rule to test
-        document_json (str, optional): JSON string of the document to test against
-        doc_name (str, optional): Name of existing document to test against (if document_json not provided)
+    Test a rule against a document.
+    Supports either an existing document (by docname) or a transient document (by document_json).
     """
     import json
-    from flexirule.ruleflow.core.engine import RuleEngine
     
-    if not frappe.has_permission("Rule", "read"):
-        frappe.throw("Insufficient permissions to test rules")
-
-    try:
-        rule = frappe.get_doc("Rule", rule_name)
-    except frappe.DoesNotExistError:
-        frappe.throw(f"Rule {rule_name} not found")
-
-    # effective_doc will be the document we test against
-    effective_doc = None
+    rule = frappe.get_doc("Rule", rule_name)
     
-    if document_json:
-        try:
-            doc_dict = json.loads(document_json)
-            # Create a transient document structure (not saved)
-            if not doc_dict.get("doctype"):
-                doc_dict["doctype"] = rule.document_type
-            effective_doc = frappe.get_doc(doc_dict)
-        except json.JSONDecodeError:
-            frappe.throw("Invalid Document JSON")
-    elif doc_name:
-        if not frappe.db.exists(rule.document_type, doc_name):
-            frappe.throw(f"Document {doc_name} of type {rule.document_type} not found")
-        effective_doc = frappe.get_doc(rule.document_type, doc_name)
+    if docname:
+        doc = frappe.get_doc(doctype, docname)
+    elif document_json:
+        doc_data = json.loads(document_json)
+        doc = frappe.get_doc(doc_data)
+        # Transient docs might need to be 'local'
+        doc.flags.ignore_permissions = True
     else:
-        frappe.throw("Please provide either a Document JSON or a Document Name")
-
-    # Initialize Engine in Test Mode
-    # test_mode = True prevents side-effects (like DB updates committed) 
-    # and ensures execution log is returned but not necessarily persisted if we chose not to.
-    # However, our engine now persists logs even in test_mode if we want, 
-    # but let's say for dry-run we want to see the result.
+        frappe.throw("Either docname or document_json must be provided")
     
-    # We explicitly set test_mode=True to avoid stats updates and potential commits
-    context = {"test_mode": True}
-    engine = RuleEngine(rule, execution_context=context)
+    from flexirule.ruleflow.core.coordinator import RuleCoordinator
+    
+    # Capture logs if possible? 
+    # The requirement was "return execution logs". 
+    # Coordinator runs it and creates Logs in DB if configured? 
+    # Or should we intercept?
+    # For now, let's run it. The Coordinator's execute_single_rule creates Rule Execution Log if not in test_mode?
+    # Actually, let's capture the result of the engine execution if possible, but coordinator returns None.
+    # We can check the latest log for this rule/doc combination.
     
     try:
-        result_context = engine.execute(effective_doc)
+        RuleCoordinator.execute_single_rule(doc, rule)
         
-        # Extract relevant info for the UI
+        # Fetch the latest log
+        logs = frappe.get_all("Rule Execution Log", 
+                             filters={"rule": rule_name, "reference_docname": doc.name},
+                             order_by="creation desc",
+                             limit=1,
+                             fields=["status", "message", "execution_path"])
+        
+        log_data = logs[0] if logs else {}
+        
         return {
-            "status": "Success",
-            "execution_log": engine.execution_log, # Text logs
-            "path_trace": engine.path_trace,       # Visual path
-            "final_context": {
-                k: v for k, v in result_context.get('vars', {}).items() 
-                if isinstance(v, (str, int, float, bool, list, dict, type(None)))
-            }
+            "success": True,
+            "status": log_data.get("status", "Success"),
+            "execution_log": log_data,
+            "message": f"Rule {rule_name} executed."
         }
     except Exception as e:
         return {
+            "success": False,
             "status": "Failed",
-            "error": str(e),
-            "execution_log": engine.execution_log,
-            "path_trace": getattr(engine, 'path_trace', [])
+            "error": str(e)
         }

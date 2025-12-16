@@ -18,6 +18,16 @@ class TestBoltonAPI(unittest.TestCase):
         """Setup test data"""
         frappe.set_user('Administrator')
         
+        # ensure process method exists (might be pruned by other tests)
+        if not frappe.db.exists('Process Method', 'flexirule.ruleflow.methods.enrichment.set_default_value'):
+            frappe.get_doc({
+                "doctype": "Process Method",
+                "method_name": "set_default_value",
+                "method_path": "flexirule.ruleflow.methods.enrichment.set_default_value",
+                "is_managed": 0, # Unmanaged to avoid pruning
+                "category": "Enrichment"
+            }).insert()
+
         # Create test rule
         if not frappe.db.exists('Rule', 'Test API Rule'):
             self.rule = frappe.get_doc({
@@ -25,7 +35,15 @@ class TestBoltonAPI(unittest.TestCase):
                 'rule_name': 'Test API Rule',
                 'document_type': 'ToDo',
                 'trigger_event': 'Validate',
-                'is_active': 1
+                'is_active': 1,
+                'actions': [{
+                    'action_type': 'Process',
+                    'action_label': 'Test Action',
+                    'action_id': 'action_1',
+                    'process_method': 'flexirule.ruleflow.methods.enrichment.set_default_value',
+                    'method_config': json.dumps({'field': 'priority', 'default_value': 'Medium'}),
+                    'is_entry_action': 1
+                }]
             })
             self.rule.insert(ignore_permissions=True)
         else:

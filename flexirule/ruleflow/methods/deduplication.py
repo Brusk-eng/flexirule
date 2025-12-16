@@ -10,19 +10,13 @@ import frappe
 from frappe import _
 from .utils import parse_field_list
 from typing import Dict, List, Any, Optional
+from rapidfuzz import process, fuzz
+from flexirule.ruleflow.decorators import process_method
 
 
 # ============================================================================
 # RAPIDFUZZ BULK MATCHING
 # ============================================================================
-
-def get_rapidfuzz_process():
-    """Get rapidfuzz.process module for bulk matching"""
-    try:
-        from rapidfuzz import process, fuzz
-        return process, fuzz
-    except ImportError:
-        return None, None
 
 
 def get_phonetic_scorer():
@@ -79,6 +73,138 @@ def _build_blocking_filters(doc, blocking_fields):
 # MAIN DEDUPLICATION METHODS
 # ============================================================================
 
+@process_method(
+    category="Deduplication",
+    side_effects="Pure",
+    return_type="List",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "fields_config": {
+                "type": "array",
+                "title": "Field Matching Configuration",
+                "description": "List of fields to match with algorithms and weights.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "fieldname": {"type": "string", "title": "Field Name"},
+                        "algorithm": {
+                            "type": "string", 
+                            "title": "Algorithm",
+                            "enum": ["Fuzzy", "Exact", "Contains", "Phonetic", "Numeric Range", "Date Distance"],
+                            "default": "Fuzzy"
+                        },
+                        "weight": {"type": "number", "title": "Weight (0.0-1.0)", "default": 1.0},
+                        "threshold": {"type": "number", "title": "Match Threshold (0.0-1.0)", "default": 0.8},
+                        "normalize": {"type": "boolean", "title": "Normalize Text", "default": True},
+                        "tolerance": {"type": "number", "title": "Tolerance (Days/Val)", "description": "For Date/Numeric"}
+                    },
+                    "required": ["fieldname"]
+                }
+            },
+            "overall_threshold": {"type": "number", "title": "Overall Threshold (0.0-1.0)", "default": 0.8},
+            "minimum_fields_matched": {"type": "integer", "title": "Min Fields Matched", "default": 1},
+            "stop_after_first_match": {"type": "boolean", "title": "Stop After First Match", "default": False}
+        }
+    },
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "overall_threshold",
+                "fieldtype": "Float",
+                "label": "Overall Threshold",
+                "default": 0.8,
+                "description": "Minimum weighted similarity score (0-1)"
+            },
+            {
+                "fieldname": "minimum_fields_matched",
+                "fieldtype": "Int",
+                "label": "Min Fields to Match",
+                "default": 1
+            },
+            {
+                "fieldname": "stop_after_first_match",
+                "fieldtype": "Check",
+                "label": "Stop After First Match",
+                "default": 0
+            },
+            {
+                "fieldname": "fields_config",
+                "fieldtype": "Table",
+                "label": "Field Comparison Rules",
+                "reqd": 1,
+                "options": "Dedupe Field Config"
+            }
+        ],
+        "child_tables": {
+            "Dedupe Field Config": [
+                {
+                    "fieldname": "fieldname",
+                    "fieldtype": "DocField",
+                    "label": "Field",
+                    "reqd": 1,
+                    "options": "parent.document_type"
+                },
+                {
+                    "fieldname": "algorithm",
+                    "fieldtype": "Select",
+                    "label": "Algorithm",
+                    "options": "Exact\nFuzzy\nPhonetic\nContains\nNumeric Range\nDate Distance",
+                    "reqd": 1,
+                    "default": "Fuzzy"
+                },
+                {
+                    "fieldname": "weight",
+                    "fieldtype": "Float",
+                    "label": "Weight",
+                    "default": 0.2,
+                    "precision": 2
+                },
+                {
+                    "fieldname": "threshold",
+                    "fieldtype": "Float",
+                    "label": "Threshold",
+                    "default": 0.8,
+                    "precision": 2,
+                    "description": "Min score for this field (0-1)"
+                },
+                {
+                    "fieldname": "tolerance",
+                    "fieldtype": "Int",
+                    "label": "Tolerance",
+                    "default": 30,
+                    "description": "For Date Distance: +/- days. For Numeric Range: % difference"
+                },
+                {
+                    "fieldname": "normalize",
+                    "fieldtype": "Check",
+                    "label": "Normalize",
+                    "default": 1
+                },
+                {
+                    "fieldname": "included_in_filters",
+                    "fieldtype": "Check",
+                    "label": "Use for Blocking",
+                    "default": 1,
+                    "description": "Use this field in initial candidate filtering"
+                }
+            ]
+        },
+        "output_schema": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "score": {"type": "number"},
+                    "fields": {"type": "object"}
+                }
+            }
+        }
+
+    },
+    description="Find similar records using configurable algorithms with blocking strategy and weighted scoring"
+)
 def find_similar_records(context, overall_threshold=0.8, minimum_fields_matched=1,
                          stop_after_first_match=False, fields_config=None, 
                          fields=None, similarity_threshold=80, **kwargs):
@@ -114,17 +240,7 @@ def find_similar_records(context, overall_threshold=0.8, minimum_fields_matched=
     
     if not fields_config:
         return []
-    
-    # Get rapidfuzz
-    process, fuzz = get_rapidfuzz_process()
-    if not process:
-        frappe.logger().warning("rapidfuzz not installed, using fallback matching")
-        return _find_similar_records_fallback(context, overall_threshold, 
-                                               minimum_fields_matched, 
-                                               stop_after_first_match, 
-                                               fields_config)
-    
-    # Build blocking query
+ 
     blocking_filters = _build_blocking_filters(doc, fields_config)
     
     if doc.name:
@@ -315,10 +431,7 @@ def _find_similar_records_bulk(context, fields, similarity_threshold):
     
     threshold = similarity_threshold if similarity_threshold <= 1 else similarity_threshold / 100
     
-    process, fuzz = get_rapidfuzz_process()
-    if not process:
-        return find_duplicates_by_fields(context, fields=fields)
-    
+   
     # Fetch candidates
     try:
         candidates = frappe.get_all(
@@ -370,79 +483,31 @@ def _find_similar_records_bulk(context, fields, similarity_threshold):
     return sorted(matches, key=lambda x: x['score'], reverse=True)
 
 
-def _find_similar_records_fallback(context, overall_threshold, minimum_fields_matched,
-                                    stop_after_first_match, fields_config):
-    """Fallback when rapidfuzz is not available"""
-    doc = context.get('doc')
-    
-    blocking_filters = _build_blocking_filters(doc, fields_config)
-    if doc.name:
-        blocking_filters['name'] = ['!=', doc.name]
-    blocking_filters['docstatus'] = ['!=', 2]
-    
-    all_fieldnames = list(set(['name'] + [f['fieldname'] for f in fields_config]))
-    
-    try:
-        candidates = frappe.get_all(
-            doc.doctype,
-            filters=blocking_filters,
-            fields=all_fieldnames,
-            limit=500
-        )
-    except Exception:
-        return []
-    
-    matches = []
-    total_weight = sum(f.get('weight', 1.0) for f in fields_config)
-    
-    for candidate in candidates:
-        weighted_score = 0.0
-        fields_matched = 0
-        field_scores = {}
-        
-        for field_cfg in fields_config:
-            fieldname = field_cfg['fieldname']
-            algorithm = field_cfg.get('algorithm', 'Exact')
-            weight = field_cfg.get('weight', 1.0)
-            threshold = field_cfg.get('threshold', 0.8)
-            normalize = field_cfg.get('normalize', True)
-            
-            val1 = doc.get(fieldname)
-            val2 = candidate.get(fieldname)
-            
-            if not val1 or not val2:
-                continue
-            
-            if normalize:
-                val1, val2 = _normalize(val1), _normalize(val2)
-            
-            # Simple exact match fallback
-            score = 1.0 if str(val1).lower() == str(val2).lower() else 0.0
-            
-            field_scores[fieldname] = round(score * 100, 1)
-            weighted_score += score * weight
-            
-            if score >= threshold:
-                fields_matched += 1
-        
-        if total_weight > 0:
-            final_score = weighted_score / total_weight
-        else:
-            final_score = 0.0
-        
-        if final_score >= overall_threshold and fields_matched >= minimum_fields_matched:
-            matches.append({
-                'name': candidate.name,
-                'score': round(final_score * 100, 1),
-                'fields': field_scores
-            })
-            
-            if stop_after_first_match:
-                break
-    
-    return sorted(matches, key=lambda x: x['score'], reverse=True)
 
 
+@process_method(
+    category="Deduplication", 
+    side_effects="Pure",
+    return_type="List",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "fields",
+                "fieldtype": "MultiDocField",
+                "label": "Fields to Match",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "ignore_cancelled",
+                "fieldtype": "Check",
+                "label": "Ignore Cancelled",
+                "default": 1
+            }
+        ]
+    },
+    description="Find exact duplicate records"
+)
 def find_duplicates_by_fields(context, fields=None, ignore_cancelled=True, **kwargs):
     """Find exact duplicate records based on field values"""
     doc = context.get('doc')
@@ -466,6 +531,23 @@ def find_duplicates_by_fields(context, fields=None, ignore_cancelled=True, **kwa
     return duplicates
 
 
+@process_method(
+    category="Deduplication", 
+    side_effects="Pure",
+    return_type="Boolean",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "fields",
+                "fieldtype": "MultiDocField",
+                "label": "Unique Fields",
+                "reqd": 1,
+                "options": "parent.document_type"
+            }
+        ]
+    },
+    description="Block save if duplicate exists"
+)
 def check_duplicate_and_prevent_save(context, fields=None, **kwargs):
     """Block save if duplicate exists"""
     doc = context.get('doc')
@@ -483,6 +565,22 @@ def check_duplicate_and_prevent_save(context, fields=None, **kwargs):
     return True
 
 
+@process_method(
+    category="Deduplication", 
+    side_effects="Modifies Doc",
+    return_type="String",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "master_document",
+                "fieldtype": "Data",
+                "label": "Master Document",
+                "reqd": 1
+            }
+        ]
+    },
+    description="Mark document as duplicate of another"
+)
 def mark_as_duplicate(context, master_document=None, **kwargs):
     """Mark document as duplicate of another"""
     doc = context.get('doc')
@@ -498,6 +596,31 @@ def mark_as_duplicate(context, master_document=None, **kwargs):
     return master_document
 
 
+@process_method(
+    category="Deduplication",
+    side_effects="Pure",
+    return_type="List",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "child_table_field",
+                "fieldtype": "DocField",
+                "label": "Child Table (e.g. phone_nos)",
+                "reqd": 1,
+                "options": "parent.document_type"
+            },
+            {
+                "fieldname": "child_search_field",
+                "fieldtype": "Data",
+                "label": "Field to Check (e.g. phone)",
+                "reqd": 1,
+                "description": "Fieldname inside the child table"
+            }
+        ]
+    },
+
+    description="Find duplicates based on values in a child table (e.g., Phone Numbers, Addresses)"
+)
 def find_duplicates_in_child_table(context, child_table_field, child_search_field, **kwargs):
     """
     Find duplicates based on values in a child table.
@@ -545,6 +668,108 @@ def find_duplicates_in_child_table(context, child_table_field, child_search_fiel
     return duplicates
 
 
+@process_method(
+    category="Deduplication", 
+    side_effects="Pure",
+    return_type="List",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "overall_threshold",
+                "fieldtype": "Float",
+                "label": "Overall Threshold",
+                "default": 0.8,
+                "description": "Minimum weighted similarity score (0-1)"
+            },
+            {
+                "fieldname": "minimum_fields_matched",
+                "fieldtype": "Int",
+                "label": "Min Fields to Match",
+                "default": 1
+            },
+            {
+                "fieldname": "stop_after_first_match",
+                "fieldtype": "Check",
+                "label": "Stop After First Match",
+                "default": 0
+            },
+            {
+                "fieldname": "fields_config",
+                "fieldtype": "Table",
+                "label": "Field Comparison Rules",
+                "reqd": 1,
+                "options": "Dedupe Field Config"
+            }
+        ],
+        "child_tables": {
+            "Dedupe Field Config": [
+                {
+                    "fieldname": "fieldname",
+                    "fieldtype": "DocField",
+                    "label": "Field",
+                    "reqd": 1,
+                    "options": "parent.document_type"
+                },
+                {
+                    "fieldname": "algorithm",
+                    "fieldtype": "Select",
+                    "label": "Algorithm",
+                    "options": "Exact\nFuzzy\nPhonetic\nContains\nNumeric Range\nDate Distance",
+                    "reqd": 1,
+                    "default": "Fuzzy"
+                },
+                {
+                    "fieldname": "weight",
+                    "fieldtype": "Float",
+                    "label": "Weight",
+                    "default": 0.2,
+                    "precision": 2
+                },
+                {
+                    "fieldname": "threshold",
+                    "fieldtype": "Float",
+                    "label": "Threshold",
+                    "default": 0.8,
+                    "precision": 2,
+                    "description": "Min score for this field (0-1)"
+                },
+                {
+                    "fieldname": "tolerance",
+                    "fieldtype": "Int",
+                    "label": "Tolerance",
+                    "default": 30,
+                    "description": "For Date Distance: +/- days. For Numeric Range: % difference"
+                },
+                {
+                    "fieldname": "normalize",
+                    "fieldtype": "Check",
+                    "label": "Normalize",
+                    "default": 1
+                },
+                {
+                    "fieldname": "included_in_filters",
+                    "fieldtype": "Check",
+                    "label": "Use for Blocking",
+                    "default": 1,
+                    "description": "Use this field in initial candidate filtering"
+                }
+            ]
+        },
+        "output_schema": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "score": {"type": "number"},
+                    "fields": {"type": "object"}
+                }
+            }
+        }
+    },
+
+    description="Find similar records (fuzzy match) and prevents save if any are found"
+)
 def check_similar_and_prevent_save(context, **kwargs):
     """
     Find similar records (fuzzy match) and prevent save if any are found.
