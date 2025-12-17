@@ -25,6 +25,8 @@ def execute_rules(doc, method=None):
     Hook wrapper to execute rules for a document.
     This is a MODULE-LEVEL function that can be called from hooks.py
     """
+    # TODO : Must have a check fieldtype to allow run Rule in_import and default to disallow.
+    # TODO : 
     if frappe.flags.in_import or frappe.flags.in_migrate:
         return
     

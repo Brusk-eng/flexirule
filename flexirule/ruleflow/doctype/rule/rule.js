@@ -19,6 +19,7 @@ frappe.ui.form.on('Rule', {
             }, __('Actions'));
 
             // JSON helpers
+            // TODO : It is Not working find out how erpnext for customer.js done it and apply same 
             add_json_helpers(frm);
             if (!frm.dashboard) {
                 frm.dashboard = new frappe.ui.form.Dashboard({
@@ -58,7 +59,10 @@ frappe.ui.form.on('Rule', {
     }
 });
 
+
 frappe.ui.form.on('Rule Action', {
+    // TODO : this is a child doctype inside parent and must be aligin with frappe child doctype js 
+    // TODO : New Implementation Introduced for action_type and we must apply and make form effective.
     refresh(frm) {
         frm.trigger('toggle_fields');
     },

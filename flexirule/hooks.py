@@ -69,6 +69,7 @@ export_python_type_annotations = True
 # Allow List for Process Methods (Security)
 # Only modules starting with these prefixes can be used in Process Methods
 flexirule_allowed_modules = [
+    #TODO : Must be Deprected and its dependency code must be updated    
 	"frappe.utils",
 	"frappe.model",
 

@@ -81,7 +81,7 @@ def time_limit(seconds):
 	# The timeout is enforced in _execute_with_timeout method
 	yield
 
-
+# TODO : Explore frappe source code to find if they have a similar implementation and use it instead Introduced for SafeFrappeAPI
 class SafeFrappeAPI:
 	"""
 	Restricted Frappe API proxy for rule condition evaluation.

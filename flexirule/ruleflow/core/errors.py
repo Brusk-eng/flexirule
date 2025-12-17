@@ -7,7 +7,7 @@ User-friendly error handling for Bolton Rule Engine
 
 import frappe
 from frappe import _
-
+#TODO : find if this files are needed or not 
 
 class BoltonError(Exception):
     """Base Bolton error with user-friendly message"""

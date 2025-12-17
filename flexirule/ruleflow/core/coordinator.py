@@ -57,6 +57,7 @@ class RuleCoordinator:
 			doc: Frappe document
 			event_name: Event that triggered execution (before_save, validate, etc.)
 		"""
+		# TODO : after allowing in_import We must have optimized way to get rules with allowed in_import 
 		# Skip during import/migration
 		if frappe.flags.in_import or frappe.flags.in_migrate:
 			return
