@@ -53,11 +53,12 @@ from flexirule.ruleflow.decorators import process_method
 )
 def create_data_review_task(context, task_type='Duplicate Review', description=None,
                     priority='Medium', similarity_score=None, 
-                    related_document=None, **kwargs):
+                    related_document=None, process_method=None, method_inputs=None, **kwargs):
     """
     Create a Data Review Task for data steward review.
     """
     doc = context.get('doc')
+    rule = context.get('rule')
     if not doc:
         return None
     
@@ -83,6 +84,16 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
     task.description = description
     task.source_doctype = doc.doctype
     task.source_document = doc.name
+    task.context_json = frappe.as_json(doc.as_dict())
+    
+    if rule:
+        task.rule = rule.name
+        
+    if process_method:
+        task.process_method = process_method
+        
+    if method_inputs:
+        task.method_inputs = frappe.as_json(method_inputs) if isinstance(method_inputs, (dict, list)) else method_inputs
     
     if similarity_score:
         task.similarity_score = similarity_score
@@ -90,8 +101,9 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
     # Add related document if provided
     if related_document and hasattr(task, 'related_documents'):
         task.append('related_documents', {
-            'doctype_name': doc.doctype,
-            'document_name': related_document
+            'related_doctype': doc.doctype,
+            'related_document': related_document,
+            'reason': 'Duplicate Candidate'
         })
     
     try:

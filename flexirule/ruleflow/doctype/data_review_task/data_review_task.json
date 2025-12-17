@@ -11,7 +11,13 @@
         "column_break_1",
         "source_doctype",
         "source_document",
+        "source_document",
+        "rule",
+        "context_json",
         "similarity_score",
+        "section_break_method",
+        "process_method",
+        "method_inputs",
         "section_break_description",
         "description",
         "section_break_related",
@@ -76,6 +82,39 @@
             "label": "Similarity Score",
             "description": "Match percentage for duplicate detection",
             "in_list_view": 1
+        },
+        {
+            "fieldname": "rule",
+            "fieldtype": "Link",
+            "label": "Rule",
+            "options": "Rule",
+            "in_standard_filter": 1
+        },
+        {
+            "fieldname": "context_json",
+            "fieldtype": "Code",
+            "label": "Context Snapshot",
+            "options": "JSON",
+            "description": "Snapshot of rule context when task was created"
+        },
+        {
+            "fieldname": "section_break_method",
+            "fieldtype": "Section Break",
+            "label": "Resolution Method"
+        },
+        {
+            "fieldname": "process_method",
+            "fieldtype": "Link",
+            "label": "Process Method",
+            "options": "Process Method",
+            "description": "Suggested method to resolve this task"
+        },
+        {
+            "fieldname": "method_inputs",
+            "fieldtype": "Code",
+            "label": "Method Inputs",
+            "options": "JSON",
+            "description": "Pre-configured inputs for the resolution method"
         },
         {
             "fieldname": "section_break_description",

@@ -7,7 +7,8 @@
     "field_order": [
         "related_doctype",
         "related_document",
-        "similarity_score"
+        "similarity_score",
+        "reason"
     ],
     "fields": [
         {
@@ -30,6 +31,12 @@
             "fieldname": "similarity_score",
             "fieldtype": "Percent",
             "label": "Similarity Score"
+        },
+        {
+            "fieldname": "reason",
+            "fieldtype": "Small Text",
+            "label": "Reason",
+            "description": "Why this document is related (e.g., specific field match)"
         }
     ],
     "istable": 1,

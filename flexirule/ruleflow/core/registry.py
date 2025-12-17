@@ -78,7 +78,7 @@ def _sync_single_method(module_name, func_name, func):
     # Prepare data
     doc_data = {
         "method_name": metadata.get("method_name") or frappe.unscrub(func_name),
-        "module": "FlexiRule",
+        "module": "Ruleflow",
         "category": metadata.get("category", "Custom"),
         "method_path": method_path,
         "return_type": metadata.get("return_type", "None"),
