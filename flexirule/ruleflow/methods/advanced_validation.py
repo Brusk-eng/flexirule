@@ -128,7 +128,7 @@ def validate_child_table_rows(context, child_table=None, validations=None, **kwa
     for idx, row in enumerate(rows, start=1):
         for validation in validations:
             v_type = validation.get('type')
-            error_msg = validation.get('error_message', 'Validation failed')
+            error_msg = validation.get('error_message', _('Validation failed'))
             
             if v_type == 'fields_not_equal':
                 field1 = validation.get('field1')

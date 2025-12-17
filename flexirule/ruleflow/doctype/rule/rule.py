@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe import _
 from frappe.model.document import Document
 from flexirule.ruleflow.utils.schema_validator import validate_config
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
@@ -62,11 +63,11 @@ class Rule(Document):
         try:
             json.loads(json_str)
         except json.JSONDecodeError as e:
-            frappe.throw(f"Invalid JSON in {label}: {str(e)}")
+            frappe.throw(_("Invalid JSON in {0}: {1}").format(label, str(e)))
 
     def _validate_action_config(self, action):
         if not frappe.db.exists("Process Method", action.process_method):
-            frappe.throw(f"Process Method not found: {action.process_method}")
+            frappe.throw(_("Process Method not found: {0}").format(action.process_method))
             
         method = frappe.get_cached_doc("Process Method", action.process_method)
         
@@ -102,7 +103,7 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
         # Transient docs might need to be 'local'
         doc.flags.ignore_permissions = True
     else:
-        frappe.throw("Either docname or document_json must be provided")
+        frappe.throw(_("Either docname or document_json must be provided"))
     
     from flexirule.ruleflow.core.coordinator import RuleCoordinator
     

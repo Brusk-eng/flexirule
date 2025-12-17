@@ -33,10 +33,10 @@ def sync_process_methods():
                         count += 1
                         found_methods.add(f"{module_name}.{name}")
                     except Exception as e:
-                        frappe.log_error("Process Method Sync Error", f"Failed to sync {module_name}.{name}: {str(e)}")
+                        frappe.log_error(_("Process Method Sync Error"), f"Failed to sync {module_name}.{name}: {str(e)}")
                         errors += 1
                         print(f"Failed to sync {module_name}.{name}: {str(e)}")
-                        
+
         except ImportError:
             print(f"Could not import module: {module_name}")
             errors += 1
@@ -55,7 +55,12 @@ def sync_process_methods():
     if methods_to_delete:
         print(f"Pruning {len(methods_to_delete)} orphaned methods...")
         for path in methods_to_delete:
-            #TODO : Must have a way of marking rule depending on it as invalid also Data Quality Task must be notified and any other DocType that depends on it
+            # Check for dependencies before deleting
+            if frappe.db.count("Rule Action", filters={"process_method": path}) > 0:
+                print(f"Skipping {path}: Used in active Rules. Please remove usage first.")
+                errors += 1
+                continue
+                
             frappe.delete_doc("Process Method", path, force=1)
             print(f"Deleted {path}")
 
@@ -73,7 +78,7 @@ def _sync_single_method(module_name, func_name, func):
     # Prepare data
     doc_data = {
         "method_name": metadata.get("method_name") or frappe.unscrub(func_name),
-        "module": "Ruleflow", # TODO: must be set to ModuleDef Now is Default module
+        "module": "FlexiRule",
         "category": metadata.get("category", "Custom"),
         "method_path": method_path,
         "return_type": metadata.get("return_type", "None"),

@@ -19,7 +19,7 @@ def validate_config(config_json, schema_json):
     try:
         from jsonschema import validate, ValidationError
     except ImportError:
-        frappe.throw("jsonschema library not found. Please pip install jsonschema")
+        frappe.throw(_("jsonschema library not found. Please pip install jsonschema"))
 
     # Parse inputs if they are strings
     config = _parse_json(config_json)

@@ -19,8 +19,8 @@ frappe.ui.form.on('Rule', {
             }, __('Actions'));
 
             // JSON helpers
-            // TODO : It is Not working find out how erpnext for customer.js done it and apply same 
-            add_json_helpers(frm);
+            // Ensure wrapper exists before adding buttons
+            setTimeout(() => add_json_helpers(frm), 500);
             if (!frm.dashboard) {
                 frm.dashboard = new frappe.ui.form.Dashboard({
                     parent: frm.fields_dict ? frm.fields_dict['name'].$wrapper : frm.wrapper,
@@ -61,8 +61,7 @@ frappe.ui.form.on('Rule', {
 
 
 frappe.ui.form.on('Rule Action', {
-    // TODO : this is a child doctype inside parent and must be aligin with frappe child doctype js 
-    // TODO : New Implementation Introduced for action_type and we must apply and make form effective.
+    // Child table logic aligned with Frappe standard
     refresh(frm) {
         frm.trigger('toggle_fields');
     },
@@ -73,37 +72,26 @@ frappe.ui.form.on('Rule Action', {
 
     toggle_fields(frm) {
         const type = frm.doc.action_type;
+        const fields_to_hide = [
+            'process_method', 'method_config', 'timeout', 'retry_count', 'is_async', 'on_error',
+            'condition_expression', 'next_step_if_false', 'switch_expression', 'loop_expression',
+            'wait_duration', 'sub_rule'
+        ];
 
-        frm.toggle_display([
-            'process_method',
-            'method_config',
-            'timeout',
-            'retry_count',
-            'is_async',
-            'on_error',
-            'condition_expression',
-            'next_step_if_false',
-            'switch_expression',
-            'loop_expression',
-            'wait_duration',
-            'sub_rule'
-        ], false);
+        frm.toggle_display(fields_to_hide, false);
 
         if (type === 'Process') {
-            frm.toggle_display(
-                ['process_method', 'method_config', 'timeout', 'retry_count', 'is_async', 'on_error'],
-                true
-            );
+            frm.toggle_display(['process_method', 'method_config', 'timeout', 'retry_count', 'is_async', 'on_error'], true);
         } else if (type === 'Condition') {
             frm.toggle_display(['condition_expression', 'next_step_if_false'], true);
         } else if (type === 'Switch') {
-            frm.toggle_display(['condition_expression'], true);
+            frm.toggle_display(['switch_expression'], true);
         } else if (type === 'Loop') {
-            frm.toggle_display(['condition_expression'], true);
+            frm.toggle_display(['loop_expression'], true);
         } else if (type === 'Wait') {
-            frm.toggle_display(['timeout'], true);
+            frm.toggle_display(['wait_duration'], true);
         } else if (type === 'Sub-Rule') {
-            frm.toggle_display(['process_method'], true);
+            frm.toggle_display(['sub_rule'], true);
         }
     }
 });
@@ -127,7 +115,7 @@ function add_json_helpers(frm) {
 
         const $btn = $(`
             <button class="btn btn-xs btn-default format-btn" style="margin-top:5px">
-                <i class="fa fa-align-left"></i> Format
+                <i class="fa fa-align-left"></i> ${__('Format')}
             </button>
         `);
 
@@ -139,7 +127,7 @@ function add_json_helpers(frm) {
                     2
                 );
                 frm.set_value(fieldname, formatted);
-            } catch {}
+            } catch { }
         });
 
         field.$wrapper.find('.control-value').append($btn);

@@ -12,6 +12,9 @@
         "severity",
         "status",
         "assigned_to",
+        "section_break_method",
+        "process_method",
+        "method_inputs",
         "section_break_message",
         "message",
         "details_json",
@@ -77,6 +80,25 @@
             "fieldtype": "Link",
             "label": "Assigned To",
             "options": "User"
+        },
+        {
+            "fieldname": "section_break_method",
+            "fieldtype": "Section Break",
+            "label": "Resolution Method"
+        },
+        {
+            "fieldname": "process_method",
+            "fieldtype": "Link",
+            "label": "Process Method",
+            "options": "Process Method",
+            "description": "Method to resolve this issue"
+        },
+        {
+            "fieldname": "method_inputs",
+            "fieldtype": "Code",
+            "label": "Method Inputs",
+            "options": "JSON",
+            "description": "Inputs for the resolution method"
         },
         {
             "fieldname": "section_break_message",

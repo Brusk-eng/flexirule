@@ -63,7 +63,7 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
     
     # Check if Data Review Task doctype exists
     if not frappe.db.exists('DocType', 'Data Review Task'):
-        frappe.log_error("Data Review Task DocType not found. Please create it first.")
+        frappe.log_error(_("Data Review Task DocType not found. Please create it first."))
         return None
     
     # Parse description with placeholders
@@ -99,7 +99,7 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
         frappe.db.commit()
         return task.name
     except Exception as e:
-        frappe.log_error(f"Failed to create Data Review task: {e}")
+        frappe.log_error(_("Failed to create Data Review task"), str(e))
         return None
 
 
@@ -292,7 +292,7 @@ def normalize_all_documents(context, doctype=None, field=None, target_field=None
                     )
                     processed += 1
                 except Exception as e:
-                    frappe.log_error(f"Normalization failed for {doctype} {doc_data.name}: {e}")
+                    frappe.log_error(_("Normalization failed for {0} {1}: {2}").format(doctype, doc_data.name, str(e)))
         
         frappe.db.commit()
         offset += batch_size

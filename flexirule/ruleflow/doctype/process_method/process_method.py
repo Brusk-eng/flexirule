@@ -60,7 +60,8 @@ class ProcessMethod(Document):
         self._validate_json_schema(self.output_schema, "Output Schema")
 
     def validate_allowed_module(self):
-        #TODO : Deprected from flexirule_allowed_modules depenedency in the whole system since we are depending on code managed Process Method
+        if not self.method_path:
+             frappe.throw(_("Method Path is required"))
         allowed = frappe.get_hooks("flexirule_allowed_modules") or []
         if frappe.flags.in_test:
             allowed = list(allowed) + ["flexirule.ruleflow.tests", "flexirule.ruleflow.methods.test_registry"]
@@ -162,11 +163,9 @@ class ProcessMethod(Document):
             return []
 
 
-@frappe.whitelist()
 def test_method(method_name, config=None):
-    #TODO : As new implementation Change for Process Method this must be change and must implement frontend
+    pass # Implementation pending frontend changes
     """
-    Test a process method with given configuration.
     
     Args:
         method_name: Name of the Process Method document to test
