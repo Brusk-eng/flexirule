@@ -11,7 +11,7 @@ from frappe import _
 from .utils import parse_field_list
 from typing import Dict, List, Any, Optional
 from rapidfuzz import process, fuzz
-from flexirule.ruleflow.decorators import process_method
+import flexirule
 
 
 # ============================================================================
@@ -73,7 +73,7 @@ def _build_blocking_filters(doc, blocking_fields):
 # MAIN DEDUPLICATION METHODS
 # ============================================================================
 
-@process_method(
+@flexirule.processmethod(
     category="Deduplication",
     side_effects="Pure",
     return_type="List",
@@ -485,7 +485,7 @@ def _find_similar_records_bulk(context, fields, similarity_threshold):
 
 
 
-@process_method(
+@flexirule.processmethod(
     category="Deduplication", 
     side_effects="Pure",
     return_type="List",
@@ -531,7 +531,7 @@ def find_duplicates_by_fields(context, fields=None, ignore_cancelled=True, **kwa
     return duplicates
 
 
-@process_method(
+@flexirule.processmethod(
     category="Deduplication", 
     side_effects="Pure",
     return_type="Boolean",
@@ -565,7 +565,7 @@ def check_duplicate_and_prevent_save(context, fields=None, **kwargs):
     return True
 
 
-@process_method(
+@flexirule.processmethod(
     category="Deduplication", 
     side_effects="Modifies Doc",
     return_type="String",
@@ -596,7 +596,7 @@ def mark_as_duplicate(context, master_document=None, **kwargs):
     return master_document
 
 
-@process_method(
+@flexirule.processmethod(
     category="Deduplication",
     side_effects="Pure",
     return_type="List",
@@ -668,7 +668,7 @@ def find_duplicates_in_child_table(context, child_table_field, child_search_fiel
     return duplicates
 
 
-@process_method(
+@flexirule.processmethod(
     category="Deduplication", 
     side_effects="Pure",
     return_type="List",

@@ -14,14 +14,14 @@ import frappe
 from frappe import _
 from .utils import parse_field_list
 from typing import Dict, List, Any, Optional
-from flexirule.ruleflow.decorators import process_method
+import flexirule
 
 
 # ============================================================================
 # CHILD TABLE VALIDATION
 # ============================================================================
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     config_schema={
@@ -227,7 +227,7 @@ def validate_child_table_rows(context, child_table=None, validations=None, **kwa
 # COMPOSITE UNIQUENESS (PARENT + CHILD)
 # ============================================================================
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     config_schema={
@@ -385,7 +385,7 @@ def check_duplicate_with_child_fields(context, parent_fields=None, child_table=N
     return True
 
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     input_schema={
@@ -501,7 +501,7 @@ def check_duplicate_with_amount(context, date_field=None, child_table=None,
 # ROLE-BASED CHECKS
 # ============================================================================
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     return_type="Boolean",
@@ -546,7 +546,7 @@ def check_user_has_role(context, roles=None, **kwargs):
     return False
 
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     return_type="Boolean",
@@ -568,7 +568,7 @@ def check_user_not_has_role(context, roles=None, **kwargs):
     return not check_user_has_role(context, roles=roles, **kwargs)
 
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     return_type="Boolean",

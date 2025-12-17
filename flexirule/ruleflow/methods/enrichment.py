@@ -8,10 +8,10 @@ Enrichment process methods for the Bolton Rule Engine
 import frappe
 from frappe import _
 from .utils import parse_field_list, parse_field_mapping
-from flexirule.ruleflow.decorators import process_method
+import flexirule
 
 
-@process_method(
+@flexirule.processmethod(
     category="Enrichment",
     side_effects="Modifies Doc",
     return_type="Object",
@@ -63,7 +63,7 @@ def set_default_value(context, field=None, default_value=None, overwrite=False, 
     return current_value
 
 
-@process_method(
+@flexirule.processmethod(
     category="Enrichment",
     side_effects="Modifies Doc",
     return_type="Object",
@@ -129,7 +129,7 @@ def calculate_field_value(context, target_field=None, formula=None, **kwargs):
         raise
 
 
-@process_method(
+@flexirule.processmethod(
     category="Enrichment",
     side_effects="Modifies Doc",
     return_type="Dict",
@@ -201,7 +201,7 @@ def autocomplete_from_linked_doc(context, source_link_field=None, field_mapping=
     return results
 
 
-@process_method(
+@flexirule.processmethod(
     category="Enrichment",
     side_effects="Modifies Doc",
     return_type="Dict",
@@ -263,7 +263,7 @@ def copy_from_template(context, template_doctype=None, template_name=None, field
     return results
 
 
-@process_method(
+@flexirule.processmethod(
     category="Enrichment",
     side_effects="Modifies Doc",
     return_type="String",

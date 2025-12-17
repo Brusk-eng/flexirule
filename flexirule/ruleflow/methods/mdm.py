@@ -14,14 +14,14 @@ import frappe
 from frappe import _
 from .utils import parse_field_list
 from typing import Dict, List, Any, Optional
-from flexirule.ruleflow.decorators import process_method
+import flexirule
 
 
 # ============================================================================
 # DATA REVIEW TASK CREATION
 # ============================================================================
 
-@process_method(
+@flexirule.processmethod(
     category="Integration",
     side_effects="External Call",
     creates_new_docs=True,
@@ -115,7 +115,7 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
         return None
 
 
-@process_method(
+@flexirule.processmethod(
     category="Deduplication",
     side_effects="External Call",
     creates_new_docs=True,
@@ -237,7 +237,7 @@ def find_duplicates_and_create_task(context, fields_config=None,
 # BATCH NORMALIZATION (Background Job)
 # ============================================================================
 
-@process_method(
+@flexirule.processmethod(
     category="Transformation",
     transactional=True,
     side_effects="Modifies Doc",
@@ -312,7 +312,7 @@ def normalize_all_documents(context, doctype=None, field=None, target_field=None
     return processed
 
 
-@process_method(
+@flexirule.processmethod(
     category="Transformation",
     side_effects="External Call",
     config_schema={
@@ -366,7 +366,7 @@ def enqueue_normalize_all_documents(context, doctype=None, field=None,
     return job
 
 
-@process_method(
+@flexirule.processmethod(
     category="Deduplication",
     transactional=True,
     side_effects="External Call",

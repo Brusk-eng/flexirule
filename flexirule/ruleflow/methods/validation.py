@@ -9,10 +9,10 @@ import frappe
 from frappe import _
 import re
 from .utils import parse_field_list, parse_pattern_type
-from flexirule.ruleflow.decorators import process_method
+import flexirule
 
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     return_type="Boolean",
@@ -57,7 +57,7 @@ def validate_required_fields(context, fields=None, **kwargs):
     return True
 
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     return_type="Boolean",
@@ -119,7 +119,7 @@ def validate_field_pattern(context, field=None, pattern=None, pattern_type=None,
     return True
 
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     return_type="Boolean",
@@ -171,7 +171,7 @@ def validate_value_in_range(context, field=None, min_value=None, max_value=None,
     return True
 
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     return_type="Boolean",
@@ -217,7 +217,7 @@ def validate_unique_field(context, field=None, ignore_cancelled=True, **kwargs):
     return True
 
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     side_effects="Pure",
     return_type="Boolean",

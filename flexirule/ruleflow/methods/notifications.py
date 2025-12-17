@@ -9,9 +9,9 @@ import frappe
 from frappe import _
 from frappe import _
 from .utils import parse_field_list
-from flexirule.ruleflow.decorators import process_method
+import flexirule
 
-@process_method(
+@flexirule.processmethod(
     category="Notification",
     side_effects="External Call",
     description="Send email to recipients",
@@ -77,7 +77,7 @@ def send_email_notification(context, recipients=None, subject=None, message=None
     return recipient_list
 
 
-@process_method(
+@flexirule.processmethod(
     category="Notification",
     side_effects="External Call",
     creates_new_docs=True,
@@ -127,7 +127,7 @@ def create_todo(context, assigned_to=None, description=None, priority='Medium', 
     return todo.name
 
 
-@process_method(
+@flexirule.processmethod(
     category="Notification",
     side_effects="External Call",
     creates_new_docs=True,
@@ -179,7 +179,7 @@ def create_notification_log(context, for_user=None, subject=None, message=None, 
     return notification.name
 
 
-@process_method(
+@flexirule.processmethod(
     category="Notification",
     side_effects="External Call",
     creates_new_docs=True,

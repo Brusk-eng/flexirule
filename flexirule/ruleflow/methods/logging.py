@@ -6,9 +6,9 @@ Logging process methods
 """
 
 import frappe
-from flexirule.ruleflow.decorators import process_method
+import flexirule
 
-@process_method(
+@flexirule.processmethod(
     category="Custom",
     side_effects="External Call",
     description="Log a message to the system console/log",
@@ -30,7 +30,7 @@ def system_log(context, message=None, level="Info", **kwargs):
     
     return True
 
-@process_method(
+@flexirule.processmethod(
     category="Custom",
     side_effects="External Call",
     creates_new_docs=True,

@@ -1,6 +1,6 @@
-from flexirule.ruleflow.decorators import process_method
+import flexirule
 
-@process_method(
+@flexirule.processmethod(
     category="Validation",
     description="Test method for registry sync",
     version="1.0",

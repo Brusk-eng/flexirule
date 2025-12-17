@@ -15,7 +15,7 @@ import frappe
 from frappe import _
 import re
 from typing import Any, List, Dict, Optional
-from flexirule.ruleflow.decorators import process_method
+import flexirule
 
 
 # Built-in transformations (same as NormalizationPipeline)
@@ -60,7 +60,7 @@ def apply_transformations(value: Any, transformations: List[str]) -> Any:
     return result
 
 
-@process_method(
+@flexirule.processmethod(
     category="Transformation",
     side_effects="Modifies Doc",
     config_schema={
@@ -117,7 +117,7 @@ def normalize_field(context, source_field, transformations, target_field=None, *
     return normalized
 
 
-@process_method(
+@flexirule.processmethod(
     category="Transformation",
     side_effects="Pure",
     return_type="String",
@@ -178,7 +178,7 @@ def normalize_field_to_context(context, source_field, transformations, context_k
     return key
 
 
-@process_method(
+@flexirule.processmethod(
     category="Transformation",
     side_effects="Modifies Doc",
     return_type="Dict",
@@ -259,7 +259,7 @@ def normalize_multiple_fields(context, field_config, store_in_context=False, **k
     return results
 
 
-@process_method(
+@flexirule.processmethod(
     category="Transformation",
     side_effects="Pure",
     return_type="String",
