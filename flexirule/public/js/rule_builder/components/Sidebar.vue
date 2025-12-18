@@ -202,6 +202,23 @@
                             @update:modelValue="updateField('method_config', $event)"
                             @update:inputMapping="updateField('input_mapping', $event)"
                         />
+                        <div v-if="selectedNode.data?.action_type === 'Process' && !selectedMethodSchema" class="form-group">
+                            <label>{{ __("Static Config (JSON)") }}</label>
+                            <textarea class="form-control text-mono" rows="4" style="font-size: 11px;"
+                                :value="selectedNode.data?.method_config"
+                                @input="updateField('method_config', $event.target.value)"
+                                placeholder="{}"></textarea>
+                        </div>
+                        <div v-if="selectedNode.data?.action_type === 'Process'" class="form-group mt-3">
+                            <label style="font-weight:600">{{ __("Input Mapping (JSON)") }}</label>
+                            <textarea class="form-control text-mono" rows="3" style="font-size: 11px;"
+                                :value="selectedNode.data?.input_mapping"
+                                @input="updateField('input_mapping', $event.target.value)"
+                                placeholder="{}"></textarea>
+                            <div class="help-text text-muted" style="font-size:10px">
+                                {{ __("Map context variables to method arguments. e.g. {\"threshold\": \"doc.total\"}") }}
+                            </div>
+                        </div>
                     </div>
                 </template>
 

@@ -191,8 +191,22 @@
   }
  ],
  "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2025-12-18 19:38:57.433163",
+ "links": [
+  {
+   "link_doctype": "Rule",
+   "link_fieldname": "rule",
+   "table_fieldname": "actions"
+  },
+  {
+   "link_doctype": "Rule Execution Log",
+   "link_fieldname": "rule"
+  },
+  {
+   "link_doctype": "Data Review Task",
+   "link_fieldname": "rule"
+  }
+ ],
+ "modified": "2025-12-18 20:25:16.702933",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "Rule",

@@ -114,7 +114,6 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
         frappe.log_error(_("Failed to create Data Review task"), str(e))
         return None
 
-
 @flexirule.processmethod(
     category="Deduplication",
     side_effects="External Call",
@@ -132,33 +131,8 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
                 "fieldname": "fields_config",
                 "fieldtype": "Table",
                 "label": "Field Configuration",
-                "reqd": 1,
-                "table_fields": [
-                    {
-                        "fieldname": "field",
-                        "fieldtype": "DocField",
-                        "label": "Field",
-                        "options": "parent.document_type"
-                    },
-                    {
-                        "fieldname": "weight",
-                        "fieldtype": "Percent",
-                        "label": "Weight",
-                        "default": 1.0
-                    },
-                    {
-                        "fieldname": "algorithm",
-                        "fieldtype": "Select",
-                        "label": "Algorithm",
-                        "options": "Exact\nFuzzy\nPhonetic\nContains\nNumeric Range\nDate Distance",
-                        "default": "Exact"
-                    },
-                    {
-                        "fieldname": "tolerance",
-                        "fieldtype": "Float",
-                        "label": "Tolerance"
-                    }
-                ]
+                "options": "Dedupe Field Config",
+                "reqd": 1
             },
             {
                 "fieldname": "task_type",
@@ -166,8 +140,51 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
                 "label": "Task Type",
                 "options": "Duplicate Review\nData Quality",
                 "default": "Duplicate Review"
+            },
+            {
+                "fieldname": "priority",
+                "fieldtype": "Select",
+                "label": "Priority",
+                "options": "Low\nMedium\nHigh",
+                "default": "Medium"
+            },
+            {
+                "fieldname": "max_tasks",
+                "fieldtype": "Int",
+                "label": "Max Tasks",
+                "default": 5
             }
-        ]
+        ],
+
+        "child_tables": {
+            "Dedupe Field Config": [
+                {
+                    "fieldname": "fieldname",
+                    "fieldtype": "DocField",
+                    "label": "Field",
+                    "options": "parent.document_type",
+                    "reqd": 1
+                },
+                {
+                    "fieldname": "weight",
+                    "fieldtype": "Percent",
+                    "label": "Weight",
+                    "default": 1.0
+                },
+                {
+                    "fieldname": "algorithm",
+                    "fieldtype": "Select",
+                    "label": "Algorithm",
+                    "options": "Exact\nFuzzy\nPhonetic\nContains\nNumeric Range\nDate Distance",
+                    "default": "Exact"
+                },
+                {
+                    "fieldname": "tolerance",
+                    "fieldtype": "Float",
+                    "label": "Tolerance"
+                }
+            ]
+        }
     },
     description="Find duplicates and auto-create review tasks"
 )
@@ -371,12 +388,61 @@ def enqueue_normalize_all_documents(context, doctype=None, field=None,
     transactional=True,
     side_effects="External Call",
     return_type="Integer",
-    input_schema={
-        "type": "object",
-        "properties": {
-             "doctype": {"type": "string"},
-             "fields_config": {"type": "array"}
-        }
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "doctype",
+                "fieldtype": "Link",
+                "label": "DocType",
+                "options": "DocType",
+                "reqd": 1
+            },
+            {
+                "fieldname": "fields_config",
+                "fieldtype": "Table",
+                "label": "Field Configuration",
+                "reqd": 1,
+                "table_fields": [
+                    {
+                        "fieldname": "field",
+                        "fieldtype": "DocField",
+                        "label": "Field",
+                        "options": "parent.document_type"
+                    },
+                    {
+                        "fieldname": "weight",
+                        "fieldtype": "Percent",
+                        "label": "Weight",
+                        "default": 1.0
+                    },
+                    {
+                        "fieldname": "algorithm",
+                        "fieldtype": "Select",
+                        "label": "Algorithm",
+                        "options": "Exact\nFuzzy\nPhonetic\nContains\nNumeric Range\nDate Distance",
+                        "default": "Exact"
+                    }
+                ]
+            },
+            {
+                "fieldname": "overall_threshold",
+                "fieldtype": "Percent",
+                "label": "Similarity Threshold",
+                "default": 0.8
+            },
+            {
+                "fieldname": "batch_size",
+                "fieldtype": "Int",
+                "label": "Batch Size",
+                "default": 50
+            },
+            {
+                "fieldname": "create_tasks",
+                "fieldtype": "Check",
+                "label": "Create Tasks",
+                "default": 1
+            }
+        ]
     },
     description="Run batch duplicate detection."
 )

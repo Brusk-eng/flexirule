@@ -99,6 +99,8 @@ def _sync_single_method(module_name, func_name, func):
             doc_data[field] = json.dumps(val, indent=4)
         elif val:
             doc_data[field] = val
+        else:
+            doc_data[field] = None
     
     # Upsert
     if frappe.db.exists("Process Method", method_path):

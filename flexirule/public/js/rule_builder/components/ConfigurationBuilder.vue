@@ -88,7 +88,7 @@
                             class="form-check-input"
                             :id="'check-' + field.fieldname"
                             :checked="values[field.fieldname]"
-                            @change="updateValue(field.fieldname, $event.target.checked ? 1 : 0)"
+                            @change="updateValue(field.fieldname, $event.target.checked)"
                         />
                     </div>
                     

@@ -4,6 +4,7 @@
  * For complex mappings like field_config arrays
  */
 import { ref, computed, watch } from "vue";
+import FieldPickerControl from "./FieldPickerControl.vue";
 
 const props = defineProps({
     df: Object,
@@ -54,6 +55,14 @@ function updateCell(rowIdx, fieldname, value) {
     updated[rowIdx] = { ...updated[rowIdx], [fieldname]: value };
     emit("update:modelValue", updated);
 }
+
+function getSelectOptions(field) {
+    const opts = field.options || '';
+    if (typeof opts === 'string') {
+        return opts.split('\n').filter(Boolean);
+    }
+    return opts;
+}
 </script>
 
 <template>
@@ -67,7 +76,7 @@ function updateCell(rowIdx, fieldname, value) {
             <table class="table table-sm table-bordered">
                 <thead>
                     <tr>
-                        <th v-for="col in tableFields" :key="col.fieldname">
+                        <th v-for="col in tableFields" :key="col.fieldname" :style="{ width: col.fieldtype === 'Percent' ? '100px' : '' }">
                             {{ __(col.label) }}
                         </th>
                         <th v-if="!read_only" style="width:40px"></th>
@@ -76,12 +85,51 @@ function updateCell(rowIdx, fieldname, value) {
                 <tbody>
                     <tr v-for="(row, idx) in rows" :key="idx">
                         <td v-for="col in tableFields" :key="col.fieldname">
+                            <!-- Select -->
+                            <select 
+                                v-if="col.fieldtype === 'Select'"
+                                class="form-control form-control-sm"
+                                :value="row[col.fieldname]"
+                                @change="updateCell(idx, col.fieldname, $event.target.value)"
+                                :disabled="read_only"
+                            >
+                                <option value="">{{ __("Select...") }}</option>
+                                <option v-for="opt in getSelectOptions(col)" :key="opt" :value="opt">
+                                    {{ __(opt) }}
+                                </option>
+                            </select>
+                            
+                            <!-- DocField (Autocomplete) -->
+                            <div v-else-if="col.fieldtype === 'DocField'" class="table-cell-control">
+                                <FieldPickerControl
+                                    :df="{...col, label: ''}"
+                                    :documentType="documentType"
+                                    :modelValue="row[col.fieldname]"
+                                    @update:modelValue="updateCell(idx, col.fieldname, $event)"
+                                    :read_only="read_only"
+                                />
+                            </div>
+                            
+                            <!-- Number / Percent -->
                             <input
+                                v-else-if="['Int', 'Float', 'Percent'].includes(col.fieldtype)"
+                                type="number"
+                                class="form-control form-control-sm"
+                                :value="row[col.fieldname]"
+                                @input="updateCell(idx, col.fieldname, parseFloat($event.target.value))"
+                                :disabled="read_only"
+                                :step="col.fieldtype === 'Int' ? '1' : '0.01'"
+                            />
+                            
+                            <!-- Default Text -->
+                            <input
+                                v-else
                                 type="text"
                                 class="form-control form-control-sm"
                                 :value="row[col.fieldname]"
                                 @input="updateCell(idx, col.fieldname, $event.target.value)"
                                 :disabled="read_only"
+                                :placeholder="__(col.placeholder || '')"
                             />
                         </td>
                         <td v-if="!read_only">
@@ -120,6 +168,8 @@ function updateCell(rowIdx, fieldname, value) {
 .table-wrapper { margin-bottom: 8px; }
 .table { margin-bottom: 0; }
 .table th { font-size: 11px; font-weight: 500; }
-.table td { padding: 4px; }
-.table input { font-size: 12px; }
+.table td { padding: 4px; vertical-align: middle; }
+.table input, .table select { font-size: 12px; }
+.table-cell-control :deep(.field-picker-control) { margin-bottom: 0; }
+.table-cell-control :deep(.control-label) { display: none; }
 </style>

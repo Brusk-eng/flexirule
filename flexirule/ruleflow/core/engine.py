@@ -28,6 +28,7 @@ from flexirule.ruleflow.core.exceptions import (
 	CycleDetectedError
 )
 from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
+from flexirule.ruleflow.utils.schema_validator import get_custom_validator, frappe_fields_to_json_schema
 
 
 class TimeoutException(Exception):
@@ -268,7 +269,7 @@ class RuleEngine:
 		finally:
 			# Persist Log
 			duration = time.time() - start_time
-			self._save_execution_log(status, duration, error_detail)
+			self._save_execution_log(status, duration, error_detail, context=context if 'context' in locals() else None)
 	
 	def _validate_execution(self):
 		"""Validate rule is executable"""
@@ -593,7 +594,12 @@ class RuleEngine:
 		if process_method.input_schema:
 			try:
 				schema = json.loads(process_method.input_schema)
-				validate(instance=config, schema=schema)
+				# Convert Frappe fields list to standard JSON Schema if needed
+				schema = frappe_fields_to_json_schema(schema)
+				
+				# Use custom validator that allows 0/1 for booleans
+				Validator = get_custom_validator(schema)
+				Validator(schema).validate(config)
 			except (json.JSONDecodeError, SchemaValidationError) as e:
 				raise MethodExecutionError(
 					_("Input contract violation in {0}. Inputs do not match Input Schema: {1}").format(process_method.method_name, str(e))
@@ -827,23 +833,25 @@ class RuleEngine:
 			# Don't fail execution if stats update fails
 			frappe.logger().error(f"Failed to update rule stats: {str(e)}")
 
-	def _save_execution_log(self, status, duration, error_trace=None):
+	def _save_execution_log(self, status, duration, error_trace=None, context=None):
 		"""Save execution details to Rule Execution Log"""
 		try:
 			# Serialize context snapshot (remove complex objects)
 			context_snapshot = {}
-			if hasattr(self, 'context'):
+			active_context = context or getattr(self, 'context', {})
+			
+			if active_context:
 				# Only keep serializable vars
 				context_snapshot = {
-					k: v for k, v in self.context.get('vars', {}).items() 
+					k: v for k, v in active_context.get('vars', {}).items() 
 					if isinstance(v, (str, int, float, bool, list, dict, type(None)))
 				}
 				
 				# Add document snapshot for debugging
-				if self.context.get('doc'):
+				if active_context.get('doc'):
 					try:
 						# Use as_dict but protect against non-serializable fields if any
-						doc_dict = self.context['doc'].as_dict()
+						doc_dict = active_context['doc'].as_dict()
 						context_snapshot['doc'] = doc_dict
 					except:
 						context_snapshot['doc'] = "<Not Serializable>"
@@ -851,7 +859,7 @@ class RuleEngine:
 			# Handle Local Documents (New Docs)
 			# If we rollback, the doc might disappear, so the link will be broken.
 			# We still save the name for reference.
-			doc = self.context.get('doc')
+			doc = active_context.get('doc') if active_context else None
 			doc_name = doc.name if doc else None
 			
 			if doc and doc.get('__islocal'):
@@ -865,7 +873,7 @@ class RuleEngine:
 				"duration": duration,
 				"reference_doctype": self.rule.document_type,
 				"reference_docname": doc_name,
-				"executed_by": self.context.get('meta', {}).get('user'),
+				"executed_by": active_context.get('meta', {}).get('user') if active_context else frappe.session.user,
 				"message": error_trace.split('\n')[-2] if error_trace else _("Executed successfully"),
 				"execution_path": json.dumps(self.path_trace, default=str),
 				"context_snapshot": json.dumps(context_snapshot, default=str),
@@ -875,7 +883,7 @@ class RuleEngine:
 			# PERSISTENCE LOGIC
 			# If failed, we MUST rollback partial changes to clean up, 
 			# then insert and commit the log so it survives the final rollback by the framework.
-			if status in ('Failed', 'Error') and not self.context.get('test_mode'): 
+			if status in ('Failed', 'Error') and not (active_context or {}).get('test_mode'): 
 				frappe.db.rollback()
 				log_doc.insert(ignore_permissions=True)
 				frappe.db.commit()

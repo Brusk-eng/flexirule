@@ -77,7 +77,17 @@ class Rule(Document):
         # but input_schema is for strict validation if present.
         schema = method.input_schema or method.config_schema
         if schema and action.method_config:
-            validate_config(action.method_config, schema)
+            # Extract mapped fields to skip required check in static config
+            mapped_fields = []
+            if action.input_mapping:
+                try:
+                    mapping = frappe.parse_json(action.input_mapping)
+                    if isinstance(mapping, dict):
+                        mapped_fields = list(mapping.keys())
+                except:
+                    pass
+            
+            validate_config(action.method_config, schema, mapped_fields=mapped_fields)
 
     def on_update(self):
         """

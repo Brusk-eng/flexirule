@@ -2,12 +2,19 @@
  * Parse config_schema and generate Frappe-compliant field definitions
  */
 export function parseSchemaToFields(schema, documentType) {
-    if (!schema || !schema.properties) return [];
-    
+    if (!schema) return [];
+
+    // Support Frappe-style field definitions
+    if (schema.fields && Array.isArray(schema.fields)) {
+        return schema.fields;
+    }
+
+    if (!schema.properties) return [];
+
     const fields = [];
     const properties = schema.properties;
     const required = schema.required || [];
-    
+
     Object.entries(properties).forEach(([fieldname, prop]) => {
         const field = {
             fieldname: fieldname,
@@ -16,7 +23,7 @@ export function parseSchemaToFields(schema, documentType) {
             reqd: required.includes(fieldname) ? 1 : 0,
             default: prop.default
         };
-        
+
         // Handle custom x-fieldtype extensions
         if (prop['x-fieldtype']) {
             switch (prop['x-fieldtype']) {
@@ -47,25 +54,25 @@ export function parseSchemaToFields(schema, documentType) {
         } else {
             field.fieldtype = 'Data';
         }
-        
+
         // Handle dependencies
         if (prop['x-depends-on']) {
             field.depends_on = `eval:doc.${prop['x-depends-on']}`;
         }
-        
+
         fields.push(field);
     });
-    
+
     return fields;
 }
 
 function getDocTypeFields(doctype) {
     if (!doctype) return [];
-    
-   try {
+
+    try {
         const meta = frappe.get_meta(doctype);
         if (!meta) return [];
-        
+
         return meta.fields
             .filter(f => !frappe.model.no_value_type.includes(f.fieldtype))
             .map(f => ({
@@ -81,17 +88,17 @@ function getDocTypeFields(doctype) {
 
 export function validateConfigAgainstSchema(config, schema) {
     if (!schema || !schema.required) return { valid: true };
-    
+
     const errors = [];
     const configObj = typeof config === 'string' ? JSON.parse(config) : config;
-    
+
     schema.required.forEach(fieldname => {
         if (!configObj[fieldname]) {
             const prop = schema.properties[fieldname];
             errors.push(`${prop.title || fieldname} is required`);
         }
     });
-    
+
     return {
         valid: errors.length === 0,
         errors: errors
