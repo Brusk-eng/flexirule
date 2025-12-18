@@ -1,7 +1,7 @@
 <template>
     <div class="rule-sidebar">
         <div class="sidebar-header">
-            <h4>{{ selectedNode?.data?.action_label || selectedNode?.label || 'Properties' }}</h4>
+            <h4>{{ selectedNode?.data?.action_label || selectedNode?.label || __('Properties') }}</h4>
             <button class="btn-close" @click="$emit('close')">×</button>
         </div>
         
@@ -9,24 +9,30 @@
             <!-- Start Node -->
             <template v-if="selectedNode.type === 'start'">
                 <div class="form-group">
-                    <label>Document Type</label>
+                    <label>{{ __("Document Type") }}</label>
                     <input type="text" class="form-control" :value="selectedNode.data?.document_type" readonly />
                 </div>
                 <div class="form-group">
-                    <label>Trigger Event</label>
-                    <input type="text" class="form-control" :value="selectedNode.data?.trigger_event" readonly />
+                    <label>{{ __("Trigger Event") }}</label>
+                    <select class="form-control" 
+                        :value="selectedNode.data?.trigger_event"
+                        @change="updateTriggerEvent($event.target.value)">
+                        <option v-for="opt in triggerEventOptions" :key="opt" :value="opt">
+                            {{ opt }}
+                        </option>
+                    </select>
                 </div>
                 
                 <div class="form-group">
-                    <label>Trigger Filters</label>
-                    <div class="help-text text-muted mb-2" style="font-size: 11px;">Condition filters evaluated before Rule execution.</div>
+                    <label>{{ __("Trigger Filters") }}</label>
+                    <div class="help-text text-muted mb-2" style="font-size: 11px;">{{ __("Condition filters evaluated before Rule execution.") }}</div>
                     
                     <button class="btn btn-default btn-sm w-100" @click="editFilters">
-                        <i class="fa fa-filter"></i> Set Filters
+                        <i class="fa fa-filter"></i> {{ __("Set Filters") }}
                     </button>
                     
                     <div v-if="selectedNode.data?.trigger_filters && selectedNode.data.trigger_filters !== '[]'" class="mt-2" style="font-size: 12px; color: var(--text-muted);">
-                        <i class="fa fa-check-circle text-success"></i> Filters Configured
+                        <i class="fa fa-check-circle text-success"></i> {{ __("Filters Configured") }}
                     </div>
                 </div>
             </template>
@@ -34,37 +40,37 @@
             <!-- Action Nodes -->
             <template v-else>
                 <div class="form-group">
-                    <label>Label</label>
+                    <label>{{ __("Label") }}</label>
                     <input type="text" class="form-control" 
                         :value="selectedNode.label"
                         @input="updateLabel($event.target.value)" />
                 </div>
                 
                 <div class="form-group">
-                    <label>Type</label>
+                    <label>{{ __("Type") }}</label>
                     <select class="form-control" 
                         :value="selectedNode.data?.action_type"
                         @change="updateActionType($event.target.value)">
-                        <option value="Process">Process</option>
-                        <option value="Condition">Condition</option>
-                        <option value="Switch">Switch</option>
-                        <option value="Loop">Loop</option>
-                        <option value="Wait">Wait</option>
-                        <option value="Sub-Rule">Sub-Rule</option>
-                        <option value="Stop">Stop</option>
+                        <option value="Process">{{ __("Process") }}</option>
+                        <option value="Condition">{{ __("Condition") }}</option>
+                        <option value="Switch">{{ __("Switch") }}</option>
+                        <option value="Loop">{{ __("Loop") }}</option>
+                        <option value="Wait">{{ __("Wait") }}</option>
+                        <option value="Sub-Rule">{{ __("Sub-Rule") }}</option>
+                        <option value="Stop">{{ __("Stop") }}</option>
                     </select>
                 </div>
                 
                 <template v-if="selectedNode.data?.action_type === 'Process'">
                     <div class="form-group relative">
-                        <label>Method</label>
+                        <label>{{ __("Method") }}</label>
                         <div class="input-group">
                             <input type="text" class="form-control" 
                                 v-model="methodSearch"
                                 @focus="showMethodSuggestions = true"
                                 @input="filterMethods"
-                                placeholder="Search method..." />
-                            <button class="btn btn-default btn-sm" @click="showMethodDescription" title="Show Description">
+                                :placeholder="__('Search method...')" />
+                            <button class="btn btn-default btn-sm" @click="showMethodDescription" :title="__('Show Description')">
                                 <i class="fa fa-info-circle"></i>
                             </button>
                         </div>
@@ -87,20 +93,20 @@
                                 </div>
                                 <div class="suggestion-path" v-if="m.method_path">{{ m.method_path }}</div>
                             </div>
-                            <div v-if="!store.process_methods.length" class="p-2 text-muted">No methods found</div>
+                            <div v-if="!store.process_methods.length" class="p-2 text-muted">{{ __("No methods found") }}</div>
                         </div>
                     </div>
                     
                     <button v-if="selectedNode.data?.process_method"
                         class="btn btn-sm btn-default w-100 mb-3" 
                         @click="openConfigDialog">
-                        <i class="fa fa-cog"></i> Configure
+                        <i class="fa fa-cog"></i> {{ __("Configure") }}
                     </button>
 
                     <div class="row">
                         <div class="col-xs-6">
                             <div class="form-group">
-                                <label>Timeout (s)</label>
+                                <label>{{ __("Timeout (s)") }}</label>
                                 <input type="number" class="form-control" 
                                     :value="selectedNode.data?.timeout || 30"
                                     @input="updateField('timeout', parseInt($event.target.value))" />
@@ -108,7 +114,7 @@
                         </div>
                         <div class="col-xs-6">
                             <div class="form-group">
-                                <label>Priority</label>
+                                <label>{{ __("Priority") }}</label>
                                 <input type="number" class="form-control" 
                                     :value="selectedNode.data?.priority || 0"
                                     @input="updateField('priority', parseInt($event.target.value))" />
@@ -117,20 +123,20 @@
                     </div>
 
                     <div class="form-group">
-                        <label>On Error</label>
+                        <label>{{ __("On Error") }}</label>
                         <select class="form-control" 
                             :value="selectedNode.data?.on_error || 'Stop'"
                             @change="updateField('on_error', $event.target.value)">
-                            <option value="Stop">Stop</option>
-                            <option value="Continue">Continue</option>
-                            <option value="Retry">Retry</option>
-                            <option value="Rollback">Rollback</option>
-                            <option value="Escalate">Escalate</option>
+                            <option value="Stop">{{ __("Stop") }}</option>
+                            <option value="Continue">{{ __("Continue") }}</option>
+                            <option value="Retry">{{ __("Retry") }}</option>
+                            <option value="Rollback">{{ __("Rollback") }}</option>
+                            <option value="Escalate">{{ __("Escalate") }}</option>
                         </select>
                     </div>
 
                     <div class="form-group" v-if="selectedNode.data?.on_error === 'Retry'">
-                        <label>Retry Count</label>
+                        <label>{{ __("Retry Count") }}</label>
                         <input type="number" class="form-control" 
                             :value="selectedNode.data?.retry_count || 0"
                             @input="updateField('retry_count', parseInt($event.target.value))" />
@@ -139,7 +145,7 @@
                     <!-- Output Mapping Section -->
                     <div class="form-group" v-if="!selectedNode.data?.is_async">
                          <div class="d-flex justify-content-between align-items-center mb-2">
-                            <label class="mb-0" style="font-weight:600">Output Assignments</label>
+                            <label class="mb-0" style="font-weight:600">{{ __("Output Assignments") }}</label>
                         </div>
                         
                         <div v-if="outputFields.length">
@@ -156,7 +162,7 @@
                             </div>
                         </div>
                         <div v-else class="text-muted small">
-                             <div class="mb-1">Map result to variable:</div>
+                             <div class="mb-1">{{ __("Map result to variable:") }}</div>
                              <div class="input-group input-group-sm">
                                 <span class="input-group-text" style="font-size:11px; background:#f0f0f0;">vars.</span>
                                 <input type="text" class="form-control" 
@@ -168,20 +174,20 @@
                         </div>
                     </div>
                     <div v-else class="alert alert-warning p-2 small mt-2">
-                        <i class="fa fa-info-circle"></i> Async actions cannot return values to the context.
+                        <i class="fa fa-info-circle"></i> {{ __("Async actions cannot return values to the context.") }}
                     </div>
 
                     <div class="form-group">
-                        <label class="checkbox-label" :class="{ 'text-muted': selectedMethod?.transactional }" :title="selectedMethod?.transactional ? 'Transactional methods cannot run asynchronously' : ''">
+                        <label class="checkbox-label" :class="{ 'text-muted': selectedMethod?.transactional }" :title="selectedMethod?.transactional ? __('Transactional methods cannot run asynchronously') : ''">
                             <input type="checkbox" 
                                 :checked="selectedNode.data?.is_async"
                                 :disabled="selectedMethod?.transactional"
                                 @change="updateField('is_async', $event.target.checked ? 1 : 0)" />
-                            Run Asynchronously
+                            {{ __("Run Asynchronously") }}
                             <span v-if="selectedMethod?.transactional" class="ml-1 text-warning"><i class="fa fa-lock"></i></span>
                         </label>
                         <div v-if="selectedMethod?.transactional" class="help-text text-danger mt-1" style="font-size:10px">
-                            Transactional methods must run synchronously.
+                            {{ __("Transactional methods must run synchronously.") }}
                         </div>
                     </div>
 
@@ -201,26 +207,26 @@
 
                 <template v-if="selectedNode.data?.action_type === 'Loop'">
                     <div class="form-group">
-                        <label>Iterator (Python)</label>
+                        <label>{{ __("Iterator (Python)") }}</label>
                         <input type="text" class="form-control" 
                             :value="getJsonConfig('iterator')"
                             @input="updateJsonConfig('iterator', $event.target.value)"
                             placeholder="doc.items" />
-                        <div class="help-text text-muted" style="font-size:11px">List to iterate over.</div>
+                        <div class="help-text text-muted" style="font-size:11px">{{ __("List to iterate over.") }}</div>
                     </div>
                     <div class="form-group">
-                        <label>Item Alias</label>
+                        <label>{{ __("Item Alias") }}</label>
                         <input type="text" class="form-control" 
                             :value="getJsonConfig('alias')"
                             @input="updateJsonConfig('alias', $event.target.value)"
                             placeholder="item" />
-                        <div class="help-text text-muted" style="font-size:11px">Variable name for current item.</div>
+                        <div class="help-text text-muted" style="font-size:11px">{{ __("Variable name for current item.") }}</div>
                     </div>
                 </template>
 
                 <template v-if="selectedNode.data?.action_type === 'Wait'">
                     <div class="form-group">
-                        <label>Duration (Seconds)</label>
+                        <label>{{ __("Duration (Seconds)") }}</label>
                         <input type="number" class="form-control" 
                             :value="getJsonConfig('duration')"
                             @input="updateJsonConfig('duration', parseFloat($event.target.value))" />
@@ -228,19 +234,39 @@
                 </template>
 
                 <template v-if="selectedNode.data?.action_type === 'Sub-Rule'">
-                    <div class="form-group">
-                        <label>Select Rule</label>
-                        <input type="text" class="form-control" 
-                             :value="selectedNode.data?.sub_rule_name" 
-                             @input="updateSubRuleName($event.target.value)"
-                             placeholder="Rule Name" />
-                         <div class="help-text text-muted" style="font-size:11px">Rule to execute. Context vars are shared.</div>
+                    <div class="form-group relative">
+                        <label>{{ __("Select Rule") }}</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" 
+                                v-model="subRuleSearch"
+                                @focus="showSubRuleSuggestions = true"
+                                :placeholder="__('Search rule...')" />
+                        </div>
+                        
+                        <div v-if="showSubRuleSuggestions" class="suggestions-dropdown">
+                            <div v-for="r in store.available_rules.filter(r => 
+                                    r.name.toLowerCase().includes(subRuleSearch.toLowerCase()) || 
+                                    (r.rule_name && r.rule_name.toLowerCase().includes(subRuleSearch.toLowerCase()))
+                                )" 
+                                :key="r.name" 
+                                class="suggestion-item"
+                                @click="selectSubRule(r)">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div class="suggestion-name">{{ r.rule_name || r.name }}</div>
+                                    <span v-if="r.trigger_event === 'Manual'" class="badge badge-info" style="font-size:9px">{{ __("Manual") }}</span>
+                                    <span v-else class="badge border text-muted" style="font-size:9px">{{ r.trigger_event }}</span>
+                                </div>
+                                <div class="suggestion-path" style="font-size:10px">{{ r.name }}</div>
+                            </div>
+                            <div v-if="!store.available_rules.length" class="p-2 text-muted">{{ __("No rules found for this DocType") }}</div>
+                        </div>
+                        <div class="help-text text-muted" style="font-size:11px">{{ __("Rule to execute. Context vars are shared.") }}</div>
                     </div>
                 </template>
 
                 <template v-if="selectedNode.data?.action_type === 'Switch'">
                     <div class="form-group">
-                        <label>Switch Expression (Python)</label>
+                        <label>{{ __("Switch Expression (Python)") }}</label>
                         <textarea class="form-control" rows="2"
                             :value="getJsonConfig('expression')"
                             @input="updateJsonConfig('expression', $event.target.value)"
@@ -248,7 +274,7 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>Cases</label>
+                        <label>{{ __("Cases") }}</label>
                         <div class="case-list">
                             <div v-for="(nodeId, val) in getJsonConfig('cases', {})" :key="val" class="case-item mb-2 p-2 border rounded bg-light">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
@@ -264,22 +290,22 @@
                         </div>
                         
                         <div class="add-case mt-2 p-2 border rounded">
-                            <input type="text" class="form-control input-sm mb-1" v-model="newCaseValue" placeholder="Value (e.g. 'Active')" />
+                            <input type="text" class="form-control input-sm mb-1" v-model="newCaseValue" :placeholder="__('Value (e.g. \'Active\')')" />
                             <select class="form-control input-sm mb-1" v-model="newCaseTarget">
-                                <option value="" disabled>Select Target Node</option>
+                                <option value="" disabled>{{ __("Select Target Node") }}</option>
                                 <option v-for="node in availableNextNodes" :key="node.id" :value="node.id">
                                     {{ node.label }}
                                 </option>
                             </select>
                             <button class="btn btn-xs btn-default w-100" @click="addSwitchCase" :disabled="!newCaseValue || !newCaseTarget">
-                                <i class="fa fa-plus"></i> Add Case
+                                <i class="fa fa-plus"></i> {{ __("Add Case") }}
                             </button>
                         </div>
                     </div>
                 </template>
                 
                 <div class="form-group" v-if="selectedNode.data?.action_type === 'Condition'">
-                    <label>Expression</label>
+                    <label>{{ __("Expression") }}</label>
                     <textarea class="form-control" rows="3"
                         :value="selectedNode.data?.condition_expression"
                         @input="updateField('condition_expression', $event.target.value)"
@@ -288,15 +314,15 @@
                 
                 <div class="form-group" v-if="selectedNode.type !== 'stop'">
                     <label>{{ 
-                        selectedNode.data?.action_type === 'Condition' ? 'If True →' : 
-                        selectedNode.data?.action_type === 'Loop' ? 'Do (Loop Body) →' :
-                        selectedNode.data?.action_type === 'Switch' ? 'Default (Else) →' :
-                        'Next →' 
+                        selectedNode.data?.action_type === 'Condition' ? __('If True →') : 
+                        selectedNode.data?.action_type === 'Loop' ? __('Do (Loop Body) →') :
+                        selectedNode.data?.action_type === 'Switch' ? __('Default (Else) →') :
+                        __('Next →') 
                     }}</label>
                     <select class="form-control"
                         :value="selectedNode.data?.next_step_if_true"
                         @change="updateNextStep('next_step_if_true', $event.target.value)">
-                        <option value="">End Flow</option>
+                        <option value="">{{ __("End Flow") }}</option>
                         <option v-for="node in availableNextNodes" :key="node.id" :value="node.id">
                             {{ node.label }}
                         </option>
@@ -304,11 +330,11 @@
                 </div>
                 
                 <div class="form-group" v-if="selectedNode.data?.action_type === 'Condition' || selectedNode.data?.action_type === 'Loop'">
-                    <label>{{ selectedNode.data?.action_type === 'Loop' ? 'Done (Exit Loop) →' : 'If False →' }}</label>
+                    <label>{{ selectedNode.data?.action_type === 'Loop' ? __('Done (Exit Loop) →') : __('If False →') }}</label>
                     <select class="form-control"
                         :value="selectedNode.data?.next_step_if_false"
                         @change="updateNextStep('next_step_if_false', $event.target.value)">
-                        <option value="">End Flow</option>
+                        <option value="">{{ __("End Flow") }}</option>
                         <option v-for="node in availableNextNodes" :key="node.id" :value="node.id">
                             {{ node.label }}
                         </option>
@@ -321,10 +347,10 @@
                     <input type="checkbox" 
                         :checked="selectedNode.data?.is_enabled !== 0"
                         @change="updateField('is_enabled', $event.target.checked ? 1 : 0)" />
-                    Enabled
+                    {{ __("Enabled") }}
                 </label>
                 <button class="btn btn-sm btn-danger w-100 mt-3" @click="deleteNode">
-                    <i class="fa fa-trash"></i> Delete
+                    <i class="fa fa-trash"></i> {{ __("Delete") }}
                 </button>
             </template>
         </div>
@@ -332,7 +358,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, nextTick } from 'vue';
+import { computed, ref, watch, nextTick, onMounted } from 'vue';
 import { useStore } from '../store';
 import ConfigurationBuilder from './ConfigurationBuilder.vue';
 
@@ -342,8 +368,10 @@ const store = useStore();
 const selectedNode = computed(() => store.graph.selected);
 const selectedMethod = computed(() => {
     if (!selectedNode.value?.data?.process_method) return null;
-    return store.process_methods.find(m => m.name === selectedNode.value.data.process_method);
+    return (store.process_methods || []).find(m => m.name === selectedNode.value.data.process_method);
 });
+
+const triggerEventOptions = computed(() => store.trigger_event_options);
 
 const selectedMethodSchema = computed(() => {
     if (!selectedMethod.value?.config_schema) return null;
@@ -357,11 +385,13 @@ const selectedMethodSchema = computed(() => {
 // Process Method Autocomplete
 const methodSearch = ref('');
 const showMethodSuggestions = ref(false);
+const subRuleSearch = ref('');
+const showSubRuleSuggestions = ref(false);
 const methodDescription = ref('');
 
 watch(() => selectedNode.value?.data?.process_method, (newVal) => {
     if (newVal) {
-        const method = store.process_methods.find(m => m.name === newVal);
+        const method = (store.process_methods || []).find(m => m.name === newVal);
         methodSearch.value = method ? method.method_name : newVal;
         methodDescription.value = method ? method.description : '';
     } else {
@@ -369,6 +399,18 @@ watch(() => selectedNode.value?.data?.process_method, (newVal) => {
         methodDescription.value = '';
     }
 }, { immediate: true });
+
+watch(() => selectedNode.value?.data?.rule, (newVal) => {
+    if (newVal) {
+        const r = (store.available_rules || []).find(r => r.name === newVal);
+        subRuleSearch.value = r ? (r.rule_name || r.name) : newVal;
+    } else {
+        subRuleSearch.value = '';
+    }
+}, { immediate: true });
+onMounted(() => {
+    store.fetch_available_rules(store.rule_doc?.document_type);
+});
 
 function filterMethods() {
     showMethodSuggestions.value = true;
@@ -397,6 +439,12 @@ function updateStartNodeFilters(filtersJSON) {
     store.mark_dirty();
 }
 
+function updateTriggerEvent(value) {
+    if (!selectedNode.value?.data) return;
+    selectedNode.value.data.trigger_event = value;
+    store.mark_dirty();
+}
+
 function editFilters() {
     if (!selectedNode.value?.data?.document_type) return;
 
@@ -410,7 +458,7 @@ function editFilters() {
                 {
                     fieldname: 'filter_area',
                     fieldtype: 'HTML',
-                    label: 'Filters'
+                    label: __('Filters')
                 }
             ],
             size: 'large',
@@ -442,7 +490,7 @@ function editFilters() {
              
              frappe.prompt(
                 { 
-                    label: 'Python Expression', fieldname: 'expression', 
+                    label: __('Python Expression'), fieldname: 'expression', 
                     fieldtype: 'Code', options: 'Python', reqd: 1,
                     default: currentExpr 
                 },
@@ -703,9 +751,19 @@ function updateProcessMethod(value) {
 
 function updateSubRuleName(value) {
     if (!selectedNode.value?.data) return;
-    selectedNode.value.data.sub_rule_name = value;
-    // Store in method_config as expected by Engine
+    selectedNode.value.data.rule = value;
+    // Keep method_config for engine backward compatibility if needed, 
+    // but engine now prioritizes .rule
     selectedNode.value.data.method_config = JSON.stringify({ "rule": value });
+    store.mark_dirty();
+}
+
+function selectSubRule(rule) {
+    if (!selectedNode.value?.data) return;
+    selectedNode.value.data.rule = rule.name;
+    selectedNode.value.data.method_config = JSON.stringify({ "rule": rule.name });
+    subRuleSearch.value = rule.rule_name || rule.name;
+    showSubRuleSuggestions.value = false;
     store.mark_dirty();
 }
 

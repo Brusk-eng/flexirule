@@ -17,18 +17,18 @@ function deleteNode() {
         <div class="content">
             <div class="icon">↻</div>
             <div class="text">{{ data.action_label || label }}</div>
-            <div class="subtext">Loop</div>
+            <div class="subtext">{{ __("Loop") }}</div>
         </div>
         
         <button class="delete-btn" @click.stop="deleteNode">×</button>
         
         <!-- Iterate / Body Path -->
         <Handle type="source" :position="Position.Right" id="default" class="handle-do" />
-        <span class="handle-label label-do">Do</span>
+        <span class="handle-label label-do">{{ __("Do") }}</span>
         
         <!-- Exit / Done Path -->
         <Handle type="source" :position="Position.Bottom" id="false" class="handle-done" />
-        <span class="handle-label label-done">Done</span>
+        <span class="handle-label label-done">{{ __("Done") }}</span>
     </div>
 </template>
 

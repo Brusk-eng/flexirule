@@ -28,32 +28,32 @@ function toggleOutputSchema() { showOutputSchema.value = !showOutputSchema.value
             <div class="icon-wrapper"><i class="fa fa-cogs"></i></div>
             <div class="node-title">
                 <div class="node-label">{{ data.action_label || label }}</div>
-                <div class="node-subtitle">{{ data.process_method || 'Select Method' }}</div>
+                <div class="node-subtitle">{{ data.process_method || __('Select Method') }}</div>
             </div>
             <button class="delete-btn" @click.stop="deleteNode">×</button>
         </div>
 
         <div class="node-body">
             <div class="node-actions">
-                <div class="action-item" @click.stop="toggleInputSchema" title="Input Schema">
+                <div class="action-item" @click.stop="toggleInputSchema" :title="__('Input Schema')">
                     <i class="fa fa-sign-in"></i>
                     <div v-if="showInputSchema" class="popover-card">
-                        <h6>Input Schema</h6>
-                        <pre>{{ methodSchema?.input_schema || 'No schema' }}</pre>
+                        <h6>{{ __("Input Schema") }}</h6>
+                        <pre>{{ methodSchema?.input_schema || __('No schema') }}</pre>
                     </div>
                 </div>
-                <div class="action-item" @click.stop="toggleConfig" title="Configuration">
+                <div class="action-item" @click.stop="toggleConfig" :title="__('Configuration')">
                     <i class="fa fa-sliders" :class="{ 'active': data.method_config }"></i>
                      <div v-if="showConfig" class="popover-card">
-                        <h6>Configuration</h6>
-                        <pre>{{ data.method_config || 'Not configured' }}</pre>
+                        <h6>{{ __("Configuration") }}</h6>
+                        <pre>{{ data.method_config || __('Not configured') }}</pre>
                     </div>
                 </div>
-                <div class="action-item" @click.stop="toggleOutputSchema" title="Output Schema">
+                <div class="action-item" @click.stop="toggleOutputSchema" :title="__('Output Schema')">
                     <i class="fa fa-sign-out"></i>
                      <div v-if="showOutputSchema" class="popover-card">
-                        <h6>Output Schema</h6>
-                        <pre>{{ methodSchema?.output_schema || 'No schema' }}</pre>
+                        <h6>{{ __("Output Schema") }}</h6>
+                        <pre>{{ methodSchema?.output_schema || __('No schema') }}</pre>
                     </div>
                 </div>
             </div>

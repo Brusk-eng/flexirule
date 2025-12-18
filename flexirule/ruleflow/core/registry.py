@@ -34,15 +34,15 @@ def sync_process_methods():
                         count += 1
                         found_methods.add(f"{module_name}.{name}")
                     except Exception as e:
-                        frappe.log_error(_("Process Method Sync Error"), f"Failed to sync {module_name}.{name}: {str(e)}")
+                        frappe.log_error(_("Process Method Sync Error"), _("Failed to sync {0}: {1}").format(method_path, str(e)))
                         errors += 1
-                        print(f"Failed to sync {module_name}.{name}: {str(e)}")
+                        print(_("Failed to sync {0}: {1}").format(method_path, str(e)))
 
         except ImportError:
-            print(f"Could not import module: {module_name}")
+            print(_("Could not import module: {0}").format(module_name))
             errors += 1
         except Exception as e:
-            print(f"Error scanning module {module_name}: {str(e)}")
+            print(_("Error scanning module {0}: {1}").format(module_name, str(e)))
             errors += 1
 
     # Prune orphaned methods (Managed only)
@@ -54,19 +54,19 @@ def sync_process_methods():
     methods_to_delete = set(managed_methods_in_db) - found_methods
     
     if methods_to_delete:
-        print(f"Pruning {len(methods_to_delete)} orphaned methods...")
+        print(_("Pruning {0} orphaned methods...").format(len(methods_to_delete)))
         for path in methods_to_delete:
             # Check for dependencies before deleting
             if frappe.db.count("Rule Action", filters={"process_method": path}) > 0:
-                print(f"Skipping {path}: Used in active Rules. Please remove usage first.")
+                print(_("Skipping {0}: Used in active Rules. Please remove usage first.").format(path))
                 errors += 1
                 continue
                 
             frappe.delete_doc("Process Method", path, force=1)
-            print(f"Deleted {path}")
+            print(_("Deleted {0}").format(path))
 
     frappe.db.commit()
-    print(f"Sync Complete. Synced: {count}, Pruned: {len(methods_to_delete)}, Errors: {errors}")
+    print(_("Sync Complete. Synced: {0}, Pruned: {1}, Errors: {2}").format(count, len(methods_to_delete), errors))
 
 
 def _sync_single_method(module_name, func_name, func):

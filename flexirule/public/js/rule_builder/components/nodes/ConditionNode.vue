@@ -22,10 +22,10 @@ function deleteNode() {
         <button class="delete-btn" @click.stop="deleteNode">×</button>
         
         <Handle type="source" :position="Position.Right" id="true" class="handle-true" />
-        <span class="handle-label true-label">✓ True</span>
+        <span class="handle-label true-label">✓ {{ __("True") }}</span>
         
         <Handle type="source" :position="Position.Bottom" id="false" class="handle-false" />
-        <span class="handle-label false-label">✗ False</span>
+        <span class="handle-label false-label">✗ {{ __("False") }}</span>
     </div>
 </template>
 

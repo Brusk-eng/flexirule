@@ -36,6 +36,7 @@ def execute_rules(doc, method=None):
     from flexirule.ruleflow.core.coordinator import RuleCoordinator
     
     event_map = {
+        'before_naming': 'Before Naming',
         'before_insert': 'Before Insert',
         'before_save': 'Before Save',
         'validate': 'Validate',
@@ -43,6 +44,8 @@ def execute_rules(doc, method=None):
         'after_save': 'After Save',
         'before_submit': 'Before Submit',
         'on_submit': 'On Submit',
+        'on_update_after_submit': 'On Update After Submit',
+        'on_change': 'On Change',
         'before_cancel': 'Before Cancel',
         'on_cancel': 'On Cancel',
         'on_trash': 'On Trash'

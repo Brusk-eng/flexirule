@@ -80,7 +80,7 @@
    "fieldname": "trigger_event",
    "fieldtype": "Select",
    "label": "Trigger Event",
-   "options": "Before Insert\nBefore Save\nValidate\nAfter Insert\nAfter Save\nBefore Submit\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash",
+   "options": "Manual\nBefore Naming\nBefore Insert\nBefore Save\nValidate\nBefore Submit\nAfter Insert\nAfter Save\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash\nOn Update After Submit\nOn Change",
    "reqd": 1
   },
   {
@@ -192,7 +192,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-14 19:59:21.032202",
+ "modified": "2025-12-18 19:38:57.433163",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "Rule",

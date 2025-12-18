@@ -23,7 +23,6 @@ class Rule(Document):
         debug_mode: DF.Check
         description: DF.Text | None
         document_type: DF.Link
-        trigger_filters: DF.Code | None
         execution_count: DF.Int
         execution_mode: DF.Literal["Synchronous", "Asynchronous"]
         is_active: DF.Check
@@ -34,7 +33,9 @@ class Rule(Document):
         priority: DF.Int
         rule_name: DF.Data
         skip_for_roles: DF.TableMultiSelect[HasRole]
-        trigger_event: DF.Literal["Before Insert", "Before Save", "Validate", "After Insert", "After Save", "Before Submit", "On Submit", "Before Cancel", "On Cancel", "On Trash"]
+        trigger_condition: DF.Code | None
+        trigger_event: DF.Literal["Manual", "Before Naming", "Before Insert", "Before Save", "Validate", "Before Submit", "After Insert", "After Save", "On Submit", "Before Cancel", "On Cancel", "On Trash", "On Update After Submit", "On Change"]
+        trigger_filters: DF.Code | None
     # end: auto-generated types
     def validate(self):
         """
@@ -48,9 +49,9 @@ class Rule(Document):
 
         for action in self.actions:
             # 1. Validate JSON fields syntax
-            self._validate_json_field(action.method_config, f"Action {action.action_label}: Configuration")
-            self._validate_json_field(action.input_mapping, f"Action {action.action_label}: Input Mapping")
-            self._validate_json_field(action.output_mapping, f"Action {action.action_label}: Output Mapping")
+            self._validate_json_field(action.method_config, _("Action {0}: Configuration").format(action.action_label))
+            self._validate_json_field(action.input_mapping, _("Action {0}: Input Mapping").format(action.action_label))
+            self._validate_json_field(action.output_mapping, _("Action {0}: Output Mapping").format(action.action_label))
             
             # 2. Check Process Method config against Schema
             if action.action_type == 'Process' and action.process_method:
@@ -121,7 +122,7 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
     if not is_eligible:
             return {
                 "success": False,
-                "status": "Skipped",
+                "status": _("Skipped"),
                 "message": frappe._("Rule Skipped: {0}").format(reason),
                 "execution_log": {}
             }
@@ -148,13 +149,13 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
         
         return {
             "success": True,
-            "status": log_data.get("status", "Success"),
+            "status": _(log_data.get("status", "Success")),
             "execution_log": log_data,
-            "message": f"Rule {rule_name} executed."
+            "message": _("Rule {0} executed.").format(rule_name)
         }
     except Exception as e:
         return {
             "success": False,
-            "status": "Failed",
+            "status": _("Failed"),
             "error": str(e)
         }

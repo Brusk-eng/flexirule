@@ -412,5 +412,70 @@ class TestImportExport(FrappeTestCase):
         super().tearDownClass()
 
 
+class TestNewTriggerEvents(FrappeTestCase):
+    """Test the newly added trigger events"""
+    
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        frappe.set_user('Administrator')
+        from flexirule.ruleflow.core.registry import sync_process_methods
+        sync_process_methods()
+        
+    def test_before_naming_trigger(self):
+        """Test 'Before Naming' trigger event"""
+        from flexirule.ruleflow.core.coordinator import RuleCoordinator
+        RuleCoordinator.clear_cache()
+        
+        # Create a rule that sets description 'Set by Naming' on Before Naming
+        rule_name = "Test Before Naming"
+        create_test_rule(rule_name, doctype="ToDo", event="Before Naming", actions=[
+            {
+                "action_id": "set_desc_naming",
+                "action_type": "Process",
+                "action_label": "Set Description",
+                "process_method": "flexirule.ruleflow.methods.enrichment.set_default_value",
+                "method_config": json.dumps({"field": "description", "default_value": "Set by Naming", "overwrite": True}),
+                "is_enabled": 1
+            }
+        ])
+        
+        # Creating a doc triggers before_naming
+        todo = frappe.get_doc({"doctype": "ToDo", "description": "Original"})
+        todo.insert()
+        
+        self.assertEqual(todo.description, "Set by Naming")
+        
+    def test_on_change_trigger(self):
+        """Test 'On Change' trigger event"""
+        from flexirule.ruleflow.core.coordinator import RuleCoordinator
+        RuleCoordinator.clear_cache()
+        
+        todo = frappe.get_doc({"doctype": "ToDo", "description": "Original"}).insert()
+        
+        # Rule to update description on change
+        rule_name = "Test On Change"
+        create_test_rule(rule_name, doctype="ToDo", event="On Change", actions=[
+            {
+                "action_id": "set_desc_change",
+                "action_type": "Process",
+                "action_label": "Update Description",
+                "process_method": "flexirule.ruleflow.methods.enrichment.set_default_value",
+                "method_config": json.dumps({"field": "description", "default_value": "Changed", "overwrite": True}),
+                "is_enabled": 1
+            }
+        ])
+        
+        todo.description = "Something Else"
+        todo.save()
+        
+        self.assertEqual(todo.description, "Changed")
+        
+    @classmethod
+    def tearDownClass(cls):
+        frappe.db.rollback()
+        super().tearDownClass()
+
+
 if __name__ == '__main__':
     unittest.main()

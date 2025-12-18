@@ -6,8 +6,10 @@ export const useStore = defineStore("rule-builder-store", () => {
     let rule_doc = ref(null);
     let graph = ref({ elements: [], selected: null });
     let process_methods = ref([]);
+    let available_rules = ref([]);
     let is_dirty = ref(false);
     let initial_state = ref(null);
+    let trigger_event_options = ref([]);
 
     // Undo/Redo history
     let history = ref([]);
@@ -25,6 +27,22 @@ export const useStore = defineStore("rule-builder-store", () => {
         if (result.message) {
             frappe.model.sync(result.message);
             rule_doc.value = frappe.get_doc("Rule", rule_name.value);
+        }
+
+        if (!trigger_event_options.value.length) {
+            await frappe.model.with_doctype("Rule");
+            const meta = frappe.get_meta("Rule");
+            if (meta && meta.fields) {
+                const trigger_field = meta.fields.find(f => f.fieldname === "trigger_event");
+                if (trigger_field && trigger_field.options) {
+                    trigger_event_options.value = trigger_field.options.split("\n");
+                }
+            }
+        }
+
+        if (!rule_doc.value) {
+            frappe.show_alert({ message: __("Rule not found"), indicator: "orange" });
+            return;
         }
 
         await fetch_process_methods();
@@ -62,10 +80,10 @@ export const useStore = defineStore("rule-builder-store", () => {
         const disabledSet = new Set();
         const nodes = graph.value.elements.filter(el => el.position);
         const edges = graph.value.elements.filter(el => el.source);
-        
+
         const nodeMap = new Map(nodes.map(n => [n.id, n]));
         const adj = new Map();
-        
+
         edges.forEach(e => {
             if (!adj.has(e.source)) adj.set(e.source, []);
             adj.get(e.source).push(e.target);
@@ -73,32 +91,32 @@ export const useStore = defineStore("rule-builder-store", () => {
 
         const visited = new Set();
         const queue = ['start'];
-        
+
         // BFS to find all reachable ENABLED nodes
         while (queue.length > 0) {
             const currentId = queue.shift();
             // If already visited, skip
             if (visited.has(currentId)) continue;
-            
+
             // If explicitly disabled (and not start), it blocks path
             const node = nodeMap.get(currentId);
             if (currentId !== 'start' && node?.data?.is_enabled === 0) {
                 continue; // Don't traverse children
             }
-            
+
             visited.add(currentId);
-            
+
             const children = adj.get(currentId) || [];
             children.forEach(childId => {
-                 if (!visited.has(childId)) queue.push(childId);
+                if (!visited.has(childId)) queue.push(childId);
             });
         }
-        
+
         // All nodes NOT in visited are effectively disabled
         nodes.forEach(n => {
             if (!visited.has(n.id)) disabledSet.add(n.id);
         });
-        
+
         return disabledSet;
     });
 
@@ -196,7 +214,7 @@ export const useStore = defineStore("rule-builder-store", () => {
                     timeout: action.timeout, priority: action.priority,
                     retry_count: action.retry_count, return_variable: action.return_variable,
                     is_async: action.is_async, name: action.name,
-                    sub_rule_name: action.action_type === 'Sub-Rule' ? getSubRuleName(action.method_config) : null
+                    rule: action.rule || (action.action_type === 'Sub-Rule' ? getSubRuleName(action.method_config) : null)
                 }
             });
         });
@@ -219,7 +237,7 @@ export const useStore = defineStore("rule-builder-store", () => {
         });
         graph.value.elements = [...nodes, ...edges];
     }
-    
+
     function getSubRuleName(configStr) {
         try { return JSON.parse(configStr).rule; } catch { return null; }
     }
@@ -241,6 +259,23 @@ export const useStore = defineStore("rule-builder-store", () => {
             try { return JSON.parse(method.config_schema); } catch { return null; }
         }
         return null;
+    }
+
+    async function fetch_available_rules(doctype) {
+        if (!doctype) return;
+        try {
+            const rules = await frappe.db.get_list('Rule', {
+                fields: ['name', 'rule_name', 'trigger_event', 'is_active'],
+                filters: {
+                    document_type: doctype,
+                    name: ['!=', rule_name.value || '']
+                },
+                limit: 0
+            });
+            available_rules.value = rules || [];
+        } catch {
+            available_rules.value = [];
+        }
     }
 
     function mark_dirty() {
@@ -299,7 +334,7 @@ export const useStore = defineStore("rule-builder-store", () => {
                     action_label: node.label,
                     is_entry_action: is_entry_action,
                     prev_action_id: prev_action_id,
-                    action_type: node.data?.action_type,
+                    action_type: node.data?.action_type === 'Sub-rule' ? 'Sub-Rule' : (node.data?.action_type || 'Process'),
                     is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
                     process_method: node.data?.process_method,
                     method_config: node.data?.method_config,
@@ -309,6 +344,7 @@ export const useStore = defineStore("rule-builder-store", () => {
                     priority: node.data?.priority || 0,
                     retry_count: node.data?.retry_count || 0,
                     return_variable: node.data?.return_variable,
+                    rule: node.data?.rule,
                     is_async: node.data?.is_async || 0,
                     next_step_if_true: true_edge?.target || null,
                     next_step_if_false: false_edge?.target || null,
@@ -330,6 +366,10 @@ export const useStore = defineStore("rule-builder-store", () => {
     function clean_graph_data() {
         return graph.value.elements.map((el) => {
             const { selected, dragging, resizing, sourceNode, targetNode, ...obj } = el;
+            // Normalize action_type casing
+            if (obj.data?.action_type === 'Sub-rule') {
+                obj.data.action_type = 'Sub-Rule';
+            }
             return obj;
         });
     }
@@ -373,9 +413,10 @@ export const useStore = defineStore("rule-builder-store", () => {
     }
 
     return {
-        rule_name, rule_doc, graph, process_methods, is_dirty, effectiveDisabledIds,
+        rule_name, rule_doc, graph, process_methods, available_rules, is_dirty, effectiveDisabledIds,
+        trigger_event_options,
         fetch, get_process_method_schema, save_changes, mark_dirty, mark_position_change,
-        clear_dirty, delete_node, getEffectivelyDisabledIds,
+        clear_dirty, delete_node, getEffectivelyDisabledIds, fetch_available_rules,
         undo, redo, can_undo, can_redo, commit_history
     };
 });

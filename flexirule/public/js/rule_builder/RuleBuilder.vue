@@ -4,26 +4,26 @@
         <div class="builder-toolbar">
             <div class="toolbar-left">
                 <div class="btn-group">
-                    <button class="btn btn-xs btn-default" @click="addNode('process')" title="Add Process">
-                        <i class="fa fa-cog"></i> Process
+                    <button class="btn btn-xs btn-default" @click="addNode('process')" :title="__('Add Process')">
+                        <i class="fa fa-cog"></i> {{ __("Process") }}
                     </button>
-                    <button class="btn btn-xs btn-default" @click="addNode('condition')" title="Add Condition">
-                        <i class="fa fa-code-fork"></i> Condition
+                    <button class="btn btn-xs btn-default" @click="addNode('condition')" :title="__('Add Condition')">
+                        <i class="fa fa-code-fork"></i> {{ __("Condition") }}
                     </button>
-                    <button class="btn btn-xs btn-default" @click="addNode('loop')" title="Add Loop">
-                         <i class="fa fa-refresh"></i> Loop
+                    <button class="btn btn-xs btn-default" @click="addNode('loop')" :title="__('Add Loop')">
+                         <i class="fa fa-refresh"></i> {{ __("Loop") }}
                     </button>
-                    <button class="btn btn-xs btn-default" @click="addNode('switch')" title="Add Switch">
-                        <i class="fa fa-code-fork" style="transform: rotate(90deg)"></i> Switch
+                    <button class="btn btn-xs btn-default" @click="addNode('switch')" :title="__('Add Switch')">
+                        <i class="fa fa-code-fork" style="transform: rotate(90deg)"></i> {{ __("Switch") }}
                     </button>
-                    <button class="btn btn-xs btn-default" @click="addNode('wait')" title="Add Wait">
-                        <i class="fa fa-clock-o"></i> Wait
+                    <button class="btn btn-xs btn-default" @click="addNode('wait')" :title="__('Add Wait')">
+                        <i class="fa fa-clock-o"></i> {{ __("Wait") }}
                     </button>
-                    <button class="btn btn-xs btn-default" @click="addNode('sub-rule')" title="Add Sub-Rule">
-                         <i class="fa fa-cube"></i> Sub-Rule
+                    <button class="btn btn-xs btn-default" @click="addNode('sub-rule')" :title="__('Add Sub-Rule')">
+                         <i class="fa fa-cube"></i> {{ __("Sub-Rule") }}
                     </button>
-                    <button class="btn btn-xs btn-default" @click="addNode('stop')" title="Add Stop">
-                        <i class="fa fa-stop-circle"></i> Stop
+                    <button class="btn btn-xs btn-default" @click="addNode('stop')" :title="__('Add Stop')">
+                        <i class="fa fa-stop-circle"></i> {{ __("Stop") }}
                     </button>
                 </div>
             </div>
@@ -31,28 +31,28 @@
             <div class="toolbar-center">
                 <div v-if="store.rule_doc" class="rule-status-toggle">
                      <!-- Rule Active Toggle -->
-                    <label class="switch" title="Enable/Disable Rule">
+                    <label class="switch" :title="__('Enable/Disable Rule')">
                         <input type="checkbox" :checked="store.rule_doc.is_active" @change="toggleRuleActive">
                         <span class="slider round"></span>
                     </label>
-                    <span class="status-label">{{ store.rule_doc.is_active ? 'Active' : 'Draft' }}</span>
+                    <span class="status-label">{{ store.rule_doc.is_active ? __('Active') : __('Draft') }}</span>
 
                     <span class="divider">|</span>
 
                     <!-- Show Disabled Nodes Toggle -->
-                    <label class="switch small-switch" title="Show Disabled Nodes">
+                    <label class="switch small-switch" :title="__('Show Disabled Nodes')">
                         <input type="checkbox" v-model="showDisabledNodes">
                         <span class="slider round"></span>
                     </label>
-                    <span class="status-label">Show Disabled</span>
+                    <span class="status-label">{{ __("Show Disabled") }}</span>
                 </div>
             </div>
 
             <div class="toolbar-right">
-                <button class="btn btn-xs btn-primary mr-2" @click="testRule()" title="Dry Run">
-                    <i class="fa fa-play"></i> Test
+                <button class="btn btn-xs btn-primary mr-2" @click="testRule()" :title="__('Dry Run')">
+                    <i class="fa fa-play"></i> {{ __("Test") }}
                 </button>
-                <button class="btn btn-xs btn-default" @click="fitView()" title="Fit View">
+                <button class="btn btn-xs btn-default" @click="fitView()" :title="__('Fit View')">
                     <i class="fa fa-expand"></i>
                 </button>
             </div>
@@ -98,7 +98,7 @@
                     <Panel :position="PanelPosition.BottomLeft">
                         <button class="btn btn-sm btn-default mr-2" @click="zoomIn">+</button>
                         <button class="btn btn-sm btn-default mr-2" @click="zoomOut">-</button>
-                        <button class="btn btn-sm btn-default" @click="fitView()">Fit</button>
+                        <button class="btn btn-sm btn-default" @click="fitView()">{{ __("Fit") }}</button>
                     </Panel>
                 </VueFlow>
             </div>
@@ -128,8 +128,8 @@ const showDisabledNodes = ref(true);
 
 const nodes = computed({
     get: () => {
-        const disabledIds = store.effectiveDisabledIds;
-        return store.graph.elements
+        const disabledIds = store.effectiveDisabledIds || new Set();
+        return (store.graph.elements || [])
             .filter(el => {
                 if (!el.position) return false;
                 if (el.id === 'start') return true;
@@ -160,7 +160,7 @@ const nodes = computed({
 });
 
 const edges = computed({
-    get: () => store.graph.elements.filter(el => el.source),
+    get: () => (store.graph.elements || []).filter(el => el.source),
     set: (val) => {
         const nodesList = store.graph.elements.filter(el => el.position);
         store.graph.elements = [...nodesList, ...val];
@@ -188,9 +188,9 @@ function handleKeydown(e) {
 }
 
 function autoConnectStartNode() {
-    const hasStartEdge = store.graph.elements.some(el => el.source === 'start');
+    const hasStartEdge = (store.graph.elements || []).some(el => el.source === 'start');
     if (hasStartEdge) return;
-    const firstNode = store.graph.elements.find(el => el.position && el.id !== 'start' && el.data?.is_enabled !== 0);
+    const firstNode = (store.graph.elements || []).find(el => el.position && el.id !== 'start' && el.data?.is_enabled !== 0);
     if (firstNode) {
         store.graph.elements.push({
             id: `e-start-${firstNode.id}`,
@@ -222,20 +222,49 @@ function onNodesChange(changes) {
 function addNode(type) {
     const id = generateShortId();
     let label = '';
+    let actionType = '';
+    
     switch(type) {
-        case 'process': label = 'New Process'; break;
-        case 'condition': label = 'New Condition'; break;
-        case 'switch': label = 'New Switch'; break;
-        case 'loop': label = 'Loop'; break;
-        case 'wait': label = 'Wait'; break;
-        case 'sub-rule': label = 'Sub Rule'; break;
-        default: label = 'Stop';
+        case 'process': 
+            label = __('New Process'); 
+            actionType = 'Process'; 
+            break;
+        case 'condition': 
+            label = __('New Condition'); 
+            actionType = 'Condition';
+            break;
+        case 'switch': 
+            label = __('New Switch'); 
+            actionType = 'Switch';
+            break;
+        case 'loop': 
+            label = __('Loop'); 
+            actionType = 'Loop';
+            break;
+        case 'wait': 
+            label = __('Wait'); 
+            actionType = 'Wait';
+            break;
+        case 'sub-rule': 
+            label = __('Sub Rule'); 
+            actionType = 'Sub-Rule'; 
+            break;
+        case 'stop':
+            label = __('Stop');
+            actionType = 'Stop';
+            break;
+        default: 
+            label = __('New Action');
+            actionType = 'Process';
     }
+
     const newNode = {
         id, type, position: { x: 300, y: 200 }, label,
         data: {
-            action_id: id, action_type: type.charAt(0).toUpperCase() + type.slice(1),
-            action_label: label, is_enabled: 1
+            action_id: id, 
+            action_type: actionType,
+            action_label: label, 
+            is_enabled: 1
         }
     };
     store.graph.elements.push(newNode);

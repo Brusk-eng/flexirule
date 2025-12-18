@@ -6,6 +6,31 @@ from frappe.model.document import Document
 
 
 class DataReviewTask(Document):
+    # begin: auto-generated types
+    # This code is auto-generated. Do not modify anything in this block.
+
+    from typing import TYPE_CHECKING
+
+    if TYPE_CHECKING:
+        from flexirule.ruleflow.doctype.data_review_related_document.data_review_related_document import DataReviewRelatedDocument
+        from frappe.types import DF
+
+        context_json: DF.Code | None
+        description: DF.TextEditor | None
+        method_inputs: DF.Code | None
+        priority: DF.Literal["Low", "Medium", "High", "Critical"]
+        process_method: DF.Link | None
+        related_documents: DF.Table[DataReviewRelatedDocument]
+        resolution_notes: DF.Text | None
+        resolved_by: DF.Link | None
+        resolved_on: DF.Datetime | None
+        rule: DF.Link | None
+        similarity_score: DF.Percent
+        source_doctype: DF.Link
+        source_document: DF.DynamicLink
+        status: DF.Literal["Open", "In Progress", "Resolved", "Rejected"]
+        task_type: DF.Literal["Duplicate Review", "Data Quality", "Merge Request", "Validation Error"]
+    # end: auto-generated types
     def validate(self):
         pass
     

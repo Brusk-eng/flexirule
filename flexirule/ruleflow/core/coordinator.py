@@ -7,6 +7,7 @@ Finds applicable rules and dispatches them to appropriate executors
 """
 
 import frappe
+from frappe import _
 from typing import List, Dict, Any
 import json
 
@@ -85,7 +86,7 @@ class RuleCoordinator:
 			else:
 				# Optional: Log ineligibility if debug/trace mode is on for this rule
 				if rule_doc.debug_mode:
-					frappe.log_error(title=f"Rule Skipped: {rule_doc.name}", message=reason)
+					frappe.log_error(title=_("Rule Skipped: {0}").format(rule_doc.name), message=_(reason))
 		
 		# Execute eligible rules
 		for rule_doc in valid_rules:
@@ -101,8 +102,8 @@ class RuleCoordinator:
 				
 				if rule_doc.debug_mode:
 					frappe.log_error(
-						title=f"Rule Execution Failed: {rule_doc.name}",
-						message=f"DocType: {doc.doctype} Doc: {doc.name}Error: {str(e)}"
+						title=_("Rule Execution Failed: {0}").format(rule_doc.name),
+						message=_("DocType: {0} Doc: {1} Error: {2}").format(doc.doctype, doc.name, str(e))
 					)
 				
 				# Re-raise blocking exceptions (Stop the save)
@@ -115,12 +116,12 @@ class RuleCoordinator:
 		"""
 		# 1. Active Check
 		if not rule_doc.is_active:
-			return False, "Rule is not active"
+			return False, _("Rule is not active")
 
 		# 2. Event Check
 		if not skip_event_check and rule_doc.trigger_event != event_name:
 			# This might happen if cache returns mixed results or during manual triggers
-			return False, f"Event mismatch: Rule expects {rule_doc.trigger_event}, got {event_name}"
+			return False, _("Event mismatch: Rule expects {0}, got {1}").format(rule_doc.trigger_event, event_name)
 
 		# 3. Mode Check (Strict)
 		# For V1, we enforce that Sync rules run in Sync context.
@@ -135,9 +136,9 @@ class RuleCoordinator:
 				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 				evaluator = ConditionEvaluator(rule_doc.trigger_condition)
 				if not evaluator.evaluate(doc):
-					return False, "Trigger Condition (JSON) mismatch"
+					return False, _("Trigger Condition (JSON) mismatch")
 			except Exception as e:
-				return False, f"Invalid Trigger Condition JSON: {str(e)}"
+				return False, _("Invalid Trigger Condition JSON: {0}").format(str(e))
 
 		# 5. Python Filters (Expression / Advanced)
 		if rule_doc.trigger_filters:
@@ -147,13 +148,11 @@ class RuleCoordinator:
 				eval_globals = {'doc': doc, 'frappe': frappe}
 				eval_globals.update(doc.as_dict())
 				
-				if not frappe.safe_eval(rule_doc.trigger_filters, None, eval_globals):					return False, "Trigger Filters (Python) evaluated to False"
+				if not frappe.safe_eval(rule_doc.trigger_filters, None, eval_globals):					return False, _("Trigger Filters (Python) evaluated to False")
 			except Exception as e:
-				return False, f"Trigger Filters Error: {str(e)}"
+				return False, _("Trigger Filters Error: {0}").format(str(e))
 
-		return True, "Eligible"
-
-		return True, "Eligible"
+		return True, _("Eligible")
 	
 	@staticmethod
 	def get_applicable_rules(doctype: str, event_name: str, doc=None) -> List:
@@ -276,7 +275,7 @@ class RuleCoordinator:
 			engine.execute(doc)
 			
 		except Exception as e:
-			frappe.log_error(f"Async Rule Execution Failed: {rule_name}", str(e))
+			frappe.log_error(_("Async Rule Execution Failed: {0}").format(rule_name), str(e))
 	
 	@staticmethod
 	def clear_cache(doctype: str = None):
@@ -288,9 +287,10 @@ class RuleCoordinator:
 		"""
 		# Clear Redis Hash for active rules check
 		if doctype:
-			events = ['Before Insert', 'Before Save', 'Validate', 'After Insert', 
-					  'After Save', 'Before Submit', 'On Submit', 'Before Cancel', 
-					  'On Cancel', 'On Trash']
+			# Get all possible events from Rule metadata
+			meta = frappe.get_meta('Rule')
+			events = meta.get_field('trigger_event').options.split('\n')
+			
 			for event in events:
 				# Clear Hash Field
 				frappe.cache().hdel('flexirule_active_rules', f"{doctype}:{event}")
@@ -307,8 +307,14 @@ class RuleCoordinator:
 			frappe.cache().delete_key('flexirule_active_rules')
 			frappe.cache().delete_keys("rules:*")
 			
-			# Clear local cache (Iterate keys because it's a dict)
-			to_remove = [k for k in frappe.local.cache.keys() if k.startswith("flexirule_active:")]
+			# Clear local cache 
+			to_remove = []
+			for k in frappe.local.cache.keys():
+				if isinstance(k, str) and k.startswith("flexirule_active:"):
+					to_remove.append(k)
+				elif isinstance(k, bytes) and k.startswith(b"flexirule_active:"):
+					to_remove.append(k)
+					
 			for k in to_remove:
 				del frappe.local.cache[k]
 

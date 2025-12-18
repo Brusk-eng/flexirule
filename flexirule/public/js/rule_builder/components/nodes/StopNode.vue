@@ -28,7 +28,7 @@ function deleteNode() {
             <span class="text">{{ label }}</span>
         </div>
         
-        <button class="delete-btn" @click.stop="deleteNode" title="Delete Node">×</button>
+        <button class="delete-btn" @click.stop="deleteNode" :title="__('Delete Node')">×</button>
     </div>
 </template>
 

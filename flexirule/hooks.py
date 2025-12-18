@@ -17,6 +17,7 @@ app_include_js = "/assets/flexirule/js/rule_builder.bundle.js"
 # NEVER use class method paths like "module.ClassName.method"
 doc_events = {
     "*": {
+        "before_naming": "flexirule.ruleflow.hooks.execute_rules",
         "before_insert": "flexirule.ruleflow.hooks.execute_rules",
         "before_save": "flexirule.ruleflow.hooks.execute_rules",
         "validate": "flexirule.ruleflow.hooks.execute_rules",
@@ -24,11 +25,14 @@ doc_events = {
         "after_save": "flexirule.ruleflow.hooks.execute_rules",
         "before_submit": "flexirule.ruleflow.hooks.execute_rules",
         "on_submit": "flexirule.ruleflow.hooks.execute_rules",
+        "on_update_after_submit": "flexirule.ruleflow.hooks.execute_rules",
+        "on_change": "flexirule.ruleflow.hooks.execute_rules",
         "before_cancel": "flexirule.ruleflow.hooks.execute_rules",
         "on_cancel": "flexirule.ruleflow.hooks.execute_rules",
         "on_trash": "flexirule.ruleflow.hooks.execute_rules",
     },
     "Rule": {
+        "after_insert": "flexirule.ruleflow.hooks.clear_rule_cache",
         "after_save": "flexirule.ruleflow.hooks.clear_rule_cache",
         "on_trash": "flexirule.ruleflow.hooks.clear_rule_cache"
     }

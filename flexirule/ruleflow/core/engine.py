@@ -12,6 +12,7 @@ Enhanced Rule Engine with:
 """
 
 import frappe
+from frappe import _
 import json
 import time
 import traceback
@@ -248,7 +249,7 @@ class RuleEngine:
 			
 		except (TimeoutException, FuturesTimeoutError, BoltonTimeoutError) as e:
 			status = "Failed"
-			error_msg = f"Rule execution exceeded timeout ({timeout if 'timeout' in locals() else 'unknown'}s)"
+			error_msg = _("Rule execution exceeded timeout ({0}s)").format(timeout if 'timeout' in locals() else 'unknown')
 			error_detail = traceback.format_exc()
 			self._log("ERROR", error_msg)
 			if context if 'context' in locals() else None:
@@ -259,7 +260,7 @@ class RuleEngine:
 			status = "Failed"
 			error_msg = str(e)
 			error_detail = traceback.format_exc()
-			self._log("ERROR", f"Rule execution failed: {error_msg}")
+			self._log("ERROR", _("Rule execution failed: {0}").format(error_msg))
 			if context if 'context' in locals() else None:
 				self._update_rule_stats(success=False, error=error_msg)
 			raise
@@ -272,10 +273,10 @@ class RuleEngine:
 	def _validate_execution(self):
 		"""Validate rule is executable"""
 		if not self.rule.is_active:
-			raise RuleDisabledError(f"Rule {self.rule.name} is disabled")
+			raise RuleDisabledError(_("Rule {0} is disabled").format(self.rule.name))
 		
 		if not self.actions:
-			raise EmptyRuleError(f"Rule {self.rule.name} has no enabled actions")
+			raise EmptyRuleError(_("Rule {0} has no enabled actions").format(self.rule.name))
 	
 	def _initialize_context(self, doc, **kwargs):
 		return {
@@ -312,11 +313,11 @@ class RuleEngine:
 		
 		for iteration in range(max_iterations):
 			if not current:
-				self._log("INFO", "Reached end of flow (no next action)")
+				self._log("INFO", _("Reached end of flow (no next action)"))
 				break
 			
 			if context.get('stop'):
-				self._log("INFO", "Flow stopped by action")
+				self._log("INFO", _("Flow stopped by action"))
 				break
 			
 			# Cycle/Loop detection
@@ -327,7 +328,7 @@ class RuleEngine:
 			node_visits[node_id] = visits
 			
 			if visits > max_visits_per_node:
-				raise CycleDetectedError(f"Infinite loop detected: Action {current.action_label} visited {visits} times")
+				raise CycleDetectedError(_("Infinite loop detected: Action {0} visited {1} times").format(current.action_label, visits))
 			
 			execution_path.append(current.action_label)
 			self.path_trace.append({
@@ -337,7 +338,7 @@ class RuleEngine:
 			})
 			
 			# Log execution
-			self._log("INFO", f"Executing action: {current.action_label} (type: {current.action_type})")
+			self._log("INFO", _("Executing action: {0} (type: {1})").format(current.action_label, current.action_type))
 			
 			try:
 				# Standardized Handlers (Dispatcher)
@@ -353,7 +354,7 @@ class RuleEngine:
 				
 				handler = handler_map.get(current.action_type)
 				if not handler:
-					self._log("WARNING", f"Unknown action type: {current.action_type}")
+					self._log("WARNING", _("Unknown action type: {0}").format(current.action_type))
 					result = None
 					next_id = current.next_step_if_true
 				else:
@@ -363,7 +364,7 @@ class RuleEngine:
 				# Store result if variable specified
 				if current.return_variable and result is not None:
 					context['vars'][current.return_variable] = result
-					self._log("DEBUG", f"Stored result in variable: {current.return_variable}")
+					self._log("DEBUG", _("Stored result in variable: {0}").format(current.return_variable))
 				
 				# Move to next node
 				current = self._get_action_by_id(next_id) if next_id else None
@@ -372,25 +373,25 @@ class RuleEngine:
 				# Handle error based on on_error setting
 				if hasattr(current, 'on_error'):
 					if current.on_error == 'Continue':
-						self._log("WARNING", f"Error in action {current.action_label}, continuing: {str(e)}")
+						self._log("WARNING", _("Error in action {0}, continuing: {1}").format(current.action_label, str(e)))
 						current = self._get_action_by_id(current.next_step_if_true)
 						continue
 					elif current.on_error == 'Rollback':
-						self._log("ERROR", f"Error in action {current.action_label}, rolling back: {str(e)}")
+						self._log("ERROR", _("Error in action {0}, rolling back: {1}").format(current.action_label, str(e)))
 						frappe.db.rollback()
 						raise
 					elif current.on_error == 'Escalate':
-						self._log("ERROR", f"Error in action {current.action_label}, escalating: {str(e)}")
+						self._log("ERROR", _("Error in action {0}, escalating: {1}").format(current.action_label, str(e)))
 						raise
 				
 				# Default: stop on error
-				self._log("ERROR", f"Error in action {current.action_label}: {str(e)}")
+				self._log("ERROR", _("Error in action {0}: {1}").format(current.action_label, str(e)))
 				raise
 		
 		if iteration >= max_iterations - 1:
-			raise CycleDetectedError(f"Max total iterations ({max_iterations}) exceeded")
+			raise CycleDetectedError(_("Max total iterations ({0}) exceeded").format(max_iterations))
 		
-		self._log("INFO", f"Execution path: {' → '.join(execution_path)}")
+		self._log("INFO", _("Execution path: {0}").format(' → '.join(execution_path)))
 		return context
 	
 	def _get_start_node(self):
@@ -421,11 +422,11 @@ class RuleEngine:
 		for action in self.actions:
 			action_id = action.action_id or action.name
 			if action_id not in has_incoming:
-				self._log("INFO", f"Start node: {action.action_label} ({action_id})")
+				self._log("INFO", _("Start node: {0} ({1})").format(action.action_label, action_id))
 				return action
 		
 		# Fallback to first action if no clear start
-		self._log("WARNING", "No clear start node, using first action")
+		self._log("WARNING", _("No clear start node, using first action"))
 		return self.actions[0] if self.actions else None
 	
 	def _get_action_by_id(self, action_id):
@@ -461,7 +462,7 @@ class RuleEngine:
 			filters = json.loads(condition_json)
 			return frappe.utils.evaluate_filters(context['doc'], filters)
 		except Exception as e:
-			self._log("ERROR", f"JSON condition evaluation failed: {str(e)}")
+			self._log("ERROR", _("JSON condition evaluation failed: {0}").format(str(e)))
 			return False
 	
 	def _evaluate_python_condition(self, expression, context):
@@ -482,7 +483,7 @@ class RuleEngine:
 		try:
 			return frappe.safe_eval(expression, None, safe_locals)
 		except Exception as e:
-			self._log("ERROR", f"Python condition evaluation failed: {str(e)}")
+			self._log("ERROR", _("Python condition evaluation failed: {0}").format(str(e)))
 			raise
 
 	def _execute_loop(self, action, context):
@@ -512,7 +513,7 @@ class RuleEngine:
 			items = self._evaluate_python_condition(iterator_name, context)
 			
 		if not isinstance(items, (list, tuple)):
-			self._log("WARNING", f"Loop iterator {iterator_name} is not a list/tuple. Got {type(items)}")
+			self._log("WARNING", _("Loop iterator {0} is not a list/tuple. Got {1}").format(iterator_name, type(items)))
 			items = []
 			
 		current_index = loop_state['index']
@@ -552,14 +553,14 @@ class RuleEngine:
 			duration = action.timeout
 			
 		if duration > 0:
-			self._log("INFO", f"Waiting for {duration} seconds...")
+			self._log("INFO", _("Waiting for {0} seconds...").format(duration))
 			time.sleep(duration)
 		
 		return None, action.next_step_if_true
 
 	def _execute_stop(self, action, context):
 		"""Execute Stop action"""
-		self._log("INFO", "Stop action encountered")
+		self._log("INFO", _("Stop action encountered"))
 		return None, None
 	
 	def _execute_process(self, action, context):
@@ -567,14 +568,14 @@ class RuleEngine:
 		Execute Process Method with validation and error handling
 		"""
 		if not action.process_method:
-			self._log("WARNING", f"Process action {action.action_label} has no process_method set")
+			self._log("WARNING", _("Process action {0} has no process_method set").format(action.action_label))
 			return None
 		
 		# Get Process Method document
 		try:
 			process_method = frappe.get_cached_doc('Process Method', action.process_method)
 		except frappe.DoesNotExistError:
-			raise MethodExecutionError(f"Process Method {action.process_method} not found")
+			raise MethodExecutionError(_("Process Method {0} not found").format(action.process_method))
 		
 		# Parse configuration
 		config = {}
@@ -582,7 +583,7 @@ class RuleEngine:
 			try:
 				config = json.loads(action.method_config)
 			except json.JSONDecodeError as e:
-				raise MethodExecutionError(f"Invalid configuration JSON: {str(e)}")
+				raise MethodExecutionError(_("Invalid configuration JSON: {0}").format(str(e)))
 		
 		# Apply Input Mapping (Context -> Config)
 		if action.input_mapping:
@@ -595,8 +596,7 @@ class RuleEngine:
 				validate(instance=config, schema=schema)
 			except (json.JSONDecodeError, SchemaValidationError) as e:
 				raise MethodExecutionError(
-					f"Input contract violation in {process_method.method_name}. "
-					f"Inputs do not match Input Schema: {str(e)}"
+					_("Input contract violation in {0}. Inputs do not match Input Schema: {1}").format(process_method.method_name, str(e))
 				)
 
 		# Validation: Execution Mode Constraints
@@ -604,26 +604,26 @@ class RuleEngine:
 		resolved_rule_mode = self.rule.execution_mode
 		if resolved_rule_mode == 'Asynchronous' and process_method.transactional:
 			raise MethodExecutionError(
-				f"Transactional method '{process_method.method_name}' cannot be executed in Asynchronous Rule."
+				_("Transactional method '{0}' cannot be executed in Asynchronous Rule.").format(process_method.method_name)
 			)
 
 		# 2. Action Level Async Checks (Fire & Forget Enforcement)
 		if action.is_async:
 			if action.output_mapping:
 				raise MethodExecutionError(
-					f"Async action '{action.action_label}' cannot have output mapping."
+					_("Async action '{0}' cannot have output mapping.").format(action.action_label)
 				)
 			if action.next_step_if_true: # Note: Logic nodes control flow, Process usually just has next_step_if_true
 				raise MethodExecutionError(
-					 f"Async action '{action.action_label}' cannot contribute to flow control (next_step found)."
+					 _("Async action '{0}' cannot contribute to flow control (next_step found).").format(action.action_label)
 				)
 			if process_method.transactional:
 				raise MethodExecutionError(
-					f"Transactional method '{process_method.method_name}' cannot be executed as Async action."
+					_("Transactional method '{0}' cannot be executed as Async action.").format(process_method.method_name)
 				)
 			if process_method.side_effects == 'Modifies Doc':
 				raise MethodExecutionError(
-					 f"Method '{process_method.method_name}' that modifies document cannot be executed as Async action."
+					 _("Method '{0}' that modifies document cannot be executed as Async action.").format(process_method.method_name)
 				)
 
 		# Execution Context Preparation
@@ -653,15 +653,14 @@ class RuleEngine:
 				
 			except (json.JSONDecodeError, SchemaValidationError) as e:
 				raise MethodExecutionError(
-					f"Output contract violation in {process_method.method_name}. "
-					f"Result does not match Output Schema: {str(e)}"
+					_("Output contract violation in {0}. Result does not match Output Schema: {1}").format(process_method.method_name, str(e))
 				)
 		
 		# Apply Output Mapping (Result -> Context)
 		if action.output_mapping:
 			# Re-verify sync enforcement (double check)
 			if action.is_async:
-				 raise MethodExecutionError("Async actions cannot map outputs")
+				 raise MethodExecutionError(_("Async actions cannot map outputs"))
 				 
 			apply_output_mapping(result, action.output_mapping, context)
 			
@@ -675,7 +674,7 @@ class RuleEngine:
 			try:
 				# Log attempt
 				if attempt > 0:
-					self._log("INFO", f"Retry attempt {attempt}/{retry_count} for {process_method.method_name}")
+					self._log("INFO", _("Retry attempt {0}/{1} for {2}").format(attempt, retry_count, process_method.method_name))
 				
 				# Execute via Process Method document
 				result = process_method.execute(
@@ -689,12 +688,12 @@ class RuleEngine:
 				
 			except Exception as e:
 				last_error = e
-				self._log("ERROR", f"Method execution failed (attempt {attempt + 1}): {str(e)}")
+				self._log("ERROR", _("Method execution failed (attempt {0}): {1}").format(attempt + 1, str(e)))
 				
 				if attempt < retry_count:
 					# Exponential backoff
 					backoff_seconds = 2 ** attempt
-					self._log("INFO", f"Waiting {backoff_seconds}s before retry")
+					self._log("INFO", _("Waiting {0}s before retry").format(backoff_seconds))
 					time.sleep(backoff_seconds)
 				else:
 					# All retries exhausted
@@ -702,7 +701,7 @@ class RuleEngine:
 		
 		# All retries failed
 		raise MethodExecutionError(
-			f"Method {process_method.method_name} failed after {retry_count + 1} attempts: {str(last_error)}"
+			_("Method {0} failed after {1} attempts: {2}").format(process_method.method_name, retry_count + 1, str(last_error))
 		)
 
 	def _execute_switch(self, action, context):
@@ -727,33 +726,45 @@ class RuleEngine:
 			return val, next_id
 			
 		except Exception as e:
-			self._log("ERROR", f"Switch evaluation failed: {str(e)}")
+			self._log("ERROR", _("Switch evaluation failed: {0}").format(str(e)))
 			raise
 
 	def _execute_sub_rule(self, action, context):
 		"""Execute a Sub-Rule"""
-		if not action.method_config:
-			self._log("WARNING", "Sub-Rule action missing config")
-			return
-			
 		try:
-			config = json.loads(action.method_config)
-			sub_rule_name = config.get('rule')
+			# Prioritize the new 'rule' field, fallback to method_config for backward compatibility
+			sub_rule_name = action.rule
+			if not sub_rule_name and action.method_config:
+				try:
+					config = json.loads(action.method_config)
+					sub_rule_name = config.get('rule')
+				except:
+					pass
 			
 			if not sub_rule_name:
-				return
+				self._log("WARNING", _("Sub-Rule action missing rule reference"))
+				return None, action.next_step_if_true
 				
 			if not frappe.db.exists("Rule", sub_rule_name):
-				raise MethodExecutionError(f"Sub-Rule {sub_rule_name} not found")
+				raise MethodExecutionError(_("Sub-Rule {0} not found").format(sub_rule_name))
 				
 			sub_rule_doc = frappe.get_cached_doc("Rule", sub_rule_name)
+			
+			if not sub_rule_doc.is_active:
+				raise MethodExecutionError(_("Sub-Rule {0} is not active").format(sub_rule_name))
+				
+			if sub_rule_doc.document_type != self.rule.document_type:
+				raise MethodExecutionError(
+					_("Sub-Rule {0} expects {1}, but current context is {2}")
+					.format(sub_rule_name, sub_rule_doc.document_type, self.rule.document_type)
+				)
 			
 			# Recursive Execution
 			# We share 'vars' and 'doc' so mutations propagate
 			# But we might want to isolate 'stop' flag? 
 			# V1 Contract: "vars is the ONLY mutable storage"
 			
-			self._log("INFO", f"BEGIN Sub-Rule: {sub_rule_name}")
+			self._log("INFO", _("BEGIN Sub-Rule: {0}").format(sub_rule_name))
 			
 			# Create sub-context sharing vars
 			sub_context = context.copy()
@@ -763,7 +774,7 @@ class RuleEngine:
 			# Recursion Guard
 			current_depth = sub_context['meta'].get('call_depth', 0)
 			if current_depth > 5:
-				raise MethodExecutionError(f"Max sub-rule recursion depth (5) exceeded in {sub_rule_name}")
+				raise MethodExecutionError(_("Max sub-rule recursion depth (5) exceeded in {0}").format(sub_rule_name))
 			sub_context['meta']['call_depth'] = current_depth + 1
 			
 			# Instantiate new engine
@@ -776,12 +787,12 @@ class RuleEngine:
 			# Propagate changes back to main context
 			context['vars'].update(result_context.get('vars', {}))
 			
-			self._log("INFO", f"END Sub-Rule: {sub_rule_name}")
+			self._log("INFO", _("END Sub-Rule: {0}").format(sub_rule_name))
 			
 			return None, action.next_step_if_true
 			
 		except Exception as e:
-			self._log("ERROR", f"Sub-Rule execution failed: {str(e)}")
+			self._log("ERROR", _("Sub-Rule execution failed: {0}").format(str(e)))
 			raise
 	
 	def _log(self, level, message):
@@ -855,7 +866,7 @@ class RuleEngine:
 				"reference_doctype": self.rule.document_type,
 				"reference_docname": doc_name,
 				"executed_by": self.context.get('meta', {}).get('user'),
-				"message": error_trace.split('\n')[-2] if error_trace else "Executed successfully",
+				"message": error_trace.split('\n')[-2] if error_trace else _("Executed successfully"),
 				"execution_path": json.dumps(self.path_trace, default=str),
 				"context_snapshot": json.dumps(context_snapshot, default=str),
 				"error_trace": error_trace

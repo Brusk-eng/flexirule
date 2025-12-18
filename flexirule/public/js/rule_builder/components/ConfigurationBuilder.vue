@@ -19,7 +19,7 @@
                 <!-- Regular fields -->
                 <MappingWrapper 
                     v-else
-                    :label="field.label"
+                    :label="__(field.label)"
                     :reqd="field.reqd"
                     :mappingValue="mappingValues[field.fieldname]"
                     @update:mappingValue="updateMapping(field.fieldname, $event)"
@@ -114,7 +114,7 @@
                         class="form-control form-control-sm"
                         :value="values[field.fieldname]"
                         @input="updateValue(field.fieldname, $event.target.value)"
-                        :placeholder="field.description"
+                        :placeholder="__(field.description)"
                         rows="3"
                     ></textarea>
                     
@@ -144,12 +144,12 @@
                         class="form-control form-control-sm"
                         :value="values[field.fieldname]"
                         @input="updateValue(field.fieldname, $event.target.value)"
-                        :placeholder="field.description"
+                        :placeholder="__(field.description)"
                     />
                     
                     <small v-if="field.description && !['DocField', 'MultiDocField', 'MultiSelect'].includes(field.fieldtype)" 
                            class="form-text text-muted">
-                        {{ field.description }}
+                        {{ __(field.description) }}
                     </small>
                 </MappingWrapper>
             </template>

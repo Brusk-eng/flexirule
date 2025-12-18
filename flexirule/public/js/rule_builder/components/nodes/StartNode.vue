@@ -8,7 +8,7 @@ const displayLabel = computed(() => {
     if (props.data?.document_type && props.data?.trigger_event) {
         return `${props.data.document_type}\n${props.data.trigger_event}`;
     }
-    return props.label || 'Start';
+    return props.label || __('Start');
 });
 </script>
 
