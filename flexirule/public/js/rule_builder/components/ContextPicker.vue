@@ -18,7 +18,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { useStore } from '../../store';
+import { useStore } from '../store';
 
 const props = defineProps(['modelValue']);
 const emit = defineEmits(['update:modelValue']);

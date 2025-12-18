@@ -1,7 +1,7 @@
 import frappe
 from functools import wraps
 
-def process_method(
+def processmethod(
     category="Custom",
     description=None,
     version="1.0",

@@ -28,6 +28,7 @@ def sync_process_methods():
             # Inspect members
             for name, obj in inspect.getmembers(module):
                 if inspect.isfunction(obj) and getattr(obj, "_is_process_method", False):
+                    # Standardized Process Method discovery
                     try:
                         _sync_single_method(module_name, name, obj)
                         count += 1

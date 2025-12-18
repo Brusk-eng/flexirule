@@ -340,62 +340,27 @@ class RuleEngine:
 			self._log("INFO", f"Executing action: {current.action_label} (type: {current.action_type})")
 			
 			try:
-				result = None
-				next_id = None
+				# Standardized Handlers (Dispatcher)
+				handler_map = {
+					'Condition': self._execute_condition,
+					'Switch': self._execute_switch,
+					'Process': self._execute_process,
+					'Sub-Rule': self._execute_sub_rule,
+					'Stop': self._execute_stop,
+					'Wait': self._execute_wait,
+					'Loop': self._execute_loop
+				}
 				
-				# === Logic Nodes ===
-				if current.action_type == 'Condition':
-					result = self._execute_condition(current, context)
-					# Strict Logic Node: ONLY decides path, no side effects
-					next_id = current.next_step_if_true if result else current.next_step_if_false
-					self._log("DEBUG", f"Condition result: {result}, next: {next_id}")
-
-				elif current.action_type == 'Switch':
-					# Switch Node: Multi-path branching
-					result = self._execute_switch(current, context)
-					next_id = result if result else current.next_step_if_true
-					self._log("DEBUG", f"Switch result: path -> {next_id}")
-				
-				# === Task Nodes ===
-				elif current.action_type == 'Process':
-					# Task Node: Executes work, returns result, follows ONE path
-					result = self._execute_process(current, context)
-					next_id = current.next_step_if_true
-					self._log("DEBUG", f"Process result: {result}, next: {next_id}")
-					
-				elif current.action_type == 'Sub-Rule':
-					# Executing a sub-rule is a task that runs another engine
-					self._execute_sub_rule(current, context)
-					next_id = current.next_step_if_true
-					self._log("DEBUG", f"Sub-Rule executed, continuing to: {next_id}")
-
-				# === Control Nodes ===
-				elif current.action_type == 'Stop':
-					self._log("INFO", "Stop action encountered")
-					break
-				
-				# === Loop & Wait Nodes (Added) ===
-				elif current.action_type == 'Wait':
-					self._execute_wait(current, context)
-					next_id = current.next_step_if_true
-					
-				elif current.action_type == 'Loop':
-					# Execute Loop Logic
-					# If returns True, we are iterating -> Go to Body (next_step_if_true)
-					# If returns False, we are done -> Go to Exit (next_step_if_false)
-					should_loop = self._execute_loop(current, context)
-					if should_loop:
-						next_id = current.next_step_if_true
-						self._log("DEBUG", f"Loop continuing (iteration), next: {next_id}")
-					else:
-						next_id = current.next_step_if_false
-						self._log("DEBUG", f"Loop finished, next: {next_id}")
-				
-				else:
+				handler = handler_map.get(current.action_type)
+				if not handler:
 					self._log("WARNING", f"Unknown action type: {current.action_type}")
+					result = None
 					next_id = current.next_step_if_true
+				else:
+					# Handlers now return (result, next_id)
+					result, next_id = handler(current, context)
 				
-				# Store result if variable specified (Only for Task/Logic nodes)
+				# Store result if variable specified
 				if current.return_variable and result is not None:
 					context['vars'][current.return_variable] = result
 					self._log("DEBUG", f"Stored result in variable: {current.return_variable}")
@@ -478,10 +443,14 @@ class RuleEngine:
 	def _execute_condition(self, action, context):
 		"""Execute a condition node"""
 		# Prefer JSON condition if available
+		result = False
 		if action.condition_json:
-			return self._evaluate_json_condition(action.condition_json, context)
+			result = self._evaluate_json_condition(action.condition_json, context)
+		else:
+			result = self._evaluate_python_condition(action.condition_expression, context)
 		
-		return self._evaluate_python_condition(action.condition_expression, context)
+		next_id = action.next_step_if_true if result else action.next_step_if_false
+		return result, next_id
 	
 	def _evaluate_json_condition(self, condition_json, context):
 		"""Evaluate Frappe-style JSON filters"""
@@ -562,13 +531,13 @@ class RuleEngine:
 			# Advance index for NEXT time
 			loop_state['index'] += 1
 			context['vars']['_loops'][action.action_id] = loop_state
-			return True
+			return True, action.next_step_if_true
 		else:
 			# Loop finished
 			# Cleanup
 			if action.action_id in context['vars']['_loops']:
 				del context['vars']['_loops'][action.action_id]
-			return False
+			return False, action.next_step_if_false
 
 	def _execute_wait(self, action, context):
 		"""Execute Wait (Sleep)"""
@@ -585,6 +554,13 @@ class RuleEngine:
 		if duration > 0:
 			self._log("INFO", f"Waiting for {duration} seconds...")
 			time.sleep(duration)
+		
+		return None, action.next_step_if_true
+
+	def _execute_stop(self, action, context):
+		"""Execute Stop action"""
+		self._log("INFO", "Stop action encountered")
+		return None, None
 	
 	def _execute_process(self, action, context):
 		"""
@@ -689,7 +665,7 @@ class RuleEngine:
 				 
 			apply_output_mapping(result, action.output_mapping, context)
 			
-		return result
+		return result, action.next_step_if_true
 	
 	def _call_method_with_retry(self, process_method, config, context, retry_count, timeout):
 		"""Execute method with retry logic"""
@@ -746,17 +722,9 @@ class RuleEngine:
 			val = self._evaluate_python_condition(expression, context)
 			
 			# Match case - convert val to string for key lookup as JSON keys are strings
-			# But if val is boolean True/False, json keys might be "true"/"false" or "True"/"False"
-			# Let's try direct lookup first, then string lookup
+			next_id = cases.get(val) or cases.get(str(val)) or action.next_step_if_true
 			
-			if val in cases:
-				return cases[val]
-			
-			str_val = str(val)
-			if str_val in cases:
-				return cases[str_val]
-				
-			return None # Fallback to default
+			return val, next_id
 			
 		except Exception as e:
 			self._log("ERROR", f"Switch evaluation failed: {str(e)}")
@@ -809,6 +777,8 @@ class RuleEngine:
 			context['vars'].update(result_context.get('vars', {}))
 			
 			self._log("INFO", f"END Sub-Rule: {sub_rule_name}")
+			
+			return None, action.next_step_if_true
 			
 		except Exception as e:
 			self._log("ERROR", f"Sub-Rule execution failed: {str(e)}")

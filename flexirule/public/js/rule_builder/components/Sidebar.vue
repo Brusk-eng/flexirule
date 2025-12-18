@@ -184,6 +184,19 @@
                             Transactional methods must run synchronously.
                         </div>
                     </div>
+
+                    <!-- Reactive Configuration -->
+                    <div class="method-config-section mt-4 pt-3 border-top">
+                        <ConfigurationBuilder 
+                            v-if="selectedMethodSchema"
+                            :schema="selectedMethodSchema"
+                            :modelValue="selectedNode.data?.method_config"
+                            :inputMapping="selectedNode.data?.input_mapping"
+                            :documentType="store.rule_doc?.document_type"
+                            @update:modelValue="updateField('method_config', $event)"
+                            @update:inputMapping="updateField('input_mapping', $event)"
+                        />
+                    </div>
                 </template>
 
                 <template v-if="selectedNode.data?.action_type === 'Loop'">
@@ -321,6 +334,7 @@
 <script setup>
 import { computed, ref, watch, nextTick } from 'vue';
 import { useStore } from '../store';
+import ConfigurationBuilder from './ConfigurationBuilder.vue';
 
 const emit = defineEmits(['close']);
 const store = useStore();
@@ -329,6 +343,15 @@ const selectedNode = computed(() => store.graph.selected);
 const selectedMethod = computed(() => {
     if (!selectedNode.value?.data?.process_method) return null;
     return store.process_methods.find(m => m.name === selectedNode.value.data.process_method);
+});
+
+const selectedMethodSchema = computed(() => {
+    if (!selectedMethod.value?.config_schema) return null;
+    try {
+        return JSON.parse(selectedMethod.value.config_schema);
+    } catch (e) {
+        return null;
+    }
 });
 
 // Process Method Autocomplete
