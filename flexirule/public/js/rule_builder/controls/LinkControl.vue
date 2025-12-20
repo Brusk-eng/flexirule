@@ -71,7 +71,7 @@ watch(
 	<div
 		v-if="slots.label"
 		class="control frappe-control"
-		:data-fieldtype="df.fieldtype"
+		:data-fieldtype="df?.fieldtype"
 		:class="{ editable: slots.label }"
 	>
 		<!-- label -->

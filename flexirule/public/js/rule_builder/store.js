@@ -64,6 +64,7 @@ export const useStore = defineStore("rule-builder-store", () => {
                 data: {
                     document_type: rule_doc.value.document_type,
                     trigger_event: rule_doc.value.trigger_event,
+                    trigger_condition: rule_doc.value.trigger_condition,
                     is_enabled: 1
                 }
             }];
@@ -194,6 +195,7 @@ export const useStore = defineStore("rule-builder-store", () => {
                 document_type: rule_doc.value.document_type,
                 trigger_event: rule_doc.value.trigger_event,
                 trigger_filters: rule_doc.value.trigger_filters,
+                trigger_condition: rule_doc.value.trigger_condition,
                 is_enabled: 1
             }
         });
@@ -208,12 +210,16 @@ export const useStore = defineStore("rule-builder-store", () => {
                 data: {
                     action_id: nodeId, action_type: action.action_type, action_label: action.action_label,
                     process_method: action.process_method, method_config: action.method_config,
-                    condition_expression: action.condition_expression, is_enabled: action.is_enabled,
+                    condition_expression: action.condition_expression,
+                    condition_json: action.condition_json,
+                    is_enabled: action.is_enabled,
                     on_error: action.on_error, next_step_if_true: action.next_step_if_true,
                     next_step_if_false: action.next_step_if_false,
                     timeout: action.timeout, priority: action.priority,
                     retry_count: action.retry_count, return_variable: action.return_variable,
                     is_async: action.is_async, name: action.name,
+                    input_mapping: action.input_mapping,
+                    output_mapping: action.output_mapping,
                     rule: action.rule || (action.action_type === 'Sub-Rule' ? getSubRuleName(action.method_config) : null)
                 }
             });
@@ -309,6 +315,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
             const startNode = graph.value.elements.find(el => el.id === 'start');
             doc.trigger_filters = startNode?.data?.trigger_filters || null;
+            doc.trigger_condition = startNode?.data?.trigger_condition || null;
 
             const nodes = graph.value.elements.filter(el => el.position && el.id !== 'start');
             const edgesList = graph.value.elements.filter(el => el.source);
@@ -339,6 +346,9 @@ export const useStore = defineStore("rule-builder-store", () => {
                     process_method: node.data?.process_method,
                     method_config: node.data?.method_config,
                     condition_expression: node.data?.condition_expression,
+                    condition_json: node.data?.condition_json,
+                    input_mapping: node.data?.input_mapping,
+                    output_mapping: node.data?.output_mapping,
                     on_error: node.data?.on_error || 'Stop',
                     timeout: node.data?.timeout || 30,
                     priority: node.data?.priority || 0,
@@ -355,6 +365,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
             await frappe.call({ method: "frappe.client.save", args: { doc } });
             frappe.toast(__("Saved"));
+            await fetch();
             clear_dirty();
         } catch (e) {
             frappe.msgprint({ title: __('Error'), message: e.message || __('Save failed'), indicator: 'red' });

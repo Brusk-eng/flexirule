@@ -25,10 +25,10 @@ def validate_graph_integrity(rule_doc):
         if current_action:
             # Get neighbors (next steps)
             neighbors = []
-            if current_action.next_step_if_true:
-                neighbors.append(current_action.next_step_if_true)
-            if current_action.action_type == 'Condition' and current_action.next_step_if_false:
-                neighbors.append(current_action.next_step_if_false)
+            if current_action.get('next_step_if_true'):
+                neighbors.append(current_action.get('next_step_if_true'))
+            if current_action.get('action_type') == 'Condition' and current_action.get('next_step_if_false'):
+                neighbors.append(current_action.get('next_step_if_false'))
                 
             for neighbor in neighbors:
                 if neighbor not in visited:
@@ -54,7 +54,7 @@ def validate_graph_integrity(rule_doc):
     # In V1, we can assume the first defined action or explicitly marked 'is_entry_action' is Start.
     # Let's rely on 'is_entry_action' or fallback to first.
     
-    start_nodes = [a.action_id for a in rule_doc.actions if a.is_entry_action]
+    start_nodes = [a.action_id for a in rule_doc.actions if a.get('is_entry_action')]
     if not start_nodes and rule_doc.actions:
         # Fallback: Assume row 1 is start if no explicit start
         start_nodes = [rule_doc.actions[0].action_id]
@@ -70,10 +70,10 @@ def validate_graph_integrity(rule_doc):
         
         action = actions.get(node_id)
         if action:
-            if action.next_step_if_true:
-                queue.append(action.next_step_if_true)
-            if action.action_type == 'Condition' and action.next_step_if_false:
-                queue.append(action.next_step_if_false)
+            if action.get('next_step_if_true'):
+                queue.append(action.get('next_step_if_true'))
+            if action.get('action_type') == 'Condition' and action.get('next_step_if_false'):
+                queue.append(action.get('next_step_if_false'))
                 
     # Check for non-reachable nodes
     orphans = [qid for qid in actions if qid not in reachable]

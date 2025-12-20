@@ -1,7 +1,8 @@
 <script setup>
 import { useSlots } from "vue";
 
-const props = defineProps(["df", "value", "read_only"]);
+const props = defineProps(["df", "modelValue", "read_only"]);
+defineEmits(["update:modelValue"]);
 let slots = useSlots();
 </script>
 
@@ -18,11 +19,11 @@ let slots = useSlots();
 		<label v-else>
 			<input
 				type="checkbox"
-				:checked="value"
+				:checked="modelValue"
 				:disabled="read_only"
 				@change="(event) => $emit('update:modelValue', event.target.checked)"
 			/>
-			<span class="label-area" :class="{ reqd: df.reqd }">{{ __(df.label) }}</span>
+			<span v-if="df?.label" class="label-area" :class="{ reqd: df.reqd }">{{ __(df.label) }}</span>
 		</label>
 
 		<!-- description -->

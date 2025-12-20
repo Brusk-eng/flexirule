@@ -30,15 +30,8 @@ class FieldResolver:
 			
 		Returns:
 			Resolved value
-			
-		Examples:
-			- 'customer_name' → doc.customer_name
-			- 'items.item_code' → list of item_codes from items table
-			- 'items.qty:sum' → sum of all qty values
-			- 'items.rate:avg' → average of all rate values
-			- 'parent.customer_group' → doc's parent's customer_group
 		"""
-		if not field_path:
+		if doc is None or not field_path:
 			return None
 		
 		# Check for aggregate functions

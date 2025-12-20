@@ -43,12 +43,13 @@ class ConditionEvaluator:
 		"""
 		self.conditions = json.loads(conditions_json) if conditions_json else []
 	
-	def evaluate(self, doc) -> bool:
+	def evaluate(self, doc, row=None) -> bool:
 		"""
 		Evaluate all conditions against a document
 		
 		Args:
 			doc: Frappe document
+			row: Current row document (if in collection context)
 			
 		Returns:
 			bool: True if all conditions pass
@@ -56,73 +57,94 @@ class ConditionEvaluator:
 		if not self.conditions:
 			return True
 		
-		return self._evaluate_group(self.conditions, doc)
+		# Root evaluation always starts with doc as primary context
+		return self._evaluate_group(self.conditions, doc, row)
 	
-	def _evaluate_group(self, conditions: list, doc) -> bool:
+	def _evaluate_group(self, conditions: list, doc, row=None) -> bool:
 		"""
 		Evaluate a group of conditions with AND/OR logic
-		
-		Args:
-			conditions: List of condition dictionaries
-			doc: Frappe document
-			
-		Returns:
-			bool: Result of group evaluation
 		"""
 		if not conditions:
 			return True
 		
-		# Default to AND logic
 		result = True
 		current_operator = 'AND'
 		
 		for condition in conditions:
-			# Check if this is a nested group
-			if 'conditions' in condition:
+			# 1. Detect Type
+			if 'collection' in condition and 'where' in condition:
+				# Collection Node
+				group_result = self._evaluate_collection(condition, doc, row)
+			elif 'conditions' in condition:
 				# Recursive evaluation for nested groups
-				group_result = self._evaluate_group(condition['conditions'], doc)
+				group_result = self._evaluate_group(condition['conditions'], doc, row)
 			else:
 				# Evaluate single condition
-				group_result = self._evaluate_single(condition, doc)
+				group_result = self._evaluate_single(condition, doc, row)
 			
-			# Apply logical operator
+			# 2. Apply Logical Operator
 			if current_operator == 'AND':
 				result = result and group_result
 			else:  # OR
 				result = result or group_result
 			
-			# Get next operator (default AND)
-			current_operator = condition.get('logical_operator', 'AND')
+			# 3. Get next operator
+			current_operator = condition.get('op', condition.get('logical_operator', 'AND')).upper()
 		
 		return result
 	
-	def _evaluate_single(self, condition: Dict, doc) -> bool:
+	def _evaluate_collection(self, node: Dict, doc, row=None) -> bool:
+		"""
+		Evaluate collection logic (any/all/none)
+		Example: { "op": "any", "collection": "items", "where": { "op": "and", "conditions": [...] } }
+		"""
+		from flexirule.ruleflow.utils.field_resolver import FieldResolver
+		
+		collection_path = node.get('collection')
+		logic = node.get('op', 'any').lower()
+		where = node.get('where')
+		
+		if not collection_path or not where:
+			return True
+			
+		# Resolve collection rows
+		rows = FieldResolver.resolve(doc, collection_path)
+		if not isinstance(rows, list):
+			return False
+			
+		if logic == 'any':
+			return any(self._evaluate_group([where], doc, r) for r in rows)
+		elif logic == 'all':
+			return all(self._evaluate_group([where], doc, r) for r in rows) if rows else True
+		elif logic == 'none':
+			return not any(self._evaluate_group([where], doc, r) for r in rows)
+			
+		return False
+
+	def _evaluate_single(self, condition: Dict, doc, row=None) -> bool:
 		"""
 		Evaluate a single condition
-		
-		Args:
-			condition: Condition dictionary with left, operator, right
-			doc: Frappe document
-			
-		Returns:
-			bool: Result of condition evaluation
 		"""
 		try:
 			# Get left value
-			left = self._resolve_value(condition.get('left'), doc)
+			left = self._resolve_value(condition.get('left'), doc, row)
 			
 			# Get operator
-			op = condition.get('operator', '==')
+			op = condition.get('op', condition.get('operator', '=='))
 			
 			# Special case for operators that don't need right value
 			if op in ['is_set', 'is_not_set']:
 				return self.OPERATORS[op](left, None)
 			
 			# Get right value
-			right = self._resolve_value(condition.get('right'), doc)
+			right = self._resolve_value(condition.get('right'), doc, row)
 			
 			# Get operator function
 			op_func = self.OPERATORS.get(op)
+			if not op_func:
+				# Try with spaces (compiler uses 'not in')
+				op_func = self.OPERATORS.get(op.replace(' ', '_'))
+				
 			if not op_func:
 				frappe.log_error(f"Unknown operator: {op}", "ConditionEvaluator")
 				return False
@@ -137,22 +159,10 @@ class ConditionEvaluator:
 			)
 			return False
 	
-	def _resolve_value(self, value_def: Any, doc) -> Any:
+	def _resolve_value(self, value_def: Any, doc, row=None) -> Any:
 		"""
 		Resolve a value from its definition
-		
-		Value can be:
-		- {"type": "field", "value": "fieldname"}
-		- {"type": "literal", "value": "some value"}
-		- {"type": "method", "value": "method.path", "args": {...}}
-		- Simple scalar value (treated as literal)
-		
-		Args:
-			value_def: Value definition
-			doc: Frappe document
-			
-		Returns:
-			Resolved value
+		Support new "ref"/"value" structure and older "type"/"value" structure
 		"""
 		if value_def is None:
 			return None
@@ -161,24 +171,50 @@ class ConditionEvaluator:
 		if not isinstance(value_def, dict):
 			return value_def
 		
-		value_type = value_def.get('type', 'literal')
-		value = value_def.get('value')
+		# 1. New Structure: { "ref": "doc.status" } | { "value": 10 }
+		if 'ref' in value_def:
+			ref_path = value_def['ref']
+			if not ref_path: return None
+			
+			parts = ref_path.split('.')
+			scope = parts[0]
+			subpath = '.'.join(parts[1:]) if len(parts) > 1 else ""
+			
+			if scope == 'doc':
+				return self._get_field_value(doc, subpath)
+			elif scope == 'row' and row:
+				return self._get_field_value(row, subpath)
+			elif scope == 'old_doc':
+				old_doc = getattr(doc, '_doc_before_save', None) or (doc.get_doc_before_save() if hasattr(doc, 'get_doc_before_save') else None)
+				return self._get_field_value(old_doc, subpath) if old_doc else None
+			
+			# Dynamic alias support: If scope is not doc/old_doc/vars and we have a row, 
+			# assume it's an alias for the row
+			if row:
+				if not subpath: return row # Alias itself refers to the row
+				return self._get_field_value(row, subpath)
+
+			# Fallback for paths without scope prefix or unknown scopes
+			return self._get_field_value(row or doc, ref_path)
+
+		if 'value' in value_def and 'ref' not in value_def:
+			# Detect if this is new {value: x} or old {type: literal, value: x}
+			if 'type' in value_def:
+				value_type = value_def.get('type', 'literal')
+				value = value_def.get('value')
+				
+				if value_type == 'field':
+					return self._get_field_value(row or doc, value)
+				elif value_type == 'literal':
+					return value
+				elif value_type == 'method':
+					args = value_def.get('args', {})
+					return frappe.call(value, **args)
+			else:
+				# New {value: x}
+				return value_def['value']
 		
-		if value_type == 'field':
-			# Resolve field value from document
-			return self._get_field_value(doc, value)
-		
-		elif value_type == 'literal':
-			# Return literal value
-			return value
-		
-		elif value_type == 'method':
-			# Call method and return result
-			args = value_def.get('args', {})
-			return frappe.call(value, **args)
-		
-		else:
-			return value
+		return None
 	
 	def _get_field_value(self, doc, fieldname: str) -> Any:
 		"""

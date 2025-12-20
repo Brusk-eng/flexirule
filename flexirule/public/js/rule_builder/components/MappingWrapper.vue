@@ -1,5 +1,5 @@
 <template>
-    <div class="mapping-wrapper form-group">
+    <div class="mapping-wrapper">
         <div class="d-flex justify-content-between align-items-center mb-1">
             <label class="mb-0">
                 {{ label }}

@@ -29,6 +29,7 @@ from flexirule.ruleflow.core.exceptions import (
 )
 from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
 from flexirule.ruleflow.utils.schema_validator import get_custom_validator, frappe_fields_to_json_schema
+from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
 
 class TimeoutException(Exception):
@@ -444,27 +445,20 @@ class RuleEngine:
 	
 	def _execute_condition(self, action, context):
 		"""Execute a condition node"""
-		# Prefer JSON condition if available
+		# We now prioritize condition_expression which is the compiled standardized JSON
 		result = False
-		if action.condition_json:
-			result = self._evaluate_json_condition(action.condition_json, context)
-		else:
+		if action.condition_expression:
 			result = self._evaluate_python_condition(action.condition_expression, context)
+		elif action.condition_json:
+			# Fallback for older rules or direct DB edits: Compile on the fly
+			from flexirule.ruleflow.core.compiler import ConditionCompiler
+			expr = ConditionCompiler().compile(action.condition_json)
+			result = self._evaluate_python_condition(expr, context)
+		else:
+			result = True # Empty condition
 		
 		next_id = action.next_step_if_true if result else action.next_step_if_false
 		return result, next_id
-	
-	def _evaluate_json_condition(self, condition_json, context):
-		"""Evaluate Frappe-style JSON filters"""
-		if not condition_json:
-			return True
-		
-		try:
-			filters = json.loads(condition_json)
-			return frappe.utils.evaluate_filters(context['doc'], filters)
-		except Exception as e:
-			self._log("ERROR", _("JSON condition evaluation failed: {0}").format(str(e)))
-			return False
 	
 	def _evaluate_python_condition(self, expression, context):
 		"""Evaluate Python expression safely"""
@@ -474,17 +468,19 @@ class RuleEngine:
 		# Prepare safe locals
 		safe_locals = {
 			'doc': context.get('doc'),
+			'old_doc': context.get('old_doc'),
 			'vars': context.get('vars'),
-			'frappe': frappe.utils # Limit frappe access in eval if possible, or use safe_eval logic
+			'frappe': context.get('frappe', frappe.utils),
+			'resolve': FieldResolver.resolve,
+			'True': True,
+			'False': False,
+			'None': None
 		}
-		if 'frappe' in context:
-			# If a safe wrapper is in context, use it
-			safe_locals['frappe'] = context['frappe']
 		
 		try:
 			return frappe.safe_eval(expression, None, safe_locals)
 		except Exception as e:
-			self._log("ERROR", _("Python condition evaluation failed: {0}").format(str(e)))
+			self._log("ERROR", _("Condition evaluation failed: {0}").format(str(e)))
 			raise
 
 	def _execute_loop(self, action, context):

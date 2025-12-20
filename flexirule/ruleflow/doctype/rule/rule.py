@@ -41,13 +41,35 @@ class Rule(Document):
         """
         Validate Rule Configuration
         """
+        self.compile_conditions()
         self.validate_actions()
+
+    def compile_conditions(self):
+        from flexirule.ruleflow.core.compiler import ConditionCompiler
+        compiler = ConditionCompiler()
+        
+        # Compile Trigger
+        if self.trigger_condition:
+            try:
+                self.trigger_filters = compiler.compile(self.trigger_condition)
+            except Exception as e:
+                frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
         
     def validate_actions(self):
         if not self.actions:
             return
 
+        from flexirule.ruleflow.core.compiler import ConditionCompiler
+        compiler = ConditionCompiler()
+
         for action in self.actions:
+            # Compile Action Condition
+            if action.action_type == 'Condition' and action.condition_json:
+                try:
+                    action.condition_expression = compiler.compile(action.condition_json)
+                except Exception as e:
+                    frappe.throw(_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e)))
+
             # 1. Validate JSON fields syntax
             self._validate_json_field(action.method_config, _("Action {0}: Configuration").format(action.action_label))
             self._validate_json_field(action.input_mapping, _("Action {0}: Input Mapping").format(action.action_label))

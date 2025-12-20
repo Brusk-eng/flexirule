@@ -2,12 +2,12 @@
 <script setup>
 import { useSlots, computed } from "vue";
 
-const props = defineProps(["df", "value", "read_only", "modelValue"]);
+const props = defineProps(["df", "modelValue", "read_only"]);
 let emit = defineEmits(["update:modelValue"]);
 let slots = useSlots();
 
 let height = computed(() => {
-	if (props.df.fieldtype == "Small Text") {
+	if (props.df?.fieldtype == "Small Text") {
 		return "150px";
 	}
 	return "300px";
@@ -21,22 +21,22 @@ let height = computed(() => {
 			<slot name="label" />
 			<slot name="actions" />
 		</div>
-		<div v-else class="control-label label">{{ __(df.label) }}</div>
+		<div v-else-if="df?.label" class="control-label label">{{ __(df.label) }}</div>
 
 		<!-- textarea input -->
 		<textarea
 			v-if="slots.label"
-			:style="{ height: height, maxHeight: df.max_height ?? '' }"
+			:style="{ height: height, maxHeight: df?.max_height ?? '' }"
 			class="form-control"
 			type="text"
 			readonly
 		/>
 		<textarea
 			v-else
-			:style="{ height: height, maxHeight: df.max_height ?? '' }"
+			:style="{ height: height, maxHeight: df?.max_height ?? '' }"
 			class="form-control"
 			type="text"
-			:value="value"
+			:value="modelValue"
 			:disabled="read_only || df.read_only"
 			@input="(event) => $emit('update:modelValue', event.target.value)"
 		/>

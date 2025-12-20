@@ -2,22 +2,23 @@
 <script setup>
 import { ref, useSlots } from "vue";
 
-const props = defineProps(["df", "value", "read_only"]);
+const props = defineProps(["df", "modelValue", "read_only"]);
+defineEmits(["update:modelValue"]);
 let slots = useSlots();
 let time_zone = ref("");
 let placeholder = ref("");
 
-if (props.df.fieldtype === "Datetime") {
+if (props.df?.fieldtype === "Datetime") {
 	let time_zone_text = frappe.boot.time_zone
 		? frappe.boot.time_zone.user
 		: frappe.sys_defaults.time_zone;
 	time_zone.value = time_zone_text;
 }
 
-if (props.df.fieldtype === "Color") {
+if (props.df?.fieldtype === "Color") {
 	placeholder.value = __("Choose a color");
 }
-if (props.df.fieldtype === "Icon") {
+if (props.df?.fieldtype === "Icon") {
 	placeholder.value = __("Choose an icon");
 }
 </script>
@@ -29,7 +30,7 @@ if (props.df.fieldtype === "Icon") {
 			<slot name="label" />
 			<slot name="actions" />
 		</div>
-		<div v-else class="control-label label" :class="{ reqd: df.reqd }">{{ __(df.label) }}</div>
+		<div v-else-if="df?.label" class="control-label label" :class="{ reqd: df.reqd }">{{ __(df.label) }}</div>
 
 		<!-- data input -->
 		<input
@@ -44,7 +45,7 @@ if (props.df.fieldtype === "Icon") {
 			v-else
 			class="form-control"
 			type="text"
-			:value="value"
+			:value="modelValue"
 			:disabled="read_only || df.read_only"
 			@input="(event) => $emit('update:modelValue', event.target.value)"
 		/>

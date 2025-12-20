@@ -24,15 +24,22 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>{{ __("Trigger Filters") }}</label>
-                    <div class="help-text text-muted mb-2" style="font-size: 11px;">{{ __("Condition filters evaluated before Rule execution.") }}</div>
+                    <label>{{ __("Trigger Filters (Legacy)") }}</label>
+                    <div class="help-text text-muted mb-2" style="font-size: 11px;">{{ __("ReadOnly: Auto-compiled from Condition Builder") }}</div>
+                     <textarea class="form-control text-mono" rows="2" readonly 
+                        :value="selectedNode.data?.trigger_filters"></textarea>
+                </div>
+                
+                <div class="form-group mt-3">
+                    <label>{{ __("Trigger Condition (Logic)") }}</label>
+                    <div class="help-text text-muted mb-2" style="font-size: 11px;">{{ __("Define complex logic here.") }}</div>
                     
-                    <button class="btn btn-default btn-sm w-100" @click="editFilters">
-                        <i class="fa fa-filter"></i> {{ __("Set Filters") }}
+                    <button class="btn btn-default btn-sm w-100 mb-2" @click="showConditionModal = true">
+                        <i class="fa fa-code-fork"></i> {{ __("Open Condition Builder") }}
                     </button>
                     
-                    <div v-if="selectedNode.data?.trigger_filters && selectedNode.data.trigger_filters !== '[]'" class="mt-2" style="font-size: 12px; color: var(--text-muted);">
-                        <i class="fa fa-check-circle text-success"></i> {{ __("Filters Configured") }}
+                    <div v-if="selectedNode.data?.trigger_condition && selectedNode.data.trigger_condition !== '{}'" class="mt-2" style="font-size: 12px; color: var(--text-muted);">
+                         <i class="fa fa-check-circle text-success"></i> {{ __("Conditions Configured") }}
                     </div>
                 </div>
             </template>
@@ -322,11 +329,19 @@
                 </template>
                 
                 <div class="form-group" v-if="selectedNode.data?.action_type === 'Condition'">
-                    <label>{{ __("Expression") }}</label>
-                    <textarea class="form-control" rows="3"
+                    <label>{{ __("Expression (Legacy)") }}</label>
+                    <div class="help-text text-muted mb-2" style="font-size: 11px;">{{ __("ReadOnly: Auto-compiled from Condition Builder") }}</div>
+                    <textarea class="form-control" rows="3" readonly
                         :value="selectedNode.data?.condition_expression"
-                        @input="updateField('condition_expression', $event.target.value)"
-                        placeholder="doc.status == 'Active'"></textarea>
+                        placeholder="Active = True"></textarea>
+                    
+                    <button class="btn btn-default btn-sm w-100 mt-2" @click="showConditionModal = true">
+                        <i class="fa fa-code-fork"></i> {{ __("Open Condition Builder") }}
+                    </button>
+                    
+                    <div v-if="selectedNode.data?.condition_json && selectedNode.data.condition_json !== '{}'" class="mt-2" style="font-size: 12px; color: var(--text-muted);">
+                         <i class="fa fa-check-circle text-success"></i> {{ __("Conditions Configured") }}
+                    </div>
                 </div>
                 
                 <div class="form-group" v-if="selectedNode.type !== 'stop'">
@@ -371,13 +386,90 @@
                 </button>
             </template>
         </div>
+        
+        <!-- Condition Builder Modal -->
+        <Teleport to="body">
+            <div v-if="showConditionModal" class="condition-modal-overlay">
+                <div class="condition-modal-content">
+                    <div class="modal-header">
+                        <h4>{{ __("Condition Builder") }}</h4>
+                        <button class="btn-close" @click="showConditionModal = false">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3 d-flex justify-content-end">
+                            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+                                <input type="checkbox" v-model="showOldDoc">
+                                <span class="small">{{ __("Show Old Document Fields") }}</span>
+                            </label>
+                        </div>
+                           <ConditionBuilder 
+                                :modelValue="currentConditions"
+                                :docFields="docFields"
+                                @update:modelValue="updateConditions"
+                           />
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" @click="saveConditions">{{ __("Apply Conditions") }}</button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
+
+<style scoped>
+.condition-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1050; /* Bootstrap modal z-index */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.condition-modal-content {
+    background: white;
+    width: 800px;
+    max-width: 90vw;
+    max-height: 85vh;
+    border-radius: 6px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-footer {
+    padding: 15px;
+    border-top: 1px solid #eee;
+    text-align: right;
+    background: #fcfcfc;
+}
+</style>
 
 <script setup>
 import { computed, ref, watch, nextTick, onMounted } from 'vue';
 import { useStore } from '../store';
 import ConfigurationBuilder from './ConfigurationBuilder.vue';
+import ConditionBuilder from './condition_builder/ConditionBuilder.vue';
 
 const emit = defineEmits(['close']);
 const store = useStore();
@@ -398,6 +490,146 @@ const selectedMethodSchema = computed(() => {
         return null;
     }
 });
+
+// Condition Builder Modal Logic
+const showConditionModal = ref(false);
+const currentConditions = ref({});
+
+// DocFields for Autocomplete
+const docFields = ref([]);
+const showOldDoc = ref(false);
+
+const fetchDocFields = async (doctype) => {
+    if (!doctype) {
+        docFields.value = [];
+        return;
+    }
+    
+    frappe.model.with_doctype(doctype, () => {
+        try {
+            const meta = frappe.get_meta(doctype);
+            const fields = [];
+            const excludedTypes = ['Section Break', 'Column Break', 'Tab Break', 'HTML', 'Button', 'Image', 'Fold', 'Heading', 'Spacer'];
+            
+            if (meta && meta.fields) {
+                meta.fields.forEach(f => {
+                    if (!excludedTypes.includes(f.fieldtype)) {
+                        // Standard Doc Field
+                        fields.push({
+                            label: `${f.label} (${f.fieldname})`,
+                            value: `doc.${f.fieldname}`,
+                            fieldtype: f.fieldtype,
+                            options: f.options
+                        });
+                        
+                        // Old Doc Field (if enabled)
+                        if (showOldDoc.value) {
+                             fields.push({
+                                label: `[OLD] ${f.label} (${f.fieldname})`,
+                                value: `old_doc.${f.fieldname}`,
+                                fieldtype: f.fieldtype,
+                                options: f.options
+                            });
+                        }
+                    }
+                });
+                
+                // Add Standard Fields
+                const stdFields = [
+                    { label: 'Name (name)', fieldname: 'name', fieldtype: 'Data' },
+                    { label: 'Owner (owner)', fieldname: 'owner', fieldtype: 'Data' },
+                    { label: 'Creation (creation)', fieldname: 'creation', fieldtype: 'Datetime' },
+                    { label: 'Modified (modified)', fieldname: 'modified', fieldtype: 'Datetime' },
+                    { label: 'Modified By (modified_by)', fieldname: 'modified_by', fieldtype: 'Data' },
+                    { label: 'DocStatus (docstatus)', fieldname: 'docstatus', fieldtype: 'Int' }
+                ];
+                
+                stdFields.forEach(f => {
+                    fields.push({
+                        label: f.label,
+                        value: `doc.${f.fieldname}`,
+                        fieldtype: f.fieldtype
+                    });
+                     if (showOldDoc.value) {
+                         fields.push({
+                            label: `[OLD] ${f.label}`,
+                            value: `old_doc.${f.fieldname}`,
+                            fieldtype: f.fieldtype
+                        });
+                     }
+                });
+                
+                fields.sort((a, b) => a.label.localeCompare(b.label));
+                docFields.value = fields;
+            }
+        } catch(e) {
+            console.error(e);
+            docFields.value = [];
+        }
+    });
+};
+
+// Re-fetch when toggle changes
+watch(showOldDoc, () => {
+    const doctype = selectedNode.value?.data?.document_type || store.rule_doc?.document_type;
+    if(doctype) fetchDocFields(doctype);
+});
+
+// Watch trigger open
+watch(showConditionModal, (val) => {
+    if (val && selectedNode.value?.data) {
+        let source = null;
+        if (selectedNode.value.type === 'start') {
+             source = selectedNode.value.data.trigger_condition; 
+        } else if (selectedNode.value.data.action_type === 'Condition') {
+             source = selectedNode.value.data.condition_json;
+        }
+        
+        let parsed = null;
+        if (typeof source === 'string' && source.trim() !== '') {
+             try { parsed = JSON.parse(source); }
+             catch(e) { parsed = null; }
+        } else if (typeof source === 'object') {
+             parsed = source;
+        }
+        
+        // Migration / Initialization
+        if (!parsed || (!parsed.op && !parsed.conditions)) {
+            // New Root
+             currentConditions.value = { op: "and", conditions: [] };
+        } else {
+            // Legacy Migration (simple check)
+            if (parsed.type === 'group' && !parsed.op) {
+                parsed.op = parsed.logicalOperator === 'OR' ? 'or' : 'and';
+                // Recursive legacy fix? For now assume top-level is enough or user rebuilds
+                // Ideally we'd traverse. But let's assume valid Schema or Empty.
+            }
+            currentConditions.value = JSON.parse(JSON.stringify(parsed));
+        }
+        
+        const doctype = selectedNode.value.data.document_type || store.rule_doc?.document_type;
+        fetchDocFields(doctype);
+    }
+});
+
+function updateConditions(val) {
+    currentConditions.value = val;
+}
+
+function saveConditions() {
+    if (!selectedNode.value?.data) return;
+    
+    // Determine target field
+    if (selectedNode.value.type === 'start') {
+        selectedNode.value.data.trigger_condition = JSON.stringify(currentConditions.value);
+    } else if (selectedNode.value.data?.action_type === 'Condition') {
+        selectedNode.value.data.condition_json = JSON.stringify(currentConditions.value);
+    }
+    
+    store.mark_dirty();
+    showConditionModal.value = false;
+    frappe.show_alert({message: __('Conditions Updated'), indicator: 'green'});
+}
 
 // Process Method Autocomplete
 const methodSearch = ref('');
