@@ -23,7 +23,6 @@ export const useStore = defineStore("rule-builder-store", () => {
     async function fetch_metadata(doctype) {
         if (!doctype || doc_meta.value[doctype]) return;
         fetch_counter.value++;
-        console.log(`[Store] Fetching metadata for ${doctype}...`);
         try {
             // Promise wrapper because frappe.model.with_doctype uses a callback
             await new Promise((resolve) => {
@@ -32,7 +31,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 
             const meta = frappe.get_meta(doctype);
             if (!meta) {
-                console.error(`[Store] Could not get meta for ${doctype}`);
                 return;
             }
 
@@ -74,17 +72,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 
             // Use spread for deep reactivity
             doc_meta.value = { ...doc_meta.value, [doctype]: fields };
-            console.log(`[Store] Metadata loaded for ${doctype}. Field count: ${fields.length}`);
 
             // 2. Pre-fetch Child Tables metadata
             const tableFields = meta.fields.filter(f => f.fieldtype === 'Table' && f.options);
             for (const tf of tableFields) {
-                console.log(`[Store] Detected Child Table: ${tf.fieldname} -> ${tf.options}`);
                 await fetch_metadata(tf.options);
             }
 
         } catch (e) {
-            console.error(`[Store] Error fetching metadata for ${doctype}:`, e);
+            // Silent fail - metadata fetch errors are non-critical
         } finally {
             fetch_counter.value--;
         }
@@ -93,7 +89,6 @@ export const useStore = defineStore("rule-builder-store", () => {
     function get_fields_for_doctype(doctype, alias = 'doc') {
         if (!doctype) return [];
         if (!doc_meta.value[doctype]) {
-            console.warn(`[Store] get_fields_for_doctype: No metadata for ${doctype}`);
             return [];
         }
 

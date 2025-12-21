@@ -60,7 +60,7 @@
         
         <!-- Main Canvas + Sidebar -->
         <div class="builder-main">
-            <div class="sidebar-container" v-if="showSidebar" @click.stop>
+            <div class="sidebar-container" :class="{ 'sidebar-rtl': isRTL }" v-if="showSidebar" @click.stop>
                 <Sidebar @close="closeSidebar" />
             </div>
             <div class="canvas-container">
@@ -78,6 +78,7 @@
                     @connect="onConnect"
                     @nodes-change="onNodesChange"
                     @edges-change="onEdgesChange"
+                    @edge-click="onEdgeClick"
                 >
                     <template #node-start="nodeProps">
                         <StartNode v-bind="nodeProps" />
@@ -169,6 +170,7 @@ const edges = computed({
 });
 
 const showSidebar = computed(() => store.graph.selected !== null);
+const isRTL = computed(() => document.documentElement.dir === 'rtl');
 
 function closeSidebar() { store.graph.selected = null; }
 
@@ -300,7 +302,67 @@ function toggleRuleActive(e) {
 }
 
 function testRule() {
-    frappe.msgprint(__('Test Rule functionality coming soon!'));
+    if (!store.rule_doc?.document_type) {
+        frappe.msgprint(__('Please select a Document Type first'));
+        return;
+    }
+    
+    const doctype = store.rule_doc.document_type;
+    
+    frappe.prompt(
+        [
+            {
+                label: __('Document'),
+                fieldname: 'docname',
+                fieldtype: 'Link',
+                options: doctype,
+                reqd: 1,
+                description: __('Select a document to test the rule against')
+            }
+        ],
+        (values) => {
+            frappe.call({
+                method: 'flexirule.ruleflow.api.test_rule',
+                args: {
+                    rule_name: store.rule_name,
+                    doctype: doctype,
+                    docname: values.docname
+                },
+                freeze: true,
+                freeze_message: __('Executing rule...'),
+                callback: (r) => {
+                    if (r.message) {
+                        const result = r.message;
+                        if (result.success) {
+                            frappe.msgprint({
+                                title: __('Test Successful'),
+                                indicator: 'green',
+                                message: `<p>${result.message}</p><details><summary>${__('Execution Log')}</summary><pre>${JSON.stringify(result.execution_log, null, 2)}</pre></details>`
+                            });
+                        } else {
+                            frappe.msgprint({
+                                title: __('Test Result'),
+                                indicator: result.error ? 'red' : 'orange',
+                                message: result.message || result.error
+                            });
+                        }
+                    }
+                }
+            });
+        },
+        __('Test Rule'),
+        __('Run Test')
+    );
+}
+
+function onEdgeClick(event, edge) {
+    frappe.confirm(
+        __('Delete this connection?'),
+        () => {
+            store.delete_edge(edge.id);
+            frappe.show_alert({ message: __('Connection deleted'), indicator: 'green' });
+        }
+    );
 }
 </script>
 
@@ -352,4 +414,11 @@ input:checked + .slider:before { transform: translateX(14px); }
 .small-switch { width: 28px; height: 16px; }
 .small-switch .slider:before { height: 12px; width: 12px; }
 .small-switch input:checked + .slider:before { transform: translateX(12px); }
+
+/* RTL sidebar positioning */
+.sidebar-rtl {
+    order: 1; /* Move after canvas in flex */
+    margin-right: 0;
+    margin-left: 10px;
+}
 </style>

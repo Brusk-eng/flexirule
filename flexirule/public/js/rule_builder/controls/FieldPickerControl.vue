@@ -131,7 +131,7 @@ watch(() => props.documentType, () => {
                     @mousedown.prevent="selectField(field)"
                 >
                     <span class="field-name">{{ field.value }}</span>
-                    <span class="field-label">{{ field.label }}</span>
+                    <span class="field-label">{{ __(field.label) }}</span>
                     <span class="field-type badge badge-secondary">{{ field.fieldtype }}</span>
                 </div>
             </div>

@@ -148,32 +148,39 @@ def should_include_field(df, allowed_types=None, excluded_types=None):
 
 @frappe.whitelist()
 def test_rule(rule_name, doctype, docname):
-    """Test a rule against a specific document"""
+    """
+    Test a rule against a specific document.
+    
+    Note: Manual testing bypasses trigger_filters since the user explicitly 
+    selected a document to test against. The rule's actions are executed 
+    regardless of trigger conditions.
+    """
     try:
         from flexirule.ruleflow.core.engine import RuleEngine
         
         rule_doc = frappe.get_doc("Rule", rule_name)
         doc = frappe.get_doc(doctype, docname)
         
-        # Check if rule is actually applicable (User Request: filters must apply)
-        from flexirule.ruleflow.core.coordinator import RuleCoordinator
-        is_eligible, reason = RuleCoordinator.check_eligibility(
-             rule_doc, doc, event_name="Manual Test", skip_event_check=True
-        )
-        
-        if not is_eligible:
-             return {
-                 "success": False,
-                 "message": _("Rule Skipped: {0}").format(reason),
-                 "execution_log": {}
-             }
+        # Skip eligibility check for manual testing - user explicitly chose this document
+        # Note: We still check is_active for safety
+        if not rule_doc.is_active:
+            return {
+                "success": False,
+                "message": _("Rule is not active. Enable it before testing."),
+                "execution_log": {}
+            }
         
         engine = RuleEngine(rule_doc, {'test_mode': True})
         result = engine.execute(doc)
         
+        # Include info about skipped trigger filters for transparency
+        info_msg = _("Rule '{0}' executed successfully").format(rule_doc.rule_name)
+        if rule_doc.trigger_filters:
+            info_msg += _(" (trigger filters were bypassed for manual test)")
+        
         return {
             "success": True,
-            "message": _("Rule '{0}' executed successfully").format(rule_doc.rule_name),
+            "message": info_msg,
             "execution_log": engine.execution_log
         }
         

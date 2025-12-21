@@ -21,10 +21,12 @@ function deleteNode() {
         
         <button class="delete-btn" @click.stop="deleteNode">×</button>
         
-        <Handle type="source" :position="Position.Right" id="true" class="handle-true" />
+        <!-- True handle at 30% from top -->
+        <Handle type="source" :position="Position.Right" id="true" class="handle-true" :style="{ top: '30%' }" />
         <span class="handle-label true-label">✓ {{ __("True") }}</span>
         
-        <Handle type="source" :position="Position.Bottom" id="false" class="handle-false" />
+        <!-- False handle at 70% from top (distinct from True) -->
+        <Handle type="source" :position="Position.Right" id="false" class="handle-false" :style="{ top: '70%' }" />
         <span class="handle-label false-label">✗ {{ __("False") }}</span>
     </div>
 </template>
@@ -45,9 +47,10 @@ function deleteNode() {
 }
 .condition-node:hover .delete-btn { display: flex; }
 .handle-target { background: var(--gray-500) !important; border: 2px solid white !important; width: 10px !important; height: 10px !important; }
-.handle-true { background: var(--success) !important; border: 2px solid white !important; width: 12px !important; height: 12px !important; top: 30% !important; }
+.handle-true { background: var(--success) !important; border: 2px solid white !important; width: 12px !important; height: 12px !important; }
 .handle-false { background: var(--danger) !important; border: 2px solid white !important; width: 12px !important; height: 12px !important; }
 .handle-label { position: absolute; font-size: 9px; font-weight: 600; color: white; padding: 2px 5px; border-radius: 3px; pointer-events: none; }
-.true-label { top: 28%; right: -50px; background: var(--success); }
-.false-label { bottom: -18px; left: 50%; transform: translateX(-50%); background: var(--danger); }
+.true-label { top: 25%; right: -38px; background: var(--success); }
+.false-label { top: 65%; right: -38px; background: var(--danger); }
 </style>
+

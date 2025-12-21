@@ -43,6 +43,7 @@ class Rule(Document):
         """
         self.compile_conditions()
         self.validate_actions()
+        self.validate_no_sub_rule_cycles()
 
     def compile_conditions(self):
         from flexirule.ruleflow.core.compiler import ConditionCompiler
@@ -122,6 +123,52 @@ class Rule(Document):
                     pass
             
             validate_config(action.method_config, schema, mapped_fields=mapped_fields)
+
+    def validate_no_sub_rule_cycles(self):
+        """
+        Detect direct or indirect cycles in sub-rule references.
+        Uses DFS to check that following sub-rule links doesn't lead back to this rule.
+        """
+        # Collect sub-rule names referenced by this rule
+        sub_rules = set()
+        for action in (self.actions or []):
+            if action.action_type == 'Sub-Rule' and action.sub_rule:
+                sub_rules.add(action.sub_rule)
+        
+        if not sub_rules:
+            return  # No sub-rules, no cycles possible
+        
+        # DFS to detect cycles
+        visited = set()
+        stack = list(sub_rules)
+        
+        while stack:
+            current_rule_name = stack.pop()
+            
+            if current_rule_name == self.name:
+                frappe.throw(
+                    _("Cycle detected: Rule '{0}' references itself through sub-rules").format(self.name)
+                )
+            
+            if current_rule_name in visited:
+                continue
+            
+            visited.add(current_rule_name)
+            
+            # Get sub-rules of the current rule
+            child_sub_rules = frappe.db.get_all(
+                "Rule Action",
+                filters={
+                    "parent": current_rule_name,
+                    "action_type": "Sub-Rule",
+                    "sub_rule": ["is", "set"]
+                },
+                pluck="sub_rule"
+            )
+            
+            for child in child_sub_rules:
+                if child and child not in visited:
+                    stack.append(child)
 
     def on_update(self):
         """
