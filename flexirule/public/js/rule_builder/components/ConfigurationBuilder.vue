@@ -20,7 +20,7 @@
                 <MappingWrapper 
                     v-else
                     :label="__(field.label)"
-                    :reqd="field.reqd"
+                    :reqd="isMandatory(field)"
                     :mappingValue="mappingValues[field.fieldname]"
                     @update:mappingValue="updateMapping(field.fieldname, $event)"
                     @clearStatic="updateValue(field.fieldname, undefined)"
@@ -225,6 +225,13 @@ const visibleFields = computed(() => {
         return evaluateDependsOn(field.depends_on, values.value);
     });
 });
+
+// Evaluate if a field is mandatory (supports mandatory_depends_on)
+function isMandatory(field) {
+    if (field.reqd) return true;
+    if (!field.mandatory_depends_on) return false;
+    return evaluateDependsOn(field.mandatory_depends_on, values.value);
+}
 
 // Evaluate depends_on expression
 function evaluateDependsOn(expression, formData) {

@@ -8,6 +8,7 @@ Whitelisted API functions for Bolton Rule Engine
 import frappe
 from frappe import _
 import json
+from flexirule.ruleflow.core.compiler import ConditionCompiler
 
 
 # Layout fieldtypes to exclude by default
@@ -204,6 +205,18 @@ def get_process_methods(category=None):
         fields=["name", "method_name", "category", "description", "config_schema"],
         order_by="category, method_name"
     )
+
+
+@frappe.whitelist()
+def get_operator_config():
+    """
+    Get fieldtype-to-operators mapping and operator labels for Condition Builder.
+    Returns centralized config from ConditionCompiler.
+    """
+    return {
+        "fieldtype_operators": ConditionCompiler.FIELDTYPE_OPERATORS,
+        "operator_labels": ConditionCompiler.OPERATOR_LABELS
+    }
 
 
 @frappe.whitelist()

@@ -10,6 +10,99 @@ export const useStore = defineStore("rule-builder-store", () => {
     let is_dirty = ref(false);
     let initial_state = ref(null);
     let trigger_event_options = ref([]);
+    let doc_meta = ref({}); // { doctype: [fields] }
+    let fetch_counter = ref(0);
+    let meta_loading = computed(() => fetch_counter.value > 0);
+
+    const doc_fields = computed(() => {
+        const doctype = rule_doc.value?.document_type;
+        if (!doctype || !doc_meta.value[doctype]) return [];
+        return doc_meta.value[doctype];
+    });
+
+    async function fetch_metadata(doctype) {
+        if (!doctype || doc_meta.value[doctype]) return;
+        fetch_counter.value++;
+        console.log(`[Store] Fetching metadata for ${doctype}...`);
+        try {
+            // Promise wrapper because frappe.model.with_doctype uses a callback
+            await new Promise((resolve) => {
+                frappe.model.with_doctype(doctype, resolve);
+            });
+
+            const meta = frappe.get_meta(doctype);
+            if (!meta) {
+                console.error(`[Store] Could not get meta for ${doctype}`);
+                return;
+            }
+
+            const fields = [];
+            const excludedTypes = ['Section Break', 'Column Break', 'Tab Break', 'HTML', 'Button', 'Image', 'Fold', 'Heading', 'Spacer'];
+
+            // 1. Add Main Table Fields (doc.*)
+            meta.fields.forEach(f => {
+                if (!excludedTypes.includes(f.fieldtype)) {
+                    fields.push({
+                        label: `doc.${f.fieldname} (${f.label})`,
+                        value: `doc.${f.fieldname}`,
+                        fieldname: f.fieldname,
+                        fieldtype: f.fieldtype,
+                        options: f.options,
+                        is_main: true
+                    });
+                }
+            });
+
+            // Standard Fields
+            const stdFields = [
+                { label: 'Name (name)', fieldname: 'name', fieldtype: 'Data' },
+                { label: 'Owner (owner)', fieldname: 'owner', fieldtype: 'Data' },
+                { label: 'Creation (creation)', fieldname: 'creation', fieldtype: 'Datetime' },
+                { label: 'Modified (modified)', fieldname: 'modified', fieldtype: 'Datetime' },
+                { label: 'Modified By (modified_by)', fieldname: 'modified_by', fieldtype: 'Data' },
+                { label: 'DocStatus (docstatus)', fieldname: 'docstatus', fieldtype: 'Int' }
+            ];
+            stdFields.forEach(f => {
+                fields.push({
+                    label: `doc.${f.fieldname} (${f.label})`,
+                    value: `doc.${f.fieldname}`,
+                    fieldname: f.fieldname,
+                    fieldtype: f.fieldtype,
+                    is_std: true
+                });
+            });
+
+            // Use spread for deep reactivity
+            doc_meta.value = { ...doc_meta.value, [doctype]: fields };
+            console.log(`[Store] Metadata loaded for ${doctype}. Field count: ${fields.length}`);
+
+            // 2. Pre-fetch Child Tables metadata
+            const tableFields = meta.fields.filter(f => f.fieldtype === 'Table' && f.options);
+            for (const tf of tableFields) {
+                console.log(`[Store] Detected Child Table: ${tf.fieldname} -> ${tf.options}`);
+                await fetch_metadata(tf.options);
+            }
+
+        } catch (e) {
+            console.error(`[Store] Error fetching metadata for ${doctype}:`, e);
+        } finally {
+            fetch_counter.value--;
+        }
+    }
+
+    function get_fields_for_doctype(doctype, alias = 'doc') {
+        if (!doctype) return [];
+        if (!doc_meta.value[doctype]) {
+            console.warn(`[Store] get_fields_for_doctype: No metadata for ${doctype}`);
+            return [];
+        }
+
+        return doc_meta.value[doctype].map(f => ({
+            ...f,
+            label: `${alias}.${f.fieldname} (${f.label.split('(')[1] ? f.label.split('(')[1].replace(')', '') : f.label})`,
+            value: `${alias}.${f.fieldname}`
+        }));
+    }
 
     // Undo/Redo history
     let history = ref([]);
@@ -27,6 +120,10 @@ export const useStore = defineStore("rule-builder-store", () => {
         if (result.message) {
             frappe.model.sync(result.message);
             rule_doc.value = frappe.get_doc("Rule", rule_name.value);
+        }
+
+        if (rule_doc.value?.document_type) {
+            await fetch_metadata(rule_doc.value.document_type);
         }
 
         if (!trigger_event_options.value.length) {
@@ -397,6 +494,25 @@ export const useStore = defineStore("rule-builder-store", () => {
         mark_dirty();
     }
 
+    function delete_edge(edgeId) {
+        const edge = graph.value.elements.find(el => el.id === edgeId && el.source);
+        if (!edge) return;
+
+        // Clear the next_step reference in the source node's data
+        const sourceNode = graph.value.elements.find(el => el.position && el.id === edge.source);
+        if (sourceNode && sourceNode.data) {
+            if (edge.sourceHandle === 'false') {
+                sourceNode.data.next_step_if_false = null;
+            } else {
+                sourceNode.data.next_step_if_true = null;
+            }
+        }
+
+        // Remove the edge
+        graph.value.elements = graph.value.elements.filter(el => el.id !== edgeId);
+        mark_dirty();
+    }
+
     function getTopologicalSort(nodes, edges) {
         // ... (Same topological sort logic)
         const adj = {};
@@ -425,9 +541,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 
     return {
         rule_name, rule_doc, graph, process_methods, available_rules, is_dirty, effectiveDisabledIds,
-        trigger_event_options,
-        fetch, get_process_method_schema, save_changes, mark_dirty, mark_position_change,
-        clear_dirty, delete_node, getEffectivelyDisabledIds, fetch_available_rules,
+        trigger_event_options, doc_fields, doc_meta, meta_loading,
+        fetch, fetch_metadata, get_fields_for_doctype, get_process_method_schema, save_changes, mark_dirty, mark_position_change,
+        clear_dirty, delete_node, delete_edge, getEffectivelyDisabledIds, fetch_available_rules,
         undo, redo, can_undo, can_redo, commit_history
     };
 });

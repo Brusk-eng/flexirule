@@ -445,17 +445,17 @@ class RuleEngine:
 	
 	def _execute_condition(self, action, context):
 		"""Execute a condition node"""
-		# We now prioritize condition_expression which is the compiled standardized JSON
-		result = False
-		if action.condition_expression:
-			result = self._evaluate_python_condition(action.condition_expression, context)
-		elif action.condition_json:
-			# Fallback for older rules or direct DB edits: Compile on the fly
-			from flexirule.ruleflow.core.compiler import ConditionCompiler
-			expr = ConditionCompiler().compile(action.condition_json)
-			result = self._evaluate_python_condition(expr, context)
+		# Conditions MUST be pre-compiled during Rule.validate()
+		# If condition_expression is missing but condition_json exists, the rule was not properly saved
+		if not action.condition_expression:
+			if action.condition_json:
+				raise ValueError(_(
+					"Action '{0}' has condition_json but no compiled condition_expression. "
+					"Please re-save the Rule to compile conditions."
+				).format(action.action_label))
+			result = True  # Empty condition passes
 		else:
-			result = True # Empty condition
+			result = self._evaluate_python_condition(action.condition_expression, context)
 		
 		next_id = action.next_step_if_true if result else action.next_step_if_false
 		return result, next_id

@@ -29,6 +29,73 @@ class ConditionCompiler:
 		'or': 'or'
 	}
 
+	# Operator labels for UI display
+	OPERATOR_LABELS = {
+		'==': 'equals',
+		'!=': 'not equals',
+		'>': 'greater than',
+		'<': 'less than',
+		'>=': 'greater or equal',
+		'<=': 'less or equal',
+		'in': 'in list',
+		'not in': 'not in list',
+		'like': 'contains',
+		'not like': 'not contains',
+		'is_set': 'is set',
+		'is_not_set': 'is not set',
+		'contains': 'contains',
+		'not_contains': 'not contains'
+	}
+
+	# Fieldtype to valid operators mapping
+	FIELDTYPE_OPERATORS = {
+		# Text fields
+		'Data': ['==', '!=', 'in', 'not in', 'like', 'not like', 'is_set', 'is_not_set'],
+		'Text': ['==', '!=', 'like', 'not like', 'is_set', 'is_not_set'],
+		'Small Text': ['==', '!=', 'like', 'not like', 'is_set', 'is_not_set'],
+		'Long Text': ['==', '!=', 'like', 'not like', 'is_set', 'is_not_set'],
+		'Text Editor': ['==', '!=', 'like', 'not like', 'is_set', 'is_not_set'],
+		'Code': ['==', '!=', 'like', 'not like', 'is_set', 'is_not_set'],
+		'Password': ['is_set', 'is_not_set'],
+
+		# Selection fields
+		'Select': ['==', '!=', 'in', 'not in', 'is_set', 'is_not_set'],
+		'Link': ['==', '!=', 'in', 'not in', 'is_set', 'is_not_set'],
+		'Dynamic Link': ['==', '!=', 'in', 'not in', 'is_set', 'is_not_set'],
+
+		# Numeric fields
+		'Int': ['==', '!=', '>', '<', '>=', '<=', 'is_set', 'is_not_set'],
+		'Float': ['==', '!=', '>', '<', '>=', '<=', 'is_set', 'is_not_set'],
+		'Currency': ['==', '!=', '>', '<', '>=', '<=', 'is_set', 'is_not_set'],
+		'Percent': ['==', '!=', '>', '<', '>=', '<=', 'is_set', 'is_not_set'],
+		'Rating': ['==', '!=', '>', '<', '>=', '<='],
+
+		# Boolean
+		'Check': ['==', '!='],  # Only 0 or 1
+
+		# Date/Time
+		'Date': ['==', '!=', '>', '<', '>=', '<=', 'is_set', 'is_not_set'],
+		'Datetime': ['==', '!=', '>', '<', '>=', '<=', 'is_set', 'is_not_set'],
+		'Time': ['==', '!=', '>', '<', '>=', '<=', 'is_set', 'is_not_set'],
+		'Duration': ['==', '!=', '>', '<', '>=', '<=', 'is_set', 'is_not_set'],
+
+		# Special
+		'Attach': ['is_set', 'is_not_set'],
+		'Attach Image': ['is_set', 'is_not_set'],
+		'Signature': ['is_set', 'is_not_set'],
+		'Color': ['==', '!=', 'is_set', 'is_not_set'],
+		'Geolocation': ['is_set', 'is_not_set'],
+		'JSON': ['is_set', 'is_not_set'],
+
+		# Table (not directly comparable)
+		'Table': [],
+		'Table MultiSelect': [],
+
+		# Default fallback
+		'_default': ['==', '!=', 'is_set', 'is_not_set']
+	}
+
+
 	def compile(self, conditions) -> str:
 		if not conditions:
 			return ""
@@ -94,16 +161,16 @@ class ConditionCompiler:
 		if op == 'is_not_set':
 			return f"({lhs_code} is None or {lhs_code} == '')"
 		if op == 'has_changed':
-			# Special handling: left must be a ref
-			if isinstance(left, dict) and 'ref' in left:
-				ref_val = left['ref'] # e.g. doc.status
-				parts = ref_val.split('.')
-				if len(parts) > 1 and parts[0] == 'doc':
-					# Construct old_doc ref: old_doc.status
-					old_doc_ref = f"old_doc.{'.'.join(parts[1:])}"
-					rhs_code = self._resolve_ref(old_doc_ref, scopes)
-					return f"({lhs_code} != {rhs_code})"
-			return "False"
+			# DEPRECATED: has_changed in conditions is architecturally incorrect.
+			# Change detection should use the 'On Field Change' Process Method instead.
+			# This operator is kept for backward compatibility but always returns True.
+			# Existing rules using this should be migrated.
+			import warnings
+			warnings.warn(
+				"has_changed condition operator is deprecated. Use 'On Field Change' Process Method instead.",
+				DeprecationWarning
+			)
+			return "True"  # Always pass - migration required
 
 		rhs_code = self._compile_operand(right, scopes)
 		py_op = self.OPERATOR_MAP.get(op, "==")
@@ -123,7 +190,15 @@ class ConditionCompiler:
 		alias = node.get("alias", "row")
 		where = node.get("where")
 		
+		# Validate collection reference is not empty
+		if not collection_ref or not collection_ref.strip():
+			raise ValueError("Collection condition requires a valid collection reference (e.g., 'doc.items')")
+		
 		iterator = self._resolve_ref(collection_ref, scopes)
+		
+		# Validate iterator is not empty (would produce invalid expression)
+		if not iterator or iterator == "''":
+			raise ValueError(f"Invalid collection reference: '{collection_ref}'. Must be a valid path like 'doc.items'")
 		
 		# Push alias to active scopes
 		new_scopes = scopes.copy()
@@ -140,6 +215,34 @@ class ConditionCompiler:
 			
 		# Expression: any(condition for alias in collection)
 		return f"{prefix}{func}({condition_code} for {alias} in ({iterator} or []))"
+	
+	def validate(self, expression: str) -> tuple:
+		"""
+		Validate a compiled expression is syntactically valid and safe.
+		Returns (is_valid, error_message)
+		"""
+		if not expression or expression.strip() == "":
+			return True, None
+		
+		# Check for obviously invalid patterns
+		invalid_patterns = [
+			("('' or [])", "Empty collection reference detected"),
+			("resolve(, ", "Invalid resolve() call with empty scope"),
+			(".get('')", "Empty field name in get()"),
+		]
+		
+		for pattern, error in invalid_patterns:
+			if pattern in expression:
+				return False, error
+		
+		# Try to compile as Python AST
+		try:
+			import ast
+			ast.parse(expression, mode='eval')
+		except SyntaxError as e:
+			return False, f"Invalid Python syntax: {e}"
+		
+		return True, None
 
 	def _compile_operand(self, operand, scopes):
 		# { "ref": "doc.status" } or { "value": "x" }
@@ -151,24 +254,43 @@ class ConditionCompiler:
 		
 		if "value" in operand:
 			val = operand["value"]
+			# Frappe-compatible output: None -> '', False -> 0, True -> 1
 			if val is None: return "''"
+			if val is True: return "1"
+			if val is False: return "0"
+			# For strings use repr, for numbers use direct
+			if isinstance(val, str):
+				return repr(val)
 			return repr(val)
 			
 		return "''"
 
 	def _resolve_ref(self, path, scopes):
-		# "doc.status" -> resolve(doc, 'status')
-		# "row.qty" -> resolve(row, 'qty')
+		"""
+		Resolve field reference to a Python expression compatible with frappe.safe_eval.
+		
+		Simple paths (doc.field) -> direct attribute access: doc.get('field')
+		Nested paths (doc.child.field) -> resolve() function for child table traversal
+		"""
 		if not path: return "''"
 		
 		parts = path.split('.')
-		scope = parts[0] # doc, old_doc, row, vars, item(legacy) or collection alias
+		scope = parts[0]  # doc, old_doc, row, vars, item or collection alias
 		
 		if scope not in scopes:
 			return "''"
 			
 		if len(parts) == 1:
+			# Just the scope itself (rare but valid)
 			return scope
-			
+		
+		if len(parts) == 2:
+			# Simple field access: doc.field_name -> doc.get('fieldname')
+			# This is directly compatible with frappe.safe_eval
+			fieldname = parts[1]
+			return f"{scope}.get('{fieldname}')"
+		
+		# Nested path (child table or deep reference): use resolve() helper
+		# resolve() is injected into safe_eval context by engine/coordinator
 		subpath = '.'.join(parts[1:])
 		return f"resolve({scope}, '{subpath}')"

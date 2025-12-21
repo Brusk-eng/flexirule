@@ -52,6 +52,12 @@ class Rule(Document):
         if self.trigger_condition:
             try:
                 self.trigger_filters = compiler.compile(self.trigger_condition)
+                # Validate compiled expression
+                is_valid, error = compiler.validate(self.trigger_filters)
+                if not is_valid:
+                    frappe.throw(_("Invalid Trigger Condition: {0}").format(error))
+            except ValueError as e:
+                frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
             except Exception as e:
                 frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
         
@@ -67,6 +73,12 @@ class Rule(Document):
             if action.action_type == 'Condition' and action.condition_json:
                 try:
                     action.condition_expression = compiler.compile(action.condition_json)
+                    # Validate compiled expression
+                    is_valid, error = compiler.validate(action.condition_expression)
+                    if not is_valid:
+                        frappe.throw(_("Invalid Condition in Action {0}: {1}").format(action.action_label, error))
+                except ValueError as e:
+                    frappe.throw(_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e)))
                 except Exception as e:
                     frappe.throw(_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e)))
 

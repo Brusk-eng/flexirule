@@ -161,12 +161,9 @@ class RuleCoordinator:
 			except Exception as e:
 				return False, _("Trigger Evaluation Error: {0}").format(str(e))
 		
-		# Fallback to legacy evaluator (V1 compatibility)
+		# Conditions MUST be pre-compiled - no runtime JSON parsing
 		elif rule_doc.get('trigger_condition'):
-			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
-			evaluator = ConditionEvaluator(rule_doc.get('trigger_condition'))
-			if not evaluator.evaluate(doc):
-				return False, _("Trigger Condition (JSON) mismatch")
+			return False, _("Rule has trigger_condition but no compiled trigger_filters. Please re-save the Rule.")
 
 		return True, _("Eligible")
 	
@@ -224,19 +221,8 @@ class RuleCoordinator:
 			
 			rules = [frappe.get_cached_doc("Rule", name) for name in rule_names]
 		
-		# Filter by Trigger Condition if doc is provided
-		if doc and rules:
-			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
-			filtered_rules = []
-			for rule in rules:
-				# Stage 1: Eligibility (Fast Filter)
-				if rule.trigger_condition:
-					evaluator = ConditionEvaluator(rule.trigger_condition)
-					if not evaluator.evaluate(doc):
-						continue # Skip rule if trigger condition fails
-				filtered_rules.append(rule)
-			return filtered_rules
-			
+		# Note: Trigger condition filtering is now handled by check_eligibility 
+		# using compiled trigger_filters - no runtime JSON parsing
 		return rules
 	
 	@staticmethod

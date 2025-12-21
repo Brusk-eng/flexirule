@@ -495,89 +495,33 @@ const selectedMethodSchema = computed(() => {
 const showConditionModal = ref(false);
 const currentConditions = ref({});
 
-// DocFields for Autocomplete
-const docFields = ref([]);
+// DocFields for Autocomplete (Reactive from Store)
 const showOldDoc = ref(false);
-
-const fetchDocFields = async (doctype) => {
-    if (!doctype) {
-        docFields.value = [];
-        return;
+const docFields = computed(() => {
+    let fields = [...store.doc_fields];
+    
+    // Add [OLD] fields if toggled
+    if (showOldDoc.value) {
+        const oldFields = store.doc_fields
+            .filter(f => f.value.startsWith('doc.'))
+            .map(f => ({
+                ...f,
+                label: `old_doc.${f.fieldname} (${f.label.split('(')[1] ? f.label.split('(')[1].replace(')', '') : f.label})`,
+                value: f.value.replace('doc.', 'old_doc.')
+            }));
+        fields = [...fields, ...oldFields];
     }
     
-    frappe.model.with_doctype(doctype, () => {
-        try {
-            const meta = frappe.get_meta(doctype);
-            const fields = [];
-            const excludedTypes = ['Section Break', 'Column Break', 'Tab Break', 'HTML', 'Button', 'Image', 'Fold', 'Heading', 'Spacer'];
-            
-            if (meta && meta.fields) {
-                meta.fields.forEach(f => {
-                    if (!excludedTypes.includes(f.fieldtype)) {
-                        // Standard Doc Field
-                        fields.push({
-                            label: `${f.label} (${f.fieldname})`,
-                            value: `doc.${f.fieldname}`,
-                            fieldtype: f.fieldtype,
-                            options: f.options
-                        });
-                        
-                        // Old Doc Field (if enabled)
-                        if (showOldDoc.value) {
-                             fields.push({
-                                label: `[OLD] ${f.label} (${f.fieldname})`,
-                                value: `old_doc.${f.fieldname}`,
-                                fieldtype: f.fieldtype,
-                                options: f.options
-                            });
-                        }
-                    }
-                });
-                
-                // Add Standard Fields
-                const stdFields = [
-                    { label: 'Name (name)', fieldname: 'name', fieldtype: 'Data' },
-                    { label: 'Owner (owner)', fieldname: 'owner', fieldtype: 'Data' },
-                    { label: 'Creation (creation)', fieldname: 'creation', fieldtype: 'Datetime' },
-                    { label: 'Modified (modified)', fieldname: 'modified', fieldtype: 'Datetime' },
-                    { label: 'Modified By (modified_by)', fieldname: 'modified_by', fieldtype: 'Data' },
-                    { label: 'DocStatus (docstatus)', fieldname: 'docstatus', fieldtype: 'Int' }
-                ];
-                
-                stdFields.forEach(f => {
-                    fields.push({
-                        label: f.label,
-                        value: `doc.${f.fieldname}`,
-                        fieldtype: f.fieldtype
-                    });
-                     if (showOldDoc.value) {
-                         fields.push({
-                            label: `[OLD] ${f.label}`,
-                            value: `old_doc.${f.fieldname}`,
-                            fieldtype: f.fieldtype
-                        });
-                     }
-                });
-                
-                fields.sort((a, b) => a.label.localeCompare(b.label));
-                docFields.value = fields;
-            }
-        } catch(e) {
-            console.error(e);
-            docFields.value = [];
-        }
-    });
-};
-
-// Re-fetch when toggle changes
-watch(showOldDoc, () => {
-    const doctype = selectedNode.value?.data?.document_type || store.rule_doc?.document_type;
-    if(doctype) fetchDocFields(doctype);
+    return fields.sort((a, b) => a.label.localeCompare(b.label));
 });
 
 // Watch trigger open
 watch(showConditionModal, (val) => {
     if (val && selectedNode.value?.data) {
+        // Ensure metadata is loaded
+        const doctype = selectedNode.value.data.document_type || store.rule_doc?.document_type;
+        if (doctype) store.fetch_metadata(doctype);
+
         let source = null;
         if (selectedNode.value.type === 'start') {
              source = selectedNode.value.data.trigger_condition; 
@@ -606,9 +550,6 @@ watch(showConditionModal, (val) => {
             }
             currentConditions.value = JSON.parse(JSON.stringify(parsed));
         }
-        
-        const doctype = selectedNode.value.data.document_type || store.rule_doc?.document_type;
-        fetchDocFields(doctype);
     }
 });
 

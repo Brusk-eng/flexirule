@@ -6,7 +6,7 @@
             :value="modelValue"
             @input="$emit('update:modelValue', $event.target.value)"
             list="context-vars-list"
-            placeholder="doc.field or vars.name"
+            :placeholder="__('doc.field or row.field')"
         />
         <datalist id="context-vars-list">
             <option v-for="opt in suggestions" :key="opt.value" :value="opt.value">
@@ -17,10 +17,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useStore } from '../store';
 
-const props = defineProps(['modelValue']);
+const props = defineProps({
+    modelValue: String,
+    docFields: Array
+});
 const emit = defineEmits(['update:modelValue']);
 const store = useStore();
 
@@ -33,18 +36,24 @@ const commonVars = [
 ];
 
 const suggestions = computed(() => {
-    // 1. Doc fields
+    // 1. If docFields provided, use them (this will include row.* fields)
+    if (props.docFields && props.docFields.length > 0) {
+        return [...props.docFields, ...commonVars];
+    }
+
+    // 2. Fallback to current doc meta
     const docOptions = metaFields.value.map(f => ({
         value: `doc.${f.fieldname}`,
         label: `doc.${f.fieldname} (${f.label})`
     }));
     
-    // 2. Common vars
     return [...docOptions, ...commonVars];
 });
 
 onMounted(() => {
-    fetchMeta();
+    if (!props.docFields || props.docFields.length === 0) {
+        fetchMeta();
+    }
 });
 
 function fetchMeta() {

@@ -275,3 +275,88 @@ def validate_conditional_required(context, condition_field=None, condition_value
         )
     
     return True
+
+
+@flexirule.processmethod(
+    category="Validation",
+    side_effects="Pure",
+    return_type="Boolean",
+    config_schema={
+        "fields": [
+            {
+                "fieldname": "watched_fields",
+                "fieldtype": "MultiDocField",
+                "label": "Watch Fields",
+                "reqd": 1,
+                "options": "parent.document_type",
+                "description": "Fields to monitor for changes"
+            },
+            {
+                "fieldname": "match_mode",
+                "fieldtype": "Select",
+                "label": "Match Mode",
+                "options": "Any\nAll",
+                "default": "Any",
+                "description": "Any = trigger if ANY field changed, All = trigger only if ALL fields changed"
+            },
+            {
+                "fieldname": "store_result",
+                "fieldtype": "Data",
+                "label": "Store Changed Fields In",
+                "description": "Variable name to store list of changed field names (optional)"
+            }
+        ]
+    },
+    description="Check if specified fields have changed. Requires old_doc in context (save/insert events)."
+)
+def on_field_change(context, watched_fields=None, match_mode="Any", store_result=None, **kwargs):
+    """
+    Check if specified fields have changed between old_doc and doc.
+    
+    This is the proper way to handle change detection in rules.
+    Returns True if change condition is met, False otherwise.
+    
+    Note: This method is designed to work with events that provide old_doc
+    (before_save, after_save, on_change, etc.). For insert events where
+    old_doc is None, all fields are considered "changed".
+    
+    Args:
+        context: Execution context containing 'doc' and 'old_doc'
+        watched_fields: List of field names to watch for changes
+        match_mode: "Any" = return True if any field changed, "All" = return True only if all changed
+        store_result: Variable name to store the list of changed fields
+        
+    Returns:
+        Boolean: True if change condition is met
+    """
+    doc = context.get('doc')
+    old_doc = context.get('old_doc')
+    
+    field_list = parse_field_list(watched_fields)
+    if not field_list:
+        return False
+    
+    changed_fields = []
+    
+    for field in field_list:
+        new_value = doc.get(field)
+        
+        if old_doc is None:
+            # New document - all fields are "changed" from nothing
+            changed_fields.append(field)
+        else:
+            old_value = old_doc.get(field)
+            if new_value != old_value:
+                changed_fields.append(field)
+    
+    # Store result if variable name provided
+    if store_result and 'vars' in context:
+        context['vars'][store_result] = changed_fields
+    
+    # Evaluate match mode
+    if match_mode == "All":
+        result = len(changed_fields) == len(field_list)
+    else:  # Any
+        result = len(changed_fields) > 0
+    
+    return result

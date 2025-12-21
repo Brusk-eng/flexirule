@@ -77,6 +77,7 @@
                     @pane-click="onPaneClick"
                     @connect="onConnect"
                     @nodes-change="onNodesChange"
+                    @edges-change="onEdgesChange"
                 >
                     <template #node-start="nodeProps">
                         <StartNode v-bind="nodeProps" />
@@ -181,9 +182,20 @@ onMounted(async () => {
 onUnmounted(() => { window.removeEventListener('keydown', handleKeydown); });
 
 function handleKeydown(e) {
+    // Save: Ctrl+S
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         store.save_changes();
+    }
+    // Undo: Ctrl+Z
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        if (store.can_undo()) store.undo();
+    }
+    // Redo: Ctrl+Y or Ctrl+Shift+Z
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        if (store.can_redo()) store.redo();
     }
 }
 
@@ -217,6 +229,14 @@ function onConnect(params) {
 function onNodesChange(changes) {
     const hasDrag = changes.some(c => c.type === 'position' && c.dragging === false);
     if (hasDrag) store.mark_position_change();
+}
+
+function onEdgesChange(changes) {
+    changes.forEach(change => {
+        if (change.type === 'remove') {
+            store.delete_edge(change.id);
+        }
+    });
 }
 
 function addNode(type) {

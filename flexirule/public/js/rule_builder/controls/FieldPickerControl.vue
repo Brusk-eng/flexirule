@@ -2,13 +2,15 @@
 /**
  * FieldPickerControl - DocField autocomplete picker
  * Shows fields from the target doctype with search
+ * Supports pre-fetched fields from store via 'fields' prop
  */
 import { ref, computed, watch, onMounted } from "vue";
 
 const props = defineProps({
     df: Object,
     modelValue: String,
-    documentType: String,
+    documentType: String,       // Optional: fallback for API fetch
+    fields: { type: Array, default: null },  // NEW: Pre-fetched fields from store
     read_only: Boolean
 });
 
@@ -16,7 +18,7 @@ const emit = defineEmits(["update:modelValue"]);
 
 const searchQuery = ref('');
 const showDropdown = ref(false);
-const fields = ref([]);
+const apiFields = ref([]);  // Fields fetched from API (fallback)
 const loading = ref(false);
 
 const content = computed({
@@ -24,22 +26,33 @@ const content = computed({
     set: (val) => emit("update:modelValue", val)
 });
 
+// Use props.fields if provided, otherwise use apiFields from API
+const effectiveFields = computed(() => {
+    if (props.fields && props.fields.length > 0) {
+        return props.fields;
+    }
+    return apiFields.value;
+});
+
 const filteredFields = computed(() => {
-    if (!searchQuery.value) return fields.value;
+    if (!searchQuery.value) return effectiveFields.value;
     const query = searchQuery.value.toLowerCase();
-    return fields.value.filter(f => 
-        f.value.toLowerCase().includes(query) || 
+    return effectiveFields.value.filter(f => 
+        (f.value && f.value.toLowerCase().includes(query)) || 
         (f.label && f.label.toLowerCase().includes(query))
     );
 });
 
 const displayValue = computed(() => {
-    const field = fields.value.find(f => f.value === content.value);
-    return field ? `${field.label} (${field.value})` : content.value;
+    const field = effectiveFields.value.find(f => f.value === content.value);
+    return field ? `${field.label}` : content.value;
 });
 
 async function loadFields() {
-    if (!props.documentType) { fields.value = []; return; }
+    // Skip API call if fields prop is provided
+    if (props.fields && props.fields.length > 0) return;
+    
+    if (!props.documentType) { apiFields.value = []; return; }
     loading.value = true;
     try {
         const result = await frappe.call({
@@ -47,13 +60,13 @@ async function loadFields() {
             args: { doctype: props.documentType }
         });
         const data = result.message;
-        fields.value = data.parent_fields || [];
+        apiFields.value = data.parent_fields || [];
         if (data.system_fields) {
-            fields.value = [...fields.value, ...data.system_fields];
+            apiFields.value = [...apiFields.value, ...data.system_fields];
         }
     } catch (e) {
         console.error('Failed to load fields:', e);
-        fields.value = [];
+        apiFields.value = [];
     } finally {
         loading.value = false;
     }
@@ -73,14 +86,19 @@ function handleInput(e) {
 
 function handleFocus() {
     showDropdown.value = true;
-    if (!fields.value.length && props.documentType) loadFields();
+    if (!effectiveFields.value.length && props.documentType) loadFields();
 }
 
 function handleBlur() {
     setTimeout(() => { showDropdown.value = false; }, 200);
 }
 
-watch(() => props.documentType, loadFields, { immediate: true });
+// Only trigger API load if we don't have pre-fetched fields
+watch(() => props.documentType, () => {
+    if (!props.fields || props.fields.length === 0) {
+        loadFields();
+    }
+}, { immediate: true });
 </script>
 
 <template>

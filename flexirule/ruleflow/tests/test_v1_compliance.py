@@ -33,27 +33,24 @@ class TestV1Compliance(unittest.TestCase):
 		self.assertFalse(is_eligible)
 		self.assertIn("Event mismatch", reason)
 
-		# Test Trigger Condition (JSON)
-		rule.trigger_condition = json.dumps([{"field": "status", "operator": "==", "value": "Open"}])
-		# Note: The test setup below assumes ConditionEvaluator handles the list-based JSON format
-		# If ConditionEvaluator expects a different key, we might need to adjust.
-		# Based on evaluator.py: it expects a list of conditions or object.
-		# Let's check evaluator.py again lightly effectively. 
-		# evaluator.py: self.conditions = json.loads(conditions_json). 
-		# _evaluate_group expects list of dicts. {'left':..., 'operator':..., 'right':...}
-		# My update in coordinator uses `evaluator.evaluate(doc)`.
-		
-		# Let's construct a valid condition JSON for ConditionEvaluator
-		condition_json = json.dumps([
+		# Test Trigger Condition requires pre-compilation
+		# Now if trigger_condition exists without trigger_filters, it's an error
+		rule.trigger_condition = json.dumps([
 			{"left": {"type": "field", "value": "status"}, "operator": "==", "right": "Open"}
 		])
-		rule.trigger_condition = condition_json
+		rule.trigger_filters = None  # No compiled version
 		
 		doc = frappe.new_doc('ToDo')
 		doc.status = "Closed"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, 'Before Save')
 		self.assertFalse(is_eligible)
-		self.assertIn("Trigger Condition (JSON) mismatch", reason)
+		# New behavior: Returns error about missing compiled filters
+		self.assertIn("trigger_filters", reason)
+		
+		# Test with properly compiled trigger_filters
+		rule.trigger_filters = "resolve(doc, 'status') == 'Open'"
+		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, 'Before Save')
+		self.assertFalse(is_eligible)  # status is Closed, filter fails
 		
 		doc.status = "Open"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, 'Before Save')

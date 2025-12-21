@@ -5,18 +5,25 @@
                 {{ label }}
                 <span v-if="reqd" class="text-danger">*</span>
             </label>
-            <button class="btn btn-xs btn-default" @click="toggleMode" :title="isMapped ? 'Switch to Static Value' : 'Switch to Dynamic Variable'">
-                <i class="fa" :class="isMapped ? 'fa-bolt text-warning' : 'fa-font text-muted'"></i>
-            </button>
+            <div class="mode-toggle">
+                <span class="mode-label" :class="{ active: !isMapped }">{{ __("Static") }}</span>
+                <button class="btn btn-xs btn-default mode-switch" @click="toggleMode" 
+                    :title="isMapped ? __('Compare to Static Value') : __('Compare to Field')">
+                    <i class="fa" :class="isMapped ? 'fa-link text-primary' : 'fa-font text-muted'"></i>
+                </button>
+                <span class="mode-label" :class="{ active: isMapped }">{{ __("Field") }}</span>
+            </div>
         </div>
         
-        <div v-if="isMapped">
+        <div v-if="isMapped" class="mapped-input">
             <ContextPicker 
                 :modelValue="mappingValue"
+                :docFields="docFields"
                 @update:modelValue="$emit('update:mappingValue', $event)"
             />
+            <div class="hint text-primary"><i class="fa fa-link"></i> {{ __("Comparing to another field") }}</div>
         </div>
-        <div v-else>
+        <div v-else class="static-input">
             <slot></slot>
         </div>
     </div>
@@ -29,7 +36,8 @@ import ContextPicker from './ContextPicker.vue';
 const props = defineProps({
     label: String,
     reqd: [Boolean, Number],
-    mappingValue: String
+    mappingValue: String,
+    docFields: Array
 });
 
 const emit = defineEmits(['update:mappingValue', 'clearStatic']);
@@ -44,7 +52,7 @@ function toggleMode() {
     isMapped.value = !isMapped.value;
     
     if (isMapped.value) {
-        // Switched to Mapped: Clear static value in parent
+        // Switched to Field mode: Clear static value in parent
         emit('clearStatic');
     } else {
         // Switched to Static: Clear mapping value
@@ -52,3 +60,31 @@ function toggleMode() {
     }
 }
 </script>
+
+<style scoped>
+.mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.mode-label {
+    font-size: 10px;
+    color: var(--text-light);
+    text-transform: uppercase;
+}
+.mode-label.active {
+    color: var(--text-color);
+    font-weight: 600;
+}
+.mode-switch {
+    padding: 2px 6px;
+}
+.hint {
+    font-size: 10px;
+    margin-top: 4px;
+}
+.mapped-input input {
+    border-color: var(--primary);
+    background-color: var(--bg-light-blue);
+}
+</style>
