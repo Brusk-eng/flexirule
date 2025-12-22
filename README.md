@@ -1,42 +1,183 @@
 <div align="center">
-  <img src="flexiRule.png" alt="FlexiRule Logo" width="200" />
-  <h1>FlexiRule</h1>
-  <p><b>Advanced Rule & Orchestration Engine for the Frappe Framework</b></p>
+
+<img src="flexiRule.png" alt="FlexiRule Logo" width="180"/>
+
+<h1>FlexiRule</h1>
+
+<b>Visual Rule & Orchestration Engine for Frappe / ERPNext</b>
+
+<img
+  src="rule_builder.png"
+  alt="FlexiRule Visual Rule Builder showing a graph-based execution flow with condition and process nodes"
+  width="900"
+  style="border-radius: 16px;"
+/>
+
+<details>
+<summary><b>View More Screenshots</b></summary>
+
+<br/>
+
+<img
+  src="https://github.com/user-attachments/assets/41ac7963-f334-4fb2-bf0a-49409956c4a3"
+  alt="Condition node configuration panel showing field comparison and branching paths"
+  width="900"
+  style="border-radius: 14px;"
+/>
+
+<p align="center">
+  <em>Each node is an instance of an action type with explicit, per-node configuration.</em>
+</p> 
+
+<img
+  src="https://github.com/user-attachments/assets/97c23be2-f939-4190-ad34-c1318bd2dece"
+  alt="Process Method configuration generated automatically from JSON schema"
+  width="900"
+  style="border-radius: 14px;"
+/>
+
+<p align="center">
+  <em>Process Method — schema-driven configuration rendered dynamically.</em>
+</p>
+<img
+  src="https://github.com/user-attachments/assets/14faa439-96a0-4446-9acf-492e432d967f"
+  alt="FlexiRule rule builder canvas displaying connected validation and deduplication nodes"
+  width="900"
+  style="border-radius: 12px;"
+/>
+<p align="center">
+  <em>Condition Builder — declarative, deeply nested condition trees with deterministic evaluation.</em>
+</p>
+**FlexiRule** enables the creation of **deeply nested, visually composed rules** out of the box, reflecting a strong commitment to a **fully no-code rule builder and execution engine**.  
+
+Across the entire Rule Builder, we have developed **custom UI controls**—including **single and multi-field pickers** with intelligent **autocomplete** sourced from **DocType metadata** and **runtime context variables**—allowing users to configure **complex logic** without writing any code. 
+</details>
+
+<b>The Visual Rule Builder is the canonical representation of FlexiRule logic — what you see is exactly what executes.</b>
+
 </div>
 
 ---
 
-**FlexiRule** is a powerful, graph-based rule and orchestration engine for **Frappe / ERPNext**. It enables you to design complex business logic—validations, deduplication, enrichment, and orchestration—**visually**, without hard‑coding logic into Python hooks.
+## Overview
 
-Rules are modeled as **graphs of actions**, executed by a robust and safe Python engine with full observability and control.
+In the world of enterprise resource planning (ERP) systems, **Frappe / ERPNext** stands out for its flexibility and open-source nature. However, as systems scale, business logic often turns into a tangled web of Python hooks scattered across apps.
+
+This leads to:
+- Maintenance nightmares
+- Debugging complexity
+- Upgrade risks
+- Poor visibility for non-developers
+
+**FlexiRule** is a **visual, graph-based rule and orchestration engine** designed to centralize, standardize, and safely execute business logic in ERPNext.
+
+Instead of writing and maintaining scattered hooks, you **design executable logic visually** — with full control, observability, and safety.
 
 ---
 
-##  Key Features
+## What You’re Looking At
 
-* **Graph‑Based Logic Flows**
-  Define rules as connected nodes (Conditions, Processes, Loops, Decisions).
+The screenshot above is **not documentation** and **not a mockup**.
 
-* **Reusable Process Methods**
-  A growing library of configurable methods for:
+It is the **actual runtime model** of FlexiRule.
 
-  * **Deduplication** (exact & fuzzy)
-  * **Validation**
-  * **Data Enrichment**
-  * **Notifications & Blocking**
+- **Nodes** represent executable actions
+- **Connections** define deterministic execution paths
+- **The graph itself is the source of truth**
 
-* **High‑Performance Deduplication**
-  Integrated fuzzy matching with blocking strategies for large datasets.
+Saving the graph means deploying logic.
 
-* **Visual Rule Builder**
-  Drag‑and‑drop UI to design and connect rule actions.
+---
 
-* **Robust Execution Engine**
+## Why FlexiRule Exists
 
-  * Sandboxed and safe condition evaluation
-  * Retry support with exponential backoff
-  * Timeout protection for long‑running rules
-  * Automatic cycle detection to prevent infinite loops
+Traditional ERPNext customization relies on event hooks like `validate`, `before_save`, or `after_insert`. While powerful, this approach introduces structural problems:
+
+- **Fragmented Logic**  
+  Rules spread across multiple files and apps are hard to audit and reason about.
+
+- **Debugging Challenges**  
+  Execution order is implicit, making failures difficult to trace.
+
+- **Upgrade Risk**  
+  Hooks often break silently during framework upgrades.
+
+- **No Visibility**  
+  Business users and admins cannot understand or modify logic safely.
+
+FlexiRule is built from real-world experience evolving through:
+
+**UPH → Business Rule Hub → Bolton → FlexiRule**
+
+Each iteration moved closer to a **visual, contract-first, and safe execution model**.
+
+---
+
+## How FlexiRule Thinks (Mental Model)
+
+FlexiRule is intentionally simple at its core.
+
+### 1. Rule
+The **entry point**.
+
+Defines:
+- Target DocType
+- Trigger event (`validate`, `before_insert`, `after_save`, …)
+- Optional filters and role conditions
+
+---
+
+### 2. Rule Action
+A **node** in the execution graph.
+
+Each action:
+- References a Process Method
+- Accepts structured configuration
+- Defines next actions by outcome  
+  (`success`, `fail`, `match`, `no-match`, …)
+
+---
+
+### 3. Process Method
+A reusable Python function that:
+- Performs one unit of logic
+- Declares a JSON Schema for configuration
+- Is safe, composable, and reusable
+
+The UI auto-generates configuration forms directly from the schema.
+
+---
+
+## Visual Rule Builder (Core of FlexiRule)
+
+The **Visual Rule Builder is the heart of FlexiRule**.
+
+It is where:
+- Rules are authored
+- Execution paths are defined
+- Business logic becomes explicit and auditable
+
+### Key Properties
+
+- The graph is **deterministic**
+- Execution order is **explicit**
+- Branching is **visible**
+- No hidden behavior
+
+
+
+## Execution Flow (Example)
+
+```mermaid
+graph LR
+    Trigger[Rule Trigger]
+    --> Validate[Validate Required Fields]
+    Validate -->|Valid| Dedup[Check Duplicates]
+    Validate -->|Invalid| Stop[Stop Execution]
+    Dedup -->|Found| Block[Block Save]
+    Dedup -->|None| Enrich[Enrich Data]
+ ```
+ * Automatic cycle detection to prevent infinite loops
 
 * **Role‑Based Execution Control**
   Skip or allow rule execution based on user roles.
@@ -105,15 +246,7 @@ The UI auto‑generates configuration forms from the schema.
 ---
 
 
-## Visual Interface
-### Rule Builder
-The core of FlexiRule is its visual builder, allowing you to design logic flows with ease.
-![Rule Builder](rule_builder.png)
-<details>
-<summary><b>View More Screenshots</b></summary>
-*Coming soon: More screenshots of Process Method configuration and Execution Logs.*
-</details>
----
+
 ## Execution Flow (Example)
 
 ```mermaid
