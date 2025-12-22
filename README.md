@@ -8,7 +8,7 @@
 <strong>Visual Rule & Orchestration Engine for Frappe apps and ERPNext</strong>
 
 <br/>
-
+[![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml)
 <img
   src="rule_builder.png"
   alt="FlexiRule Visual Rule Builder showing a graph-based execution flow with condition and process nodes"
