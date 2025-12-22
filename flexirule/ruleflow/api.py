@@ -151,7 +151,7 @@ def test_rule(rule_name, doctype, docname):
     """
     Test a rule against a specific document.
     
-    Note: Manual testing bypasses trigger_filters since the user explicitly 
+    Note: Manual testing bypasses trigger_condition_expression since the user explicitly 
     selected a document to test against. The rule's actions are executed 
     regardless of trigger conditions.
     """
@@ -175,7 +175,7 @@ def test_rule(rule_name, doctype, docname):
         
         # Include info about skipped trigger filters for transparency
         info_msg = _("Rule '{0}' executed successfully").format(rule_doc.rule_name)
-        if rule_doc.trigger_filters:
+        if rule_doc.trigger_condition_expression:
             info_msg += _(" (trigger filters were bypassed for manual test)")
         
         return {

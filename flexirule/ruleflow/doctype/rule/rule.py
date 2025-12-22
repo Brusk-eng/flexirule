@@ -35,7 +35,7 @@ class Rule(Document):
         skip_for_roles: DF.TableMultiSelect[HasRole]
         trigger_condition: DF.Code | None
         trigger_event: DF.Literal["Manual", "Before Naming", "Before Insert", "Before Save", "Validate", "Before Submit", "After Insert", "After Save", "On Submit", "Before Cancel", "On Cancel", "On Trash", "On Update After Submit", "On Change"]
-        trigger_filters: DF.Code | None
+        trigger_condition_expression: DF.Code | None
     # end: auto-generated types
     def validate(self):
         """
@@ -52,9 +52,9 @@ class Rule(Document):
         # Compile Trigger
         if self.trigger_condition:
             try:
-                self.trigger_filters = compiler.compile(self.trigger_condition)
+                self.trigger_condition_expression = compiler.compile(self.trigger_condition)
                 # Validate compiled expression
-                is_valid, error = compiler.validate(self.trigger_filters)
+                is_valid, error = compiler.validate(self.trigger_condition_expression)
                 if not is_valid:
                     frappe.throw(_("Invalid Trigger Condition: {0}").format(error))
             except ValueError as e:
@@ -132,8 +132,8 @@ class Rule(Document):
         # Collect sub-rule names referenced by this rule
         sub_rules = set()
         for action in (self.actions or []):
-            if action.action_type == 'Sub-Rule' and action.sub_rule:
-                sub_rules.add(action.sub_rule)
+            if action.action_type == 'Sub-Rule' and action.rule:
+                sub_rules.add(action.rule)
         
         if not sub_rules:
             return  # No sub-rules, no cycles possible
@@ -161,9 +161,9 @@ class Rule(Document):
                 filters={
                     "parent": current_rule_name,
                     "action_type": "Sub-Rule",
-                    "sub_rule": ["is", "set"]
+                    "rule": ["is", "set"]
                 },
-                pluck="sub_rule"
+                pluck="rule"
             )
             
             for child in child_sub_rules:

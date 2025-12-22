@@ -1,276 +1,282 @@
 {
-    "actions": [],
-    "allow_rename": 1,
-    "autoname": "field:method_path",
-    "creation": "2025-12-02 18:17:00",
-    "doctype": "DocType",
-    "engine": "InnoDB",
-    "field_order": [
-        "method_name",
-        "module",
-        "category",
-        "is_enabled",
-        "column_break_1",
-        "method_path",
-        "return_type",
-        "requires_permission",
-        "version",
-        "side_effects",
-        "transactional",
-        "creates_new_docs",
-        "is_managed",
-        "section_break_config",
-        "config_schema",
-        "usage_example",
-        "section_break_description",
-        "description",
-        "section_break_schemas",
-        "input_schema",
-        "column_break_schemas",
-        "output_schema",
-        "section_break_stats",
-        "execution_count",
-        "last_executed",
-        "average_execution_time"
-    ],
-    "fields": [
-        {
-            "description": "User-friendly name for this process method",
-            "fieldname": "method_name",
-            "fieldtype": "Data",
-            "in_list_view": 1,
-            "label": "Method Name",
-            "read_only": 1,
-            "reqd": 1
-        },
-        {
-            "description": "Dotted path to Python function, e.g. flexirule.methods.validation.check_required_fields",
-            "fieldname": "method_path",
-            "fieldtype": "Data",
-            "in_list_view": 1,
-            "label": "Method Path",
-            "read_only": 1,
-            "reqd": 1,
-            "set_only_once": 1,
-            "unique": 1
-        },
-        {
-            "description": "Organizational grouping",
-            "fieldname": "module",
-            "fieldtype": "Link",
-            "label": "Module",
-            "options": "Module Def",
-            "read_only": 1
-        },
-        {
-            "description": "Functional category of this process method",
-            "fieldname": "category",
-            "fieldtype": "Select",
-            "in_list_view": 1,
-            "label": "Category",
-            "options": "Validation\nEnrichment\nNotification\nDeduplication\nTransformation\nIntegration\nCustom",
-            "read_only": 1,
-            "reqd": 1
-        },
-        {
-            "default": "None",
-            "description": "Expected return type of the method",
-            "fieldname": "return_type",
-            "fieldtype": "Select",
-            "label": "Return Type",
-            "options": "None\nBoolean\nString\nInteger\nFloat\nObject\nList\nDict",
-            "read_only": 1
-        },
-        {
-            "default": "1",
-            "description": "Enable/disable this process method",
-            "fieldname": "is_enabled",
-            "fieldtype": "Check",
-            "in_list_view": 1,
-            "label": "Enabled"
-        },
-        {
-            "description": "Optional: Role required to execute this method",
-            "fieldname": "requires_permission",
-            "fieldtype": "Link",
-            "label": "Requires Permission",
-            "options": "Role",
-            "read_only": 1
-        },
-        {
-            "default": "1.0",
-            "description": "Method version for backwards compatibility tracking",
-            "fieldname": "version",
-            "fieldtype": "Data",
-            "label": "Version",
-            "read_only": 1
-        },
-        {
-            "fieldname": "column_break_1",
-            "fieldtype": "Column Break"
-        },
-        {
-            "collapsible": 1,
-            "fieldname": "section_break_description",
-            "fieldtype": "Section Break",
-            "label": "Documentation"
-        },
-        {
-            "description": "User-friendly explanation of what this method does",
-            "fieldname": "description",
-            "fieldtype": "Text Editor",
-            "label": "Description",
-            "read_only": 1
-        },
-        {
-            "description": "Example configuration JSON showing how to use this method",
-            "fieldname": "usage_example",
-            "fieldtype": "Code",
-            "label": "Usage Example",
-            "options": "JSON",
-            "read_only": 1
-        },
-        {
-            "collapsible": 1,
-            "fieldname": "section_break_config",
-            "fieldtype": "Section Break",
-            "label": "Configuration Schema"
-        },
-        {
-            "description": "JSON Schema defining valid configuration structure for this method",
-            "fieldname": "config_schema",
-            "fieldtype": "Code",
-            "label": "Config Schema (JSON Schema)",
-            "options": "JSON",
-            "read_only": 1
-        },
-        {
-            "collapsible": 1,
-            "fieldname": "section_break_stats",
-            "fieldtype": "Section Break",
-            "label": "Execution Statistics"
-        },
-        {
-            "default": "0",
-            "description": "Total number of times this method has been executed",
-            "fieldname": "execution_count",
-            "fieldtype": "Int",
-            "label": "Execution Count",
-            "read_only": 1
-        },
-        {
-            "description": "Timestamp of most recent execution",
-            "fieldname": "last_executed",
-            "fieldtype": "Datetime",
-            "label": "Last Executed",
-            "read_only": 1
-        },
-        {
-            "description": "Average execution time in milliseconds",
-            "fieldname": "average_execution_time",
-            "fieldtype": "Float",
-            "label": "Avg Execution Time (ms)",
-            "precision": "2",
-            "read_only": 1
-        },
-        {
-            "default": "Pure",
-            "description": "What side effects this method has",
-            "fieldname": "side_effects",
-            "fieldtype": "Select",
-            "label": "Side Effects",
-            "options": "Pure\nModifies Doc\nExternal Call",
-            "read_only": 1
-        },
-        {
-            "default": "0",
-            "description": "Method executes database transactions that must run synchronously",
-            "fieldname": "transactional",
-            "fieldtype": "Check",
-            "label": "Transactional",
-            "read_only": 1
-        },
-        {
-            "default": "0",
-            "description": "Method creates new documents (allowed in both Sync and Async)",
-            "fieldname": "creates_new_docs",
-            "fieldtype": "Check",
-            "label": "Creates New Docs",
-            "read_only": 1
-        },
-        {
-            "default": "0",
-            "description": "System managed - synced from code",
-            "fieldname": "is_managed",
-            "fieldtype": "Check",
-            "label": "Managed by Code",
-            "read_only": 1
-        },
-        {
-            "collapsible": 1,
-            "fieldname": "section_break_schemas",
-            "fieldtype": "Section Break",
-            "label": "Input/Output Schemas"
-        },
-        {
-            "description": "JSON Schema defining expected input parameters",
-            "fieldname": "input_schema",
-            "fieldtype": "Code",
-            "label": "Input Schema",
-            "options": "JSON",
-            "read_only": 1
-        },
-        {
-            "fieldname": "column_break_schemas",
-            "fieldtype": "Column Break"
-        },
-        {
-            "description": "JSON Schema defining expected return structure",
-            "fieldname": "output_schema",
-            "fieldtype": "Code",
-            "label": "Output Schema",
-            "options": "JSON",
-            "read_only": 1
-        }
-    ],
-    "index_web_pages_for_search": 1,
-    "links": [
-        {
-            "link_doctype": "Rule",
-            "link_fieldname": "process_method",
-            "table_fieldname": "actions"
-        }
-    ],
-    "modified": "2025-12-11 19:14:42.804539",
-    "modified_by": "Administrator",
-    "module": "Ruleflow",
-    "name": "Process Method",
-    "naming_rule": "By fieldname",
-    "owner": "Administrator",
-    "permissions": [
-        {
-            "email": 1,
-            "export": 1,
-            "print": 1,
-            "read": 1,
-            "report": 1,
-            "role": "System Manager",
-            "share": 1,
-            "write": 1
-        },
-        {
-            "read": 1,
-            "role": "Rule Manager",
-            "write": 1
-        },
-        {
-            "read": 1,
-            "role": "All"
-        }
-    ],
-    "row_format": "Dynamic",
-    "sort_field": "modified",
-    "sort_order": "DESC",
-    "states": [],
-    "track_changes": 1
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:method_path",
+ "creation": "2025-12-02 18:17:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "method_name",
+  "module",
+  "category",
+  "is_enabled",
+  "icon",
+  "column_break_1",
+  "method_path",
+  "return_type",
+  "requires_permission",
+  "version",
+  "side_effects",
+  "transactional",
+  "creates_new_docs",
+  "is_managed",
+  "section_break_config",
+  "config_schema",
+  "usage_example",
+  "section_break_description",
+  "description",
+  "section_break_schemas",
+  "input_schema",
+  "column_break_schemas",
+  "output_schema",
+  "section_break_stats",
+  "execution_count",
+  "last_executed",
+  "average_execution_time"
+ ],
+ "fields": [
+  {
+   "description": "User-friendly name for this process method",
+   "fieldname": "method_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Method Name",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "description": "Dotted path to Python function, e.g. flexirule.methods.validation.check_required_fields",
+   "fieldname": "method_path",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Method Path",
+   "read_only": 1,
+   "reqd": 1,
+   "set_only_once": 1,
+   "unique": 1
+  },
+  {
+   "description": "Organizational grouping",
+   "fieldname": "module",
+   "fieldtype": "Link",
+   "label": "Module",
+   "options": "Module Def",
+   "read_only": 1
+  },
+  {
+   "description": "Functional category of this process method",
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Category",
+   "options": "Validation\nEnrichment\nNotification\nDeduplication\nTransformation\nIntegration\nCustom",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "default": "None",
+   "description": "Expected return type of the method",
+   "fieldname": "return_type",
+   "fieldtype": "Select",
+   "label": "Return Type",
+   "options": "None\nBoolean\nString\nInteger\nFloat\nObject\nList\nDict",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "description": "Enable/disable this process method",
+   "fieldname": "is_enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "description": "Optional: Role required to execute this method",
+   "fieldname": "requires_permission",
+   "fieldtype": "Link",
+   "label": "Requires Permission",
+   "options": "Role",
+   "read_only": 1
+  },
+  {
+   "default": "1.0",
+   "description": "Method version for backwards compatibility tracking",
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "label": "Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_description",
+   "fieldtype": "Section Break",
+   "label": "Documentation"
+  },
+  {
+   "description": "User-friendly explanation of what this method does",
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "description": "Example configuration JSON showing how to use this method",
+   "fieldname": "usage_example",
+   "fieldtype": "Code",
+   "label": "Usage Example",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_config",
+   "fieldtype": "Section Break",
+   "label": "Configuration Schema"
+  },
+  {
+   "description": "JSON Schema defining valid configuration structure for this method",
+   "fieldname": "config_schema",
+   "fieldtype": "Code",
+   "label": "Config Schema (JSON Schema)",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_stats",
+   "fieldtype": "Section Break",
+   "label": "Execution Statistics"
+  },
+  {
+   "default": "0",
+   "description": "Total number of times this method has been executed",
+   "fieldname": "execution_count",
+   "fieldtype": "Int",
+   "label": "Execution Count",
+   "read_only": 1
+  },
+  {
+   "description": "Timestamp of most recent execution",
+   "fieldname": "last_executed",
+   "fieldtype": "Datetime",
+   "label": "Last Executed",
+   "read_only": 1
+  },
+  {
+   "description": "Average execution time in milliseconds",
+   "fieldname": "average_execution_time",
+   "fieldtype": "Float",
+   "label": "Avg Execution Time (ms)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "default": "Pure",
+   "description": "What side effects this method has",
+   "fieldname": "side_effects",
+   "fieldtype": "Select",
+   "label": "Side Effects",
+   "options": "Pure\nModifies Doc\nExternal Call",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Method executes database transactions that must run synchronously",
+   "fieldname": "transactional",
+   "fieldtype": "Check",
+   "label": "Transactional",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Method creates new documents (allowed in both Sync and Async)",
+   "fieldname": "creates_new_docs",
+   "fieldtype": "Check",
+   "label": "Creates New Docs",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "System managed - synced from code",
+   "fieldname": "is_managed",
+   "fieldtype": "Check",
+   "label": "Managed by Code",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_schemas",
+   "fieldtype": "Section Break",
+   "label": "Input/Output Schemas"
+  },
+  {
+   "description": "JSON Schema defining expected input parameters",
+   "fieldname": "input_schema",
+   "fieldtype": "Code",
+   "label": "Input Schema",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_schemas",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "JSON Schema defining expected return structure",
+   "fieldname": "output_schema",
+   "fieldtype": "Code",
+   "label": "Output Schema",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Icon",
+   "label": "Method Icon"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "link_doctype": "Rule",
+   "link_fieldname": "process_method",
+   "table_fieldname": "actions"
+  }
+ ],
+ "modified": "2025-12-22 20:18:49.845812",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Process Method",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Rule Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "All"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
 }

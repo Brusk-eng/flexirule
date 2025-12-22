@@ -286,7 +286,7 @@ export const useStore = defineStore("rule-builder-store", () => {
             data: {
                 document_type: rule_doc.value.document_type,
                 trigger_event: rule_doc.value.trigger_event,
-                trigger_filters: rule_doc.value.trigger_filters,
+                trigger_condition_expression: rule_doc.value.trigger_condition_expression,
                 trigger_condition: rule_doc.value.trigger_condition,
                 is_enabled: 1
             }
@@ -406,7 +406,7 @@ export const useStore = defineStore("rule-builder-store", () => {
             doc.visual_data = JSON.stringify(clean_graph_data());
 
             const startNode = graph.value.elements.find(el => el.id === 'start');
-            doc.trigger_filters = startNode?.data?.trigger_filters || null;
+            doc.trigger_condition_expression = startNode?.data?.trigger_condition_expression || null;
             doc.trigger_condition = startNode?.data?.trigger_condition || null;
 
             const nodes = graph.value.elements.filter(el => el.position && el.id !== 'start');

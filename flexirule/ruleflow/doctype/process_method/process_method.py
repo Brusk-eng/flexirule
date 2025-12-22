@@ -18,10 +18,12 @@ class ProcessMethod(Document):
         average_execution_time: DF.Float
         category: DF.Literal["Validation", "Enrichment", "Notification", "Deduplication", "Transformation", "Integration", "Custom"]
         config_schema: DF.Code | None
+        creates_new_docs: DF.Check
         description: DF.TextEditor | None
         execution_count: DF.Int
         input_schema: DF.Code | None
         is_enabled: DF.Check
+        is_managed: DF.Check
         last_executed: DF.Datetime | None
         method_name: DF.Data
         method_path: DF.Data
@@ -31,8 +33,6 @@ class ProcessMethod(Document):
         return_type: DF.Literal["None", "Boolean", "String", "Integer", "Float", "Object", "List", "Dict"]
         side_effects: DF.Literal["Pure", "Modifies Doc", "External Call"]
         transactional: DF.Check
-        creates_new_docs: DF.Check
-        is_managed: DF.Check
         usage_example: DF.Code | None
         version: DF.Data | None
     # end: auto-generated types
