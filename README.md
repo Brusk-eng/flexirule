@@ -313,17 +313,41 @@ FlexiRule prioritizes **data integrity and system stability**.
 * Backward‑compatibility enforced once v1 contract is finalized
 
 ---
+<details>
+<summary><strong>Contributing</strong></summary>
 
-## Contributing
+<br/>
 
-Contributions, ideas, and feedback are welcome.
+ **Join the FlexiRule Community!**
 
-Please:
-
-* Open issues for bugs or feature requests
-* Submit PRs with clear descriptions
-* Follow Frappe coding standards
+FlexiRule is evolving fast, and your expertise can help shape the future of visual, no-code rule automation for Frappe apps (ERPNext) . Every contribution—whether it’s code, documentation, or ideas—makes ERPNext smarter, safer, and easier for everyone.
 
 ---
+
+### How You Can Help
+
+- 🐛 **Report bugs or request features** via [GitHub Issues](https://github.com/Sendipad/flexirule/issues)  
+- 💡 **Propose new Process Methods or enhancements**  
+- 📖 **Improve documentation and examples**  
+- 🔧 **Submit pull requests** with fixes, optimizations, or new features  
+- 🎯 **Start small** — fix typos, add screenshots, or create sample rules  
+
+---
+
+### Recognition & Impact
+
+Contributors are recognized in the [GitHub contributors graph](https://github.com/Sendipad/flexirule/graphs/contributors) and in release notes. Your work directly shapes FlexiRule’s next releases.
+
+---
+
+### Code Guidelines
+
+- Follow [Frappe coding standards](https://frappeframework.com/docs/user/en/guidelines/coding-standards)  
+- Ensure tests pass and code is safe for production  
+- Use clear commit messages referencing issues or features  
+
+💡 **Together, we can make frappe apps automation visual, safe, and accessible for everyone. Join us and leave your mark on the FlexiRule ecosystem!**
+
+</details>
 
 **FlexiRule** — Declarative, Visual, and Safe Business Logic for Frappe.
