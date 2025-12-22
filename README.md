@@ -104,6 +104,16 @@ The UI auto‑generates configuration forms from the schema.
 
 ---
 
+
+## Visual Interface
+### Rule Builder
+The core of FlexiRule is its visual builder, allowing you to design logic flows with ease.
+![Rule Builder](rule_builder.png)
+<details>
+<summary><b>View More Screenshots</b></summary>
+*Coming soon: More screenshots of Process Method configuration and Execution Logs.*
+</details>
+---
 ## Execution Flow (Example)
 
 ```mermaid
