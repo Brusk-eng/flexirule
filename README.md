@@ -1,32 +1,32 @@
+
 <div align="center">
 
   <img src="flexiRule.png" alt="FlexiRule Logo" width="180" style="border-radius:16px;" />
 
   <h1>FlexiRule</h1>
-[![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml)
-  </a>
+
+  [![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml?query=branch%3Adevelop)
 
   <p><strong>Visual Rule & Orchestration Engine for Frappe apps and ERPNext</strong></p>
 
 </div>
 
-<img
-  src="rule_builder.png"
-  alt="FlexiRule Visual Rule Builder showing a graph-based execution flow with condition and process nodes"
-  width="900"
-  style="border-radius:16px;"
-/>
+<div align="center">
+  <img
+    src="rule_builder.png"
+    alt="FlexiRule Visual Rule Builder showing a graph-based execution flow with condition and process nodes"
+    width="900"
+    style="border-radius:16px;"
+  />
 
-<p align="center">
-  <em>The Visual Rule Builder is the canonical representation of FlexiRule logic — what you see is exactly what executes.</em>
-</p>
-
+  <p>
+    <em>The Visual Rule Builder is the canonical representation of FlexiRule logic — what you see is exactly what executes.</em>
+  </p>
 </div>
 
 <p>
 <strong>FlexiRule</strong> enables the creation of <strong>deeply nested, visually composed rules</strong> out of the box, reflecting a strong commitment to a <strong>fully no-code rule builder and execution engine</strong>. Across the entire Rule Builder, we have developed <strong>custom UI controls</strong>—including single and multi-field pickers with intelligent autocomplete sourced from DocType metadata and runtime context variables—allowing users to configure complex logic without writing any code.
 </p>
-
 <details>
 <summary><strong>View More Screenshots</strong></summary>
 
