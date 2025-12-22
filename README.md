@@ -1,20 +1,33 @@
+
 <div align="center">
 
-<img src="flexiRule.png" alt="FlexiRule Logo" width="180"/>
+<img src="flexiRule.png" alt="FlexiRule Logo" width="180" style="border-radius:16px;" />
 
 <h1>FlexiRule</h1>
 
-<b>Visual Rule & Orchestration Engine for Frappe / ERPNext</b>
+<strong>Visual Rule & Orchestration Engine for Frappe / ERPNext</strong>
+
+<br/>
 
 <img
   src="rule_builder.png"
   alt="FlexiRule Visual Rule Builder showing a graph-based execution flow with condition and process nodes"
   width="900"
-  style="border-radius: 16px;"
+  style="border-radius:16px;"
 />
 
+<p align="center">
+  <em>The Visual Rule Builder is the canonical representation of FlexiRule logic — what you see is exactly what executes.</em>
+</p>
+
+</div>
+
+<p>
+<strong>FlexiRule</strong> enables the creation of <strong>deeply nested, visually composed rules</strong> out of the box, reflecting a strong commitment to a <strong>fully no-code rule builder and execution engine</strong>. Across the entire Rule Builder, we have developed <strong>custom UI controls</strong>—including single and multi-field pickers with intelligent autocomplete sourced from DocType metadata and runtime context variables—allowing users to configure complex logic without writing any code.
+</p>
+
 <details>
-<summary><b>View More Screenshots</b></summary>
+<summary><strong>View More Screenshots</strong></summary>
 
 <br/>
 
@@ -22,7 +35,7 @@
   src="https://github.com/user-attachments/assets/41ac7963-f334-4fb2-bf0a-49409956c4a3"
   alt="Condition node configuration panel showing field comparison and branching paths"
   width="900"
-  style="border-radius: 14px;"
+  style="border-radius:14px;"
 />
 
 <p align="center">
@@ -33,30 +46,25 @@
   src="https://github.com/user-attachments/assets/97c23be2-f939-4190-ad34-c1318bd2dece"
   alt="Process Method configuration generated automatically from JSON schema"
   width="900"
-  style="border-radius: 14px;"
+  style="border-radius:14px;"
 />
 
 <p align="center">
   <em>Process Method — schema-driven configuration rendered dynamically.</em>
 </p>
+
 <img
   src="https://github.com/user-attachments/assets/14faa439-96a0-4446-9acf-492e432d967f"
   alt="FlexiRule rule builder canvas displaying connected validation and deduplication nodes"
   width="900"
-  style="border-radius: 12px;"
+  style="border-radius:12px;"
 />
+
 <p align="center">
   <em>Condition Builder — declarative, deeply nested condition trees with deterministic evaluation.</em>
 </p>
-**FlexiRule** enables the creation of **deeply nested, visually composed rules** out of the box, reflecting a strong commitment to a **fully no-code rule builder and execution engine**.  
 
-Across the entire Rule Builder, we have developed **custom UI controls**—including **single and multi-field pickers** with intelligent **autocomplete** sourced from **DocType metadata** and **runtime context variables**—allowing users to configure **complex logic** without writing any code. 
 </details>
-
-<b>The Visual Rule Builder is the canonical representation of FlexiRule logic — what you see is exactly what executes.</b>
-
-</div>
-
 ---
 
 ## Overview
