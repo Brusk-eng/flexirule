@@ -313,8 +313,9 @@ FlexiRule prioritizes **data integrity and system stability**.
 * Backward‑compatibility enforced once v1 contract is finalized
 
 ---
+## Contributing
 <details>
-<summary><strong>Contributing</strong></summary>
+<summary><strong>How to Contributing</strong></summary>
 
 <br/>
 
