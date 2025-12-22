@@ -5,7 +5,7 @@
 
 <h1>FlexiRule</h1>
 
-<strong>Visual Rule & Orchestration Engine for Frappe / ERPNext</strong>
+<strong>Visual Rule & Orchestration Engine for Frappe apps and ERPNext</strong>
 
 <br/>
 
