@@ -1,17 +1,17 @@
 <div align="center">
 
-<img src="flexiRule.png" alt="FlexiRule Logo" width="180" style="border-radius:16px;" />
+  <img src="flexiRule.png" alt="FlexiRule Logo" width="180" style="border-radius:16px;" />
 
-<h1>FlexiRule</h1>
-<!-- This link makes the badge act as a button that leads to your CI workflow page -->
-[![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml) 
+  <h1>FlexiRule</h1>
 
-<strong>Visual Rule & Orchestration Engine for Frappe apps and ERPNext</strong>
+  <!-- CI badge linking to your workflow -->
+  <a href="https://github.com/Sendipad/flexirule/actions/workflows/ci.yml">
+    <img src="https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg" alt="CI Badge" />
+  </a>
 
-<br/>
+  <p><strong>Visual Rule & Orchestration Engine for Frappe apps and ERPNext</strong></p>
 
 </div>
- 
 
 <img
   src="rule_builder.png"
