@@ -3,10 +3,7 @@
   <img src="flexiRule.png" alt="FlexiRule Logo" width="180" style="border-radius:16px;" />
 
   <h1>FlexiRule</h1>
-
-  <!-- CI badge linking to your workflow -->
-  <a href="https://github.com/Sendipad/flexirule/actions/workflows/ci.yml">
-    <img src="https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg" alt="CI Badge" />
+[![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml)
   </a>
 
   <p><strong>Visual Rule & Orchestration Engine for Frappe apps and ERPNext</strong></p>
