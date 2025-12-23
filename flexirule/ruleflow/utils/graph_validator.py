@@ -49,14 +49,19 @@ def validate_graph_integrity(rule_doc):
 
     # 2. Check for Orphan Nodes (Reachability BFS)
     # Identify Start Node(s)
-    # Nodes with no incoming edges are candidates for Start, 
-    # BUT for now we assume the Rule MUST have a clear entry point.
-    # In V1, we can assume the first defined action or explicitly marked 'is_entry_action' is Start.
-    # Let's rely on 'is_entry_action' or fallback to first.
+    start_nodes = []
     
-    start_nodes = [a.action_id for a in rule_doc.actions if a.get('is_entry_action')]
+    # Priority 1: 'root' node or 'Entry Action'
+    for a in rule_doc.actions:
+        if a.action_id == 'root' or a.action_type == 'Entry Action':
+            start_nodes.append(a.action_id)
+            
+    # Priority 2: Legacy 'is_entry_action'
+    if not start_nodes:
+        start_nodes = [a.action_id for a in rule_doc.actions if a.get('is_entry_action')]
+        
+    # Priority 3: Fallback to first action
     if not start_nodes and rule_doc.actions:
-        # Fallback: Assume row 1 is start if no explicit start
         start_nodes = [rule_doc.actions[0].action_id]
 
     reachable = set()

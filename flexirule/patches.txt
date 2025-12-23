@@ -4,4 +4,4 @@
 flexirule.patches.v1_0.rename_method_config_to_config
 
 [post_model_sync]
-# Patches added in this section will be executed after doctypes are migrated
+# Patches added in this section will be executed after doctypes are migratedflexirule.patches.v1_0.add_start_nodes

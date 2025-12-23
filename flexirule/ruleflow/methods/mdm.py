@@ -108,9 +108,12 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
     
     try:
         task.insert(ignore_permissions=True)
-        frappe.db.commit()
+        if not (context.get('test_mode') or frappe.flags.in_test):
+            frappe.db.commit()
         return task.name
     except Exception as e:
+        if context.get('test_mode') or frappe.flags.in_test:
+            raise
         frappe.log_error(_("Failed to create Data Review task"), str(e))
         return None
 
@@ -321,9 +324,12 @@ def normalize_all_documents(context, doctype=None, field=None, target_field=None
                     )
                     processed += 1
                 except Exception as e:
+                    if context.get('test_mode') or frappe.flags.in_test:
+                        raise
                     frappe.log_error(_("Normalization failed for {0} {1}: {2}").format(doctype, doc_data.name, str(e)))
         
-        frappe.db.commit()
+        if not (context.get('test_mode') or frappe.flags.in_test):
+            frappe.db.commit()
         offset += batch_size
     
     return processed
@@ -492,7 +498,8 @@ def run_batch_duplicate_detection(context, doctype=None, fields_config=None,
                         max_tasks=1
                     )
         
-        frappe.db.commit()
+        if not (context.get('test_mode') or frappe.flags.in_test):
+            frappe.db.commit()
         offset += batch_size
     
     return duplicates_found

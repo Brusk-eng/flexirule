@@ -281,54 +281,93 @@ export const useStore = defineStore("rule-builder-store", () => {
         const edges = [];
         // ... (Existing sync logic skipped for brevity, keeping it simple as fetch calls this)
         // Re-implementing basic Sync for robustness in this script
-        nodes.push({
-            id: 'start', type: 'start', position: { x: 100, y: 100 }, label: 'Start',
-            data: {
-                document_type: rule_doc.value.document_type,
-                trigger_event: rule_doc.value.trigger_event,
-                trigger_condition_expression: rule_doc.value.trigger_condition_expression,
-                trigger_condition: rule_doc.value.trigger_condition,
-                is_enabled: 1
-            }
-        });
+        // Check if we have an existing root/entry action
+        const rootAction = rule_doc.value.actions.find(a => a.action_type === 'Entry Action' || a.action_id === 'root');
+
+        if (!rootAction) {
+            // Fallback for empty/legacy rules (though backend migration should handle this)
+            nodes.push({
+                id: 'root', type: 'start', position: { x: 50, y: 250 }, label: 'Start',
+                data: {
+                    action_id: 'root', action_type: 'Entry Action',
+                    document_type: rule_doc.value.document_type,
+                    trigger_event: rule_doc.value.trigger_event,
+                    trigger_condition_expression: rule_doc.value.trigger_condition_expression,
+                    trigger_condition: rule_doc.value.trigger_condition,
+                    is_enabled: 1
+                }
+            });
+        }
 
         rule_doc.value.actions.forEach((action, index) => {
             const nodeId = action.action_id || `action-${index}`;
-            // Support both 'config' (new) and 'method_config' (legacy) fields
+            let type = (action.action_type || 'Process').toLowerCase();
+
+            // Map Entry Action to 'start' type for VueFlow
+            if (action.action_type === 'Entry Action') {
+                type = 'start';
+            } else if (action.action_type === 'Sub-Rule' || action.action_type === 'Sub-rule') {
+                type = 'sub-rule';
+            }
+
+            // If it's the root entry action, ensure we merge the Rule's trigger data into it
+            const isRoot = action.action_type === 'Entry Action' || action.action_id === 'root';
+            const nodeLabel = isRoot ? 'Start' : (action.action_label || `Action ${index + 1}`);
+
             const configData = action.config || action.method_config;
+
+            const nodeData = {
+                action_id: nodeId,
+                action_type: action.action_type,
+                action_label: action.action_label,
+                process_method: action.process_method,
+                config: configData,
+                condition_expression: action.condition_expression,
+                condition_json: action.condition_json,
+                is_enabled: action.is_enabled,
+                on_error: action.on_error,
+                timeout: action.timeout,
+                priority: action.priority,
+                retry_count: action.retry_count,
+                return_variable: action.return_variable,
+                is_async: action.is_async,
+                name: action.name,
+                input_mapping: action.input_mapping,
+                output_mapping: action.output_mapping,
+                rule: action.rule || (action.action_type === 'Sub-Rule' ? getSubRuleName(configData) : null),
+                skip_conditions: action.skip_conditions !== undefined ? action.skip_conditions : 1,
+                skip_permissions: action.skip_permissions || 0,
+                // Flow control
+                next_step_if_true: action.next_step_if_true,
+                next_step_if_false: action.next_step_if_false
+            };
+
+            if (isRoot) {
+                // Merge rule-level metadata for display/editing
+                nodeData.document_type = rule_doc.value.document_type;
+                nodeData.trigger_event = rule_doc.value.trigger_event;
+                nodeData.trigger_condition = rule_doc.value.trigger_condition;
+                nodeData.trigger_condition_expression = rule_doc.value.trigger_condition_expression;
+            }
+
             nodes.push({
                 id: nodeId,
-                type: (action.action_type || 'Process').toLowerCase(),
-                position: { x: action.position_x || 300, y: action.position_y || (150 + index * 120) },
-                label: action.action_label || `Action ${index + 1}`,
-                data: {
-                    action_id: nodeId, action_type: action.action_type, action_label: action.action_label,
-                    process_method: action.process_method, config: configData,
-                    condition_expression: action.condition_expression,
-                    condition_json: action.condition_json,
-                    is_enabled: action.is_enabled,
-                    on_error: action.on_error, next_step_if_true: action.next_step_if_true,
-                    next_step_if_false: action.next_step_if_false,
-                    timeout: action.timeout, priority: action.priority,
-                    retry_count: action.retry_count, return_variable: action.return_variable,
-                    is_async: action.is_async, name: action.name,
-                    input_mapping: action.input_mapping,
-                    output_mapping: action.output_mapping,
-                    rule: action.rule || (action.action_type === 'Sub-Rule' ? getSubRuleName(configData) : null),
-                    // Sub-Rule bypass fields
-                    skip_conditions: action.skip_conditions !== undefined ? action.skip_conditions : 1,
-                    skip_permissions: action.skip_permissions || 0
-                }
+                type: type,
+                position: { x: action.position_x || (isRoot ? 50 : 300), y: action.position_y || (isRoot ? 250 : (150 + index * 120)) },
+                label: nodeLabel,
+                data: nodeData
             });
         });
 
+        // Edges
         rule_doc.value.actions.forEach((action, index) => {
             const nodeId = action.action_id || `action-${index}`;
             if (action.next_step_if_true) {
                 edges.push({
                     id: `e-${nodeId}-${action.next_step_if_true}-true`,
                     source: nodeId, target: action.next_step_if_true,
-                    sourceHandle: (action.action_type === 'Condition' || action.action_type === 'Loop') ? 'default' : 'default'
+                    sourceHandle: (action.action_type === 'Condition' || action.action_type === 'Loop') ? 'true' : 'default',
+                    animated: action.action_type === 'Entry Action'
                 });
             }
             if (action.next_step_if_false) {
@@ -410,12 +449,16 @@ export const useStore = defineStore("rule-builder-store", () => {
             doc.is_active = currentIsActive;
             doc.visual_data = JSON.stringify(clean_graph_data());
 
-            const startNode = graph.value.elements.find(el => el.id === 'start');
+            const startNode = graph.value.elements.find(el => el.type === 'start');
             doc.trigger_condition_expression = startNode?.data?.trigger_condition_expression || null;
             doc.trigger_condition = startNode?.data?.trigger_condition || null;
 
-            const nodes = graph.value.elements.filter(el => el.position && el.id !== 'start');
+            // Sort nodes but ensure Entry Action is processed
+            const nodes = graph.value.elements.filter(el => el.position);
             const edgesList = graph.value.elements.filter(el => el.source);
+
+            // Re-use topological sort but handle cycles gracefully if needed
+            // (Current sort just queues navigable nodes, unconnected nodes appended at end)
             const orderedNodes = getTopologicalSort(nodes, edgesList);
 
             doc.actions = orderedNodes.map((node, idx) => {
@@ -424,9 +467,14 @@ export const useStore = defineStore("rule-builder-store", () => {
                 const true_edge = outgoing.find(e => e.sourceHandle === 'true' || e.sourceHandle === 'default');
                 const false_edge = outgoing.find(e => e.sourceHandle === 'false');
                 const incoming = edgesList.find(e => e.target === node.id);
-                const is_entry_action = incoming && incoming.source === 'start' ? 1 : 0;
+
+                // Determine Entry Action status
+                const is_start_node = node.type === 'start';
+                const action_type = is_start_node ? 'Entry Action' : (node.data?.action_type === 'Sub-rule' ? 'Sub-Rule' : (node.data?.action_type || 'Process'));
+
+                // Parent ID logic
                 let prev_action_id = null;
-                if (!is_entry_action && incoming) {
+                if (!is_start_node && incoming) {
                     const parentNode = nodes.find(n => n.id === incoming.source);
                     prev_action_id = parentNode?.data?.action_id || incoming.source;
                 }
@@ -435,13 +483,13 @@ export const useStore = defineStore("rule-builder-store", () => {
                     name: node.data?.name,
                     idx: idx + 1,
                     action_id: node.data?.action_id || node.id,
-                    action_label: node.label,
-                    is_entry_action: is_entry_action,
+                    action_label: node.data?.action_label || node.label,
+                    is_entry_action: is_start_node ? 1 : 0,
                     prev_action_id: prev_action_id,
-                    action_type: node.data?.action_type === 'Sub-rule' ? 'Sub-Rule' : (node.data?.action_type || 'Process'),
+                    action_type: action_type,
                     is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
                     process_method: node.data?.process_method,
-                    config: node.data?.config,  // New field name
+                    config: node.data?.config,
                     condition_expression: node.data?.condition_expression,
                     condition_json: node.data?.condition_json,
                     input_mapping: node.data?.input_mapping,
@@ -453,7 +501,6 @@ export const useStore = defineStore("rule-builder-store", () => {
                     return_variable: node.data?.return_variable,
                     rule: node.data?.rule,
                     is_async: node.data?.is_async || 0,
-                    // Sub-Rule bypass fields
                     skip_conditions: node.data?.skip_conditions !== undefined ? node.data.skip_conditions : 1,
                     skip_permissions: node.data?.skip_permissions || 0,
                     next_step_if_true: true_edge?.target || null,
@@ -486,7 +533,8 @@ export const useStore = defineStore("rule-builder-store", () => {
     }
 
     function delete_node(nodeId) {
-        if (nodeId === 'start') {
+        const node = graph.value.elements.find(el => el.id === nodeId);
+        if (nodeId === 'start' || nodeId === 'root' || node?.type === 'start') {
             frappe.msgprint(__('Cannot delete start node'));
             return;
         }

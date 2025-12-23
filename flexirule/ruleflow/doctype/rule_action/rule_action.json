@@ -60,7 +60,7 @@
             "fieldtype": "Select",
             "in_list_view": 1,
             "label": "Type",
-            "options": "Condition\nProcess\nLoop\nStop\nSwitch\nWait\nSub-Rule",
+            "options": "Entry Action\nCondition\nProcess\nLoop\nStop\nSwitch\nWait\nSub-Rule",
             "reqd": 1
         },
         {

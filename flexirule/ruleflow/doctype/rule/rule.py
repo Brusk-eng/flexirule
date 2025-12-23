@@ -41,16 +41,36 @@ class Rule(Document):
         """
         Validate Rule Configuration
         """
+        self.ensure_start_node()
         self.compile_conditions()
         self.validate_actions()
         self.validate_no_sub_rule_cycles()
+
     def before_insert(self):
-        if (self.document_type and self.trigger_event and not self.actions or len(self.actions) == 0):
-            child = self.append('actions', {})
-            child.action_type = 'Entry Action'
-            child.label=_(trigger_event)
-            child.idx = 1
-            child.action_id = 'root'
+        self.ensure_start_node()
+
+    def ensure_start_node(self):
+        """Ensure a Start Node (Entry Action) exists with ID 'root'"""
+        # Check if root exists
+        root_action = next((a for a in self.actions if a.action_id == 'root'), None)
+        
+        if not root_action:
+            # Determine next step if there are existing actions
+            # We pick the first action that is NOT 'root'
+            first_action_id = None
+            existing_actions = [a for a in self.actions if a.action_id != 'root']
+            if existing_actions:
+                first_action_id = existing_actions[0].action_id or existing_actions[0].name
+
+            self.append('actions', {
+                "action_type": "Entry Action",
+                "action_label": _(self.trigger_event or "Start"),
+                "action_id": "root",
+                "is_enabled": 1,
+                "position_x": 50,
+                "position_y": 250,
+                "next_step_if_true": first_action_id # Link to first existing action
+            })
     def compile_conditions(self):
         from flexirule.ruleflow.core.compiler import ConditionCompiler
         compiler = ConditionCompiler()

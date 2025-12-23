@@ -134,7 +134,7 @@ const nodes = computed({
         return (store.graph.elements || [])
             .filter(el => {
                 if (!el.position) return false;
-                if (el.id === 'start') return true;
+                if (el.type === 'start') return true;
                 // Filtering
                 if (!showDisabledNodes.value && el.data?.is_enabled === 0) return false;
                 return true;
@@ -202,13 +202,18 @@ function handleKeydown(e) {
 }
 
 function autoConnectStartNode() {
-    const hasStartEdge = (store.graph.elements || []).some(el => el.source === 'start');
+    const startNode = (store.graph.elements || []).find(el => el.type === 'start');
+    if (!startNode) return;
+    
+    // Check if start node has any outgoing edges
+    const hasStartEdge = (store.graph.elements || []).some(el => el.source === startNode.id);
     if (hasStartEdge) return;
-    const firstNode = (store.graph.elements || []).find(el => el.position && el.id !== 'start' && el.data?.is_enabled !== 0);
+
+    const firstNode = (store.graph.elements || []).find(el => el.position && el.type !== 'start' && el.data?.is_enabled !== 0);
     if (firstNode) {
         store.graph.elements.push({
-            id: `e-start-${firstNode.id}`,
-            source: 'start', target: firstNode.id,
+            id: `e-${startNode.id}-${firstNode.id}`,
+            source: startNode.id, target: firstNode.id,
             sourceHandle: 'default', animated: true
         });
     }
@@ -222,7 +227,7 @@ function onConnect(params) {
         id: `e-${params.source}-${params.target}-${params.sourceHandle || 'default'}`,
         source: params.source, target: params.target,
         sourceHandle: params.sourceHandle || 'default',
-        animated: params.source === 'start'
+        animated: store.graph.elements.find(el => el.id === params.source)?.type === 'start'
     };
     store.graph.elements.push(newEdge);
     store.mark_dirty();

@@ -200,6 +200,12 @@ class TestRedesignArchitecture(FrappeTestCase):
             "actions": [] # Empty actions is fine for basic test, or add one
         })
         rule.insert()
+
+        # Disable the auto-created Entry Action to simulate "no enabled actions"
+        # ensure_start_node only checks existence, not enabled status.
+        if rule.actions:
+            rule.actions[0].is_enabled = 0
+            rule.save()
         
         # Test 1: JSON Doc (Empty Rule)
         res = test_rule(rule_name, document_json='{"doctype": "User", "first_name": "Test"}')
@@ -215,6 +221,13 @@ class TestRedesignArchitecture(FrappeTestCase):
             "action_id": "ACT-TEST-01",
             "config": '{"threshold": 10}'
         })
+        
+        # We must link the Entry Action to this new action to avoid orphan error
+        for action in rule.actions:
+            if action.action_id == 'root':
+                action.is_enabled = 1
+                action.next_step_if_true = "ACT-TEST-01"
+                
         rule.save()
         
         res = test_rule(rule_name, document_json='{"doctype": "User", "first_name": "Test"}')

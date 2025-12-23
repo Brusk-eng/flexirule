@@ -377,6 +377,15 @@ class RuleEngine:
 					# Handlers now return (result, next_id)
 					result, next_id = handler(current, context)
 				
+				# Enhance path trace with result/inputs for Process
+				if current.action_type == 'Process':
+					# Ideally we want inputs (config) too, but handlers consume it. 
+					# We can reconstruct it or just log result.
+					self.path_trace[-1]['output'] = str(result)
+					try:
+						self.path_trace[-1]['input'] = self._get_action_config(current)
+					except: pass
+
 				# Store result if variable specified
 				if current.return_variable and result is not None:
 					context['vars'][current.return_variable] = result
@@ -412,7 +421,13 @@ class RuleEngine:
 	
 	def _get_start_node(self):
 		"""Get the first action to execute (one with no incoming edges)"""
-		# Build set of actions that have incoming edges
+		# 1. Look for explicit Root / Entry Action
+		for action in self.actions:
+			if action.action_id == 'root' or action.action_type == 'Entry Action':
+				self._log("INFO", _("Start node: {0} ({1})").format(action.action_label, action.action_id))
+				return action
+
+		# 2. Backward compatibility: Find action with no incoming edges
 		has_incoming = set()
 		
 		for action in self.actions:
@@ -438,7 +453,7 @@ class RuleEngine:
 		for action in self.actions:
 			action_id = action.action_id or action.name
 			if action_id not in has_incoming:
-				self._log("INFO", _("Start node: {0} ({1})").format(action.action_label, action_id))
+				self._log("INFO", _("Start node (deduced): {0} ({1})").format(action.action_label, action_id))
 				return action
 		
 		# Fallback to first action if no clear start
