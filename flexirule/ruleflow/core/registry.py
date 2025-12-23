@@ -47,9 +47,9 @@ def sync_process_methods():
 
     # Prune orphaned methods (Managed only)
     # Fetch all managed methods from DB
-    managed_methods_in_db = frappe.get_all("Process Method", 
+    managed_methods_in_db = frappe.db.get_all("Process Method", 
                                           filters={"is_managed": 1}, 
-                                          pluck="method_path", ignore_permissions=True )
+                                          pluck="method_path") 
     
     methods_to_delete = set(managed_methods_in_db) - found_methods
     
