@@ -47,7 +47,7 @@ def export_rule(rule_name):
             "action_type": action.action_type,
             "is_enabled": action.is_enabled,
             "process_method": action.process_method,
-            "configuration": action.configuration,
+            "configuration": action.config,
             "condition_expression": action.condition_expression,
             "on_error": action.on_error,
             "next_step_if_true": action.next_step_if_true,
