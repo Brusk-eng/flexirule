@@ -6,6 +6,7 @@
   <h1>FlexiRule</h1>
 
   [![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml?query=branch%3Adevelop)
+![Beta Release](https://img.shields.io/badge/release-beta-orange)
 
   <p><strong>Visual Rule & Orchestration Engine for Frappe apps and ERPNext</strong></p>
 
