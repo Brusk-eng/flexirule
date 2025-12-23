@@ -43,10 +43,10 @@ function toggleOutputSchema() { showOutputSchema.value = !showOutputSchema.value
                     </div>
                 </div>
                 <div class="action-item" @click.stop="toggleConfig" :title="__('Configuration')">
-                    <i class="fa fa-sliders" :class="{ 'active': data.method_config }"></i>
+                    <i class="fa fa-sliders" :class="{ 'active': data.config || data.method_config }"></i>
                      <div v-if="showConfig" class="popover-card">
                         <h6>{{ __("Configuration") }}</h6>
-                        <pre>{{ data.method_config || __('Not configured') }}</pre>
+                        <pre>{{ data.config || data.method_config || __('Not configured') }}</pre>
                     </div>
                 </div>
                 <div class="action-item" @click.stop="toggleOutputSchema" :title="__('Output Schema')">

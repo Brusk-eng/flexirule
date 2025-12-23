@@ -294,6 +294,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 
         rule_doc.value.actions.forEach((action, index) => {
             const nodeId = action.action_id || `action-${index}`;
+            // Support both 'config' (new) and 'method_config' (legacy) fields
+            const configData = action.config || action.method_config;
             nodes.push({
                 id: nodeId,
                 type: (action.action_type || 'Process').toLowerCase(),
@@ -301,7 +303,7 @@ export const useStore = defineStore("rule-builder-store", () => {
                 label: action.action_label || `Action ${index + 1}`,
                 data: {
                     action_id: nodeId, action_type: action.action_type, action_label: action.action_label,
-                    process_method: action.process_method, method_config: action.method_config,
+                    process_method: action.process_method, config: configData,
                     condition_expression: action.condition_expression,
                     condition_json: action.condition_json,
                     is_enabled: action.is_enabled,
@@ -312,7 +314,10 @@ export const useStore = defineStore("rule-builder-store", () => {
                     is_async: action.is_async, name: action.name,
                     input_mapping: action.input_mapping,
                     output_mapping: action.output_mapping,
-                    rule: action.rule || (action.action_type === 'Sub-Rule' ? getSubRuleName(action.method_config) : null)
+                    rule: action.rule || (action.action_type === 'Sub-Rule' ? getSubRuleName(configData) : null),
+                    // Sub-Rule bypass fields
+                    skip_conditions: action.skip_conditions !== undefined ? action.skip_conditions : 1,
+                    skip_permissions: action.skip_permissions || 0
                 }
             });
         });
@@ -436,7 +441,7 @@ export const useStore = defineStore("rule-builder-store", () => {
                     action_type: node.data?.action_type === 'Sub-rule' ? 'Sub-Rule' : (node.data?.action_type || 'Process'),
                     is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
                     process_method: node.data?.process_method,
-                    method_config: node.data?.method_config,
+                    config: node.data?.config,  // New field name
                     condition_expression: node.data?.condition_expression,
                     condition_json: node.data?.condition_json,
                     input_mapping: node.data?.input_mapping,
@@ -448,6 +453,9 @@ export const useStore = defineStore("rule-builder-store", () => {
                     return_variable: node.data?.return_variable,
                     rule: node.data?.rule,
                     is_async: node.data?.is_async || 0,
+                    // Sub-Rule bypass fields
+                    skip_conditions: node.data?.skip_conditions !== undefined ? node.data.skip_conditions : 1,
+                    skip_permissions: node.data?.skip_permissions || 0,
                     next_step_if_true: true_edge?.target || null,
                     next_step_if_false: false_edge?.target || null,
                     position_x: Math.round(node.position.x),

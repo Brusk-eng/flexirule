@@ -57,7 +57,10 @@ async function loadFields() {
     try {
         const result = await frappe.call({
             method: 'flexirule.ruleflow.api.get_doctype_fields',
-            args: { doctype: props.documentType }
+            args: { 
+                doctype: props.documentType, 
+                filters: { include_system_fields: true }
+            }
         });
         const data = result.message;
         apiFields.value = data.parent_fields || [];

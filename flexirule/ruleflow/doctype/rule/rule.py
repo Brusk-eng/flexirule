@@ -44,7 +44,13 @@ class Rule(Document):
         self.compile_conditions()
         self.validate_actions()
         self.validate_no_sub_rule_cycles()
-
+    def before_insert(self):
+        if (self.document_type and self.trigger_event and not self.actions or len(self.actions) == 0):
+            child = self.append('actions', {})
+            child.action_type = 'Entry Action'
+            child.label=_(trigger_event)
+            child.idx = 1
+            child.action_id = 'root'
     def compile_conditions(self):
         from flexirule.ruleflow.core.compiler import ConditionCompiler
         compiler = ConditionCompiler()
@@ -84,7 +90,9 @@ class Rule(Document):
                     frappe.throw(_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e)))
 
             # 1. Validate JSON fields syntax
-            self._validate_json_field(action.method_config, _("Action {0}: Configuration").format(action.action_label))
+            # Use new 'config' field with backward compatibility
+            config_value = getattr(action, 'config', None) or getattr(action, 'method_config', None)
+            self._validate_json_field(config_value, _("Action {0}: Configuration").format(action.action_label))
             self._validate_json_field(action.input_mapping, _("Action {0}: Input Mapping").format(action.action_label))
             self._validate_json_field(action.output_mapping, _("Action {0}: Output Mapping").format(action.action_label))
             
@@ -111,7 +119,12 @@ class Rule(Document):
         # Note: We prioritize config_schema mostly for UI builder, 
         # but input_schema is for strict validation if present.
         schema = method.input_schema or method.config_schema
-        if schema and action.method_config:
+        schema = method.input_schema or method.config_schema
+        
+        # Use new 'config' field with backward compatibility for 'method_config'
+        config_value = getattr(action, 'config', None) or getattr(action, 'method_config', None)
+        
+        if schema and config_value:
             # Extract mapped fields to skip required check in static config
             mapped_fields = []
             if action.input_mapping:
@@ -122,12 +135,14 @@ class Rule(Document):
                 except:
                     pass
             
-            validate_config(action.method_config, schema, mapped_fields=mapped_fields)
+            # Use new 'config' field with backward compatibility for 'method_config'
+            config_value = getattr(action, 'config', None) or getattr(action, 'method_config', None)
+            validate_config(config_value, schema, mapped_fields=mapped_fields)
 
     def validate_no_sub_rule_cycles(self):
         """
         Detect direct or indirect cycles in sub-rule references.
-        Uses DFS to check that following sub-rule links doesn't lead back to this rule.
+        Uses DFS with path tracking to detect any cycle in the full sub-rule graph.
         """
         # Collect sub-rule names referenced by this rule
         sub_rules = set()
@@ -138,37 +153,52 @@ class Rule(Document):
         if not sub_rules:
             return  # No sub-rules, no cycles possible
         
-        # DFS to detect cycles
-        visited = set()
-        stack = list(sub_rules)
-        
-        while stack:
-            current_rule_name = stack.pop()
-            
-            if current_rule_name == self.name:
-                frappe.throw(
-                    _("Cycle detected: Rule '{0}' references itself through sub-rules").format(self.name)
-                )
-            
-            if current_rule_name in visited:
-                continue
-            
-            visited.add(current_rule_name)
-            
-            # Get sub-rules of the current rule
-            child_sub_rules = frappe.db.get_all(
+        def get_child_sub_rules(rule_name):
+            """Get all sub-rule references from a rule"""
+            return frappe.db.get_all(
                 "Rule Action",
                 filters={
-                    "parent": current_rule_name,
+                    "parent": rule_name,
                     "action_type": "Sub-Rule",
                     "rule": ["is", "set"]
                 },
                 pluck="rule"
             )
+        
+        def dfs_detect_cycle(current_rule, path, globally_visited):
+            """DFS with path tracking to detect any cycle"""
+            if current_rule in path:
+                # Cycle detected - build cycle path from where it starts
+                cycle_start = path.index(current_rule)
+                cycle_path = path[cycle_start:] + [current_rule]
+                return ' → '.join(cycle_path)
             
+            if current_rule in globally_visited:
+                return None  # Already fully explored, no cycle from here
+            
+            path.append(current_rule)
+            
+            child_sub_rules = get_child_sub_rules(current_rule)
             for child in child_sub_rules:
-                if child and child not in visited:
-                    stack.append(child)
+                if child:
+                    result = dfs_detect_cycle(child, path.copy(), globally_visited)
+                    if result:
+                        return result
+            
+            globally_visited.add(current_rule)
+            return None
+        
+        # Start DFS from this rule
+        globally_visited = set()
+        initial_path = [self.name]
+        
+        for sub_rule in sub_rules:
+            if sub_rule:
+                cycle = dfs_detect_cycle(sub_rule, initial_path.copy(), globally_visited)
+                if cycle:
+                    frappe.throw(
+                        _("Cycle detected in sub-rule graph: {0}").format(cycle)
+                    )
 
     def on_update(self):
         """

@@ -3,7 +3,7 @@
  * SimpleCondition - Leaf condition editor (left op right)
  * Uses backend-driven operator configuration
  */
-import { computed, inject, onMounted, ref } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
 import ControlFactory from '../../controls/ControlFactory.vue';
 import FieldPickerControl from '../../controls/FieldPickerControl.vue';
 import MappingWrapper from '../MappingWrapper.vue';
@@ -17,6 +17,9 @@ const emit = defineEmits(['remove']);
 
 // Injected operator config from ConditionBuilder
 const operatorConfig = inject('operatorConfig', ref({ fieldtype_operators: {}, operator_labels: {} }));
+
+// Dynamic Link State
+const dynamicLinkDocType = ref('');
 
 // Find the selected field metadata
 const selectedField = computed(() => {
@@ -38,6 +41,48 @@ const operators = computed(() => {
         value: op,
         label: __(labels[op] || op)
     }));
+});
+
+// Computed Schema for Value Input
+const valueFieldSchema = computed(() => {
+    if (!selectedField.value) return { fieldtype: 'Data' };
+    
+    let schema = { ...selectedField.value };
+    
+    // 1. DocStatus Handling
+    if (schema.value === 'doc.docstatus' || schema.fieldname === 'docstatus') {
+         schema.fieldtype = 'Select';
+         schema.options = [
+             { label: __('Draft'), value: 0 },
+             { label: __('Submitted'), value: 1 },
+             { label: __('Cancelled'), value: 2 }
+         ];
+    }
+    
+    // 2. Multi-Select Handling for IN/NOT IN
+    if (['in', 'not in'].includes(props.node.op)) {
+         schema.fieldtype = 'MultiSelect';
+         // Check if we need to adjust options for MultiSelect docstatus
+         if (schema.fieldname === 'docstatus') {
+             // For MultiSelect, provide simple options because standard control handles strings best
+             schema.options = ["0", "1", "2"]; 
+         }
+    }
+    
+    // 3. Dynamic Link Handling (Step 2: The actual link picker)
+    if (schema.fieldtype === 'Dynamic Link') {
+        if (dynamicLinkDocType.value) {
+            schema.fieldtype = 'Link';
+            schema.options = dynamicLinkDocType.value;
+        } else {
+            // If no doctype selected, show Data or ReadOnly
+            schema.fieldtype = 'Data';
+            schema.read_only = 1;
+            schema.placeholder = __('Select DocType first');
+        }
+    }
+    
+    return schema;
 });
 
 function setMapping(ref) {
@@ -74,6 +119,16 @@ function clearMapping() {
 
         <!-- Value (hidden for is_set/is_not_set) -->
         <div v-if="!['is_set', 'is_not_set'].includes(node.op)" class="condition-cell value-cell">
+            <!-- Dynamic Link Two-Stage Selection -->
+            <div v-if="selectedField?.fieldtype === 'Dynamic Link'" class="mb-2">
+                 <label class="small text-muted d-block">{{ __("Target DocType") }}</label>
+                 <!-- Using ControlFactory to render Link to DocType -->
+                 <ControlFactory
+                    :df="{ fieldtype: 'Link', options: 'DocType', placeholder: __('Select DocType') }"
+                    v-model="dynamicLinkDocType"
+                 />
+            </div>
+
             <MappingWrapper 
                 :label="__('Value')"
                 :mappingValue="node.right.ref"
@@ -82,7 +137,7 @@ function clearMapping() {
                 @clearStatic="clearMapping"
             >
                 <ControlFactory 
-                    :df="selectedField || { fieldtype: 'Data' }"
+                    :df="valueFieldSchema"
                     v-model="node.right.value"
                 />
             </MappingWrapper>

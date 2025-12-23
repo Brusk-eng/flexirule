@@ -45,6 +45,18 @@ frappe.ui.form.on('Rule', {
             }
         }
     },
+    before_insert(frm) {
+        if (frm.doc.document_type && frm.doc.trigger_event && (!frm.doc.actions || frm.doc.actions.length === 0)) {
+
+            let child = frm.add_child('actions');
+
+            child.action_type = 'Entry Action';
+            child.idx = 1;
+            child.action_id = 'root';
+
+            frm.refresh_field('actions');
+        }
+    },
 
     conditions_json(frm) {
         validate_json(frm, 'conditions_json');

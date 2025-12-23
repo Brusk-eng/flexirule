@@ -184,6 +184,8 @@ class RuleEngine:
 			rule_doc: Rule DocType document
 			execution_context: Dict with user, timestamp, test_mode, etc.
 		"""
+		if isinstance(rule_doc, str):
+			rule_doc = frappe.get_doc("Rule", rule_doc)
 		self.rule = rule_doc
 		self.actions = [a for a in rule_doc.actions if a.is_enabled]
 		self.context = execution_context or {}
@@ -194,6 +196,18 @@ class RuleEngine:
 		self.action_map_by_id = {a.action_id: a for a in self.actions if a.action_id}
 		self.action_map_by_label = {a.action_label: a for a in self.actions}
 		self.action_map_by_name = {a.name: a for a in self.actions}
+	
+	@staticmethod
+	def _get_action_config(action):
+		"""Get config JSON with backward compatibility for method_config"""
+		# Prefer new 'config' field, fallback to legacy 'method_config'
+		config_str = getattr(action, 'config', None) or getattr(action, 'method_config', None)
+		if not config_str:
+			return {}
+		try:
+			return json.loads(config_str)
+		except (json.JSONDecodeError, TypeError):
+			return {}
 	
 	def execute(self, doc, **kwargs):
 		"""
@@ -412,10 +426,10 @@ class RuleEngine:
 					has_incoming.add(action_id)
 				
 				# Check Switch cases for incoming edges
-				if other.action_type == 'Switch' and other.method_config:
+				if other.action_type == 'Switch':
 					try:
-						config = json.loads(other.method_config)
-						for target_id in config.get('cases', {}).values():
+						switch_config = self._get_action_config(other)
+						for target_id in switch_config.get('cases', {}).values():
 							if target_id == action_id:
 								has_incoming.add(action_id)
 					except: pass
@@ -464,24 +478,23 @@ class RuleEngine:
 		"""Evaluate Python expression safely"""
 		if not expression:
 			return True
-		
-		# Prepare safe locals
+
 		safe_locals = {
 			'doc': context.get('doc'),
 			'old_doc': context.get('old_doc'),
-			'vars': context.get('vars'),
-			'frappe': context.get('frappe', frappe.utils),
+			'vars': context.get('vars', {}),
+			'frappe': context.get('frappe', _safe_frappe),
 			'resolve': FieldResolver.resolve,
 			'True': True,
 			'False': False,
 			'None': None
 		}
-		
+
 		try:
-			return frappe.safe_eval(expression, None, safe_locals)
+			return bool(frappe.safe_eval(expression, None, safe_locals))
 		except Exception as e:
-			self._log("ERROR", _("Condition evaluation failed: {0}").format(str(e)))
-			raise
+			self._log("ERROR", f"Condition evaluation failed: {e}")
+			return False
 
 	def _execute_loop(self, action, context):
 		"""
@@ -495,11 +508,7 @@ class RuleEngine:
 			'index': 0, 'initialized': False
 		})
 		
-		config = {}
-		if action.method_config:
-			try:
-				config = json.loads(action.method_config)
-			except: pass
+		config = self._get_action_config(action)
 			
 		iterator_name = config.get('iterator') # e.g. "doc.items" or "vars.my_list"
 		item_alias = config.get('alias', 'item')
@@ -539,11 +548,7 @@ class RuleEngine:
 
 	def _execute_wait(self, action, context):
 		"""Execute Wait (Sleep)"""
-		config = {}
-		if action.method_config:
-			try:
-				config = json.loads(action.method_config)
-			except: pass
+		config = self._get_action_config(action)
 			
 		duration = config.get('duration', 0)
 		if not duration and action.timeout:
@@ -574,13 +579,8 @@ class RuleEngine:
 		except frappe.DoesNotExistError:
 			raise MethodExecutionError(_("Process Method {0} not found").format(action.process_method))
 		
-		# Parse configuration
-		config = {}
-		if action.method_config:
-			try:
-				config = json.loads(action.method_config)
-			except json.JSONDecodeError as e:
-				raise MethodExecutionError(_("Invalid configuration JSON: {0}").format(str(e)))
+		# Parse configuration (with backward compat for method_config)
+		config = self._get_action_config(action)
 		
 		# Apply Input Mapping (Context -> Config)
 		if action.input_mapping:
@@ -707,12 +707,12 @@ class RuleEngine:
 		)
 
 	def _execute_switch(self, action, context):
-		"""Execute Switch logic based on method_config"""
-		if not action.method_config:
+		"""Execute Switch logic based on config"""
+		config = self._get_action_config(action)
+		if not config:
 			return None
 			
 		try:
-			config = json.loads(action.method_config)
 			expression = config.get('expression')
 			cases = config.get('cases', {})
 			
@@ -730,73 +730,108 @@ class RuleEngine:
 		except Exception as e:
 			self._log("ERROR", _("Switch evaluation failed: {0}").format(str(e)))
 			raise
-
+		
 	def _execute_sub_rule(self, action, context):
-		"""Execute a Sub-Rule"""
+		"""Execute a Sub-Rule with bypass flags and proper trigger evaluation"""
 		try:
-			# Prioritize the new 'rule' field, fallback to method_config for backward compatibility
-			sub_rule_name = action.rule
-			if not sub_rule_name and action.method_config:
+			# Determine Sub Rule name
+			sub_rule_name = getattr(action, "rule", None)
+			if not sub_rule_name and getattr(action, "config", None):
+				import json
 				try:
-					config = json.loads(action.method_config)
-					sub_rule_name = config.get('rule')
-				except:
-					pass
-			
+					cfg = json.loads(action.config)
+					sub_rule_name = cfg.get("rule")
+				except Exception:
+					self._log("WARNING", _("Failed to parse Sub-Rule config JSON"))
+
 			if not sub_rule_name:
 				self._log("WARNING", _("Sub-Rule action missing rule reference"))
-				return None, action.next_step_if_true
-				
+				return None, getattr(action, "next_step_if_true", None)
+
 			if not frappe.db.exists("Rule", sub_rule_name):
 				raise MethodExecutionError(_("Sub-Rule {0} not found").format(sub_rule_name))
-				
+
 			sub_rule_doc = frappe.get_cached_doc("Rule", sub_rule_name)
-			
+
 			if not sub_rule_doc.is_active:
 				raise MethodExecutionError(_("Sub-Rule {0} is not active").format(sub_rule_name))
-				
+
 			if sub_rule_doc.document_type != self.rule.document_type:
 				raise MethodExecutionError(
 					_("Sub-Rule {0} expects {1}, but current context is {2}")
 					.format(sub_rule_name, sub_rule_doc.document_type, self.rule.document_type)
 				)
-			
-			# Recursive Execution
-			# We share 'vars' and 'doc' so mutations propagate
-			# But we might want to isolate 'stop' flag? 
-			# V1 Contract: "vars is the ONLY mutable storage"
-			
+
+			# Cross-rule cycle detection
+			execution_stack = context.get('meta', {}).get('execution_stack', [])
+			if sub_rule_name in execution_stack:
+				cycle_path = ' → '.join(execution_stack + [sub_rule_name])
+				raise CycleDetectedError(_("Cross-rule cycle detected: {0}").format(cycle_path))
+
+			# Determine bypass flags safely
+			skip_conditions = 1  # default True
+			skip_permissions = 0  # default False
+
+			if hasattr(action, "skip_conditions"):
+				skip_conditions = int(action.skip_conditions)
+			elif getattr(action, "config", None):
+				import json
+				try:
+					cfg = json.loads(action.config)
+					skip_conditions = int(cfg.get("skip_conditions", 1))
+				except Exception:
+					pass
+
+			if hasattr(action, "skip_permissions"):
+				skip_permissions = int(action.skip_permissions)
+
+			self._log("INFO", _("Sub-Rule {0}: skip_conditions={1}, skip_permissions={2}")
+					.format(sub_rule_name, skip_conditions, skip_permissions))
+
+			# Evaluate trigger condition if skip_conditions is False
+			if not skip_conditions and sub_rule_doc.trigger_condition:
+				if not sub_rule_doc.trigger_condition_expression:
+					from flexirule.ruleflow.core.compiler import ConditionCompiler
+					sub_rule_doc.trigger_condition_expression = ConditionCompiler().compile(sub_rule_doc.trigger_condition)
+
+				is_eligible = self._evaluate_python_condition(sub_rule_doc.trigger_condition_expression, context)
+				if not is_eligible:
+					self._log("INFO", _("Sub-Rule {0}: Trigger condition failed. Skipping execution.").format(sub_rule_name))
+					return None, getattr(action, "next_step_if_true", None)
+
+			# Log bypass permissions
+			if skip_permissions:
+				self._log("AUDIT", _("Sub-Rule {0}: Executing with skip_permissions=True by user {1}")
+						.format(sub_rule_name, frappe.session.user))
+
 			self._log("INFO", _("BEGIN Sub-Rule: {0}").format(sub_rule_name))
-			
-			# Create sub-context sharing vars
+
+			# Prepare sub-context
 			sub_context = context.copy()
 			sub_context['meta'] = context.get('meta', {}).copy()
 			sub_context['meta']['parent_rule'] = self.rule.name
-			
-			# Recursion Guard
+			sub_context['meta']['execution_stack'] = execution_stack + [self.rule.name]
 			current_depth = sub_context['meta'].get('call_depth', 0)
 			if current_depth > 5:
 				raise MethodExecutionError(_("Max sub-rule recursion depth (5) exceeded in {0}").format(sub_rule_name))
 			sub_context['meta']['call_depth'] = current_depth + 1
-			
-			# Instantiate new engine
-			# Avoid cyclic import if lazy loading is better, but Engine is here
-			# Since we are in Engine class, we can just instantiate self.__class__
+			sub_context['meta']['skip_conditions'] = skip_conditions
+			sub_context['meta']['skip_permissions'] = skip_permissions
+
+			# Execute sub-rule
 			sub_engine = self.__class__(sub_rule_doc, execution_context=sub_context)
-			
-			result_context = sub_engine.execute(context.get('doc'), **{})
-			
-			# Propagate changes back to main context
+			result_context = sub_engine.execute(context.get('doc'))
+
+			# Merge results back
 			context['vars'].update(result_context.get('vars', {}))
-			
 			self._log("INFO", _("END Sub-Rule: {0}").format(sub_rule_name))
-			
-			return None, action.next_step_if_true
-			
+
+			return None, getattr(action, "next_step_if_true", None)
+
 		except Exception as e:
 			self._log("ERROR", _("Sub-Rule execution failed: {0}").format(str(e)))
 			raise
-	
+
 	def _log(self, level, message):
 		"""Add entry to execution log"""
 		entry = {

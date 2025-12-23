@@ -17,9 +17,11 @@ const props = defineProps({
 defineEmits(['update-json-config']);
 
 function getJsonConfig(key, defaultVal = '') {
-    if (!props.nodeData?.method_config) return defaultVal;
+    // Support both new 'config' and legacy 'method_config'
+    const configStr = props.nodeData?.config || props.nodeData?.method_config;
+    if (!configStr) return defaultVal;
     try {
-        const config = JSON.parse(props.nodeData.method_config);
+        const config = JSON.parse(configStr);
         return config[key] !== undefined ? config[key] : defaultVal;
     } catch (e) {
         return defaultVal;

@@ -435,7 +435,7 @@ class TestNewTriggerEvents(FrappeTestCase):
                 "action_type": "Process",
                 "action_label": "Set Description",
                 "process_method": "flexirule.ruleflow.methods.enrichment.set_default_value",
-                "method_config": json.dumps({"field": "description", "default_value": "Set by Naming", "overwrite": True}),
+                "config": json.dumps({"field": "description", "default_value": "Set by Naming", "overwrite": True}),
                 "is_enabled": 1
             }
         ])
@@ -461,7 +461,7 @@ class TestNewTriggerEvents(FrappeTestCase):
                 "action_type": "Process",
                 "action_label": "Update Description",
                 "process_method": "flexirule.ruleflow.methods.enrichment.set_default_value",
-                "method_config": json.dumps({"field": "description", "default_value": "Changed", "overwrite": True}),
+                "config": json.dumps({"field": "description", "default_value": "Changed", "overwrite": True}),
                 "is_enabled": 1
             }
         ])

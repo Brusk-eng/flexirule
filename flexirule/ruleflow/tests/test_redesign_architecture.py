@@ -54,7 +54,7 @@ class TestRedesignArchitecture(FrappeTestCase):
                     "action_label": "Invalid Action",
                     "action_type": "Process",
                     "process_method": method_path,
-                    "method_config": '{"threshold": "NOT_AN_INT"}', # Invalid type
+                    "config": '{"threshold": "NOT_AN_INT"}', # Invalid type
                     "action_id": "ACT-001"
                 }
             ]
@@ -89,7 +89,7 @@ class TestRedesignArchitecture(FrappeTestCase):
                     "action_id": "ACT-MAP-01",
                     # Map context variable 'my_val' to param 'value'
                     "input_mapping": '{"my_val": "value"}', 
-                    "method_config": '{"threshold": 10}'
+                    "config": '{"threshold": 10}'
                 }
             ]
         })
@@ -126,7 +126,7 @@ class TestRedesignArchitecture(FrappeTestCase):
                     "action_type": "Process",
                     "process_method": method_path,
                     "action_id": "ACT-OUT-01",
-                    "method_config": '{"threshold": 10}',
+                    "config": '{"threshold": 10}',
                     # Corrected input_mapping: Target(config field) -> Source(context variable)
                     "input_mapping": '{"value": "input_val"}',
                     # Map result "processed_value" to context "final_result"
@@ -164,7 +164,7 @@ class TestRedesignArchitecture(FrappeTestCase):
                     "action_type": "Process",
                     "process_method": method_path,
                     "action_id": "ACT-LOG-01",
-                    "method_config": '{"threshold": 10}'
+                    "config": '{"threshold": 10}'
                 }
             ]
         })
@@ -213,7 +213,7 @@ class TestRedesignArchitecture(FrappeTestCase):
             "action_type": "Process",
             "process_method": method_path,
             "action_id": "ACT-TEST-01",
-            "method_config": '{"threshold": 10}'
+            "config": '{"threshold": 10}'
         })
         rule.save()
         

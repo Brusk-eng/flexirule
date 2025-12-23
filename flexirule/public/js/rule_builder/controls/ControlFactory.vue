@@ -38,6 +38,13 @@
           @input="$emit('update:modelValue', $event.target.value)"
       />
 
+      <!-- MultiSelect -->
+      <MultiSelectControl v-else-if="df?.fieldtype === 'MultiSelect' || df?.fieldtype === 'Table MultiSelect'"
+          :df="df"
+          :modelValue="modelValue"
+          @update:modelValue="$emit('update:modelValue', $event)"
+      />
+
       <!-- Default (Data, Text, etc.) -->
       <DataControl v-else
           :df="df || { fieldtype: 'Data' }"
@@ -52,10 +59,11 @@ import LinkControl from './LinkControl.vue';
 import SelectControl from './SelectControl.vue';
 import CheckControl from './CheckControl.vue';
 import DataControl from './DataControl.vue';
+import MultiSelectControl from './MultiSelectControl.vue';
 
 const props = defineProps({
   df: Object,
-  modelValue: [String, Number, Boolean]
+  modelValue: [String, Number, Boolean, Array]
 });
 
 defineEmits(['update:modelValue']);

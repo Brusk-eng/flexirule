@@ -41,7 +41,7 @@ class TestBoltonAPI(unittest.TestCase):
                     'action_label': 'Test Action',
                     'action_id': 'action_1',
                     'process_method': 'flexirule.ruleflow.methods.enrichment.set_default_value',
-                    'method_config': json.dumps({'field': 'priority', 'default_value': 'Medium'}),
+                    'config': json.dumps({'field': 'priority', 'default_value': 'Medium'}),
                     'is_entry_action': 1
                 }]
             })

@@ -18,7 +18,7 @@
         "section_break_process",
         "process_method",
         "configures",
-        "method_config",
+        "config",
         "column_break_2",
         "on_error",
         "retry_count",
@@ -26,6 +26,9 @@
         "column_break_mapping",
         "input_mapping",
         "output_mapping",
+        "section_break_subrule",
+        "skip_conditions",
+        "skip_permissions",
         "section_break_flow",
         "next_step_if_true",
         "next_step_if_false",
@@ -112,8 +115,8 @@
             "options": "Process Method"
         },
         {
-            "description": "Configuration for the process method (validated against schema)",
-            "fieldname": "method_config",
+            "description": "Configuration for the action (validated against schema for Process types)",
+            "fieldname": "config",
             "fieldtype": "Code",
             "label": "Configuration (JSON)",
             "options": "JSON"
@@ -146,6 +149,29 @@
             "fieldname": "timeout",
             "fieldtype": "Int",
             "label": "Timeout (seconds)"
+        },
+        {
+            "collapsible": 1,
+            "depends_on": "eval:doc.action_type=='Sub-Rule'",
+            "fieldname": "section_break_subrule",
+            "fieldtype": "Section Break",
+            "label": "Sub-Rule Options"
+        },
+        {
+            "default": "1",
+            "depends_on": "eval:doc.action_type=='Sub-Rule'",
+            "description": "Skip evaluating the sub-rule's trigger conditions",
+            "fieldname": "skip_conditions",
+            "fieldtype": "Check",
+            "label": "Skip Sub-Rule Conditions"
+        },
+        {
+            "default": "0",
+            "depends_on": "eval:doc.action_type=='Sub-Rule'",
+            "description": "Execute sub-rule without checking current user's permissions",
+            "fieldname": "skip_permissions",
+            "fieldtype": "Check",
+            "label": "Skip Permission Check"
         },
         {
             "collapsible": 1,
@@ -254,7 +280,7 @@
     ],
     "istable": 1,
     "links": [],
-    "modified": "2025-12-11 18:58:15.112620",
+    "modified": "2025-12-23 19:10:00.000000",
     "modified_by": "Administrator",
     "module": "Ruleflow",
     "name": "Rule Action",

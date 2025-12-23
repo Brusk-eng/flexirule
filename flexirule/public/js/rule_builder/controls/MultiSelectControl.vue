@@ -1,9 +1,9 @@
 <script setup>
 /**
- * MultiSelectControl - Like Frappe Report Multiselect
- * Renders options as toggleable pills/chips
+ * MultiSelectControl - Wrapper for Frappe's MultiSelect control
+ * Supports both static options (Select) and dynamic links (Link)
  */
-import { ref, computed, watch, onMounted } from "vue";
+import { onMounted, ref, watch, onBeforeUnmount } from "vue";
 
 const props = defineProps({
     df: Object,
@@ -13,107 +13,92 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
-const selected = computed({
-    get() {
-        if (Array.isArray(props.modelValue)) return props.modelValue;
-        if (typeof props.modelValue === 'string' && props.modelValue) {
-            try {
-                return JSON.parse(props.modelValue);
-            } catch {
-                return props.modelValue.split(',').map(s => s.trim()).filter(Boolean);
-            }
+let wrapper = ref(null);
+let control = ref(null);
+
+function make_control() {
+    if (!wrapper.value) return;
+    wrapper.value.innerHTML = "";
+
+    // Parse value: standardizing to array for MultiSelect
+    let initialValue = [];
+    if (Array.isArray(props.modelValue)) {
+        initialValue = props.modelValue;
+    } else if (typeof props.modelValue === 'string' && props.modelValue) {
+         try {
+             const parsed = JSON.parse(props.modelValue);
+             initialValue = Array.isArray(parsed) ? parsed : [props.modelValue]; 
+         } catch {
+             initialValue = props.modelValue.split(',').map(s => s.trim()).filter(Boolean);
+         }
+    }
+
+    try {
+        control.value = frappe.ui.form.make_control({
+            parent: wrapper.value,
+            df: {
+                ...props.df,
+                fieldtype: "MultiSelect", // Force MultiSelect
+                label: props.df.label, 
+                options: props.df.options, // DocType for Link or Options for Select
+                read_only: props.read_only,
+                change: () => {
+                    const val = control.value.get_value();
+                    // Emit array or string? SimpleCondition usually works with strings or lists.
+                    // Let's emit array, MappingWrapper can handle it or we serialize if needed.
+                    // But SimpleCondition logic for 'in' usually expects a list/tuple in python.
+                    // Storing as JSON string is safer for text fields.
+                    emit("update:modelValue", val); 
+                },
+                get_data: props.df.get_data // Pass through get_data if defined
+            },
+            render_input: true,
+        });
+        
+        if (initialValue && initialValue.length) {
+            control.value.set_value(initialValue);
         }
-        return [];
-    },
-    set(val) {
-        emit("update:modelValue", val);
+    } catch(e) {
+        console.error("Failed to create MultiSelect control", e);
+        wrapper.value.innerHTML = `<div class="text-danger">Error loading control</div>`;
+    }
+}
+
+onMounted(() => {
+    make_control();
+});
+
+watch(() => props.modelValue, (val) => {
+    // Sync external changes to control
+    if (!control.value) return;
+    
+    let currentVal = control.value.get_value();
+    // Normalize comparison (arrays)
+    if (JSON.stringify(currentVal) !== JSON.stringify(val)) {
+        control.value.set_value(val);
     }
 });
 
-const options = computed(() => {
-    const opts = props.df?.options || '';
-    if (Array.isArray(opts)) return opts;
-    if (typeof opts === 'string') {
-        return opts.split('\n').map(o => o.trim()).filter(Boolean);
+watch(() => props.df, () => {
+    make_control();
+}, { deep: true });
+
+onBeforeUnmount(() => {
+    if (control.value && control.value.destroy) {
+        // control.value.destroy(); // Frappe controls might not have destroy, mostly DOM removal is enough
     }
-    return [];
 });
-
-function toggle(opt) {
-    if (props.read_only) return;
-    const current = [...selected.value];
-    const idx = current.indexOf(opt);
-    if (idx >= 0) {
-        current.splice(idx, 1);
-    } else {
-        current.push(opt);
-    }
-    emit("update:modelValue", current);
-}
-
-function isSelected(opt) {
-    return selected.value.includes(opt);
-}
-
-function selectAll() {
-    emit("update:modelValue", [...options.value]);
-}
-
-function clearAll() {
-    emit("update:modelValue", []);
-}
 </script>
 
 <template>
-    <div class="multiselect-control">
-        <label v-if="df.label" class="control-label">
-            {{ __(df.label) }}
-            <span v-if="df.reqd" class="text-danger">*</span>
-        </label>
-        
-        <div class="multiselect-actions" v-if="!read_only && options.length > 3">
-            <button type="button" class="btn btn-xs btn-default" @click="selectAll">
-                {{ __("Select All") }}
-            </button>
-            <button type="button" class="btn btn-xs btn-default" @click="clearAll">
-                {{ __("Clear") }}
-            </button>
-        </div>
-        
-        <div class="multiselect-pills">
-            <button
-                v-for="opt in options"
-                :key="opt"
-                type="button"
-                class="pill-btn"
-                :class="{ active: isSelected(opt), disabled: read_only }"
-                @click="toggle(opt)"
-                :disabled="read_only"
-            >
-                <span class="pill-check" v-if="isSelected(opt)">✓</span>
-                {{ __(opt.replace(/_/g, ' ')) }}
-            </button>
-        </div>
-        
-        <small v-if="df.description" class="form-text text-muted">
-            {{ df.description }}
-        </small>
-    </div>
+    <div class="control-wrapper" ref="wrapper"></div>
 </template>
 
 <style scoped>
-.multiselect-control { margin-bottom: 15px; }
-.control-label { font-size: 12px; font-weight: 500; margin-bottom: 8px; display: block; }
-.multiselect-actions { margin-bottom: 8px; display: flex; gap: 5px; }
-.multiselect-pills { display: flex; flex-wrap: wrap; gap: 6px; }
-.pill-btn {
-    display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
-    font-size: 12px; border: 1px solid var(--border-color, #d1d8dd);
-    border-radius: 16px; background: var(--bg-color, white);
-    cursor: pointer; transition: all 0.15s ease;
+.control-wrapper {
+    min-height: 35px;
 }
-.pill-btn:hover:not(.disabled) { border-color: var(--primary); background: var(--bg-light-blue, #f0f8ff); }
-.pill-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
-.pill-btn.disabled { opacity: 0.6; cursor: not-allowed; }
-.pill-check { font-size: 10px; font-weight: bold; }
+:deep(.form-group) {
+    margin-bottom: 0 !important;
+}
 </style>

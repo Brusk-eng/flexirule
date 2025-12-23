@@ -203,17 +203,17 @@
                         <ConfigurationBuilder 
                             v-if="selectedMethodSchema"
                             :schema="selectedMethodSchema"
-                            :modelValue="selectedNode.data?.method_config"
+                            :modelValue="selectedNode.data?.config"
                             :inputMapping="selectedNode.data?.input_mapping"
                             :documentType="store.rule_doc?.document_type"
-                            @update:modelValue="updateField('method_config', $event)"
+                            @update:modelValue="updateField('config', $event)"
                             @update:inputMapping="updateField('input_mapping', $event)"
                         />
                         <div v-if="selectedNode.data?.action_type === 'Process' && !selectedMethodSchema" class="form-group">
                             <label>{{ __("Static Config (JSON)") }}</label>
                             <textarea class="form-control text-mono" rows="4" style="font-size: 11px;"
-                                :value="selectedNode.data?.method_config"
-                                @input="updateField('method_config', $event.target.value)"
+                                :value="selectedNode.data?.config"
+                                @input="updateField('config', $event.target.value)"
                                 placeholder="{}"></textarea>
                         </div>
                         <div v-if="selectedNode.data?.action_type === 'Process'" class="form-group mt-3">
@@ -285,6 +285,32 @@
                             <div v-if="!store.available_rules.length" class="p-2 text-muted">{{ __("No rules found for this DocType") }}</div>
                         </div>
                         <div class="help-text text-muted" style="font-size:11px">{{ __("Rule to execute. Context vars are shared.") }}</div>
+                    </div>
+                    
+                    <!-- Sub-Rule Bypass Options -->
+                    <div class="form-group mt-3 p-2 border rounded bg-light">
+                        <label class="mb-2" style="font-weight:600">{{ __("Sub-Rule Execution Options") }}</label>
+                        
+                        <label class="checkbox-label d-block mb-2">
+                            <input type="checkbox" 
+                                :checked="selectedNode.data?.skip_conditions !== 0"
+                                @change="updateField('skip_conditions', $event.target.checked ? 1 : 0)" />
+                            {{ __("Skip Trigger Conditions") }}
+                        </label>
+                        <div class="help-text text-muted mb-3" style="font-size:10px">
+                            {{ __("When enabled, the sub-rule's trigger_condition will be bypassed. Useful when calling sub-rules that are normally triggered automatically.") }}
+                        </div>
+                        
+                        <label class="checkbox-label d-block">
+                            <input type="checkbox" 
+                                :checked="selectedNode.data?.skip_permissions === 1"
+                                @change="updateField('skip_permissions', $event.target.checked ? 1 : 0)" />
+                            {{ __("Skip Permission Checks") }}
+                            <span class="badge badge-warning ml-1" style="font-size:9px">{{ __("Audit") }}</span>
+                        </label>
+                        <div class="help-text text-muted" style="font-size:10px">
+                            {{ __("When enabled, the sub-rule executes regardless of user permissions. This action is logged for auditing.") }}
+                        </div>
                     </div>
                 </template>
 
@@ -935,33 +961,34 @@ function updateActionType(value) {
 function updateProcessMethod(value) {
     if (!selectedNode.value?.data) return;
     selectedNode.value.data.process_method = value;
-    selectedNode.value.data.method_config = null;
+    selectedNode.value.data.config = null;
     store.mark_dirty();
 }
 
 function updateSubRuleName(value) {
     if (!selectedNode.value?.data) return;
     selectedNode.value.data.rule = value;
-    // Keep method_config for engine backward compatibility if needed, 
-    // but engine now prioritizes .rule
-    selectedNode.value.data.method_config = JSON.stringify({ "rule": value });
+    // Store in config for backward compat - engine now prioritizes .rule
+    selectedNode.value.data.config = JSON.stringify({ "rule": value });
     store.mark_dirty();
 }
 
 function selectSubRule(rule) {
     if (!selectedNode.value?.data) return;
     selectedNode.value.data.rule = rule.name;
-    selectedNode.value.data.method_config = JSON.stringify({ "rule": rule.name });
+    selectedNode.value.data.config = JSON.stringify({ "rule": rule.name });
     subRuleSearch.value = rule.rule_name || rule.name;
     showSubRuleSuggestions.value = false;
     store.mark_dirty();
 }
 
-// JSON Config Helpers (For Loop, Switch, Wait)
+// JSON Config Helpers (For Loop, Switch, Wait) - uses 'config' field with backward compat
 function getJsonConfig(key, defaultVal) {
-    if (!selectedNode.value?.data?.method_config) return defaultVal;
+    // Support both new 'config' and legacy 'method_config'
+    const configStr = selectedNode.value?.data?.config || selectedNode.value?.data?.method_config;
+    if (!configStr) return defaultVal;
     try {
-        const config = JSON.parse(selectedNode.value.data.method_config);
+        const config = JSON.parse(configStr);
         return config[key] !== undefined ? config[key] : defaultVal;
     } catch(e) {
         return defaultVal;
@@ -972,11 +999,11 @@ function updateJsonConfig(key, value) {
     if (!selectedNode.value?.data) return;
     let config = {};
     try {
-        config = JSON.parse(selectedNode.value.data.method_config || '{}');
+        config = JSON.parse(selectedNode.value.data.config || selectedNode.value.data.method_config || '{}');
     } catch(e) {}
     
     config[key] = value;
-    selectedNode.value.data.method_config = JSON.stringify(config);
+    selectedNode.value.data.config = JSON.stringify(config);
     store.mark_dirty();
 }
 
@@ -988,13 +1015,13 @@ function addSwitchCase() {
     
     let config = {};
     try {
-        config = JSON.parse(selectedNode.value.data.method_config || '{}');
+        config = JSON.parse(selectedNode.value.data.config || selectedNode.value.data.method_config || '{}');
     } catch(e) {}
     
     if (!config.cases) config.cases = {};
     config.cases[newCaseValue.value] = newCaseTarget.value;
     
-    selectedNode.value.data.method_config = JSON.stringify(config);
+    selectedNode.value.data.config = JSON.stringify(config);
     store.mark_dirty();
     
     newCaseValue.value = '';
@@ -1004,12 +1031,12 @@ function addSwitchCase() {
 function removeSwitchCase(val) {
     let config = {};
     try {
-        config = JSON.parse(selectedNode.value.data.method_config || '{}');
+        config = JSON.parse(selectedNode.value.data.config || selectedNode.value.data.method_config || '{}');
     } catch(e) {}
     
     if (config.cases && config.cases[val]) {
         delete config.cases[val];
-        selectedNode.value.data.method_config = JSON.stringify(config);
+        selectedNode.value.data.config = JSON.stringify(config);
         store.mark_dirty();
     }
 }
@@ -1066,10 +1093,10 @@ async function openConfigDialog() {
     const childTables = schema.child_tables || {};
     const dialogFields = await buildDialogFields(schema.fields, parentDoctype, childTables);
     
-    // Parse current config
+    // Parse current config (support both new 'config' and legacy 'method_config')
     let currentConfig = {};
     try {
-        const configStr = selectedNode.value.data?.method_config;
+        const configStr = selectedNode.value.data?.config || selectedNode.value.data?.method_config;
         if (configStr && configStr !== '{}' && configStr !== 'null') {
             currentConfig = JSON.parse(configStr);
         }
@@ -1104,7 +1131,7 @@ async function openConfigDialog() {
                     }
                 });
                 
-                selectedNode.value.data.method_config = JSON.stringify(values);
+                selectedNode.value.data.config = JSON.stringify(values);
                 store.mark_dirty();
                 frappe.show_alert({ message: __('Configuration saved'), indicator: 'green' });
             }
