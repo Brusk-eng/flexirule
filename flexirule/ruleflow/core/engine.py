@@ -30,6 +30,7 @@ from flexirule.ruleflow.core.exceptions import (
 from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
 from flexirule.ruleflow.utils.schema_validator import get_custom_validator, frappe_fields_to_json_schema
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
+from flexirule.ruleflow.core.evaluator import check_link_match
 
 
 class TimeoutException(Exception):
@@ -500,6 +501,7 @@ class RuleEngine:
 			'vars': context.get('vars', {}),
 			'frappe': context.get('frappe', _safe_frappe),
 			'resolve': FieldResolver.resolve,
+			'check_link_match': check_link_match,
 			'True': True,
 			'False': False,
 			'None': None

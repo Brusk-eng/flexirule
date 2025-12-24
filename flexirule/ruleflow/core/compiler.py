@@ -175,6 +175,13 @@ class ConditionCompiler:
 		rhs_code = self._compile_operand(right, scopes)
 		py_op = self.OPERATOR_MAP.get(op, "==")
 		
+		# Link/Dynamic Link Tuple Handling
+		# _compile_operand returns repr(list) for our tuples, so it looks like "['DocType', 'Value']"
+		if rhs_code.startswith("['") and rhs_code.endswith("]"):
+		    # It's a literal tuple/list from our schema
+		    # Generates: check_link_match(lhs, rhs, op)
+		    return f"check_link_match({lhs_code}, {rhs_code}, '{op}')"
+
 		# Contains/Not Contains logic
 		if op == 'contains':
 			return f"({rhs_code} in str({lhs_code}) if {lhs_code} else False)"
@@ -258,6 +265,11 @@ class ConditionCompiler:
 			if val is None: return "''"
 			if val is True: return "1"
 			if val is False: return "0"
+			
+			# Handle Link Tuples (List/Tuple)
+			if isinstance(val, (list, tuple)):
+			    return repr(val)
+			
 			# For strings use repr, for numbers use direct
 			if isinstance(val, str):
 				return repr(val)

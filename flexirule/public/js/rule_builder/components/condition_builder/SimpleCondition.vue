@@ -85,6 +85,65 @@ const valueFieldSchema = computed(() => {
     return schema;
 });
 
+// Wrapped Value for Link/Dynamic Link Tuple handling
+const wrappedValue = computed({
+    get() {
+        const val = props.node.right.value;
+        const ft = selectedField.value?.fieldtype;
+        const op = props.node.op;
+
+        // If not a Link/Dynamic Link, return raw value
+        if (ft !== 'Link' && ft !== 'Dynamic Link') return val;
+
+        // If value is empty, return empty
+        if (!val) return op === 'in' || op === 'not in' ? [] : '';
+
+        // If it's a tuple [DocType, Value], return Value
+        if (Array.isArray(val) && val.length === 2 && typeof val[0] === 'string') {
+            return val[1];
+        }
+
+        // Legacy/Fallback: return raw value
+        return val;       
+    },
+    set(newVal) {
+        const ft = selectedField.value?.fieldtype;
+        
+        if (ft !== 'Link' && ft !== 'Dynamic Link') {
+            props.node.right.value = newVal;
+            return;
+        }
+
+        // Determine DocType
+        let docType = '';
+        if (ft === 'Link') {
+            docType = selectedField.value.options;
+        } else if (ft === 'Dynamic Link') {
+            docType = dynamicLinkDocType.value;
+        }
+
+        if (!docType) {
+            // Should not happen if UI is correct, but falback
+             props.node.right.value = newVal;
+             return;
+        }
+
+        // Wrap it: [DocType, Value]
+        props.node.right.value = [docType, newVal];
+    }
+});
+
+// Watch for changes in existing node value to init dynamicLinkDocType if needed
+watch(() => props.node, (newNode) => {
+    // Attempt to extract existing Dynamic Link DocType from saved tuple
+    if (selectedField.value?.fieldtype === 'Dynamic Link' && !dynamicLinkDocType.value) {
+        const val = newNode.right?.value;
+        if (Array.isArray(val) && val.length === 2 && typeof val[0] === 'string') {
+            dynamicLinkDocType.value = val[0];
+        }
+    }
+}, { immediate: true, deep: true });
+
 function setMapping(ref) {
     props.node.right.ref = ref;
     props.node.right.value = '';
@@ -117,9 +176,7 @@ function clearMapping() {
             </select>
         </div>
 
-        <!-- Value (hidden for is_set/is_not_set) -->
-        <div v-if="!['is_set', 'is_not_set'].includes(node.op)" class="condition-cell value-cell">
-            <!-- Dynamic Link Two-Stage Selection -->
+        <div class="condition-cell value-cell" v-if="!['is_set', 'is_not_set'].includes(node.op)">
             <div v-if="selectedField?.fieldtype === 'Dynamic Link'" class="mb-2">
                  <label class="small text-muted d-block">{{ __("Target DocType") }}</label>
                  <!-- Using ControlFactory to render Link to DocType -->
@@ -138,7 +195,7 @@ function clearMapping() {
             >
                 <ControlFactory 
                     :df="valueFieldSchema"
-                    v-model="node.right.value"
+                    v-model="wrappedValue"
                 />
             </MappingWrapper>
         </div>

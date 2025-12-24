@@ -125,6 +125,8 @@ class ConditionEvaluator:
 		"""
 		Evaluate a single condition
 		"""
+		# DEBUG START
+		# print(f"DEBUG_START_SINGLE: {condition}")
 		try:
 			# Get left value
 			left = self._resolve_value(condition.get('left'), doc, row)
@@ -139,6 +141,12 @@ class ConditionEvaluator:
 			# Get right value
 			right = self._resolve_value(condition.get('right'), doc, row)
 			
+			# Special Handling for Link/Dynamic Link Tuples
+			# right might be ["DocType", "Value"] or ["DocType", ["V1", "V2"]]
+			if isinstance(right, (list, tuple)) and len(right) == 2 and isinstance(right[0], str):
+				# It is likely a Link Tuple (DocType, Value)
+				return check_link_match(left, right, op)
+
 			# Get operator function
 			op_func = self.OPERATORS.get(op)
 			if not op_func:
@@ -158,6 +166,7 @@ class ConditionEvaluator:
 				message=f"Condition: {json.dumps(condition)}\\nError: {str(e)}"
 			)
 			return False
+
 	
 	def _resolve_value(self, value_def: Any, doc, row=None) -> Any:
 		"""
@@ -233,3 +242,36 @@ class ConditionEvaluator:
 		# Use FieldResolver for advanced resolution
 		from flexirule.ruleflow.utils.field_resolver import FieldResolver
 		return FieldResolver.resolve(doc, fieldname)
+
+
+def check_link_match(lhs, rhs, op='=='):
+	"""
+	Helper to compare a Link/Dynamic Link field (lhs) with a Tuple value (rhs).
+	rhs format: ["DocType", Value] or ["DocType", [Values]]
+	
+	Logic:
+	1. If LHS is None/Empty, handle based on Op.
+	2. Unpack RHS.
+	3. Perform standard comparison on values.
+	"""
+	if not rhs or not isinstance(rhs, (list, tuple)) or len(rhs) < 2:
+		return False 
+
+	target_doctype = rhs[0]
+	target_value = rhs[1]
+	
+	# Mapping standard operators
+	ops = {
+		'==': lambda a, b: a == b,
+		'!=': lambda a, b: a != b,
+		'in': lambda a, b: a in b if b else False,
+		'not in': lambda a, b: a not in b if b else True,
+		'not_in': lambda a, b: a not in b if b else True,
+	}
+	
+	op_func = ops.get(op) or ops.get(op.replace(' ', '_'))
+	
+	if not op_func:
+		return False
+		
+	return op_func(lhs, target_value)

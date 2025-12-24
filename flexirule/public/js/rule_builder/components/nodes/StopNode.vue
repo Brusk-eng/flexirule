@@ -16,86 +16,76 @@ function deleteNode() {
 </script>
 
 <template>
-    <div class="stop-node">
-        <Handle 
-            type="target" 
-            :position="Position.Left" 
-            class="handle-target"
-        />
+    <div class="stop-node ai-agent-style">
+        <Handle type="target" :position="Position.Left" class="handle-target"/>
         
-        <div class="content">
-            <span class="icon">■</span>
-            <span class="text">{{ label }}</span>
+        <div class="node-content">
+            <div class="icon-wrapper">
+                <i class="fa fa-stop"></i>
+            </div>
+            <div class="details-section">
+                <div class="node-label">{{ label }}</div>
+                <div class="node-subtitle">{{ __("End") }}</div>
+            </div>
         </div>
-        
-        <button class="delete-btn" @click.stop="deleteNode" :title="__('Delete Node')">×</button>
+
+        <button class="delete-btn" @click.stop="deleteNode" :title="__('Delete Node')">
+            <i class="fa fa-trash"></i>
+        </button>
     </div>
 </template>
 
 <style scoped>
-.stop-node {
-    padding: 12px 16px;
-    background: linear-gradient(135deg, var(--danger) 0%, #dc3545 100%);
-    color: white;
-    border-radius: 8px;
-    min-width: 100px;
-    box-shadow: 0 2px 8px rgba(220,53,69,0.3);
+.ai-agent-style {
+    background: #fff;
+    border-radius: 12px;
+    width: 160px;
+    height: 60px;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--danger);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
     position: relative;
-}
-
-.content {
     display: flex;
     align-items: center;
-    gap: 8px;
+    padding: 0 12px;
 }
 
-.icon {
-    font-size: 16px;
+.ai-agent-style:hover {
+    border-color: var(--danger);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.text {
-    font-size: 12px;
-    font-weight: 600;
+.node-content { display: flex; align-items: center; width: 100%; }
+
+.icon-wrapper {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: #fee2e2;
+    color: var(--danger);
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 12px;
+    font-size: 14px;
 }
+
+.details-section { flex: 1; }
+.node-label { font-weight: 600; font-size: 13px; color: var(--text-color); }
+.node-subtitle { font-size: 10px; color: var(--text-muted); }
 
 .delete-btn {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: white;
-    color: var(--danger);
-    border: 2px solid var(--danger);
-    font-size: 16px;
-    line-height: 1;
-    cursor: pointer;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: none; background: transparent; color: var(--text-gray);
+    cursor: pointer; padding: 4px; display: none;
+    position: absolute; top: -10px; right: -10px;
+    background: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-
-.stop-node:hover .delete-btn {
-    display: flex;
-}
-
-.delete-btn:hover {
-    background: var(--danger);
-    color: white;
-    transform: scale(1.1);
-}
+.ai-agent-style:hover .delete-btn { display: flex; }
+.delete-btn:hover { color: var(--danger); }
 
 .handle-target {
-    background: white !important;
-    border: 2px solid var(--danger) !important;
-    width: 10px !important;
-    height: 10px !important;
-}
-
-.handle-target:hover {
-    transform: scale(1.4);
+    background: var(--text-muted) !important;
+    border: 2px solid white !important;
+    width: 10px !important; height: 10px !important;
+    left: -5px !important; border-radius: 50%;
 }
 </style>

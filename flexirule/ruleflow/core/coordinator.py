@@ -76,7 +76,7 @@ class RuleCoordinator:
 			return
 			
 		# Strict Eligibility Check (V1 Contract)
-		from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+
 		from flexirule.ruleflow.utils.field_resolver import FieldResolver
 		
 		# Fetch old_doc for change detection
@@ -140,6 +140,7 @@ class RuleCoordinator:
 		if rule_doc.get('trigger_condition_expression'):
 			try:
 				from flexirule.ruleflow.utils.field_resolver import FieldResolver
+				from flexirule.ruleflow.core.evaluator import check_link_match
 				
 				# Fetch old_doc if missing
 				if not old_doc and hasattr(doc, 'get_doc_before_save'):
@@ -150,6 +151,7 @@ class RuleCoordinator:
 					'old_doc': old_doc, 
 					'frappe': frappe, 
 					'resolve': FieldResolver.resolve,
+					'check_link_match': check_link_match,
 					'True': True,
 					'False': False,
 					'None': None
