@@ -80,19 +80,20 @@ def frappe_fields_to_json_schema(frappe_schema):
     Convert Frappe-style 'fields' schema to JSON Schema
     """
     if "type" in frappe_schema and "properties" in frappe_schema:
-        return frappe_schema # Already JSON Schema
-        
+        return frappe_schema  # Already JSON Schema
+
     fields = frappe_schema.get("fields", [])
     properties = {}
     required = []
-    
+
     for field in fields:
         fieldname = field.get("fieldname")
-        if not fieldname: continue
-        
+        if not fieldname:
+            continue
+
         ftype = field.get("fieldtype")
         js_type = "string"
-        
+
         if ftype in ["Int", "Check"]:
             js_type = "integer"
         elif ftype in ["Float", "Percent", "Currency"]:
@@ -100,18 +101,29 @@ def frappe_fields_to_json_schema(frappe_schema):
         elif ftype in ["Table"]:
             js_type = "array"
         elif ftype in ["Code"]:
-            js_type = ["object", "array", "string"] # Flexible
-            
+            js_type = ["object", "array", "string"]  # Flexible
+        elif ftype in ["MultiSelect"]:
+            js_type = "array"
+            options = field.get("options")
+            if isinstance(options, str):
+                # Split newline or comma separated options
+                options = [opt.strip() for opt in options.replace("\n", ",").split(",")]
+            properties[fieldname] = {"type": "array", "items": {"type": "string", "enum": options}}
+            if field.get("reqd"):
+                required.append(fieldname)
+            continue  # Skip default string mapping
+
+        # Default mapping for other types
         properties[fieldname] = {"type": js_type}
-        
+
         if field.get("reqd"):
             required.append(fieldname)
-            
+
     schema = {
         "type": "object",
         "properties": properties
     }
     if required:
         schema["required"] = required
-        
+
     return schema
