@@ -11,175 +11,126 @@ function deleteNode() {
 </script>
 
 <template>
-    <div class="condition-node" :class="{ 'effectively-disabled': data.is_effectively_disabled, 'selected': selected }">
-        <Handle type="target" :position="Position.Left" class="handle-target" />
-        
-        <!-- Toolbar -->
-        <div class="node-toolbar" v-if="selected">
-            <button class="toolbar-btn delete" @click.stop="deleteNode" :title="__('Delete')">
-                <i class="fa fa-trash"></i>
-            </button>
-        </div>
-        
-        <div class="content">
-            <div class="icon-wrapper">
+    <div class="condition-node-wrapper">
+        <div class="rhombus-shape" :class="{ 'selected': selected, 'effectively-disabled': data.is_effectively_disabled }">
+            <div class="inner-rhombus">
                 <i class="fa fa-code-fork"></i>
             </div>
-            <div class="text">{{ label }}</div>
         </div>
+
+        <!-- Handles -->
+        <Handle type="target" :position="Position.Left" class="handle-input" />
         
-        <!-- Output Ports Wrapper -->
-        <div class="output-ports">
-            <!-- True Output -->
-            <div class="port-row true-row">
-                <span class="port-label">{{ __("True") }}</span>
-                <div class="handle-container true-handle-container">
-                    <Handle type="source" :position="Position.Right" id="default" class="handle-out handle-true" />
-                    <div class="handle-icon"><i class="fa fa-check"></i></div>
-                </div>
-            </div>
-            
-            <!-- False Output -->
-            <div class="port-row false-row">
-                <span class="port-label">{{ __("False") }}</span>
-                <div class="handle-container false-handle-container">
-                    <Handle type="source" :position="Position.Right" id="false" class="handle-out handle-false" />
-                    <div class="handle-icon"><i class="fa fa-times"></i></div>
-                </div>
-            </div>
+        <div class="handle-container handle-true-pos">
+            <span class="port-label true-label">{{ __("YES") }}</span>
+            <Handle type="source" :position="Position.Top" id="true" class="handle-out handle-true" />
+        </div>
+
+        <div class="handle-container handle-false-pos">
+            <span class="port-label false-label">{{ __("NO") }}</span>
+            <Handle type="source" :position="Position.Bottom" id="false" class="handle-out handle-false" />
+        </div>
+
+        <!-- Label below -->
+        <div class="condition-label">{{ label }}</div>
+
+        <!-- Toolbar -->
+         <div class="node-toolbar" v-if="selected">
+            <button class="toolbar-btn delete" @click.stop="deleteNode">
+                <i class="fa fa-trash"></i>
+            </button>
         </div>
     </div>
 </template>
 
 <style scoped>
-.condition-node {
-    padding: 0; 
-    background: white; 
-    border: 1px solid var(--border-color);
-    border-radius: 8px; 
-    width: 160px; 
-    min-height: 80px;
-    position: relative; 
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s; 
-    display: flex; 
-    align-items: center;
-    border-left: 4px solid var(--warning);
-}
-.condition-node.selected { 
-    border: 2px solid var(--primary); 
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2); 
-}
-.effectively-disabled { opacity: 0.5; filter: grayscale(100%); pointer-events: none; }
-.condition-node:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: var(--primary); }
-
-.content { 
-    display: flex; 
-    align-items: center; 
-    padding: 12px;
-    gap: 10px;
-    flex: 1;
-}
-
-.icon-wrapper {
-    width: 32px; height: 32px;
-    background: #fffbeb; color: var(--warning);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px;
-}
-
-.text { 
-    font-size: 13px; font-weight: 600; color: var(--text-color);
-    line-height: 1.2;
-}
-
-.node-toolbar {
-    position: absolute; top: -32px; right: 0;
-    background: var(--fg-color); border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    display: flex; padding: 4px;
-    animation: fadeIn 0.2s;
-    z-index: 10;
-}
-.toolbar-btn {
-    border: none; background: transparent; padding: 6px;
-    border-radius: 4px; cursor: pointer; color: var(--text-color); font-size: 12px;
-}
-.toolbar-btn:hover { background: var(--bg-light-gray); }
-.toolbar-btn.delete:hover { background: var(--danger-light); color: var(--danger); }
-
-/* Ports */
-.output-ports {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    height: 100%;
-    padding: 10px 0;
-    position: absolute;
-    right: 0;
-    top: 0;
-    height: 100%;
-}
-
-.port-row {
+.condition-node-wrapper {
     position: relative;
+    width: 140px;
+    height: 100px;
     display: flex;
+    justify-content: center;
     align-items: center;
-    justify-content: flex-end;
-    margin-right: -14px; /* Push handle out */
-    height: 30px;
 }
 
-.port-label { 
-    font-size: 10px; font-weight: 700; user-select: none;
-    margin-right: 20px; text-transform: uppercase;
+.rhombus-shape {
+    width: 100px;
+    height: 60px;
+    background: var(--orange-500);
+    transform: skewX(-20deg); /* Slanted Rect / Rhombus */
+    border-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    border: 2px solid white;
 }
-.true-row .port-label { color: var(--success); }
-.false-row .port-label { color: var(--danger); }
+
+.rhombus-shape.selected {
+    box-shadow: 0 0 0 4px rgba(var(--orange-rgb), 0.4);
+    transform: skewX(-20deg) scale(1.05);
+}
+
+.inner-rhombus {
+    transform: skewX(20deg); /* Counter-skew content */
+    color: white;
+    font-size: 24px;
+}
+
+.condition-label {
+    position: absolute;
+    bottom: -15px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--orange-700);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Handles */
+.handle-input {
+    background: var(--gray-400) !important;
+    border: 2px solid white !important;
+    width: 12px !important; height: 12px !important;
+    left: 5px !important;
+}
 
 .handle-container {
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    background: white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    display: flex; align-items: center; justify-content: center;
-    position: relative; /* Anchor for absolute handle */
-    transition: all 0.2s;
-    z-index: 5;
-}
-
-.handle-container:hover { transform: scale(1.1); }
-
-.true-handle-container { border: 2px solid var(--success); color: var(--success); }
-.false-handle-container { border: 2px solid var(--danger); color: var(--danger); }
-
-.handle-icon { font-size: 12px; font-weight: bold; pointer-events: none; }
-
-.handle-target { 
-    background: var(--text-muted) !important; border: 2px solid white !important; 
-    width: 10px !important; height: 10px !important; left: -5px !important; 
-    border-radius: 50%;
-}
-
-/* 
-   Invisible Vue Flow Handle.
-   Must cover the entire container to catch clicks/drags.
-   Using specific Vue Flow classes if needed, but the custom class should work if ID matches.
-*/
-.handle-out { 
-    opacity: 0; 
-    width: 100% !important; 
-    height: 100% !important; 
-    left: 0 !important; 
-    top: 0 !important;
-    position: absolute !important;
-    border-radius: 50%;
-    cursor: crosshair;
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     z-index: 10;
-    transform: none !important; /* Prevent Vue Flow from centering it relative to node */
 }
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-</style>
+.handle-true-pos { top: -10px; left: 50%; transform: translateX(-50%); }
+.handle-false-pos { bottom: -10px; left: 50%; transform: translateX(-50%); }
 
+.handle-out {
+    position: relative !important;
+    transform: none !important;
+    top: auto !important;
+    width: 12px !important; height: 12px !important;
+    border: 2px solid white !important;
+}
+
+.handle-true { background: var(--success) !important; }
+.handle-false { background: var(--danger) !important; }
+
+.port-label { font-size: 9px; font-weight: 900; }
+.true-label { color: var(--success); margin-bottom: 2px; }
+.false-label { color: var(--danger); margin-top: 2px; }
+
+/* Toolbar */
+.node-toolbar {
+    position: absolute; top: -30px; right: 0;
+    background: var(--gray-900); border-radius: 50%; padding: 4px;
+}
+.toolbar-btn {
+    width: 24px; height: 24px; border: none; background: transparent; 
+    color: white; cursor: pointer;
+}
+.toolbar-btn:hover { color: var(--danger); }
+
+</style>

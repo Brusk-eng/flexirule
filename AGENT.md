@@ -53,7 +53,7 @@ FlexiRule must always feel **native to Frappe**, not external.
 
 * Vue 3
 * Pinia
-* vue-flow
+* VueFlow
 * Metadata-driven UI and dynamic schema driven UI
 * Drag & Drop Action Type builder.
 * Multi-Custom Controls for special cases forexample: field Picker.

@@ -16,16 +16,13 @@ function deleteNode() {
 </script>
 
 <template>
-    <div class="stop-node ai-agent-style">
+    <div class="stop-octagon">
         <Handle type="target" :position="Position.Left" class="handle-target"/>
         
-        <div class="node-content">
-            <div class="icon-wrapper">
-                <i class="fa fa-stop"></i>
-            </div>
-            <div class="details-section">
-                <div class="node-label">{{ label }}</div>
-                <div class="node-subtitle">{{ __("End") }}</div>
+        <div class="octagon-content">
+            <div class="inner-border">
+                <i class="fa fa-hand-paper-o"></i>
+                <span class="stop-text">STOP</span>
             </div>
         </div>
 
@@ -36,56 +33,57 @@ function deleteNode() {
 </template>
 
 <style scoped>
-.ai-agent-style {
-    background: #fff;
-    border-radius: 12px;
-    width: 160px;
-    height: 60px;
-    border: 1px solid var(--border-color);
-    border-left: 4px solid var(--danger);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
-    position: relative;
+.stop-octagon {
+    width: 100px;
+    height: 100px;
+    background: var(--danger);
+    clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
     display: flex;
     align-items: center;
-    padding: 0 12px;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s ease;
+    filter: drop-shadow(0 4px 8px rgba(220, 53, 69, 0.4));
 }
 
-.ai-agent-style:hover {
-    border-color: var(--danger);
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+.stop-octagon:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 8px 16px rgba(220, 53, 69, 0.6));
 }
 
-.node-content { display: flex; align-items: center; width: 100%; }
-
-.icon-wrapper {
-    width: 32px; height: 32px;
-    border-radius: 8px;
-    background: #fee2e2;
-    color: var(--danger);
-    display: flex; align-items: center; justify-content: center;
-    margin-right: 12px;
-    font-size: 14px;
+.octagon-content {
+    color: white;
+    z-index: 2;
 }
 
-.details-section { flex: 1; }
-.node-label { font-weight: 600; font-size: 13px; color: var(--text-color); }
-.node-subtitle { font-size: 10px; color: var(--text-muted); }
+.inner-border {
+    width: 80px;
+    height: 80px;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.inner-border i { font-size: 20px; }
+.stop-text { font-size: 14px; font-weight: 900; letter-spacing: 1px; }
 
 .delete-btn {
-    border: none; background: transparent; color: var(--text-gray);
-    cursor: pointer; padding: 4px; display: none;
-    position: absolute; top: -10px; right: -10px;
-    background: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: absolute; top: 5px; right: 5px;
+    background: white; color: var(--danger); border: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 10;
 }
-.ai-agent-style:hover .delete-btn { display: flex; }
-.delete-btn:hover { color: var(--danger); }
+.stop-octagon:hover .delete-btn { display: flex; }
 
 .handle-target {
-    background: var(--text-muted) !important;
-    border: 2px solid white !important;
-    width: 10px !important; height: 10px !important;
-    left: -5px !important; border-radius: 50%;
+    background: white !important;
+    border: 3px solid var(--danger) !important;
+    width: 12px !important; height: 12px !important;
+    left: 0px !important;
 }
 </style>

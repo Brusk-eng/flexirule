@@ -64,7 +64,7 @@
                 <Sidebar @close="closeSidebar" />
             </div>
             <div class="canvas-container">
-                <VueFlow
+                <VueFlow :edges-editable="false"
                     v-model:nodes="nodes"
                     v-model:edges="edges"
                     :default-viewport="{ zoom: 1 }"
@@ -110,7 +110,8 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { VueFlow, useVueFlow, Panel, PanelPosition } from '@vue-flow/core';
+import { VueFlow, Panel, PanelPosition } from '@vue-flow/core';
+import { useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import { useStore } from './store';
 import { generateShortId } from './utils';
@@ -124,7 +125,7 @@ import Sidebar from './components/Sidebar.vue';
 
 const props = defineProps({ rule: String });
 const store = useStore();
-const { fitView, zoomIn, zoomOut } = useVueFlow();
+const { fitView, zoomIn, zoomOut, removeEdges } = useVueFlow();
 
 const showDisabledNodes = ref(true);
 
@@ -360,15 +361,18 @@ function testRule() {
     );
 }
 
-function onEdgeClick(event, edge) {
-    frappe.confirm(
-        __('Delete this connection?'),
-        () => {
-            store.delete_edge(edge.id);
-            frappe.show_alert({ message: __('Connection deleted'), indicator: 'green' });
-        }
-    );
+function onEdgeClick({ edge, event }) {
+    event?.stopPropagation();
+
+    frappe.confirm(__('Delete this connection?'), () => {
+        removeEdges([edge.id]);
+    });
 }
+
+
+
+
+
 </script>
 
 <style>
@@ -426,4 +430,26 @@ input:checked + .slider:before { transform: translateX(14px); }
     margin-right: 0;
     margin-left: 10px;
 }
+</style>
+
+<style>
+:root {
+    --node-start: var(--success);
+    --node-process: var(--blue-500);
+    --node-condition: var(--warning);
+    --node-loop: var(--purple-500);
+    --node-switch: var(--orange-500);
+    --node-wait: var(--yellow-500);
+    --node-subrule: var(--cyan-500);
+    --node-stop: var(--danger);
+}
+
+.node-start { border-left: 4px solid var(--node-start); }
+.node-process { border-left: 4px solid var(--node-process); }
+.node-condition { border-left: 4px solid var(--node-condition); }
+.node-loop { border-left: 4px solid var(--node-loop); }
+.node-switch { border-left: 4px solid var(--node-switch); }
+.node-wait { border-left: 4px solid var(--node-wait); }
+.node-subrule { border-left: 4px solid var(--node-subrule); }
+.node-stop { border-left: 4px solid var(--node-stop); }
 </style>

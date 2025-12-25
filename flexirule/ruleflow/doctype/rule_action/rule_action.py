@@ -17,17 +17,17 @@ class RuleAction(Document):
 
 		action_id: DF.Data
 		action_label: DF.Data
-		action_type: DF.Literal["Condition", "Process", "Loop", "Stop"]
+		action_type: DF.Literal["Entry Action", "Condition", "Process", "Loop", "Stop", "Switch", "Wait", "Sub-Rule"]
 		condition_expression: DF.Code | None
 		condition_json: DF.Code | None
-		method_config: DF.Code | None
+		config: DF.Code | None
 		description: DF.Text | None
 		input_mapping: DF.Code | None
 		is_async: DF.Check
 		is_enabled: DF.Check
 		next_step_if_false: DF.Data | None
 		next_step_if_true: DF.Data | None
-		on_error: DF.Literal["Stop", "Continue", "Retry", "Rollback"]
+		on_error: DF.Literal["Stop", "Continue", "Retry", "Rollback", "Escalate"]
 		output_mapping: DF.Code | None
 		parent: DF.Data
 		parentfield: DF.Data
@@ -38,6 +38,9 @@ class RuleAction(Document):
 		process_method: DF.Link | None
 		retry_count: DF.Int
 		return_variable: DF.Data | None
+		rule: DF.Link | None
+		skip_conditions: DF.Check
+		skip_permissions: DF.Check
 		timeout: DF.Int
 	# end: auto-generated types
 	"""

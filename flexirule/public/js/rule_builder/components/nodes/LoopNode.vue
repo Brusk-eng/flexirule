@@ -11,72 +11,87 @@ function deleteNode() {
 </script>
 
 <template>
-    <div class="loop-node" :class="{ 'effectively-disabled': data.is_effectively_disabled }">
+    <div class="loop-node-container" :class="{ 'effectively-disabled': data.is_effectively_disabled }">
         <Handle type="target" :position="Position.Left" class="handle-target" />
         
-        <div class="content">
-            <div class="icon">↻</div>
-            <div class="text">{{ data.action_label || label }}</div>
-            <div class="subtext">{{ __("Loop") }}</div>
+        <div class="pill-body">
+            <div class="inset-stripe"></div>
+            <div class="content">
+                <i class="fa fa-refresh"></i>
+                <div class="text-group">
+                    <span class="node-title">{{ data.action_label || label }}</span>
+                    <span class="node-type">ITERATE</span>
+                </div>
+            </div>
         </div>
         
         <button class="delete-btn" @click.stop="deleteNode">×</button>
         
-        <!-- Iterate / Body Path -->
         <Handle type="source" :position="Position.Right" id="default" class="handle-do" />
-        <span class="handle-label label-do">{{ __("Do") }}</span>
+        <span class="handle-label label-do">DO</span>
         
-        <!-- Exit / Done Path -->
         <Handle type="source" :position="Position.Bottom" id="false" class="handle-done" />
-        <span class="handle-label label-done">{{ __("Done") }}</span>
+        <span class="handle-label label-done">DONE</span>
     </div>
 </template>
 
 <style scoped>
-.loop-node {
-    padding: 10px 15px;
-    background: white;
-    border: 2px solid var(--orange-500);
-    border-radius: 50px; /* Pill shape */
-    min-width: 120px;
+.loop-node-container {
     position: relative;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    padding: 5px;
 }
 
-.effectively-disabled {
-    opacity: 0.5;
-    filter: grayscale(100%);
-    pointer-events: none;
+.pill-body {
+    background: #fff;
+    border: 2px solid var(--yellow-400);
+    border-radius: 50px; /* Pill */
+    padding: 10px 20px;
+    min-width: 150px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    position: relative;
+    background: var(--yellow-50);
+}
+
+.inset-stripe {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 6px;
+    height: 2px;
+    background: var(--yellow-200);
+    border-radius: 1px;
 }
 
 .content {
     display: flex;
     align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 2px;
+    gap: 12px;
 }
 
-.icon { font-size: 18px; color: var(--orange-500); line-height: 1; }
-.text { font-size: 12px; font-weight: 600; }
-.subtext { font-size: 10px; color: var(--text-muted); }
+.content i { font-size: 18px; color: var(--yellow-600); }
+
+.text-group { display: flex; flex-direction: column; }
+.node-title { font-weight: 700; font-size: 13px; color: var(--text-color); }
+.node-type { font-size: 8px; font-weight: 900; color: var(--yellow-700); opacity: 0.7; letter-spacing: 1px; }
 
 .delete-btn {
     position: absolute; top: 0; right: 0;
-    width: 20px; height: 20px; border-radius: 50%;
+    width: 22px; height: 22px; border-radius: 50%;
     background: var(--danger); color: white; border: 2px solid white;
     cursor: pointer; display: none; align-items: center; justify-content: center;
+    z-index: 5;
 }
-.loop-node:hover .delete-btn { display: flex; }
+.loop-node-container:hover .delete-btn { display: flex; }
 
-.handle-target { background: var(--gray-500) !important; width: 10px !important; height: 10px !important; }
-.handle-do { background: var(--orange-500) !important; top: 50% !important; }
-.handle-done { background: var(--gray-500) !important; }
+.handle-target { background: var(--gray-400) !important; border: 2px solid white; }
+.handle-do { background: var(--yellow-500) !important; border: 2px solid white; width: 12px !important; height: 12px !important; }
+.handle-done { background: var(--gray-400) !important; border: 2px solid white; width: 12px !important; height: 12px !important; }
 
 .handle-label {
-    position: absolute; font-size: 9px; font-weight: bold; color: var(--text-muted);
-    pointer-events: none;
+    position: absolute; font-size: 9px; font-weight: 900; color: var(--text-muted); pointer-events: none;
 }
-.label-do { right: -25px; top: 35%; color: var(--orange-500); }
-.label-done { bottom: -18px; left: 50%; transform: translateX(-50%); }
+.label-do { right: -25px; top: 38%; color: var(--yellow-600); }
+.label-done { bottom: -20px; left: 50%; transform: translateX(-50%); }
 </style>
