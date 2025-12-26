@@ -60,6 +60,15 @@ function make_control() {
         if (strValue) {
             control.value.set_value(strValue);
         }
+        
+        // Robust listener
+        if (control.value.$input) {
+            control.value.$input.on('change input awesomplete-selectcomplete', () => {
+                const val = control.value.get_value();
+                const arr = val ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+                emit("update:modelValue", arr);
+            });
+        }
     } catch(e) {
         console.error("Failed to create MultiSelect control", e);
         wrapper.value.innerHTML = `<div class="text-danger">Error loading control</div>`;
