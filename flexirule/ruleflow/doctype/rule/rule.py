@@ -29,13 +29,12 @@ class Rule(Document):
         last_error: DF.Text | None
         last_executed: DF.Datetime | None
         max_execution_time: DF.Int
-        options_json: DF.Code | None
         priority: DF.Int
         rule_name: DF.Data
         skip_for_roles: DF.TableMultiSelect[HasRole]
         trigger_condition: DF.Code | None
-        trigger_event: DF.Literal["Manual", "Before Naming", "Before Insert", "Before Save", "Validate", "Before Submit", "After Insert", "After Save", "On Submit", "Before Cancel", "On Cancel", "On Trash", "On Update After Submit", "On Change"]
         trigger_condition_expression: DF.Code | None
+        trigger_event: DF.Literal["Manual", "Before Naming", "Before Insert", "Before Save", "Validate", "Before Submit", "After Insert", "After Save", "On Submit", "Before Cancel", "On Cancel", "On Trash", "On Update After Submit", "On Change"]
     # end: auto-generated types
     def validate(self):
         """

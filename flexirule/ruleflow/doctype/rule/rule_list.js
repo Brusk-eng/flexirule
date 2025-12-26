@@ -1,15 +1,24 @@
 frappe.listview_settings['Rule'] = {
     add_fields: ['is_active', 'document_type', 'trigger_event', 'rule_type'],
-    
-    get_indicator: function(doc) {
-        if (doc.is_active) {
-            return [__("Active"), "green", "is_active,=,1"];
+
+    get_indicator: function (doc) {
+        // Active + Manual
+        if (doc.is_active && doc.trigger_event === 'Manual') {
+            return [__("Active (Manual)"), "green", "is_active,=,1"];
         }
+
+        // Active + Non-manual → BLUE
+        if (doc.is_active && doc.trigger_event !== 'Manual') {
+            return [__(doc.trigger_event), "blue", "is_active,=,1"];
+        }
+
+        // Inactive
         return [__("Inactive"), "gray", "is_active,=,0"];
     },
-    
+
+
     formatters: {
-        rule_name: function(value, field, doc) {
+        rule_name: function (value, field, doc) {
             // Add builder icon before rule name
             return `
                 <span class="rule-name-cell">
@@ -29,10 +38,10 @@ frappe.listview_settings['Rule'] = {
             `;
         }
     },
-    
-    onload: function(listview) {
+
+    onload: function (listview) {
         // Add "New with Builder" button
-        listview.page.add_inner_button(__('Create with Builder'), function() {
+        listview.page.add_inner_button(__('Create with Builder'), function () {
             // Create new rule and open builder
             frappe.prompt([
                 {
@@ -57,7 +66,7 @@ frappe.listview_settings['Rule'] = {
                     default: 'Validate',
                     reqd: 1
                 }
-            ], function(values) {
+            ], function (values) {
                 frappe.call({
                     method: 'frappe.client.insert',
                     args: {
@@ -69,7 +78,7 @@ frappe.listview_settings['Rule'] = {
                             is_active: 0
                         }
                     },
-                    callback: function(r) {
+                    callback: function (r) {
                         if (r.message) {
                             frappe.set_route('rule-builder', r.message.name);
                         }
@@ -77,7 +86,7 @@ frappe.listview_settings['Rule'] = {
                 });
             }, __('Create New Rule'), __('Open Builder'));
         });
-        
+
         // Add custom CSS
         if (!document.getElementById('rule-list-styles')) {
             const style = document.createElement('style');

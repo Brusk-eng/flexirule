@@ -14,50 +14,155 @@ All methods use the context-first pattern:
 import frappe
 from frappe import _
 import re
-from typing import Any, List, Dict, Optional
+import unicodedata
+from typing import Any, List, Dict
 import flexirule
 
+# =============================================================================
+# TRANSLATION TABLE (borrowed conceptually from UPH)
+# =============================================================================
 
-# Built-in transformations (same as NormalizationPipeline)
-TRANSFORMATIONS = {
-    'trim': lambda x: x.strip() if isinstance(x, str) else x,
-    'lowercase': lambda x: x.lower() if isinstance(x, str) else x,
-    'uppercase': lambda x: x.upper() if isinstance(x, str) else x,
-    'remove_spaces': lambda x: x.replace(' ', '') if isinstance(x, str) else x,
-    'remove_punctuation': lambda x: re.sub(r'[^\w\s]', '', x) if isinstance(x, str) else x,
-    'remove_extra_spaces': lambda x: re.sub(r'\s+', ' ', x).strip() if isinstance(x, str) else x,
-    'remove_numbers': lambda x: re.sub(r'\d+', '', x) if isinstance(x, str) else x,
-    'remove_special_chars': lambda x: re.sub(r'[^a-zA-Z0-9\s]', '', x) if isinstance(x, str) else x,
-    'slug': lambda x: re.sub(r'[^\w\s-]', '', x).strip().lower().replace(' ', '-') if isinstance(x, str) else x,
-    'alphanumeric_only': lambda x: re.sub(r'[^a-zA-Z0-9]', '', x) if isinstance(x, str) else x,
-    'digits_only': lambda x: re.sub(r'[^\d]', '', x) if isinstance(x, str) else x,
-    'title_case': lambda x: x.title() if isinstance(x, str) else x,
+TRANSLATION_TABLE = str.maketrans({
+    "أ": "ا", "إ": "ا", "آ": "ا",
+    "ى": "ي", "ة": "ه",
+    "ؤ": "و", "ئ": "ي",
+    "ـ": "",
+    **{chr(0x660 + i): str(i) for i in range(10)},  # Arabic digits
+})
+
+# =============================================================================
+# TRANSFORMATIONS (single-arg, stateless)
+# =============================================================================
+
+TRANSFORMATIONS: Dict[str, callable] = {
+    "trim": lambda x: x.strip() if isinstance(x, str) else x,
+    "lowercase": lambda x: x.lower() if isinstance(x, str) else x,
+    "uppercase": lambda x: x.upper() if isinstance(x, str) else x,
+    "casefold": lambda x: x.casefold() if isinstance(x, str) else x,
+
+    "unicode_normalize": lambda x: unicodedata.normalize("NFKD", x)
+        if isinstance(x, str) else x,
+
+    "translate_chars": lambda x: x.translate(TRANSLATION_TABLE)
+        if isinstance(x, str) else x,
+
+    "remove_spaces": lambda x: x.replace(" ", "") if isinstance(x, str) else x,
+    "remove_extra_spaces": lambda x: re.sub(r"\s+", " ", x).strip()
+        if isinstance(x, str) else x,
+
+    "remove_punctuation": lambda x: re.sub(r"[^\w\s]", "", x)
+        if isinstance(x, str) else x,
+
+    "remove_numbers": lambda x: re.sub(r"\d+", "", x)
+        if isinstance(x, str) else x,
+
+    "numeric_only": lambda x: re.sub(r"\D", "", x)
+        if isinstance(x, str) else x,
+
+    "alphanumeric_only": lambda x: re.sub(r"[^\w]", "", x)
+        if isinstance(x, str) else x,
+
+    "slug": lambda x: re.sub(r"[^\w\s-]", "", x)
+        .strip().lower().replace(" ", "-")
+        if isinstance(x, str) else x,
+
+    "title_case": lambda x: x.title() if isinstance(x, str) else x,
+
+    "email_normalize": lambda x: (
+        f"{x.split('@')[0].split('+')[0].replace('.', '').lower()}@{x.split('@')[1].lower()}"
+        if isinstance(x, str) and "@" in x else x
+    ),
 }
+
+# =============================================================================
+# PREDEFINED PROFILES (UI-selectable)
+# =============================================================================
+
+NORMALIZATION_PROFILES: Dict[str, List[str]] = {
+    "default": [
+        "trim",
+        "unicode_normalize",
+        "casefold",
+        "translate_chars",
+        "remove_extra_spaces",
+    ],
+    "arabic_strict": [
+        "trim",
+        "unicode_normalize",
+        "casefold",
+        "translate_chars",
+        "remove_punctuation",
+        "remove_extra_spaces",
+    ],
+    "email": [
+        "trim",
+        "lowercase",
+        "email_normalize",
+    ],
+    "phone": [
+        "numeric_only",
+    ],
+    "slug": [
+        "trim",
+        "lowercase",
+        "remove_punctuation",
+        "remove_extra_spaces",
+        "slug",
+    ],
+}
+
+# =============================================================================
+# CORE HELPERS
+# =============================================================================
+
+def resolve_transformations(value) -> List[str]:
+    """
+    Accepts:
+    - profile name
+    - newline / comma separated string
+    - list
+    """
+    if not value:
+        return []
+
+    if isinstance(value, list):
+        return value
+
+    if isinstance(value, str):
+        value = value.strip()
+
+        # profile
+        if value in NORMALIZATION_PROFILES:
+            return NORMALIZATION_PROFILES[value]
+
+        # multiline / csv
+        return [v.strip() for v in re.split(r"[,\n]", value) if v.strip()]
+
+    return []
 
 
 def apply_transformations(value: Any, transformations: List[str]) -> Any:
-    """
-    Apply a list of transformations to a value
-    """
     if value is None:
         return None
-    
+
     result = value
-    
-    for transform_name in transformations:
-        transform_func = TRANSFORMATIONS.get(transform_name)
-        if transform_func:
-            try:
-                result = transform_func(result)
-            except Exception as e:
-                frappe.log_error(
-                    title=f"Normalization Error: {transform_name}",
-                    message=f"Value: {value}\nError: {str(e)}"
-                )
-        else:
-            frappe.logger().warning(f"Unknown transformation: {transform_name}")
-    
+
+    for name in transformations:
+        func = TRANSFORMATIONS.get(name)
+        if not func:
+            frappe.logger().warning(f"Unknown transformation: {name}")
+            continue
+
+        try:
+            result = func(result)
+        except Exception as e:
+            frappe.log_error(
+                title="FlexiRule Normalization Error",
+                message=f"Step: {name}\nValue: {value}\n{e}",
+            )
+
     return result
+
 
 @flexirule.processmethod(
     category="Transformation",
