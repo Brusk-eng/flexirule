@@ -9,10 +9,8 @@
             @update:modelValue="$emit('update:modelValue', $event)" />
 
         <!-- Check -->
-        <!-- Check -->
         <CheckControl v-else-if="df?.fieldtype === 'Check'" :df="df" :modelValue="Boolean(modelValue)"
             @update:modelValue="$emit('update:modelValue', $event ? 1 : 0)" />
-
 
         <!-- Number (Int, Float, Currency, Percent) -->
         <input v-else-if="['Int', 'Float', 'Currency', 'Percent'].includes(df?.fieldtype)" type="number" step="any"
@@ -24,13 +22,30 @@
             :type="df.fieldtype === 'Date' ? 'date' : 'datetime-local'" class="form-control input-sm"
             :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />
 
+        <!-- Time -->
+        <input v-else-if="df?.fieldtype === 'Time'" type="time" step="1" class="form-control input-sm"
+            :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />
+
+        <!-- Text / Code / multiline -->
+        <textarea
+            v-else-if="['Text', 'Small Text', 'Text Editor', 'Code', 'JSON', 'HTML Editor', 'Markdown Editor'].includes(df?.fieldtype)"
+            class="form-control" rows="3" :value="modelValue"
+            @input="$emit('update:modelValue', $event.target.value)"></textarea>
+
         <!-- MultiSelect -->
         <MultiSelectControl v-else-if="df?.fieldtype === 'MultiSelect' || df?.fieldtype === 'Table MultiSelect'"
             :df="df" :modelValue="modelValue" @update:modelValue="$emit('update:modelValue', $event)" />
 
-        <!-- Default (Data, Text, etc.) -->
-        <DataControl v-else :df="df || { fieldtype: 'Data' }" :modelValue="modelValue"
+        <!-- Default (Data, Duration, Valid types defaulting to text) -->
+        <DataControl v-else-if="!['Table', 'Signature', 'Button', 'Heading'].includes(df?.fieldtype)"
+             :df="df || { fieldtype: 'Data' }" 
+             :modelValue="modelValue"
             @update:modelValue="$emit('update:modelValue', $event)" />
+            
+        <!-- Fallback for unsupported/unsafe types -->
+        <div v-else class="text-muted small p-2 border rounded bg-light">
+             {{ df?.fieldtype }} {{ __('not supported in this context') }}
+        </div>
     </div>
 </template>
 

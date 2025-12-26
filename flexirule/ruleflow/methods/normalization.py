@@ -59,7 +59,6 @@ def apply_transformations(value: Any, transformations: List[str]) -> Any:
     
     return result
 
-
 @flexirule.processmethod(
     category="Transformation",
     side_effects="Modifies Doc",
@@ -78,44 +77,59 @@ def apply_transformations(value: Any, transformations: List[str]) -> Any:
                 "label": "Target Field",
                 "options": "parent.document_type"
             },
-            {
-                "fieldname": "transformations",
-                "fieldtype": "MultiSelect",
-                "label": "Transformations",
-                "reqd": 1,
-                "options": "trim\nlowercase\nuppercase\nremove_spaces\nremove_extra_spaces\nremove_punctuation\nremove_numbers\nslug\ndigits_only\ntitle_case"
-            }
+     {
+    "fieldname": "transformations",
+    "fieldtype": "MultiSelectList",
+    "label": "Transformations",
+    "reqd": 1,
+    "options": [
+        {"label": "Trim", "value": "trim"},
+        {"label": "Lowercase", "value": "lowercase"},
+        {"label": "Uppercase", "value": "uppercase"},
+        {"label": "Remove Spaces", "value": "remove_spaces"},
+        {"label": "Remove Extra Spaces", "value": "remove_extra_spaces"},
+        {"label": "Remove Punctuation", "value": "remove_punctuation"},
+        {"label": "Remove Numbers", "value": "remove_numbers"},
+        {"label": "Slug", "value": "slug"},
+        {"label": "Digits Only", "value": "digits_only"},
+        {"label": "Title Case", "value": "title_case"},
+    ]
+}
+
         ]
     },
     description="Normalize a field in-place or to a target field."
 )
 def normalize_field(context, source_field, transformations, target_field=None, **kwargs):
     """
-    Normalize a field in-place or to a target field
+    Normalize a field in-place or to a target field.
+
+    Frontend MultiSelect passes transformations as a newline-separated string.
+    Backend JSON Schema expects a list/array for validation.
     """
     doc = context.get('doc')
-    
-    # Parse transformations if passed as string/JSON
+    if not doc:
+        return None
+
+    # Convert frontend string (newline-separated) into a list
     if isinstance(transformations, str):
-        import json
-        try:
-            transformations = json.loads(transformations)
-        except json.JSONDecodeError:
-            # Try comma-separated
-            transformations = [t.strip() for t in transformations.split(',')]
-    
+        transformations = [t.strip() for t in transformations.split("\n") if t.strip()]
+
+    # Ensure we have a list
+    if not isinstance(transformations, list):
+        transformations = [transformations]
+
     value = doc.get(source_field)
     if value is None:
         return None
-    
+
     normalized = apply_transformations(value, transformations)
-    
+
     # Set to target field (or source field if not specified)
     dest_field = target_field or source_field
     doc.set(dest_field, normalized)
-    
-    return normalized
 
+    return normalized
 
 @flexirule.processmethod(
     category="Transformation",

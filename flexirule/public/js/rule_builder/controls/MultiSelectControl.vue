@@ -44,19 +44,21 @@ function make_control() {
                 read_only: props.read_only,
                 change: () => {
                     const val = control.value.get_value();
-                    // Emit array or string? SimpleCondition usually works with strings or lists.
-                    // Let's emit array, MappingWrapper can handle it or we serialize if needed.
-                    // But SimpleCondition logic for 'in' usually expects a list/tuple in python.
-                    // Storing as JSON string is safer for text fields.
-                    emit("update:modelValue", val); 
+                    // MultiSelect returns comma-separated string. We should emit Array/List.
+                    // Split, trim, and filter text.
+                    const arr = val ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+                    emit("update:modelValue", arr); 
                 },
                 get_data: props.df.get_data // Pass through get_data if defined
             },
             render_input: true,
         });
         
-        if (initialValue && initialValue.length) {
-            control.value.set_value(initialValue);
+        // Convert Array to comma-separated string for Frappe Control
+        const strValue = Array.isArray(initialValue) ? initialValue.join(', ') : (initialValue || '');
+
+        if (strValue) {
+            control.value.set_value(strValue);
         }
     } catch(e) {
         console.error("Failed to create MultiSelect control", e);
@@ -72,10 +74,12 @@ watch(() => props.modelValue, (val) => {
     // Sync external changes to control
     if (!control.value) return;
     
-    let currentVal = control.value.get_value();
-    // Normalize comparison (arrays)
-    if (JSON.stringify(currentVal) !== JSON.stringify(val)) {
-        control.value.set_value(val);
+    let currentVal = control.value.get_value(); // String from control
+    let newValStr = Array.isArray(val) ? val.join(', ') : (val || '');
+    
+    // Normalize comparison (strings)
+    if (currentVal !== newValStr) {
+        control.value.set_value(newValStr);
     }
 });
 

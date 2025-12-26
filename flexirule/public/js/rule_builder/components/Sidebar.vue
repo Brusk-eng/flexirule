@@ -1203,17 +1203,15 @@ async function mapSchemaField(field, parentDoctype, childTables) {
             };
         
         case 'MultiDocField':
-            // Multi field picker → MultiCheck with checkboxes
+            // Multi field picker → MultiSelectList (MultiCheck crashes in Dialogs)
             const multiOptions = await getFieldOptions(options, parentDoctype);
             return {
                 fieldname,
-                fieldtype: 'MultiCheck',
+                fieldtype: 'MultiSelectList',
                 label,
                 reqd,
                 description,
-                options: multiOptions,
-                columns: 2,
-                select_all: true
+                options: multiOptions
             };
         
         case 'Table':
@@ -1256,16 +1254,15 @@ async function mapSchemaField(field, parentDoctype, childTables) {
             };
         
         case 'MultiSelect':
-            // Multi-select → MultiCheck
+            // Multi-select → MultiSelectList
             const selectOpts = parseSelectOptions(options);
             return {
                 fieldname,
-                fieldtype: 'MultiCheck',
+                fieldtype: 'MultiSelectList',
                 label,
                 reqd,
                 description,
-                options: selectOpts,
-                columns: 2
+                options: selectOpts
             };
         
         case 'Percent':

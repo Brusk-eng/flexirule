@@ -38,14 +38,21 @@ class RuleBuilder {
             this.store.fetch();
         }, { icon: "refresh" });
 
+        // Status Toggle
+        this.status_btn = this.page.add_inner_button(__("Draft"), () => {
+            this.toggle_rule_active();
+        });
+
+        // Dry Run
+        this.page.add_inner_button(__("Test Rule"), () => {
+            this.show_test_dialog();
+        });
+
         // Menu items
         this.page.add_menu_item(__("Go to Rule"), () => {
             frappe.set_route("Form", "Rule", this.rule);
         });
 
-        this.page.add_menu_item(__("Test Rule"), () => {
-            this.show_test_dialog();
-        });
     }
 
     setup_app() {
@@ -64,10 +71,43 @@ class RuleBuilder {
         // Watch for dirty state
         this.store.$subscribe((mutation, state) => {
             this.update_save_button(state.is_dirty);
+            this.update_status_button(state.rule_doc?.is_active);
+        });
+
+        // Initial status update after fetch
+        // We might need to wait for fetch, but store.$subscribe handles mutations.
+        // We can also watch rule_doc specifically if needed, but the main subscribe is usually enough for state changes.
+        // Also manual call after mount if data is already there (it fetches async)
+
+        // Use a watcher on rule_doc specifically if the above sub misses deep updates (Pinia default subscribes to all)
+        // Checks if rule_doc is loaded
+        const unwatch = this.store.$onAction(({ name, after }) => {
+            if (name === 'fetch') {
+                after(() => {
+                    this.update_status_button(this.store.rule_doc?.is_active);
+                });
+            }
         });
 
         // Mount app
         this.$rule_builder = app.mount(this.$wrapper.get(0));
+    }
+
+    toggle_rule_active() {
+        if (!this.store.rule_doc) return;
+        this.store.rule_doc.is_active = this.store.rule_doc.is_active ? 0 : 1;
+        this.store.mark_dirty();
+        this.update_status_button(this.store.rule_doc.is_active);
+    }
+
+    update_status_button(is_active) {
+        if (is_active) {
+            this.status_btn.text(__("Active"));
+            this.status_btn.removeClass("btn-default").addClass("btn-success");
+        } else {
+            this.status_btn.text(__("Draft"));
+            this.status_btn.removeClass("btn-success").addClass("btn-default");
+        }
     }
 
     update_save_button(is_dirty) {
