@@ -61,6 +61,8 @@ TRANSFORMATIONS: Dict[str, callable] = {
 
     "alphanumeric_only": lambda x: re.sub(r"[^\w]", "", x)
         if isinstance(x, str) else x,
+"digits_only": lambda x: re.sub(r"\D", "", x)
+        if isinstance(x, str) else x,
 
     "slug": lambda x: re.sub(r"[^\w\s-]", "", x)
         .strip().lower().replace(" ", "-")
