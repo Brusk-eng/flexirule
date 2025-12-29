@@ -207,7 +207,7 @@ class TestNormalizationMethods(FrappeTestCase):
         self.assertEqual(apply_transformations("hello   world", ["remove_extra_spaces"]), "hello world")
         self.assertEqual(apply_transformations("hello123", ["remove_numbers"]), "hello")
         self.assertEqual(apply_transformations("Hello World", ["slug"]), "hello-world")
-        self.assertEqual(apply_transformations("abc123def456", ["digits_only"]), "123456")
+        self.assertEqual(apply_transformations("abc123def456", ["numeric_only"]), "123456")
         self.assertEqual(apply_transformations("hello world", ["title_case"]), "Hello World")
 
 

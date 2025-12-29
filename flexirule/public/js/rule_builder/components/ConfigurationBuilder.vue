@@ -57,6 +57,7 @@
                         :df="field"
                         :documentType="documentType"
                         :modelValue="values[field.fieldname]"
+                        :hookContext="hookContext"
                         @update:modelValue="updateValue(field.fieldname, $event)"
                     />
                     
@@ -180,10 +181,31 @@ const props = defineProps({
     schema: Object,
     modelValue: [String, Object], // Config JSON
     inputMapping: [String, Object], // Mapping JSON
-    documentType: String
+    documentType: String,
+    docMeta: Object  // Document metadata for dynamic options
 });
 
 const emit = defineEmits(['update:modelValue', 'update:inputMapping', 'validation-change']);
+
+// Hook context for child components
+const hookContext = computed(() => ({
+    get_all_values: () => values.value,
+    get_value: (fieldname) => values.value[fieldname],
+    update_field: (fieldname, value) => updateValue(fieldname, value),
+    refresh_field: (fieldname) => {
+        // Force reactivity update
+        values.value = { ...values.value };
+    },
+    set_options: (fieldname, options) => {
+        // For top-level Select fields
+        const field = fields.value.find(f => f.fieldname === fieldname);
+        if (field) {
+            field._dynamic_options = options;
+        }
+    },
+    doc_meta: props.docMeta,
+    document_type: props.documentType
+}));
 
 const fields = ref([]);
 const values = ref({}); // Static config

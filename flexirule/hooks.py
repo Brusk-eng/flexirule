@@ -151,7 +151,10 @@ flexirule_allowed_modules = [
 # before_install = "flexirule.install.before_install"
 # after_install = "flexirule.install.after_install"
 after_install = "flexirule.ruleflow.core.registry.sync_process_methods"
-after_migrate = "flexirule.ruleflow.core.registry.sync_process_methods"
+after_migrate = [
+    "flexirule.ruleflow.core.registry.sync_process_methods",
+    "flexirule.ruleflow.core.process_sync.sync_all_processes",
+]
 
 # Uninstallation
 # ------------

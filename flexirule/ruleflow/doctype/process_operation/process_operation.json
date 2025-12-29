@@ -1,0 +1,108 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "creation": "2025-12-29 16:01:49.021169",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "func_name",
+        "label",
+        "enabled",
+        "column_break_main",
+        "visible_in_builder",
+        "section_break_config",
+        "config_json",
+        "section_break_overrides",
+        "timeout_seconds",
+        "column_break_ui",
+        "icon",
+        "color"
+    ],
+    "fields": [
+        {
+            "fieldname": "func_name",
+            "fieldtype": "Data",
+            "label": "Function Name",
+            "description": "Must match a function in the process file",
+            "reqd": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "label",
+            "fieldtype": "Data",
+            "label": "Display Label",
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "enabled",
+            "fieldtype": "Check",
+            "label": "Enabled",
+            "default": 1,
+            "in_list_view": 1
+        },
+        {
+            "fieldname": "column_break_main",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "visible_in_builder",
+            "fieldtype": "Check",
+            "label": "Visible in Builder",
+            "default": 1
+        },
+        {
+            "fieldname": "section_break_config",
+            "fieldtype": "Section Break",
+            "label": "Configuration"
+        },
+        {
+            "fieldname": "config_json",
+            "fieldtype": "Code",
+            "label": "Configuration",
+            "options": "JSON",
+            "description": "Instance-specific configuration values"
+        },
+        {
+            "fieldname": "section_break_overrides",
+            "fieldtype": "Section Break",
+            "label": "Overrides",
+            "collapsible": 1
+        },
+        {
+            "fieldname": "timeout_seconds",
+            "fieldtype": "Int",
+            "label": "Timeout Override (seconds)",
+            "description": "Override default timeout for this instance"
+        },
+        {
+            "fieldname": "column_break_ui",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "icon",
+            "fieldtype": "Data",
+            "label": "Icon Override"
+        },
+        {
+            "fieldname": "color",
+            "fieldtype": "Data",
+            "label": "Color Override"
+        }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "istable": 1,
+    "links": [],
+    "modified": "2025-12-29 18:35:00.000000",
+    "modified_by": "Administrator",
+    "module": "Ruleflow",
+    "name": "Process Operation",
+    "owner": "Administrator",
+    "permissions": [],
+    "row_format": "Dynamic",
+    "rows_threshold_for_grid_search": 20,
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": []
+}

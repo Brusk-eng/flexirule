@@ -1,0 +1,189 @@
+# Copyright (c) 2025, FlexiRule and contributors
+# For license information, please see license.txt
+
+"""
+Process Sync Module
+
+Synchronizes Process docs from JSON files across all installed apps.
+Modeled after frappe.model.sync for DocTypes.
+
+During migrate:
+1. Scans all {app}/{module}/process/{name}/{name}.json files
+2. Creates/updates Process docs in the database
+3. Populates operations from JSON metadata
+"""
+
+import json
+import os
+from pathlib import Path
+
+import frappe
+from frappe import _
+from frappe.utils import update_progress_bar
+
+
+def sync_all_processes():
+    """
+    Sync Process docs from JSON files across all installed apps.
+    Called from after_migrate hook.
+    """
+    for app in frappe.get_installed_apps():
+        sync_processes_for_app(app)
+    
+    frappe.db.commit()
+
+
+def sync_processes_for_app(app_name):
+    """
+    Sync all Process docs for a given app.
+    
+    Scans {app}/{module}/process/{name}/{name}.json for all modules in the app.
+    """
+    modules = frappe.local.app_modules.get(app_name, [])
+    if not modules:
+        return
+    
+    process_files = []
+    
+    for module_name in modules:
+        try:
+            module_path = frappe.get_module_path(module_name)
+        except Exception:
+            continue
+        
+        process_folder = Path(module_path) / "process"
+        
+        if not process_folder.exists():
+            continue
+        
+        # Find all process directories
+        for process_dir in process_folder.iterdir():
+            if not process_dir.is_dir():
+                continue
+            
+            json_file = process_dir / f"{process_dir.name}.json"
+            if json_file.exists():
+                process_files.append((json_file, module_name))
+    
+    if not process_files:
+        return
+    
+    for i, (json_file, module_name) in enumerate(process_files):
+        try:
+            import_process_from_file(json_file, module_name)
+        except Exception as e:
+            frappe.log_error(
+                f"Error syncing process from {json_file}: {e}",
+                "Process Sync Error"
+            )
+        
+        update_progress_bar(f"Syncing Processes for {app_name}", i, len(process_files))
+    
+    if process_files:
+        print()  # New line after progress bar
+
+
+def import_process_from_file(json_path, module_name):
+    """
+    Import a Process from a JSON file.
+    
+    Args:
+        json_path: Path to the {name}.json file
+        module_name: Module that contains this process
+    """
+    with open(json_path, "r") as f:
+        data = json.load(f)
+    
+    process_name = data.get("process_name")
+    if not process_name:
+        return
+    
+    # Check if module exists
+    if not frappe.db.exists("Module Def", module_name):
+        # Try to find module by scrubbed name
+        module_name = frappe.unscrub(module_name)
+        if not frappe.db.exists("Module Def", module_name):
+            frappe.log_error(
+                f"Module {module_name} not found for process {process_name}",
+                "Process Sync Error"
+            )
+            return
+    
+    # Build operations from JSON metadata
+    operations = []
+    for op in data.get("operations", []):
+        operations.append({
+            "func_name": op.get("func_name"),
+            "label": op.get("label") or frappe.unscrub(op.get("func_name", "")),
+            "enabled": 1,
+            "visible_in_builder": 1,
+            "icon": op.get("icon"),
+            "color": op.get("color"),
+        })
+    
+    # Check if Process already exists
+    if frappe.db.exists("Process", process_name):
+        # Update existing
+        doc = frappe.get_doc("Process", process_name)
+        doc.module = module_name
+        
+        # Sync operations - update existing, add new
+        existing_funcs = {op.func_name: op for op in doc.operations}
+        
+        for op_data in operations:
+            func_name = op_data.get("func_name")
+            if func_name in existing_funcs:
+                # Update existing operation's metadata (but preserve user overrides)
+                existing = existing_funcs[func_name]
+                # Only update if not user-modified (icon/color/label)
+                if not existing.icon:
+                    existing.icon = op_data.get("icon")
+                if not existing.color:
+                    existing.color = op_data.get("color")
+            else:
+                # Add new operation
+                doc.append("operations", op_data)
+        
+        doc.flags.ignore_permissions = True
+        doc.save()
+    else:
+        # Create new
+        doc = frappe.new_doc("Process")
+        doc.process_name = process_name
+        doc.module = module_name
+        
+        for op_data in operations:
+            doc.append("operations", op_data)
+        
+        doc.flags.ignore_permissions = True
+        doc.insert()
+
+
+def get_process_json_path(process_name, module=None):
+    """
+    Get the file path for a process's JSON file.
+    
+    Args:
+        process_name: Name of the process
+        module: Module name (optional, will be looked up if not provided)
+    
+    Returns:
+        Path object or None
+    """
+    if not module:
+        module = frappe.db.get_value("Process", process_name, "module")
+    
+    if not module:
+        return None
+    
+    app = frappe.local.module_app.get(frappe.scrub(module))
+    if not app:
+        return None
+    
+    return (
+        Path(frappe.get_app_path(app))
+        / frappe.scrub(module)
+        / "process"
+        / frappe.scrub(process_name)
+        / f"{frappe.scrub(process_name)}.json"
+    )

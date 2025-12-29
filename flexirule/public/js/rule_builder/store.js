@@ -6,11 +6,12 @@ export const useStore = defineStore("rule-builder-store", () => {
     let rule_doc = ref(null);
     let graph = ref({ elements: [], selected: null });
     let process_methods = ref([]);
+    let processes = ref([]);  // File-backed processes
     let available_rules = ref([]);
     let is_dirty = ref(false);
     let initial_state = ref(null);
     let trigger_event_options = ref([]);
-    let doc_meta = ref({}); // { doctype: [fields] }
+    let doc_meta = ref({});
     let fetch_counter = ref(0);
     let meta_loading = computed(() => fetch_counter.value > 0);
 
@@ -18,6 +19,13 @@ export const useStore = defineStore("rule-builder-store", () => {
         const doctype = rule_doc.value?.document_type;
         if (!doctype || !doc_meta.value[doctype]) return [];
         return doc_meta.value[doctype];
+    });
+
+    // Raw Frappe meta object for hooks
+    const raw_meta = computed(() => {
+        const doctype = rule_doc.value?.document_type;
+        if (!doctype) return null;
+        return frappe.get_meta(doctype);
     });
 
     async function fetch_metadata(doctype) {
@@ -138,6 +146,7 @@ export const useStore = defineStore("rule-builder-store", () => {
         }
 
         await fetch_process_methods();
+        await fetch_processes();
 
         const visual_data = rule_doc.value.visual_data && typeof rule_doc.value.visual_data === "string"
             ? JSON.parse(rule_doc.value.visual_data)
@@ -320,6 +329,8 @@ export const useStore = defineStore("rule-builder-store", () => {
                 action_id: nodeId,
                 action_type: action.action_type,
                 action_label: action.action_label,
+                process_name: action.process_name,
+                operation: action.operation,
                 process_method: action.process_method,
                 config: configData,
                 condition_expression: action.condition_expression,
@@ -401,6 +412,83 @@ export const useStore = defineStore("rule-builder-store", () => {
             try { return JSON.parse(method.config_schema); } catch { return null; }
         }
         return null;
+    }
+
+    // ============================================================
+    // FILE-BACKED PROCESSES
+    // ============================================================
+
+    async function fetch_processes() {
+        try {
+            const result = await frappe.db.get_list('Process', {
+                fields: ['name', 'process_name', 'module'],
+                limit: 0
+            });
+            processes.value = result || [];
+
+            // Load JS adapters for each process
+            for (const proc of processes.value) {
+                await load_process_adapter(proc.name);
+            }
+        } catch {
+            processes.value = [];
+        }
+    }
+
+    async function load_process_adapter(process_name) {
+        // Skip if already loaded
+        if (window.flexirule?.processes?.[process_name]) {
+            return;
+        }
+
+        try {
+            // Fetch JS content from backend (supports any app's processes)
+            const response = await frappe.call({
+                method: "flexirule.ruleflow.doctype.process.process.get_process_js_content",
+                args: { process_name }
+            });
+
+            if (response.message) {
+                // Initialize namespace
+                window.flexirule = window.flexirule || {};
+                window.flexirule.processes = window.flexirule.processes || {};
+
+                // Eval the JS content
+                try {
+                    // Use Function constructor instead of eval for slightly better security
+                    new Function(response.message)();
+                } catch (e) {
+                    console.error(`Error loading adapter for ${process_name}:`, e);
+                }
+            }
+        } catch {
+            // Adapter not available - not an error
+        }
+    }
+
+    function get_process_operations(process_name) {
+        if (!process_name) return [];
+
+        const adapter = window.flexirule?.processes?.[process_name];
+        if (!adapter) return [];
+
+        return adapter.get_visible_operations?.() || adapter.operations || [];
+    }
+
+    function get_operation_config_fields(process_name, operation_name, frm) {
+        if (!process_name || !operation_name) return [];
+
+        const adapter = window.flexirule?.processes?.[process_name];
+        if (!adapter) return [];
+
+        const operation = adapter.get_operation?.(operation_name);
+        if (!operation) return [];
+
+        if (typeof operation.get_config_fields === 'function') {
+            return operation.get_config_fields(frm);
+        }
+
+        return [];
     }
 
     async function fetch_available_rules(doctype) {
@@ -488,6 +576,8 @@ export const useStore = defineStore("rule-builder-store", () => {
                     prev_action_id: prev_action_id,
                     action_type: action_type,
                     is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
+                    process_name: node.data?.process_name,
+                    operation: node.data?.operation,
                     process_method: node.data?.process_method,
                     config: node.data?.config,
                     condition_expression: node.data?.condition_expression,
@@ -591,10 +681,11 @@ export const useStore = defineStore("rule-builder-store", () => {
     }
 
     return {
-        rule_name, rule_doc, graph, process_methods, available_rules, is_dirty, effectiveDisabledIds,
-        trigger_event_options, doc_fields, doc_meta, meta_loading,
+        rule_name, rule_doc, graph, process_methods, processes, available_rules, is_dirty, effectiveDisabledIds,
+        trigger_event_options, doc_fields, doc_meta, raw_meta, meta_loading,
         fetch, fetch_metadata, get_fields_for_doctype, get_process_method_schema, save_changes, mark_dirty, mark_position_change,
         clear_dirty, delete_node, delete_edge, getEffectivelyDisabledIds, fetch_available_rules,
+        fetch_processes, get_process_operations, get_operation_config_fields,
         undo, redo, can_undo, can_redo, commit_history
     };
 });

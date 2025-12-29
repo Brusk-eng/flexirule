@@ -1,19 +1,24 @@
 <script setup>
 /**
  * InlineTableControl - Repeatable rows with columns
- * For complex mappings like field_config arrays
+ * Supports per-field hooks: get_options, onchange
  */
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, inject, onMounted } from "vue";
 import FieldPickerControl from "./FieldPickerControl.vue";
 
 const props = defineProps({
     df: Object,
     modelValue: [Array, String],
     documentType: String,
-    read_only: Boolean
+    read_only: Boolean,
+    // Hook context from parent
+    hookContext: Object
 });
 
 const emit = defineEmits(["update:modelValue"]);
+
+// Dynamic options cache per row/field
+const dynamicOptions = ref({});
 
 const rows = computed({
     get() {
@@ -36,12 +41,33 @@ const tableFields = computed(() => {
     return props.df?.table_fields || [];
 });
 
+// Initialize options for all rows on mount and when rows change
+watch(rows, (newRows) => {
+    newRows.forEach((row, rowIdx) => {
+        initializeRowOptions(rowIdx, row);
+    });
+}, { immediate: true, deep: true });
+
+function initializeRowOptions(rowIdx, rowData) {
+    tableFields.value.forEach(field => {
+        if (field.get_options && typeof field.get_options === 'function') {
+            const key = `${rowIdx}-${field.fieldname}`;
+            const options = field.get_options(rowData, props.hookContext?.get_all_values?.() || {}, props.hookContext?.doc_meta);
+            dynamicOptions.value = { ...dynamicOptions.value, [key]: options };
+        }
+    });
+}
+
 function addRow() {
     const newRow = {};
     tableFields.value.forEach(f => {
-        newRow[f.fieldname] = f.default || '';
+        newRow[f.fieldname] = f.default ?? '';
     });
-    emit("update:modelValue", [...rows.value, newRow]);
+    const newRows = [...rows.value, newRow];
+    emit("update:modelValue", newRows);
+    
+    // Initialize options for new row
+    setTimeout(() => initializeRowOptions(newRows.length - 1, newRow), 0);
 }
 
 function removeRow(idx) {
@@ -52,16 +78,77 @@ function removeRow(idx) {
 
 function updateCell(rowIdx, fieldname, value) {
     const updated = [...rows.value];
+    const oldValue = updated[rowIdx][fieldname];
     updated[rowIdx] = { ...updated[rowIdx], [fieldname]: value };
+    
+    // Emit update first
     emit("update:modelValue", updated);
+    
+    // Find field definition
+    const fieldDef = tableFields.value.find(f => f.fieldname === fieldname);
+    
+    // Call onchange if defined
+    if (fieldDef?.onchange && typeof fieldDef.onchange === 'function') {
+        const rowContext = createRowContext(rowIdx, updated[rowIdx]);
+        fieldDef.onchange(value, updated[rowIdx], rowContext);
+    }
+    
+    // Refresh dependent fields
+    tableFields.value.forEach(depField => {
+        if (depField.depends_on_fields?.includes(fieldname) && depField.get_options) {
+            const key = `${rowIdx}-${depField.fieldname}`;
+            const options = depField.get_options(updated[rowIdx], props.hookContext?.get_all_values?.() || {}, props.hookContext?.doc_meta);
+            dynamicOptions.value = { ...dynamicOptions.value, [key]: options };
+        }
+    });
 }
 
-function getSelectOptions(field) {
+function createRowContext(rowIdx, rowData) {
+    return {
+        update_field: (fieldname, value) => {
+            updateCell(rowIdx, fieldname, value);
+        },
+        refresh_field: (fieldname) => {
+            const field = tableFields.value.find(f => f.fieldname === fieldname);
+            if (field?.get_options) {
+                const key = `${rowIdx}-${fieldname}`;
+                const options = field.get_options(rowData, props.hookContext?.get_all_values?.() || {}, props.hookContext?.doc_meta);
+                dynamicOptions.value = { ...dynamicOptions.value, [key]: options };
+            }
+        },
+        set_options: (fieldname, options) => {
+            const key = `${rowIdx}-${fieldname}`;
+            dynamicOptions.value = { ...dynamicOptions.value, [key]: options };
+        },
+        get_value: (fieldname) => rowData[fieldname],
+        get_row_values: () => rowData,
+        row_idx: rowIdx
+    };
+}
+
+function getFieldOptions(field, rowIdx) {
+    // Check for dynamic options first
+    const key = `${rowIdx}-${field.fieldname}`;
+    if (dynamicOptions.value[key]) {
+        return dynamicOptions.value[key];
+    }
+    
+    // Fall back to static options
     const opts = field.options || '';
     if (typeof opts === 'string') {
-        return opts.split('\n').filter(Boolean);
+        return opts.split('\n').filter(Boolean).map(opt => ({ label: opt, value: opt }));
     }
-    return opts;
+    if (Array.isArray(opts)) {
+        return opts.map(opt => typeof opt === 'string' ? { label: opt, value: opt } : opt);
+    }
+    return [];
+}
+
+function getSelectValue(options) {
+    if (Array.isArray(options)) {
+        return options.map(o => typeof o === 'object' ? o.value : o);
+    }
+    return [];
 }
 </script>
 
@@ -76,7 +163,7 @@ function getSelectOptions(field) {
             <table class="table table-sm table-bordered">
                 <thead>
                     <tr>
-                        <th v-for="col in tableFields" :key="col.fieldname" :style="{ width: col.fieldtype === 'Percent' ? '100px' : '' }">
+                        <th v-for="col in tableFields" :key="col.fieldname" :style="{ width: col.width || (col.fieldtype === 'Percent' ? '100px' : '') }">
                             {{ __(col.label) }}
                         </th>
                         <th v-if="!read_only" style="width:40px"></th>
@@ -85,7 +172,7 @@ function getSelectOptions(field) {
                 <tbody>
                     <tr v-for="(row, idx) in rows" :key="idx">
                         <td v-for="col in tableFields" :key="col.fieldname">
-                            <!-- Select -->
+                            <!-- Select with dynamic options -->
                             <select 
                                 v-if="col.fieldtype === 'Select'"
                                 class="form-control form-control-sm"
@@ -94,8 +181,12 @@ function getSelectOptions(field) {
                                 :disabled="read_only"
                             >
                                 <option value="">{{ __("Select...") }}</option>
-                                <option v-for="opt in getSelectOptions(col)" :key="opt" :value="opt">
-                                    {{ __(opt) }}
+                                <option 
+                                    v-for="opt in getFieldOptions(col, idx)" 
+                                    :key="typeof opt === 'object' ? opt.value : opt" 
+                                    :value="typeof opt === 'object' ? opt.value : opt"
+                                >
+                                    {{ __(typeof opt === 'object' ? opt.label : opt) }}
                                 </option>
                             </select>
                             
@@ -107,6 +198,16 @@ function getSelectOptions(field) {
                                     :modelValue="row[col.fieldname]"
                                     @update:modelValue="updateCell(idx, col.fieldname, $event)"
                                     :read_only="read_only"
+                                />
+                            </div>
+                            
+                            <!-- Check -->
+                            <div v-else-if="col.fieldtype === 'Check'" class="text-center">
+                                <input
+                                    type="checkbox"
+                                    :checked="row[col.fieldname]"
+                                    @change="updateCell(idx, col.fieldname, $event.target.checked ? 1 : 0)"
+                                    :disabled="read_only"
                                 />
                             </div>
                             

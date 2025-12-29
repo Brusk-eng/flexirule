@@ -69,8 +69,39 @@
                 </div>
                 
                 <template v-if="selectedNode.data?.action_type === 'Process'">
+                    <!-- New File-backed Process Selection -->
                     <div class="form-group relative">
-                        <label>{{ __("Method") }}</label>
+                        <label>{{ __("Process") }}</label>
+                        <div class="input-group">
+                            <select class="form-control"
+                                :value="selectedNode.data?.process_name"
+                                @change="updateProcess($event.target.value)">
+                                <option value="">{{ __("Select Process...") }}</option>
+                                <option v-for="p in store.processes" :key="p.name" :value="p.name">
+                                    {{ p.name }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group relative" v-if="selectedNode.data?.process_name">
+                        <label>{{ __("Operation") }}</label>
+                        <select class="form-control"
+                            :value="selectedNode.data?.operation"
+                            @change="updateOperation($event.target.value)">
+                            <option value="">{{ __("Select Operation...") }}</option>
+                            <option v-for="op in currentProcessOperations" :key="op.func_name" :value="op.func_name">
+                                {{ op.label }}
+                            </option>
+                        </select>
+                        <div v-if="selectedOperation?.description" class="help-text text-muted mt-1" style="font-size:11px">
+                            {{ selectedOperation.description }}
+                        </div>
+                    </div>
+                    
+                    <!-- Legacy Method Selector (shown if no process selected) -->
+                    <div class="form-group relative" v-if="!selectedNode.data?.process_name">
+                        <label>{{ __("Method (Legacy)") }}</label>
                         <div class="input-group">
                             <input type="text" class="form-control" 
                                 v-model="methodSearch"
@@ -104,7 +135,12 @@
                         </div>
                     </div>
                     
-                    <button v-if="selectedNode.data?.process_method"
+                    <button v-if="selectedNode.data?.process_name && selectedNode.data?.operation"
+                        class="btn btn-sm btn-default w-100 mb-3" 
+                        @click="openConfigDialog">
+                        <i class="fa fa-cog"></i> {{ __("Configure") }}
+                    </button>
+                    <button v-else-if="selectedNode.data?.process_method"
                         class="btn btn-sm btn-default w-100 mb-3" 
                         @click="openConfigDialog">
                         <i class="fa fa-cog"></i> {{ __("Configure") }}
@@ -206,6 +242,7 @@
                             :modelValue="selectedNode.data?.config"
                             :inputMapping="selectedNode.data?.input_mapping"
                             :documentType="store.rule_doc?.document_type"
+                            :docMeta="store.raw_meta"
                             @update:modelValue="updateField('config', $event)"
                             @update:inputMapping="updateField('input_mapping', $event)"
                         />
@@ -506,9 +543,39 @@ const selectedMethod = computed(() => {
     return (store.process_methods || []).find(m => m.name === selectedNode.value.data.process_method);
 });
 
+// File-backed Process Operations
+const currentProcessOperations = computed(() => {
+    const processName = selectedNode.value?.data?.process_name;
+    if (!processName) return [];
+    return store.get_process_operations(processName);
+});
+
+const selectedOperation = computed(() => {
+    const operationName = selectedNode.value?.data?.operation;
+    if (!operationName || !currentProcessOperations.value.length) return null;
+    return currentProcessOperations.value.find(op => op.func_name === operationName);
+});
+
+const selectedOperationSchema = computed(() => {
+    if (!selectedOperation.value) return null;
+    // Get config_fields from operation's get_config_fields()
+    const processName = selectedNode.value?.data?.process_name;
+    if (!processName) return null;
+    const fields = store.get_operation_config_fields(processName, selectedOperation.value.func_name, null);
+    if (fields && fields.length) {
+        return { fields };
+    }
+    return null;
+});
+
 const triggerEventOptions = computed(() => store.trigger_event_options);
 
 const selectedMethodSchema = computed(() => {
+    // For file-backed process: use operation schema
+    if (selectedOperationSchema.value) {
+        return selectedOperationSchema.value;
+    }
+    // Legacy: use method config_schema
     if (!selectedMethod.value?.config_schema) return null;
     try {
         return JSON.parse(selectedMethod.value.config_schema);
@@ -965,6 +1032,25 @@ function updateProcessMethod(value) {
     store.mark_dirty();
 }
 
+function updateProcess(value) {
+    if (!selectedNode.value?.data) return;
+    selectedNode.value.data.process_name = value;
+    selectedNode.value.data.operation = null;  // Reset operation when process changes
+    selectedNode.value.data.config = null;     // Reset config
+    // Clear legacy method if switching to process
+    if (value) {
+        selectedNode.value.data.process_method = null;
+    }
+    store.mark_dirty();
+}
+
+function updateOperation(value) {
+    if (!selectedNode.value?.data) return;
+    selectedNode.value.data.operation = value;
+    selectedNode.value.data.config = null;  // Reset config when operation changes
+    store.mark_dirty();
+}
+
 function updateSubRuleName(value) {
     if (!selectedNode.value?.data) return;
     selectedNode.value.data.rule = value;
@@ -1080,10 +1166,27 @@ function deleteNode() {
 }
 
 async function openConfigDialog() {
+    // Check for new process_name + operation OR legacy process_method
+    const processName = selectedNode.value?.data?.process_name;
+    const operationName = selectedNode.value?.data?.operation;
     const methodName = selectedNode.value?.data?.process_method;
-    if (!methodName) return;
     
-    const schema = await store.get_process_method_schema(methodName);
+    let schema = null;
+    let dialogTitle = '';
+    
+    if (processName && operationName) {
+        // New file-backed process
+        const fields = store.get_operation_config_fields(processName, operationName, null);
+        if (fields && fields.length) {
+            schema = { fields };
+            dialogTitle = `${processName} - ${operationName}`;
+        }
+    } else if (methodName) {
+        // Legacy process method
+        schema = await store.get_process_method_schema(methodName);
+        dialogTitle = schema?.method_name || methodName;
+    }
+    
     if (!schema?.fields) {
         frappe.msgprint(__('No configuration available'));
         return;
@@ -1114,7 +1217,7 @@ async function openConfigDialog() {
     });
     
     const dialog = new frappe.ui.Dialog({
-        title: schema.method_name || methodName,
+        title: dialogTitle || __('Configure'),
         fields: dialogFields,
         size: 'large',
         primary_action_label: __('Save'),
@@ -1216,9 +1319,10 @@ async function mapSchemaField(field, parentDoctype, childTables) {
         
         case 'Table':
             // Inline table → Table control with child fields
-            const childSchema = childTables[options] || [];
+            // Check table_fields from process adapter OR childTables from schema
+            const childSchema = field.table_fields || childTables[options] || [];
             if (!childSchema.length) {
-                console.warn(`No child_tables definition for: ${options}`);
+                console.warn(`No table_fields or child_tables definition for: ${options}`);
                 return null;
             }
             

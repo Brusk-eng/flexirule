@@ -8,3 +8,4 @@
 - [future] must implement backend and frontend show executions in ui in realtime.
 - backend must not allow linked to another rule (Which cyclic also link to the current rule ) in actions.
 - RUle Builder : on save the connectiong between starting node removed and make rest node as disabled?
+- removing all console log in rule builder.

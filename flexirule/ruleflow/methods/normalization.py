@@ -61,8 +61,6 @@ TRANSFORMATIONS: Dict[str, callable] = {
 
     "alphanumeric_only": lambda x: re.sub(r"[^\w]", "", x)
         if isinstance(x, str) else x,
-"digits_only": lambda x: re.sub(r"\D", "", x)
-        if isinstance(x, str) else x,
 
     "slug": lambda x: re.sub(r"[^\w\s-]", "", x)
         .strip().lower().replace(" ", "-")
@@ -198,7 +196,7 @@ def apply_transformations(value: Any, transformations: List[str]) -> Any:
         {"label": "Remove Punctuation", "value": "remove_punctuation"},
         {"label": "Remove Numbers", "value": "remove_numbers"},
         {"label": "Slug", "value": "slug"},
-        {"label": "Digits Only", "value": "digits_only"},
+        {"label": "Digits Only", "value": "numeric_only"},
         {"label": "Title Case", "value": "title_case"},
     ]
 }
@@ -261,7 +259,7 @@ def normalize_field(context, source_field, transformations, target_field=None, *
                 "fieldtype": "MultiSelect",
                 "label": "Transformations",
                 "reqd": 1,
-                "options": "trim\nlowercase\nremove_extra_spaces\nremove_punctuation\ndigits_only"
+                "options": "trim\nlowercase\nremove_extra_spaces\nremove_punctuation\nnumeric_only"
             }
         ]
     },
@@ -398,7 +396,7 @@ def normalize_multiple_fields(context, field_config, store_in_context=False, **k
                 "fieldtype": "MultiSelect",
                 "label": "Transformations",
                 "reqd": 1,
-                "options": "trim\nlowercase\nremove_extra_spaces\nremove_punctuation\ndigits_only"
+                "options": "trim\nlowercase\nremove_extra_spaces\nremove_punctuation\nnumeric_only"
             }
         ]
     },
