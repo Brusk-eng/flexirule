@@ -1,0 +1,19 @@
+{
+    "name": "flexirule",
+    "version": "0.0.1",
+    "description": "Advanced Rule Engine for Frappe",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@vue-flow/core": "^1.33.0",
+        "@vue-flow/controls": "^1.1.1",
+        "@vue-flow/minimap": "^1.4.0",
+        "@vue-flow/background": "^1.3.0",
+        "vue": "^3.3.0"
+    }
+}
