@@ -10,8 +10,8 @@ app_license = "agpl-3.0"
 
 # required_apps = []
 # JS/CSS includes
-app_include_js = "/assets/flexirule/js/rule_builder.bundle.js"
-
+app_include_js = ["/assets/flexirule/js/rule_builder.bundle.js",
+"rule.bundle.js"]
 # Document Events - ALL paths must be to MODULE-LEVEL functions
 # NEVER use class method paths like "module.ClassName.method"
 doc_events = {

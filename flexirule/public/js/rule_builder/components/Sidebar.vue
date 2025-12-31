@@ -1320,7 +1320,7 @@ async function mapSchemaField(field, parentDoctype, childTables) {
         case 'Table':
             // Inline table → Table control with child fields
             // Check table_fields from process adapter OR childTables from schema
-            const childSchema = field.table_fields || childTables[options] || [];
+            const childSchema = field.table_fields || field.fields || childTables[options] || [];
             if (!childSchema.length) {
                 console.warn(`No table_fields or child_tables definition for: ${options}`);
                 return null;
