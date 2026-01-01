@@ -32,8 +32,8 @@ const SHARED_LOGIC = {
 const getDedupeTableFields = () => [
     {
         fieldname: "fieldname",
-        fieldtype: "Data",
-        options: "Field Picker",
+        fieldtype: "DocField",
+        options: "parent.document_type",
         label: __("Field"),
         reqd: 1,
         in_list_view: 1,

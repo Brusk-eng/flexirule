@@ -420,17 +420,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 
     async function fetch_processes() {
         try {
-            const result = await frappe.db.get_list('Process', {
-                fields: ['name', 'process_name', 'module'],
-                limit: 0
+            const response = await frappe.call({
+                method: "flexirule.ruleflow.doctype.process.process.get_process_list"
             });
-            processes.value = result || [];
+            processes.value = response.message || [];
 
             // Load JS adapters for each process
             for (const proc of processes.value) {
                 await load_process_adapter(proc.name);
             }
-        } catch {
+        } catch (e) {
+            console.error("Failed to load processes", e);
             processes.value = [];
         }
     }
@@ -444,11 +444,11 @@ export const useStore = defineStore("rule-builder-store", () => {
         try {
             // Fetch JS content from backend (supports any app's processes)
             const response = await frappe.call({
-                method: "flexirule.ruleflow.doctype.process.process.get_process_js_content",
+                method: "flexirule.ruleflow.doctype.process.process.get_script",
                 args: { process_name }
             });
 
-            if (response.message) {
+            if (response.message && response.message.script) {
                 // Initialize namespace
                 window.flexirule = window.flexirule || {};
                 window.flexirule.processes = window.flexirule.processes || {};
@@ -456,7 +456,7 @@ export const useStore = defineStore("rule-builder-store", () => {
                 // Eval the JS content
                 try {
                     // Use Function constructor instead of eval for slightly better security
-                    new Function(response.message)();
+                    new Function(response.message.script)();
                 } catch (e) {
                     console.error(`Error loading adapter for ${process_name}:`, e);
                 }
@@ -469,6 +469,13 @@ export const useStore = defineStore("rule-builder-store", () => {
     function get_process_operations(process_name) {
         if (!process_name) return [];
 
+        // Try getting operations from the loaded process definition (DB source)
+        const process = processes.value.find(p => p.name === process_name);
+        if (process?.operations?.length) {
+            return process.operations;
+        }
+
+        // Fallback to JS adapter
         const adapter = window.flexirule?.processes?.[process_name];
         if (!adapter) return [];
 
