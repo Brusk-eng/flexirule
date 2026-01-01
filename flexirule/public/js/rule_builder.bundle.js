@@ -2,7 +2,7 @@ import { createApp } from "vue";
 import { createPinia } from "pinia";
 import { useStore } from "./rule_builder/store";
 import RuleBuilderComponent from "./rule_builder/RuleBuilder.vue";
-import "./rule_builder/ConfigurableAction.js";
+import "./rule_builder/configurable_action.js";
 
 
 class RuleBuilder {
