@@ -164,6 +164,38 @@ def get_process_module_dotted_path(module, process_name):
         + processname
     )
 
+@frappe.whitelist()
+def get_script(process_name):
+    from frappe.model.utils import render_include
+
+    process = frappe.get_cached_doc("Process", process_name)
+    module = process.module or frappe.db.get_value("DocType", process.default_doctype, "module")
+
+    is_custom_module = frappe.get_cached_value("Module Def", module, "custom")
+
+    # custom modules are virtual modules those exists in DB but not in disk.
+    module_path = "" if is_custom_module else get_module_path(module)
+    process_folder = module_path and os.path.join(module_path, "process", scrub(process.name))
+    script_path = process_folder and os.path.join(process_folder, scrub(process.name) + ".js")
+    print_path = process_folder and os.path.join(process_folder, scrub(process.name) + ".html")
+
+    script = None
+    if os.path.exists(script_path):
+        with open(script_path) as f:
+            script = f.read()
+            script += f"\n\n//# sourceURL={scrub(process.name)}.js"
+
+    if not script and process.javascript:
+        script = process.javascript
+        script += f"\n\n//# sourceURL={scrub(process.name)}__custom"
+
+    if not script:
+        script = "flexirule.processes['{}']={{}}".format(process_name)
+
+    return {
+        "script": render_include(script),
+    }
+
 
 @frappe.whitelist()
 def get_process_js_paths():
@@ -186,3 +218,50 @@ def get_process_js_paths():
         )
 
     return result
+@frappe.whitelist()
+def get_process_list():
+    """
+    Return all processes with their enabled operations.
+    """
+
+    processes = frappe.get_all(
+        "Process",
+        fields=["name", "process_name", "module"],
+        order_by="process_name asc"
+    )
+
+    if not processes:
+        return []
+
+    process_names = [p["name"] for p in processes]
+
+    operations = frappe.get_all(
+        "Process Operation",
+        filters={
+            "parenttype": "Process",
+            "parent": ["in", process_names],
+            "enabled": 1,
+        },
+        fields=[
+            "parent",
+            "func_name",
+            "label",
+            "visible_in_builder",
+            "icon",
+            "color",
+            "config_json",
+            "idx",
+        ],
+        order_by="parent asc, idx asc",
+    )
+
+    # group operations by process
+    ops_by_process = {}
+    for op in operations:
+        ops_by_process.setdefault(op["parent"], []).append(op)
+
+    # attach operations
+    for p in processes:
+        p["operations"] = ops_by_process.get(p["name"], [])
+
+    return processes

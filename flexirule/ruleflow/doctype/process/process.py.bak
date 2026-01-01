@@ -381,7 +381,7 @@ def get_process_js_paths():
 
 
 @frappe.whitelist()
-def get_process_js_content(process_name):
+def get_script(process_name):
     """
     Get the JS content for a process adapter.
     Returns the raw JS file content or None if not found.
