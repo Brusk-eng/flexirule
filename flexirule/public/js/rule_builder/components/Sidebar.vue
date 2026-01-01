@@ -1166,283 +1166,31 @@ function deleteNode() {
 }
 
 async function openConfigDialog() {
-    // Check for new process_name + operation OR legacy process_method
     const processName = selectedNode.value?.data?.process_name;
     const operationName = selectedNode.value?.data?.operation;
-    const methodName = selectedNode.value?.data?.process_method;
     
-    let schema = null;
-    let dialogTitle = '';
-    
-    if (processName && operationName) {
-        // New file-backed process
-        const fields = store.get_operation_config_fields(processName, operationName, null);
-        if (fields && fields.length) {
-            schema = { fields };
-            dialogTitle = `${processName} - ${operationName}`;
-        }
-    } else if (methodName) {
-        // Legacy process method
-        schema = await store.get_process_method_schema(methodName);
-        dialogTitle = schema?.method_name || methodName;
-    }
-    
-    if (!schema?.fields) {
-        frappe.msgprint(__('No configuration available'));
+    if (!processName || !operationName) {
+        frappe.msgprint(__('Please select a Process and Operation first'));
         return;
     }
     
-    const parentDoctype = store.rule_doc?.document_type;
-    const childTables = schema.child_tables || {};
-    const dialogFields = await buildDialogFields(schema.fields, parentDoctype, childTables);
-    
-    // Parse current config (support both new 'config' and legacy 'method_config')
-    let currentConfig = {};
-    try {
-        const configStr = selectedNode.value.data?.config || selectedNode.value.data?.method_config;
-        if (configStr && configStr !== '{}' && configStr !== 'null') {
-            currentConfig = JSON.parse(configStr);
-        }
-    } catch (e) {
-        console.error('Failed to parse configuration:', e);
-    }
-    
-    // Pre-populate Table field data in the field definitions
-    dialogFields.forEach(f => {
-        if (f.fieldtype === 'Table' && currentConfig[f.fieldname]) {
-            f.data = currentConfig[f.fieldname];
-        } else if (currentConfig[f.fieldname] !== undefined && f.fieldtype !== 'Table') {
-            f.default = currentConfig[f.fieldname];
-        }
+    // Use ConfigurableAction class for all dialog handling
+    const action = new flexirule.ui.ConfigurableAction({
+        process_name: processName,
+        operation_name: operationName,
+        node_data: selectedNode.value?.data,
+        document_type: store.rule_doc?.document_type,
+        doc_meta: store.raw_meta
     });
     
-    const dialog = new frappe.ui.Dialog({
-        title: dialogTitle || __('Configure'),
-        fields: dialogFields,
-        size: 'large',
-        primary_action_label: __('Save'),
-        primary_action: () => {
-            const values = dialog.get_values();
-            if (values) {
-                // For Table fields, get data from grid
-                dialogFields.forEach(f => {
-                    if (f.fieldtype === 'Table') {
-                        const field = dialog.fields_dict[f.fieldname];
-                        if (field && field.grid) {
-                            values[f.fieldname] = field.grid.get_data();
-                        }
-                    }
-                });
-                
-                selectedNode.value.data.config = JSON.stringify(values);
-                store.mark_dirty();
-                frappe.show_alert({ message: __('Configuration saved'), indicator: 'green' });
-            }
-            dialog.hide();
+    await action.show_dialog({
+        on_save: (values) => {
+            store.mark_dirty();
+            frappe.show_alert({ message: __('Configuration saved'), indicator: 'green' });
         }
     });
-    
-    dialog.show();
-    
-    // For Table fields, refresh grid with data after dialog is shown
-    setTimeout(() => {
-        dialogFields.forEach(f => {
-            if (f.fieldtype === 'Table' && currentConfig[f.fieldname]) {
-                const field = dialog.fields_dict[f.fieldname];
-                if (field && field.grid) {
-                    // Clear and set data
-                    field.grid.df.data = currentConfig[f.fieldname];
-                    field.grid.refresh();
-                }
-            }
-        });
-        
-        // Set non-table values
-        const nonTableConfig = {};
-        Object.keys(currentConfig).forEach(key => {
-            const field = dialogFields.find(f => f.fieldname === key);
-            if (field && field.fieldtype !== 'Table') {
-                nonTableConfig[key] = currentConfig[key];
-            }
-        });
-        if (Object.keys(nonTableConfig).length > 0) {
-            dialog.set_values(nonTableConfig);
-        }
-    }, 150);
 }
 
-async function buildDialogFields(schemaFields, parentDoctype, childTables = {}) {
-    const fields = [];
-    
-    for (const field of schemaFields) {
-        const mapped = await mapSchemaField(field, parentDoctype, childTables);
-        if (mapped) {
-            // Handle array of fields (e.g., Table expands to label + table)
-            if (Array.isArray(mapped)) {
-                fields.push(...mapped);
-            } else {
-                fields.push(mapped);
-            }
-        }
-    }
-    
-    return fields;
-}
-
-async function mapSchemaField(field, parentDoctype, childTables) {
-    const { fieldname, fieldtype, label, reqd, options, description } = field;
-    const defaultVal = field.default;
-    
-    switch (fieldtype) {
-        case 'DocField':
-            // Single field picker → Autocomplete
-            return {
-                fieldname,
-                fieldtype: 'Autocomplete',
-                label,
-                reqd,
-                description,
-                options: await getFieldOptions(options, parentDoctype)
-            };
-        
-        case 'MultiDocField':
-            // Multi field picker → MultiSelectList (MultiCheck crashes in Dialogs)
-            const multiOptions = await getFieldOptions(options, parentDoctype);
-            return {
-                fieldname,
-                fieldtype: 'MultiSelectList',
-                label,
-                reqd,
-                description,
-                options: multiOptions
-            };
-        
-        case 'Table':
-            // Inline table → Table control with child fields
-            // Check table_fields from process adapter OR childTables from schema
-            const childSchema = field.table_fields || field.fields || childTables[options] || [];
-            if (!childSchema.length) {
-                console.warn(`No table_fields or child_tables definition for: ${options}`);
-                return null;
-            }
-            
-            // Map child fields recursively
-            const childFields = [];
-            for (const cf of childSchema) {
-                const mappedChild = await mapSchemaField(cf, parentDoctype, {});
-                if (mappedChild && !Array.isArray(mappedChild)) {
-                    // For table child fields, convert Autocomplete to Data with options
-                    if (mappedChild.fieldtype === 'Autocomplete') {
-                        mappedChild.fieldtype = 'Select';
-                        mappedChild.options = mappedChild.options?.map(o => o.value || o).join('\n') || '';
-                    }
-                    if (mappedChild.fieldtype === 'MultiCheck') {
-                        mappedChild.fieldtype = 'Select';
-                        mappedChild.options = mappedChild.options?.map(o => o.value || o).join('\n') || '';
-                    }
-                    mappedChild.in_list_view = 1;
-                    childFields.push(mappedChild);
-                }
-            }
-            
-            return {
-                fieldname,
-                fieldtype: 'Table',
-                label,
-                reqd,
-                description,
-                fields: childFields,
-                data: [],
-                cannot_add_rows: false,
-                in_place_edit: false
-            };
-        
-        case 'MultiSelect':
-            // Multi-select → MultiSelectList
-            const selectOpts = parseSelectOptions(options);
-            return {
-                fieldname,
-                fieldtype: 'MultiSelectList',
-                label,
-                reqd,
-                description,
-                options: selectOpts
-            };
-        
-        case 'Percent':
-            // Percent → Float with description
-            return {
-                fieldname,
-                fieldtype: 'Float',
-                label,
-                reqd,
-                description: description || 'Value from 0-100',
-                default: defaultVal
-            };
-        
-        default:
-            // Standard Frappe fieldtype - pass through
-            return {
-                fieldname,
-                fieldtype,
-                label,
-                reqd,
-                options,
-                description,
-                default: defaultVal
-            };
-    }
-}
-
-async function getFieldOptions(optionsRef, parentDoctype) {
-    let targetDoctype = parentDoctype;
-    
-    if (optionsRef === 'parent.document_type') {
-        targetDoctype = parentDoctype;
-    } else if (optionsRef && !optionsRef.includes('.')) {
-        targetDoctype = optionsRef;
-    }
-    
-    if (!targetDoctype) return [];
-    
-    try {
-        const result = await frappe.call({
-            method: 'flexirule.ruleflow.api.get_doctype_fields',
-            args: { doctype: targetDoctype }
-        });
-        
-        if (result.message?.parent_fields) {
-            const opts = result.message.parent_fields.map(f => ({
-                value: f.value,
-                label: `${f.label} (${f.fieldtype})`
-            }));
-            
-            // Add child table fields
-            if (result.message.child_tables) {
-                result.message.child_tables.forEach(table => {
-                    opts.push({ value: '', label: `── ${table.table_label} ──`, disabled: true });
-                    table.fields.forEach(f => {
-                        opts.push({ value: f.value, label: `  ${f.label}` });
-                    });
-                });
-            }
-            
-            return opts;
-        }
-    } catch (e) {
-        console.error('Failed to fetch field options:', e);
-    }
-    
-    return [];
-}
-
-function parseSelectOptions(options) {
-    if (!options) return [];
-    return options.split('\n').filter(Boolean).map(opt => ({
-        value: opt.trim(),
-        label: opt.trim()
-    }));
-}
 
 </script>
 

@@ -61,6 +61,40 @@ const getDedupeTableFields = () => [
  * Deduplication Process Definition
  */
 flexirule.processes["Deduplication"] = {
+    /**
+     * Called once when the adapter is loaded
+     */
+    setup(context) {
+        // No global setup needed for deduplication
+    },
+
+    /**
+     * Called before opening the configuration dialog
+     */
+    onload(operation_name, context) {
+        // Apply operation-specific setup if defined
+        const operation = this.get_operation(operation_name);
+        if (operation && typeof operation.setup === 'function') {
+            operation.setup(context.config, context);
+        }
+    },
+
+    /**
+     * Get the configuration schema for an operation
+     */
+    get_schema(operation_name) {
+        const operation = this.get_operation(operation_name);
+        if (!operation) return null;
+
+        return {
+            title: operation.label || operation_name,
+            size: 'large',
+            fields: typeof operation.get_config_fields === 'function'
+                ? operation.get_config_fields()
+                : []
+        };
+    },
+
     operations: [
         {
             func_name: "find_similar_records",
