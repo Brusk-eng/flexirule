@@ -1,232 +1,69 @@
 {
-    "process_name": "Deduplication",
-    "module": "Ruleflow",
-    "description": "Deduplication operations for finding and handling duplicate records",
-    "child_tables": {
-        "Dedupe Field Config": [
-            {
-                "fieldname": "fieldname",
-                "fieldtype": "Data",
-                "label": "Field",
-                "reqd": 1,
-                "in_list_view": 1
-            },
-            {
-                "fieldname": "algorithm",
-                "fieldtype": "Select",
-                "label": "Algorithm",
-                "options": "Exact\nFuzzy\nPhonetic\nContains\nNumeric Range\nDate Distance",
-                "reqd": 1,
-                "default": "Fuzzy",
-                "in_list_view": 1
-            },
-            {
-                "fieldname": "weight",
-                "fieldtype": "Float",
-                "label": "Weight",
-                "default": 0.5,
-                "in_list_view": 1
-            },
-            {
-                "fieldname": "threshold",
-                "fieldtype": "Float",
-                "label": "Threshold",
-                "default": 0.8,
-                "in_list_view": 1
-            },
-            {
-                "fieldname": "tolerance",
-                "fieldtype": "Int",
-                "label": "Tolerance",
-                "default": 30,
-                "description": "For Date Distance: +/- days"
-            },
-            {
-                "fieldname": "normalize",
-                "fieldtype": "Check",
-                "label": "Normalize",
-                "default": 1
-            },
-            {
-                "fieldname": "included_in_filters",
-                "fieldtype": "Check",
-                "label": "Use for Blocking",
-                "default": 1
-            }
-        ]
-    },
-    "operations": [
-        {
-            "func_name": "find_similar_records",
-            "label": "Find Similar Records",
-            "description": "Find similar records using configurable algorithms",
-            "category": "Matching",
-            "side_effects": "Pure",
-            "output_mode": "list",
-            "mutates_doc": false,
-            "supports_dry_run": true,
-            "icon": "search",
-            "color": "#f59e0b",
-            "config_schema": {
-                "fields": [
-                    {
-                        "fieldname": "overall_threshold",
-                        "fieldtype": "Float",
-                        "label": "Overall Threshold",
-                        "default": 0.8,
-                        "reqd": 1
-                    },
-                    {
-                        "fieldname": "minimum_fields_matched",
-                        "fieldtype": "Int",
-                        "label": "Min Fields to Match",
-                        "default": 1
-                    },
-                    {
-                        "fieldname": "stop_after_first_match",
-                        "fieldtype": "Check",
-                        "label": "Stop After First Match",
-                        "default": 0
-                    },
-                    {
-                        "fieldname": "fields_config",
-                        "fieldtype": "Table",
-                        "label": "Field Comparison Rules",
-                        "options": "Dedupe Field Config",
-                        "reqd": 1
-                    }
-                ]
-            }
-        },
-        {
-            "func_name": "find_duplicates_by_fields",
-            "label": "Find Exact Duplicates",
-            "description": "Find exact duplicate records based on field values",
-            "category": "Matching",
-            "side_effects": "Pure",
-            "output_mode": "list",
-            "mutates_doc": false,
-            "supports_dry_run": true,
-            "icon": "duplicate",
-            "color": "#ef4444",
-            "config_schema": {
-                "fields": [
-                    {
-                        "fieldname": "fields",
-                        "fieldtype": "Small Text",
-                        "label": "Fields to Match",
-                        "reqd": 1
-                    },
-                    {
-                        "fieldname": "ignore_cancelled",
-                        "fieldtype": "Check",
-                        "label": "Ignore Cancelled",
-                        "default": 1
-                    }
-                ]
-            }
-        },
-        {
-            "func_name": "check_duplicate_and_prevent_save",
-            "label": "Block If Duplicate Exists",
-            "description": "Block save if exact duplicate exists",
-            "category": "Validation",
-            "side_effects": "Throws",
-            "output_mode": "boolean",
-            "mutates_doc": false,
-            "supports_dry_run": true,
-            "icon": "block",
-            "color": "#dc2626",
-            "config_schema": {
-                "fields": [
-                    {
-                        "fieldname": "fields",
-                        "fieldtype": "Small Text",
-                        "label": "Unique Fields",
-                        "reqd": 1
-                    }
-                ]
-            }
-        },
-        {
-            "func_name": "check_similar_and_prevent_save",
-            "label": "Block If Similar Exists",
-            "description": "Block save if similar records exist (fuzzy match)",
-            "category": "Validation",
-            "side_effects": "Throws",
-            "output_mode": "list",
-            "mutates_doc": false,
-            "supports_dry_run": true,
-            "icon": "block",
-            "color": "#b91c1c",
-            "config_schema": {
-                "fields": [
-                    {
-                        "fieldname": "overall_threshold",
-                        "fieldtype": "Float",
-                        "label": "Overall Threshold",
-                        "default": 0.8,
-                        "reqd": 1
-                    },
-                    {
-                        "fieldname": "fields_config",
-                        "fieldtype": "Table",
-                        "label": "Field Comparison Rules",
-                        "options": "Dedupe Field Config",
-                        "reqd": 1
-                    }
-                ]
-            }
-        },
-        {
-            "func_name": "mark_as_duplicate",
-            "label": "Mark as Duplicate",
-            "description": "Mark document as duplicate of another",
-            "category": "Actions",
-            "side_effects": "Modifies Doc",
-            "output_mode": "value",
-            "mutates_doc": true,
-            "supports_dry_run": true,
-            "icon": "link",
-            "color": "#8b5cf6",
-            "config_schema": {
-                "fields": [
-                    {
-                        "fieldname": "master_document",
-                        "fieldtype": "Data",
-                        "label": "Master Document",
-                        "reqd": 1
-                    }
-                ]
-            }
-        },
-        {
-            "func_name": "find_duplicates_in_child_table",
-            "label": "Find Duplicates in Child Table",
-            "description": "Find duplicates based on values in a child table",
-            "category": "Matching",
-            "side_effects": "Pure",
-            "output_mode": "list",
-            "mutates_doc": false,
-            "supports_dry_run": true,
-            "icon": "table",
-            "color": "#0ea5e9",
-            "config_schema": {
-                "fields": [
-                    {
-                        "fieldname": "child_table_field",
-                        "fieldtype": "Data",
-                        "label": "Child Table Field",
-                        "reqd": 1
-                    },
-                    {
-                        "fieldname": "child_search_field",
-                        "fieldtype": "Data",
-                        "label": "Field to Check",
-                        "reqd": 1
-                    }
-                ]
-            }
-        }
-    ]
+ "creation": "2025-12-29 20:49:23.583841",
+ "docstatus": 0,
+ "doctype": "Process",
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2026-01-01 19:48:20.218721",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Deduplication",
+ "operations": [
+  {
+   "color": "#f59e0a",
+   "enabled": 1,
+   "func_name": "find_similar_records",
+   "icon": "search",
+   "label": "Find Similar Records",
+   "timeout_seconds": 0,
+   "visible_in_builder": 1
+  },
+  {
+   "color": "#ef4444",
+   "enabled": 1,
+   "func_name": "find_duplicates_by_fields",
+   "icon": "duplicate",
+   "label": "Find Exact Duplicates",
+   "timeout_seconds": 0,
+   "visible_in_builder": 1
+  },
+  {
+   "color": "#dc2626",
+   "enabled": 1,
+   "func_name": "check_duplicate_and_prevent_save",
+   "icon": "block",
+   "label": "Block If Duplicate Exists",
+   "timeout_seconds": 0,
+   "visible_in_builder": 1
+  },
+  {
+   "color": "#b91c1c",
+   "enabled": 1,
+   "func_name": "check_similar_and_prevent_save",
+   "icon": "block",
+   "label": "Block If Similar Exists",
+   "timeout_seconds": 0,
+   "visible_in_builder": 1
+  },
+  {
+   "color": "#8b5cf6",
+   "enabled": 1,
+   "func_name": "mark_as_duplicate",
+   "icon": "link",
+   "label": "Mark as Duplicate",
+   "timeout_seconds": 0,
+   "visible_in_builder": 1
+  },
+  {
+   "color": "#0ea5e9",
+   "enabled": 1,
+   "func_name": "find_duplicates_in_child_table",
+   "icon": "table",
+   "label": "Find Duplicates in Child Table",
+   "timeout_seconds": 0,
+   "visible_in_builder": 1
+  }
+ ],
+ "owner": "Administrator",
+ "process_name": "Deduplication"
 }
