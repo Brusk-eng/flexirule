@@ -7,7 +7,10 @@
     "engine": "InnoDB",
     "field_order": [
         "process_name",
+        "is_standard",
         "module",
+        "reference_column",
+        "default_ref_doctype",
         "section_break_tzoz",
         "operations"
     ],
@@ -22,6 +25,14 @@
             "label": "Process Name",
             "reqd": 1,
             "unique": 1
+        },
+        {
+            "default": "No",
+            "fieldname": "is_standard",
+            "fieldtype": "Select",
+            "label": "Is Standard",
+            "options": "No\nYes",
+            "read_only": 1
         },
         {
             "fieldname": "module",
@@ -40,14 +51,32 @@
         {
             "fieldname": "operations",
             "fieldtype": "Table",
-            "options": "Process Operation",
-            "label": "Operations"
+            "label": "Operations",
+            "options": "Process Operation"
+        },
+        {
+            "fieldname": "reference_column",
+            "fieldtype": "Column Break",
+            "label": "Reference"
+        },
+        {
+            "description": "Default document type used by the builder or the Process to get Module. Not a restriction.",
+            "fieldname": "default_ref_doctype",
+            "fieldtype": "Link",
+            "label": "Default Reference DocType",
+            "options": "DocType"
         }
     ],
     "grid_page_length": 50,
     "index_web_pages_for_search": 1,
-    "links": [],
-    "modified": "2025-12-29 16:11:38.767817",
+    "links": [
+        {
+            "link_doctype": "Rule",
+            "link_fieldname": "process_name",
+            "table_fieldname": "actions"
+        }
+    ],
+    "modified": "2026-01-01 17:59:18.484441",
     "modified_by": "Administrator",
     "module": "Ruleflow",
     "name": "Process",
