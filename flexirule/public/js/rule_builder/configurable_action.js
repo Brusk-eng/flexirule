@@ -107,13 +107,19 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
      * Load config from node_data.config JSON
      */
     load_config() {
-        if (!this.node_data?.config) return {};
+        // Check config, then method_config (legacy)
+        const raw = this.node_data?.config || this.node_data?.method_config;
+
+        if (!raw) return {};
+
+        // If already an object, return Config
+        if (typeof raw === 'object') return raw;
 
         try {
-            const config = JSON.parse(this.node_data.config);
+            const config = JSON.parse(raw);
             return config || {};
         } catch (e) {
-            console.warn('ConfigurableAction: Failed to parse config', e);
+            console.warn('ConfigurableAction: Failed to parse config', e, raw);
             return {};
         }
     }

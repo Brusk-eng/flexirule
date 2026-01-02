@@ -1,131 +1,128 @@
+<!--
+  SelectControl - Simple native select for reliability
+-->
 <script setup>
-import { useSlots, onMounted, ref, computed, watch } from "vue";
+import { computed } from "vue";
 
-const props = defineProps(["df", "read_only", "modelValue", "no_label"]);
-let emit = defineEmits(["update:modelValue"]);
-let slots = useSlots();
+const props = defineProps({
+    df: Object,
+    modelValue: [String, Number],
+    read_only: Boolean,
+    no_label: Boolean
+});
 
-let select = ref(null);
-let update_control = ref(true);
+const emit = defineEmits(["update:modelValue"]);
 
-function get_options() {
-	let options = props.df.options;
+const options = computed(() => {
+    let opts = props.df?.options;
+    
+    if (!opts) return [];
+    
+    // String options (newline separated)
+    if (typeof opts === "string") {
+        return opts.split("\n").filter(Boolean).map(opt => ({
+            label: __(opt.trim()),
+            value: opt.trim()
+        }));
+    }
+    
+    // Array of strings
+    if (Array.isArray(opts) && opts.length && typeof opts[0] === "string") {
+        return opts.map(opt => ({
+            label: __(opt),
+            value: opt
+        }));
+    }
+    
+    // Array of objects with label/value
+    if (Array.isArray(opts)) {
+        return opts.map(opt => ({
+            label: __(opt.label || opt.value),
+            value: opt.value
+        }));
+    }
+    
+    return [];
+});
 
-	if (typeof options == "string") {
-		options = options.split("\n") || "";
-		options = options.map((opt) => {
-			return { label: __(opt), value: opt };
-		});
-	}
-
-	if (options?.length && typeof options[0] == "string") {
-		options = options.map((opt) => {
-			return { label: __(opt), value: opt };
-		});
-	}
-
-	if (props.df.fieldname == "fieldtype") {
-		if (!in_list(frappe.model.layout_fields, props.modelValue)) {
-			options =
-				options &&
-				options.filter((opt) => !in_list(frappe.model.layout_fields, opt.value));
-		} else {
-			options = [{ label: __(props.modelValue), value: props.modelValue }];
-		}
-	}
-
-	if (props.df.sort_options) {
-		options.sort((a, b) => a.label.localeCompare(b.label));
-	}
-
-	return options;
+function on_change(event) {
+    emit("update:modelValue", event.target.value);
 }
-
-let select_control = computed(() => {
-	if (!select.value) return;
-	select.value.innerHTML = "";
-
-	return frappe.ui.form.make_control({
-		parent: select.value,
-		df: {
-			...props.df,
-			fieldtype: "Select",
-			hidden: 0,
-			options: get_options(),
-			read_only: Boolean(slots.label) || props.read_only,
-			change: () => {
-				if (update_control.value) {
-					content.value = select_control.value.get_value();
-				}
-				update_control.value = true;
-			},
-		},
-		value: content.value,
-		render_input: true,
-		only_input: Boolean(slots.label) || props.no_label,
-	});
-});
-
-let content = computed({
-	get: () => props.modelValue,
-	set: (value) => emit("update:modelValue", value),
-});
-
-onMounted(() => {
-	if (select.value) select_control.value;
-});
-
-watch(
-	() => content.value,
-	(value) => {
-		update_control.value = false;
-		select_control.value?.set_value(value);
-	}
-);
-
-watch(
-	() => props.df.options,
-	() => {
-		select_control.value;
-	}
-);
 </script>
 
 <template>
-	<div v-if="slots.label" class="control frappe-control" :class="{ editable: slots.label }">
-		<!-- label -->
-		<div class="field-controls">
-			<slot name="label" />
-			<slot name="actions" />
-		</div>
-
-		<!-- select input -->
-		<div class="select-input">
-			<input class="form-control" readonly />
-			<div class="select-icon" v-html="frappe.utils.icon('select', 'sm')"></div>
-		</div>
-
-		<!-- description -->
-		<div v-if="df.description" class="mt-2 description" v-html="df.description"></div>
-	</div>
-	<div v-else class="control" ref="select"></div>
+    <div class="control frappe-control">
+        <div v-if="df?.label && !no_label" class="control-label label" :class="{ reqd: df.reqd }">
+            {{ __(df.label) }}
+        </div>
+        <div class="select-wrapper">
+            <select
+                class="form-control input-sm"
+                :value="modelValue"
+                :disabled="read_only || df?.read_only"
+                @change="on_change"
+            >
+                <option v-if="!df?.reqd" value="">{{ __("Select...") }}</option>
+                <option 
+                    v-for="opt in options" 
+                    :key="opt.value" 
+                    :value="opt.value"
+                >
+                    {{ opt.label }}
+                </option>
+            </select>
+            <div class="select-icon">
+                <svg class="icon icon-sm"><use href="#icon-select"></use></svg>
+            </div>
+        </div>
+        <div v-if="df?.description" class="description text-muted">
+            {{ __(df.description) }}
+        </div>
+    </div>
 </template>
 
-<style lang="scss" scoped>
-.editable {
-	.select-icon {
-		top: 3px !important;
-	}
+<style scoped>
+.control-label {
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text-muted);
 }
 
-.select-input {
-	position: relative;
+.control-label.reqd::after {
+    content: ' *';
+    color: var(--red-500);
+}
 
-	.select-icon {
-		position: absolute;
-		pointer-events: none;
-		top: 5px;
-		right: 10px;
-	}
+.select-wrapper {
+    position: relative;
+}
+
+.select-wrapper select {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 28px;
+    font-size: 13px;
+}
+
+.select-icon {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--text-muted);
+}
+
+.select-icon .icon {
+    width: 12px;
+    height: 12px;
+}
+
+.description {
+    font-size: 10px;
+    margin-top: 4px;
 }
 </style>
