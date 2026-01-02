@@ -533,6 +533,58 @@ export const useStore = defineStore("rule-builder-store", () => {
     async function save_changes() {
         frappe.dom.freeze(__("Saving..."));
         try {
+            // 1. Validate mandatory fields
+            await frappe.model.with_doctype('Rule Action');
+            const action_meta = frappe.get_meta('Rule Action');
+            const errors = [];
+
+            // Helper to evaluate dependency
+            const eval_depends = (expr, doc) => {
+                if (!expr) return true;
+                if (typeof expr === 'boolean') return expr;
+                if (expr.startsWith('eval:')) {
+                    try { return frappe.utils.eval(expr.substr(5), { doc, parent: rule_doc.value }); }
+                    catch (e) { return true; }
+                }
+                return !!doc[expr];
+            };
+
+            const nodes = graph.value.elements.filter(el => el.position);
+
+            nodes.forEach(node => {
+                // Skip Start node validation against Rule Action (it uses Rule fields)
+                if (node.type === 'start') return;
+
+                const doc = node.data;
+                const label = node.data.action_label || node.label || node.id;
+
+                action_meta.fields.forEach(df => {
+                    // Check if field is applicable (depends_on)
+                    if (df.depends_on && !eval_depends(df.depends_on, doc)) return;
+
+                    // Check mandatory
+                    const is_mandatory = df.reqd || (df.mandatory_depends_on && eval_depends(df.mandatory_depends_on, doc));
+
+                    if (is_mandatory) {
+                        const val = doc[df.fieldname];
+                        if (val === null || val === undefined || val === '') {
+                            errors.push(`${label}: ${df.label} is required`);
+                        }
+                    }
+                });
+            });
+
+            if (errors.length > 0) {
+                const message = errors.map(e => `<li>${e}</li>`).join('');
+                frappe.msgprint({
+                    title: __('Validation Error'),
+                    message: `<ul class="text-left">${message}</ul>`,
+                    indicator: 'red'
+                });
+                return;
+            }
+
+            // 2. Prepare doc for save
             const fresh = await frappe.call({
                 method: "frappe.client.get",
                 args: { doctype: "Rule", name: rule_name.value }
@@ -549,11 +601,9 @@ export const useStore = defineStore("rule-builder-store", () => {
             doc.trigger_condition = startNode?.data?.trigger_condition || null;
 
             // Sort nodes but ensure Entry Action is processed
-            const nodes = graph.value.elements.filter(el => el.position);
             const edgesList = graph.value.elements.filter(el => el.source);
 
-            // Re-use topological sort but handle cycles gracefully if needed
-            // (Current sort just queues navigable nodes, unconnected nodes appended at end)
+            // Re-use topological sort
             const orderedNodes = getTopologicalSort(nodes, edgesList);
 
             doc.actions = orderedNodes.map((node, idx) => {
