@@ -1,8 +1,6 @@
-
 <div align="center">
 
-  <img src="flexiRule.png" alt="FlexiRule Logo" width="180" style="border-radius:16px;" />
-
+<img src="https://github.com/Sendipad/flexirule/raw/develop/flexiRule.png" width="180" />
   <h1>FlexiRule</h1>
 
   [![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml?query=branch%3Adevelop)
@@ -13,12 +11,7 @@
 </div>
 
 <div align="center">
-  <img
-    src="rule_builder.png"
-    alt="FlexiRule Visual Rule Builder showing a graph-based execution flow with condition and process nodes"
-    width="900"
-    style="border-radius:16px;"
-  />
+<img src="https://github.com/Sendipad/flexirule/raw/develop/rule_builder.png" width="900" />
 
   <p>
     <em>The Visual Rule Builder is the canonical representation of FlexiRule logic — what you see is exactly what executes.</em>
