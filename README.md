@@ -1,6 +1,6 @@
 <div align="center">
+  <img width="180" alt="flexiRule" src="https://github.com/user-attachments/assets/e3724231-fccc-4f92-89af-6dd7b93c640f" />
 
-<img src="https://github.com/Sendipad/flexirule/raw/develop/flexiRule.png" width="180" />
   <h1>FlexiRule</h1>
 
   [![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml?query=branch%3Adevelop)
@@ -11,7 +11,7 @@
 </div>
 
 <div align="center">
-<img src="https://github.com/Sendipad/flexirule/raw/develop/rule_builder.png" width="900" />
+<img width="1307" height="751" alt="rule_builder" src="https://github.com/user-attachments/assets/8ff096b5-09b9-467a-925b-42530542c73d" />
 
   <p>
     <em>The Visual Rule Builder is the canonical representation of FlexiRule logic — what you see is exactly what executes.</em>
