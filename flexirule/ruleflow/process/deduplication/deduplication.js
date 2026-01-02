@@ -6,14 +6,14 @@ frappe.provide("flexirule.processes");
 const SHARED_LOGIC = {
     validTypes: ['Data', 'Text', 'Phone', 'Email', 'Small Text', 'Date', 'Int', 'Float', 'Currency'],
 
-    getFieldOptions: (doc_meta) => {
+    get_field_options: (doc_meta) => {
         if (!doc_meta?.fields) return [];
         return doc_meta.fields
             .filter(f => SHARED_LOGIC.validTypes.includes(f.fieldtype))
             .map(f => ({ label: f.label || f.fieldname, value: f.fieldname }));
     },
 
-    onAlgorithmChange: (value, context) => {
+    on_algorithm_change: (value, context) => {
         const defaults = {
             'Exact': { threshold: 1.0, tolerance: 0 },
             'Phonetic': { threshold: 0.9, tolerance: 0 },
@@ -29,7 +29,7 @@ const SHARED_LOGIC = {
 
 /** * Returns the inline field schema for Deduplication tables 
  */
-const getDedupeTableFields = () => [
+const get_dedupe_table_fields = () => [
     {
         fieldname: "fieldname",
         fieldtype: "DocField",
@@ -38,7 +38,7 @@ const getDedupeTableFields = () => [
         reqd: 1,
         in_list_view: 1,
         width: "150px",
-        get_options: (row, parent, meta) => SHARED_LOGIC.getFieldOptions(meta)
+        get_options: (row, parent, meta) => SHARED_LOGIC.get_field_options(meta)
     },
     {
         fieldname: "algorithm",
@@ -48,7 +48,7 @@ const getDedupeTableFields = () => [
         reqd: 1,
         default: "Fuzzy",
         in_list_view: 1,
-        onchange: (val, row, ctx) => SHARED_LOGIC.onAlgorithmChange(val, ctx)
+        onchange: (val, row, ctx) => SHARED_LOGIC.on_algorithm_change(val, ctx)
     },
     { fieldname: "weight", fieldtype: "Float", label: __("Weight"), default: 0.5, in_list_view: 1, width: "80px" },
     { fieldname: "threshold", fieldtype: "Float", label: __("Threshold"), default: 0.8, in_list_view: 1, depends_on_fields: ["algorithm"] },
@@ -113,7 +113,7 @@ flexirule.processes["Deduplication"] = {
                     fieldtype: "Table",
                     label: __("Field Comparison Rules"),
                     reqd: 1,
-                    fields: getDedupeTableFields() // Inline fields
+                    fields: get_dedupe_table_fields() // Inline fields
                 }
             ]
         },
@@ -144,7 +144,7 @@ flexirule.processes["Deduplication"] = {
             color: "#b91c1c",
             get_config_fields: () => [
                 { fieldname: "overall_threshold", fieldtype: "Float", label: __("Overall Threshold"), default: 0.8, reqd: 1 },
-                { fieldname: "fields_config", fieldtype: "Table", label: __("Field Comparison Rules"), reqd: 1, fields: getDedupeTableFields() }
+                { fieldname: "fields_config", fieldtype: "Table", label: __("Field Comparison Rules"), reqd: 1, fields: get_dedupe_table_fields() }
             ]
         },
         {

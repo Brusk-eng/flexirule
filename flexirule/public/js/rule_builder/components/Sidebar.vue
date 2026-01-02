@@ -1243,7 +1243,6 @@ async function openConfigDialog() {
     font-weight: 500;
     margin-bottom: 4px;
     color: var(--text-muted);
-    text-transform: uppercase;
 }
 
 .form-control {
