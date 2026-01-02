@@ -462,7 +462,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
         const dialog = new frappe.ui.Dialog({
             title: schema.title || __('Configure'),
-            size: schema.size || 'large',
+            size: schema.size || 'extra-large',
             fields: dialog_fields,
             primary_action_label: opts.primary_action_label || __('Save'),
             primary_action: () => {
