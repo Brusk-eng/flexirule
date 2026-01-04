@@ -64,9 +64,12 @@
             <div v-if="df.description" class="description text-muted mt-1" v-html="__(df.description)"></div>
         </div>
 
-        <!-- MultiSelect -->
-        <MultiSelectControl v-else-if="df?.fieldtype === 'MultiSelect' || df?.fieldtype === 'Table MultiSelect'"
-            :df="df" :modelValue="modelValue" @update:modelValue="$emit('update:modelValue', $event)" />
+        <!-- Table -->
+        <InlineTableControl v-else-if="df?.fieldtype === 'Table'"
+            :df="df" :modelValue="modelValue"
+            :documentType="doc?.document_type"
+            :read_only="read_only"
+            @update:modelValue="$emit('update:modelValue', $event)" />
 
         <!-- Default (Data, Duration, Valid types defaulting to text) -->
         <DataControl v-else-if="!['Table', 'Signature', 'Button', 'Heading'].includes(df?.fieldtype)"
@@ -88,6 +91,7 @@ import CheckControl from './CheckControl.vue';
 import DataControl from './DataControl.vue';
 import MultiSelectControl from './MultiSelectControl.vue';
 import AutocompleteControl from './AutocompleteControl.vue';
+import InlineTableControl from './InlineTableControl.vue';
 
 const props = defineProps({
     df: Object,

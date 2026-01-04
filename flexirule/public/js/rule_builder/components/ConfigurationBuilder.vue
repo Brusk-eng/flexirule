@@ -1,3 +1,9 @@
+<!--
+@deprecated
+Reason: Orphaned component. Logic superseded by ConfigurableAction.js and frappe.ui.Dialog.
+Replaced by: flexirule.ui.ConfigurableAction
+Removal Target: v2.0
+-->
 <template>
     <div class="config-builder">
         <div class="config-header">

@@ -584,33 +584,103 @@ class RuleEngine:
 	
 	def _execute_process(self, action, context):
 		"""
-		Execute Process Method with validation and error handling
+		Execute Process Logic (Supports both 'Process' DocType and legacy 'Process Method')
 		"""
-		if not action.process_method:
-			self._log("WARNING", _("Process action {0} has no process_method set").format(action.action_label))
-			return None
-		
-		# Get Process Method document
-		try:
-			process_method = frappe.get_cached_doc('Process Method', action.process_method)
-		except frappe.DoesNotExistError:
-			raise MethodExecutionError(_("Process Method {0} not found").format(action.process_method))
-		
-		# Parse configuration (with backward compat for method_config)
+		process_name = getattr(action, 'process_name', None)
+		process_method_name = getattr(action, 'process_method', None)
+		operation = getattr(action, 'operation', None)
+
+		if not process_name and not process_method_name:
+			self._log("WARNING", _("Process action {0} has no process_name or process_method set").format(action.action_label))
+			return None, getattr(action, 'next_step_if_true', None)
+
+		# Parse configuration
 		config = self._get_action_config(action)
 		
 		# Apply Input Mapping (Context -> Config)
-		if action.input_mapping:
+		if getattr(action, 'input_mapping', None):
 			config = apply_input_mapping(context, action.input_mapping, config)
-		
+
+		result = None
+
+		try:
+			# PATH A: New Process DocType Execution
+			if process_name:
+				if not frappe.db.exists("Process", process_name):
+					raise MethodExecutionError(_("Process {0} not found").format(process_name))
+				
+				process_doc = frappe.get_cached_doc("Process", process_name)
+				
+				# Validation: Check Execution Mode Constraints (Basic check)
+				# Note: Detailed validation might be needed similar to legacy but logic is delegated to Process internal checks or assumed safe
+				if self.rule.execution_mode == 'Asynchronous' and getattr(action, 'is_async', False):
+					# Check if operation allows async? 
+					# For now, we trust the Process implementation handles transactional safety or we add checks later.
+					pass
+
+				# Execute with retry logic wrapper
+				result = self._call_process_with_retry(
+					process_doc=process_doc, 
+					operation=operation,
+					config=config, 
+					context=context,
+					retry_count=action.retry_count or 0,
+					timeout=action.timeout or 30
+				)
+
+			# PATH B: Legacy Process Method Execution
+			elif process_method_name:
+				try:
+					process_method = frappe.get_cached_doc('Process Method', process_method_name)
+				except frappe.DoesNotExistError:
+					raise MethodExecutionError(_("Process Method {0} not found").format(process_method_name))
+
+				# Legacy Validation Logic (Input Schema, Sync/Async checks)
+				self._validate_legacy_process_method(process_method, action, config)
+
+				# Execution Context Preparation for Legacy
+				exec_context = context
+				if process_method.side_effects == 'Pure' or action.is_async:
+					exec_context = context.copy()
+					exec_context['doc'] = ReadOnlyDocument(context['doc'])
+
+				# Execute with retry
+				result = self._call_method_with_retry(
+					process_method=process_method,
+					config=config,
+					context=exec_context,
+					retry_count=action.retry_count or 0,
+					timeout=action.timeout or 30
+				)
+
+				# Legacy Output Validation
+				if process_method.output_schema:
+					try:
+						output_schema = json.loads(process_method.output_schema)
+						validate(instance=result, schema=output_schema)
+					except (json.JSONDecodeError, SchemaValidationError) as e:
+						raise MethodExecutionError(
+							_("Output contract violation in {0}. Result does not match Output Schema: {1}").format(process_method.method_name, str(e))
+						)
+
+			# Apply Output Mapping (Result -> Context)
+			if getattr(action, 'output_mapping', None):
+				if action.is_async:
+					raise MethodExecutionError(_("Async actions cannot map outputs"))
+				apply_output_mapping(result, action.output_mapping, context)
+
+			return result, getattr(action, 'next_step_if_true', None)
+
+		except Exception:
+			raise
+
+	def _validate_legacy_process_method(self, process_method, action, config):
+		"""Validation logic for legacy Process Method"""
 		# Validation: Check against Input Schema
 		if process_method.input_schema:
 			try:
 				schema = json.loads(process_method.input_schema)
-				# Convert Frappe fields list to standard JSON Schema if needed
 				schema = frappe_fields_to_json_schema(schema)
-				
-				# Use custom validator that allows 0/1 for booleans
 				Validator = get_custom_validator(schema)
 				Validator(schema).validate(config)
 			except (json.JSONDecodeError, SchemaValidationError) as e:
@@ -619,71 +689,45 @@ class RuleEngine:
 				)
 
 		# Validation: Execution Mode Constraints
-		# 1. Rule Level Async Checks
 		resolved_rule_mode = self.rule.execution_mode
 		if resolved_rule_mode == 'Asynchronous' and process_method.transactional:
 			raise MethodExecutionError(
 				_("Transactional method '{0}' cannot be executed in Asynchronous Rule.").format(process_method.method_name)
 			)
 
-		# 2. Action Level Async Checks (Fire & Forget Enforcement)
 		if action.is_async:
 			if action.output_mapping:
-				raise MethodExecutionError(
-					_("Async action '{0}' cannot have output mapping.").format(action.action_label)
-				)
-			if action.next_step_if_true: # Note: Logic nodes control flow, Process usually just has next_step_if_true
-				raise MethodExecutionError(
-					 _("Async action '{0}' cannot contribute to flow control (next_step found).").format(action.action_label)
-				)
+				raise MethodExecutionError(_("Async action '{0}' cannot have output mapping.").format(action.action_label))
+			if action.next_step_if_true:
+				raise MethodExecutionError(_("Async action '{0}' cannot contribute to flow control (next_step found).").format(action.action_label))
 			if process_method.transactional:
-				raise MethodExecutionError(
-					_("Transactional method '{0}' cannot be executed as Async action.").format(process_method.method_name)
-				)
+				raise MethodExecutionError(_("Transactional method '{0}' cannot be executed as Async action.").format(process_method.method_name))
 			if process_method.side_effects == 'Modifies Doc':
-				raise MethodExecutionError(
-					 _("Method '{0}' that modifies document cannot be executed as Async action.").format(process_method.method_name)
-				)
+				raise MethodExecutionError(_("Method '{0}' that modifies document cannot be executed as Async action.").format(process_method.method_name))
 
-		# Execution Context Preparation
-		exec_context = context
-		if process_method.side_effects == 'Pure' or action.is_async:
-			# Create a safe context with ReadOnlyDocument
-			# For Pure: Contract enforcement
-			# For Async: Race condition prevention (trigger doc must be immutable)
-			exec_context = context.copy()
-			exec_context['doc'] = ReadOnlyDocument(context['doc'])
-
-		# Execute with retry logic
-		result = self._call_method_with_retry(
-			process_method=process_method,
-			config=config,
-			context=exec_context,
-			retry_count=action.retry_count or 0,
-			timeout=action.timeout or 30
-		)
-
-		# Validation: Output Schema
-		if process_method.output_schema:
+	def _call_process_with_retry(self, process_doc, operation, config, context, retry_count, timeout):
+		"""Execute new Process with retry logic"""
+		last_error = None
+		for attempt in range(retry_count + 1):
 			try:
-				output_schema = json.loads(process_method.output_schema)
-				# 1. Type Check & Required Fields
-				validate(instance=result, schema=output_schema)
+				if attempt > 0:
+					self._log("INFO", _("Retry attempt {0}/{1} for {2}:{3}").format(attempt, retry_count, process_doc.name, operation))
 				
-			except (json.JSONDecodeError, SchemaValidationError) as e:
-				raise MethodExecutionError(
-					_("Output contract violation in {0}. Result does not match Output Schema: {1}").format(process_method.method_name, str(e))
-				)
+				# Call the Process execute method
+				# Passing context, func (operation name), and config
+				return process_doc.execute(context, func=operation, config=config)
+				
+			except Exception as e:
+				last_error = e
+				self._log("ERROR", _("Process execution failed (attempt {0}): {1}").format(attempt + 1, str(e)))
+				if attempt < retry_count:
+					time.sleep(2 ** attempt)
+				else:
+					break
 		
-		# Apply Output Mapping (Result -> Context)
-		if action.output_mapping:
-			# Re-verify sync enforcement (double check)
-			if action.is_async:
-				 raise MethodExecutionError(_("Async actions cannot map outputs"))
-				 
-			apply_output_mapping(result, action.output_mapping, context)
-			
-		return result, action.next_step_if_true
+		raise MethodExecutionError(
+			_("Process {0}:{1} failed after {2} attempts: {3}").format(process_doc.name, operation, retry_count + 1, str(last_error))
+		)
 	
 	def _call_method_with_retry(self, process_method, config, context, retry_count, timeout):
 		"""Execute method with retry logic"""
@@ -727,14 +771,14 @@ class RuleEngine:
 		"""Execute Switch logic based on config"""
 		config = self._get_action_config(action)
 		if not config:
-			return None
+			return None, getattr(action, 'next_step_if_true', None)
 			
 		try:
 			expression = config.get('expression')
 			cases = config.get('cases', {})
 			
 			if not expression:
-				return None
+				return None, getattr(action, 'next_step_if_true', None)
 				
 			# Evaluate expression
 			val = self._evaluate_python_condition(expression, context)

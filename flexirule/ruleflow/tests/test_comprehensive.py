@@ -297,7 +297,7 @@ class TestDeduplicationMethods(FrappeTestCase):
     
     def test_find_duplicates_by_fields(self):
         """Test exact duplicate detection"""
-        from flexirule.ruleflow.methods.deduplication import find_duplicates_by_fields
+        from flexirule.ruleflow.process.deduplication.deduplication import find_duplicates_by_fields
         
         existing = frappe.get_doc({
             "doctype": "ToDo",
@@ -308,7 +308,7 @@ class TestDeduplicationMethods(FrappeTestCase):
         new_doc.name = "temp-new-doc"
         context = {"doc": new_doc, "vars": {}}
         
-        duplicates = find_duplicates_by_fields(context, fields=["description"])
+        duplicates = find_duplicates_by_fields(context, {"fields": ["description"]})
         self.assertIn(existing.name, duplicates)
     
     @classmethod

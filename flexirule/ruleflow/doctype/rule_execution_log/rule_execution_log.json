@@ -11,6 +11,9 @@
   "reference_doctype",
   "reference_docname",
   "executed_by",
+  "section_break_ksdx",
+  "executions_path_html",
+  "contexts_html",
   "section_break_1",
   "message",
   "execution_path",
@@ -97,11 +100,25 @@
    "label": "Error Trace",
    "options": "Text",
    "read_only": 1
+  },
+  {
+   "fieldname": "executions_path_html",
+   "fieldtype": "HTML",
+   "label": "Executions Path Html"
+  },
+  {
+   "fieldname": "contexts_html",
+   "fieldtype": "HTML",
+   "label": "Contexts Html"
+  },
+  {
+   "fieldname": "section_break_ksdx",
+   "fieldtype": "Section Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-26 19:44:34.101772",
+ "modified": "2026-01-04 22:28:33.160295",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "Rule Execution Log",
