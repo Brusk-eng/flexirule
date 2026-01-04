@@ -1,3 +1,5 @@
+#Deprecated
+
 import frappe
 from functools import wraps
 
