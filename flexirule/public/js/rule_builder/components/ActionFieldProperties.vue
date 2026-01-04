@@ -221,6 +221,7 @@ onMounted(async () => {
                     }"
                     :modelValue="get_value(df.fieldname)"
                     :read_only="is_read_only(df)"
+                    :doc="nodeData"
                     @update:modelValue="update_value(df.fieldname, $event)"
                 />
             </template>

@@ -87,6 +87,12 @@ function handleBlur() {
 watch(() => props.documentType, loadFields, { immediate: true });
 </script>
 
+<!--
+@deprecated
+Reason: Superseded by standard MultiSelect/Autocomplete in ConfigurableAction.
+Replaced by: flexirule.ui.ConfigurableAction
+Removal Target: v2.0
+-->
 <template>
     <div class="multi-field-picker">
         <label v-if="df.label" class="control-label">

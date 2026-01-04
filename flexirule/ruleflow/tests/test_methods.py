@@ -11,7 +11,8 @@ All methods use the context-first pattern:
 
 import frappe
 import unittest
-from flexirule.ruleflow.methods import validation, enrichment, notifications, deduplication
+from flexirule.ruleflow.methods import validation, enrichment, notifications
+from flexirule.ruleflow.process.deduplication import deduplication
 
 
 class TestValidationMethods(unittest.TestCase):
@@ -188,7 +189,7 @@ class TestDeduplicationMethods(unittest.TestCase):
         
         duplicates = deduplication.find_duplicates_by_fields(
             self.context,
-            fields=['description']
+            {'fields': ['description']}
         )
         
         self.assertGreaterEqual(len(duplicates), 1)

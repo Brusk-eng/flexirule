@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from flexirule.ruleflow.methods.deduplication import find_duplicates_in_child_table
+from flexirule.ruleflow.process.deduplication.deduplication import find_duplicates_in_child_table
 
 class TestContactDeduplication(FrappeTestCase):
     
@@ -45,8 +45,10 @@ class TestContactDeduplication(FrappeTestCase):
         # Run dedup check
         duplicates = find_duplicates_in_child_table(
             context,
-            child_table_field="phone_nos",
-            child_search_field="phone"
+            {
+                "child_table_field": "phone_nos",
+                "child_search_field": "phone"
+            }
         )
         
         self.assertIn(self.contact1.name, duplicates)
@@ -63,7 +65,7 @@ class TestContactDeduplication(FrappeTestCase):
         })
         
         context = {"doc": contact3, "vars": {}}
-        duplicates = find_duplicates_in_child_table(context, "phone_nos", "phone")
+        duplicates = find_duplicates_in_child_table(context, {"child_table_field": "phone_nos", "child_search_field": "phone"})
         
         self.assertIn(self.contact1.name, duplicates)
 
@@ -78,7 +80,7 @@ class TestContactDeduplication(FrappeTestCase):
         })
         
         context = {"doc": contact_unique, "vars": {}}
-        duplicates = find_duplicates_in_child_table(context, "phone_nos", "phone")
+        duplicates = find_duplicates_in_child_table(context, {"child_table_field": "phone_nos", "child_search_field": "phone"})
         
         self.assertEqual(len(duplicates), 0)
 

@@ -12,6 +12,7 @@ All process methods use the context-first pattern:
 import frappe
 import unittest
 from frappe.tests.utils import FrappeTestCase
+from flexirule.ruleflow.core.engine import RuleEngine
 
 
 class TestRuleEngine(FrappeTestCase):
@@ -51,6 +52,74 @@ class TestRuleEngine(FrappeTestCase):
         # Cleanup - don't delete, just rollback
         frappe.db.rollback()
         super().tearDownClass()
+
+    def test_engine_process_tuples(self):
+        """
+        Test fix for TypeError: cannot unpack non-iterable NoneType object
+        and support for Process name + operation
+        """
+        # Mock Rule 
+        rule_doc = frappe._dict({
+            "name": "Test New Process Fix",
+            "is_active": 1,
+            "execution_mode": "Synchronous", 
+            "document_type": "User",
+            "actions": [
+                frappe._dict({
+                    "action_id": "root",
+                    "action_type": "Entry Action", 
+                    "action_label": "Manual",
+                    "is_enabled": 1,
+                    "next_step_if_true": "ACT-PROCESS"
+                }),
+                frappe._dict({
+                    "action_id": "ACT-PROCESS",
+                    "action_type": "Process",
+                    "action_label": "New Process",
+                    "is_enabled": 1,
+                    "process_name": "TestProcessDoc", # Mock this
+                    "operation": "test_op",
+                    "config": '{"x": 1}',
+                    "on_error": "Stop"
+                })
+            ],
+            "priority": 10
+        })
+
+        # Mock Process Doc
+        class MockProcess:
+            def __init__(self, name):
+                self.name = name
+            
+            def execute(self, context, func=None, config=None):
+                return {"result": "success", "func": func}
+
+        # Setup mocks
+        original_get_cached = frappe.get_cached_doc
+        original_db_exists = frappe.db.exists
+
+        def mock_get_cached(doctype, name):
+            if doctype == "Process" and name == "TestProcessDoc":
+                return MockProcess(name)
+            return original_get_cached(doctype, name)
+
+        frappe.get_cached_doc = mock_get_cached
+        frappe.db.exists = lambda dt, dn: True if (dt=="Process" and dn=="TestProcessDoc") else original_db_exists(dt, dn)
+
+        try:
+            engine = RuleEngine(rule_doc)
+            # Should not raise TypeError
+            context = engine.execute(frappe._dict({"name": "TestDoc"}))
+            
+            # Verify execution happened
+            trace = [t for t in engine.path_trace if t["type"] == "Process"]
+            self.assertTrue(len(trace) > 0)
+            self.assertIn("success", str(trace[0].get("output")))
+
+        finally:
+            # Teardown mocks
+            frappe.get_cached_doc = original_get_cached
+            frappe.db.exists = original_db_exists
 
 
 class TestValidationMethods(FrappeTestCase):

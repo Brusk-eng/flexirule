@@ -4,631 +4,729 @@
 frappe.provide("flexirule.ui");
 
 /**
- * ConfigurableAction - Runtime abstraction for node configuration management
+ * ConfigurableAction - Runtime Primitive for Process Configuration
  * 
- * Responsibilities:
- * 1. Resolve canonical schema from process+operation
- * 2. Load/save JSON config for the node
- * 3. Build Frappe Dialog fields (UI-agnostic)
- * 4. Handle nested tables, multi-selects, and default values
- * 5. Provide a standard API for Vue components, Dialogs, and Forms
- * 6. Trigger events on field value changes for reactive updates
+ * DESIGN GUARANTEES:
+ * 1. Runtime Owns Persistence: schema is immutable, config is the single source of truth.
+ * 2. Strict Context: mutations only via ctx.update_field().
+ * 3. Passive Fields: fields react to state, never mutate each other directly.
+ * 4. Native Frappe Semantics: supports depends_on, mandatory_depends_on, eval scops.
  */
 flexirule.ui.ConfigurableAction = class ConfigurableAction {
     constructor(opts) {
-        /*
-         * Options:
-         *   process_name: string - Name of the Process DocType record
-         *   operation_name: string - Name of the operation (func_name)
-         *   node_data: object - The node's data object (action data)
-         *   document_type: string - The Rule's target DocType
-         *   doc_meta: object - Frappe meta for the document_type (optional)
-         */
+        // Options: process_name, operation_name, node_data, document_type, doc_meta
         Object.assign(this, opts);
 
-        this.adapter = null;
-        this.operation = null;
-        this.schema = null;
-        this.config = {};
-        this.field_handlers = {};
+        // State
+        this.config = this._load_config();
 
-        this._init();
+        // Cache
+        this.adapter = null;
+        this.operation_def = null;
+        this.schema = null;           // The Raw Adapter Schema
+        this.normalized_fields = [];  // The Compiled Runtime Fields
+        this.field_map = {};         // Fast Lookup
+
+        // UI Binding (Ephemeral)
+        this.active_dialog = null;
+        this.active_grids = {}; // fieldname -> grid instance
     }
 
-    _init() {
-        // Get adapter from global namespace
-        this.adapter = window.flexirule?.processes?.[this.process_name];
+    /**
+     * Initialize the runtime. Must be called before usage.
+     * Resolves schema, fetches async options, prepares runtime.
+     */
+    async init() {
+        await this._load_adapter();
+        this.schema = this._resolve_schema();
+        this.normalized_fields = await this._normalize_schema(this.schema);
+        this._build_field_map();
 
-        if (this.adapter && this.operation_name) {
-            // Get operation definition
-            this.operation = this.adapter.get_operation?.(this.operation_name);
+        // Run initial dependency check on loaded config
+        this.evaluate_dependencies(this.config);
+    }
 
-            // Call adapter setup if defined
-            if (typeof this.adapter.setup === 'function') {
-                this.adapter.setup(this._get_context());
-            }
+    // ============================================================
+    // 1. STATE & CONTEXT API
+    // ============================================================
+
+    /**
+     * The Single Mutation Surface.
+     * All UI changes must pass through here.
+     */
+    update_field(fieldname, value, row_context = null) {
+        // 1. Mutate State
+        if (row_context) {
+            // Row Level Mutation
+            // row_context is the actual row object (doc)
+            row_context[fieldname] = value;
+        } else {
+            // Root Level Mutation
+            this.config[fieldname] = value;
         }
 
-        // Load existing config
-        this.config = this.load_config();
+        // 2. Persist to Node Data (Immediate Consistency)
+        this._sync_to_node();
+
+        // 3. Trigger Reactive Logic
+        this._handle_change(fieldname, value, row_context);
     }
 
-    _get_context() {
+    get_config() {
+        return { ...this.config };
+    }
+
+    /**
+     * Construct the standard ctx object for hooks/eval
+     */
+    _get_context(row = null) {
         return {
+            doc: this.config,      // Frappe standard: 'doc' refers to the parent
+            row: row,              // Current row (if any)
+            config: this.config,   // Alias for clarity
+
+            // Meta linkage
+            document_type: this.document_type,
             process_name: this.process_name,
             operation_name: this.operation_name,
-            document_type: this.document_type,
-            doc_meta: this.doc_meta,
-            config: this.config,
-            update_field: (fieldname, value) => this.update_config_value(fieldname, value)
+
+            // The Mutation API
+            update_field: (field, val) => this.update_field(field, val, row)
         };
     }
 
     // ============================================================
-    // SCHEMA RESOLUTION
+    // 2. SCHEMA & NORMALIZATION
     // ============================================================
 
-    /**
-     * Get the canonical schema for this operation
-     * Priority: adapter.get_schema() > operation.get_config_fields()
-     */
-    get_canonical_schema() {
-        if (this.schema) return this.schema;
+    async _load_adapter() {
+        this.adapter = window.flexirule?.processes?.[this.process_name];
 
-        if (!this.adapter || !this.operation_name) {
-            return null;
+        if (this.adapter && this.adapter.get_operation) {
+            this.operation_def = this.adapter.get_operation(this.operation_name);
         }
 
-        // Try get_schema method first (new contract)
+        // Run Adapter Setup (Global Context Enrichment)
+        if (this.adapter && typeof this.adapter.setup === 'function') {
+            await this.adapter.setup(this._get_context());
+        }
+    }
+
+    _resolve_schema() {
+        if (!this.adapter) return [];
+
+        // Priority 1: Adapter.get_schema(operation_name, context)
         if (typeof this.adapter.get_schema === 'function') {
-            this.schema = this.adapter.get_schema(this.operation_name);
-            if (this.schema) return this.schema;
+            const schema = this.adapter.get_schema(this.operation_name, this._get_context());
+            if (schema && schema.fields) return schema.fields;
+            if (Array.isArray(schema)) return schema;
         }
 
-        // Fallback to operation.get_config_fields (existing contract)
-        if (this.operation && typeof this.operation.get_config_fields === 'function') {
-            const fields = this.operation.get_config_fields(this._get_context());
-            this.schema = {
-                title: this.operation.label || this.operation_name,
-                size: 'large',
-                fields: fields || []
-            };
-            return this.schema;
-        }
-
-        return null;
-    }
-
-    // ============================================================
-    // CONFIG LOAD/SAVE
-    // ============================================================
-
-    /**
-     * Load config from node_data.config JSON
-     */
-    load_config() {
-        // Check config, then method_config (legacy)
-        const raw = this.node_data?.config || this.node_data?.method_config;
-
-        if (!raw) return {};
-
-        // If already an object, return Config
-        if (typeof raw === 'object') return raw;
-
-        try {
-            const config = JSON.parse(raw);
-            return config || {};
-        } catch (e) {
-            console.warn('ConfigurableAction: Failed to parse config', e, raw);
-            return {};
-        }
-    }
-
-    /**
-     * Save config values to node_data.config
-     */
-    save_config(values) {
-        // Merge with defaults from schema
-        const schema = this.get_canonical_schema();
-        const merged = { ...this.config };
-
-        if (schema?.fields) {
-            for (const field of schema.fields) {
-                if (values[field.fieldname] !== undefined) {
-                    merged[field.fieldname] = values[field.fieldname];
-                } else if (field.default !== undefined && merged[field.fieldname] === undefined) {
-                    merged[field.fieldname] = field.default;
-                }
-            }
-        }
-
-        // Also include any extra values not in schema
-        Object.assign(merged, values);
-
-        this.config = merged;
-
-        if (this.node_data) {
-            this.node_data.config = JSON.stringify(merged);
-        }
-
-        return merged;
-    }
-
-    /**
-     * Update a single config value
-     */
-    update_config_value(fieldname, value) {
-        this.config[fieldname] = value;
-        if (this.node_data) {
-            this.node_data.config = JSON.stringify(this.config);
-        }
-    }
-
-    /**
-     * Get current config value
-     */
-    get_value(fieldname) {
-        return this.config[fieldname];
-    }
-
-    // ============================================================
-    // DIALOG FIELD BUILDING
-    // ============================================================
-
-    /**
-     * Build Frappe Dialog-compatible fields from schema
-     */
-    async build_dialog_fields() {
-        const schema = this.get_canonical_schema();
-        if (!schema?.fields) return [];
-
-        const dialog_fields = [];
-
-        for (const field of schema.fields) {
-            const mapped = await this._map_schema_field(field);
-            if (mapped) {
-                if (Array.isArray(mapped)) {
-                    dialog_fields.push(...mapped);
-                } else {
-                    dialog_fields.push(mapped);
-                }
-            }
-        }
-
-        return dialog_fields;
-    }
-
-    /**
-     * Map a single schema field to Frappe Dialog field format
-     */
-    async _map_schema_field(field) {
-        const { fieldname, fieldtype, label, reqd, options, description } = field;
-        const default_val = field.default;
-        const current_val = this.config[fieldname];
-
-        // Base field definition
-        const base = {
-            fieldname,
-            label,
-            reqd,
-            description,
-            default: current_val !== undefined ? current_val : default_val
-        };
-
-        switch (fieldtype) {
-            case 'DocField':
-                // Field Picker → Autocomplete
-                return {
-                    ...base,
-                    fieldtype: 'Autocomplete',
-                    options: await this._get_field_options(options)
-                };
-
-            case 'MultiDocField':
-                // Multi Field Picker → MultiSelectList
-                return {
-                    ...base,
-                    fieldtype: 'MultiSelectList',
-                    options: await this._get_field_options(options)
-                };
-
-            case 'Table':
-                // Inline Table
-                return await this._build_table_field(field, base);
-
-            case 'MultiSelect':
-                // Multi-select → MultiSelectList
-                return {
-                    ...base,
-                    fieldtype: 'MultiSelectList',
-                    options: this._parse_select_options(options)
-                };
-
-            case 'Percent':
-                return {
-                    ...base,
-                    fieldtype: 'Float',
-                    description: description || __('Value from 0-100')
-                };
-
-            case 'Data':
-                // Check for Field Picker option
-                if (options === 'Field Picker') {
-                    return {
-                        ...base,
-                        fieldtype: 'Autocomplete',
-                        options: await this._get_field_options('parent.document_type')
-                    };
-                }
-                return { ...base, fieldtype, options };
-
-            default:
-                // Pass through standard Frappe fieldtypes
-                return { ...base, fieldtype, options };
-        }
-    }
-
-    /**
-     * Build a Table field with inline child fields
-     */
-    async _build_table_field(field, base) {
-        const child_schema = field.fields || field.table_fields || [];
-
-        if (!child_schema.length) {
-            console.warn(`ConfigurableAction: No fields defined for table ${field.fieldname}`);
-            return null;
-        }
-
-        const child_fields = [];
-
-        for (const cf of child_schema) {
-            const mapped = await this._map_child_field(cf);
-            if (mapped) {
-                mapped.in_list_view = cf.in_list_view !== false ? 1 : 0;
-                if (cf.width) mapped.columns = cf.width;
-                child_fields.push(mapped);
-            }
-        }
-
-        return {
-            ...base,
-            fieldtype: 'Table',
-            fields: child_fields,
-            data: this.config[field.fieldname] || [],
-            cannot_add_rows: field.cannot_add_rows || false,
-            in_place_edit: field.in_place_edit || false
-        };
-    }
-
-    /**
-     * Map child table field (simplified for inline editing)
-     */
-    async _map_child_field(field) {
-        const { fieldname, fieldtype, label, reqd, options, description } = field;
-        const default_val = field.default;
-
-        const base = {
-            fieldname,
-            label,
-            reqd,
-            description,
-            default: default_val
-        };
-
-        switch (fieldtype) {
-            case 'DocField':
-                // In child tables, DocField becomes Select with options
-                const opts = await this._get_field_options(options);
-                return {
-                    ...base,
-                    fieldtype: 'Select',
-                    options: opts.map(o => o.value || o).join('\n')
-                };
-
-            case 'MultiDocField':
-            case 'MultiSelect':
-                // Preserve as Select for simplicity in grids
-                return {
-                    ...base,
-                    fieldtype: 'Select',
-                    options: this._parse_select_options(options).map(o => o.value || o).join('\n')
-                };
-
-            default:
-                return { ...base, fieldtype, options };
-        }
-    }
-
-    /**
-     * Get field options for DocField/Link types
-     */
-    async _get_field_options(options_ref) {
-        let target_doctype = this.document_type;
-
-        if (options_ref === 'parent.document_type') {
-            target_doctype = this.document_type;
-        } else if (options_ref && !options_ref.includes('.')) {
-            target_doctype = options_ref;
-        }
-
-        if (!target_doctype) return [];
-
-        try {
-            const result = await frappe.call({
-                method: 'flexirule.ruleflow.api.get_doctype_fields',
-                args: { doctype: target_doctype }
-            });
-
-            if (result.message?.parent_fields) {
-                const opts = result.message.parent_fields.map(f => ({
-                    value: f.value,
-                    label: `${f.label} (${f.fieldtype})`
-                }));
-
-                // Add child table fields
-                if (result.message.child_tables) {
-                    result.message.child_tables.forEach(table => {
-                        opts.push({ value: '', label: `── ${table.table_label} ──`, disabled: true });
-                        table.fields.forEach(f => {
-                            opts.push({ value: f.value, label: `  ${f.label}` });
-                        });
-                    });
-                }
-
-                return opts;
-            }
-        } catch (e) {
-            console.error('ConfigurableAction: Failed to fetch field options:', e);
+        // Priority 2: Operation.get_config_fields(context) (Legacy/Simple)
+        if (this.operation_def && typeof this.operation_def.get_config_fields === 'function') {
+            return this.operation_def.get_config_fields(this._get_context());
         }
 
         return [];
     }
 
     /**
-     * Parse select options from newline-separated string
+     * Compiles the raw schema into a Frappe-compatible field list.
+     * Handles type conversions (DocField -> Autocomplete) and Option loading.
      */
-    _parse_select_options(options) {
-        if (!options) return [];
-        if (Array.isArray(options)) return options;
+    async _normalize_schema(raw_fields) {
+        if (!raw_fields) return [];
+        const normalized = [];
 
-        return options.split('\n').filter(Boolean).map(opt => ({
-            value: opt.trim(),
-            label: opt.trim()
-        }));
+        for (const field of raw_fields) {
+            const processed = await this._normalize_field(field);
+            if (processed) normalized.push(processed);
+        }
+        return normalized;
     }
 
-    // ============================================================
-    // FIELD CHANGE EVENTS
-    // ============================================================
+    async _normalize_field(field) {
+        // Clone to protect immutability
+        const f = { ...field };
 
-    /**
-     * Handle field value change - triggers adapter hooks
-     */
-    on_field_change(fieldname, value, all_values, row_context = null) {
-        // Update internal config
-        if (!row_context) {
-            this.config[fieldname] = value;
+        // 1. Standardize Flags
+        f.reqd = f.reqd || 0;
+        f.read_only = f.read_only || 0;
+        f.hidden = f.hidden || 0;
+
+        // Legacy Compatibility: Default to visible in Grid unless explicitly hidden
+        // Standard Frappe defaults to 0, but FlexiRule adapters assume 1
+        if (f.in_list_view === undefined) {
+            f.in_list_view = 1;
         }
 
-        // Find field definition in schema
-        const schema = this.get_canonical_schema();
-        if (!schema?.fields) return;
-
-        const field_def = this._find_field_def(schema.fields, fieldname);
-        if (!field_def) return;
-
-        // Call field's onchange handler if defined
-        if (typeof field_def.onchange === 'function') {
-            const ctx = {
-                ...this._get_context(),
-                row: row_context,
-                all_values
-            };
-            field_def.onchange(value, row_context, ctx);
+        // Map width to columns (Grid specific)
+        if (f.width) {
+            f.columns = f.width;
         }
-    }
 
-    /**
-     * Recursively find field definition by fieldname
-     */
-    _find_field_def(fields, fieldname) {
-        for (const f of fields) {
-            if (f.fieldname === fieldname) return f;
+        // 2. Resolve 'System' Types to Frappe Types
+        if (f.fieldtype === 'DocField') {
+            f.fieldtype = 'Autocomplete';
+            f.options = await this._resolve_docfield_options(f.options);
+        }
+        else if (f.fieldtype === 'MultiDocField') {
+            f.fieldtype = 'MultiSelectList';
+            f.options = await this._resolve_docfield_options(f.options);
+        }
+        else if (f.fieldtype === 'Table') {
+            // Recursively normalize child fields
+            const children = f.fields || f.table_fields || [];
+            f.fields = await this._normalize_schema(children);
+            // Ensure data init
+            if (!this.config[f.fieldname]) this.config[f.fieldname] = [];
+            f.data = this.config[f.fieldname];
+        }
 
-            // Check table child fields
-            if (f.fieldtype === 'Table' && (f.fields || f.table_fields)) {
-                const child = this._find_field_def(f.fields || f.table_fields, fieldname);
-                if (child) return child;
+        // 3. Dynamic Options (if function) & OnChange Normalization
+        // Note: For top-level fields, we resolve once during init. 
+        // For tables, we might need dynamic resolution per row (handled in Grid).
+        if (typeof f.get_options === 'function' && f.fieldtype !== 'Table') {
+            // This is static initialization. Runtime dynamic options (dependent)
+            // are harder in standard Dialogs without custom controls.
+            // We assume get_options here is for "Start State".
+            try {
+                const opts = await f.get_options(null, this._get_context(), this.doc_meta);
+                if (opts) f.options = opts;
+            } catch (e) {
+                console.warn(`Failed to resolve options for ${f.fieldname}`, e);
             }
         }
-        return null;
+
+        // 4. Separate Business Logic from UI Binding
+        // We move the adapter's 'onchange' to a private key so that we don't 
+        // confuse it with the UI binding 'onchange' we will inject later.
+        if (f.onchange) {
+            f._onchange_logic = f.onchange;
+            delete f.onchange; // Prevent double-execution or recursion
+        }
+
+        return f;
+    }
+
+    _build_field_map() {
+        this.field_map = {};
+        const traverse = (fields) => {
+            fields.forEach(f => {
+                this.field_map[f.fieldname] = f;
+                if (f.fieldtype === 'Table' && f.fields) {
+                    traverse(f.fields);
+                }
+            });
+        };
+        traverse(this.normalized_fields);
     }
 
     // ============================================================
-    // DIALOG HELPERS
+    // 3. REACTIVITY & DEPENDENCY ENGINE
     // ============================================================
 
     /**
-     * Open configuration dialog
+     * Central Change Handler
+     * Fires after a field mutation -> Recalculates -> Refreshes UI
+     */
+    _handle_change(fieldname, value, row_context) {
+        // 1. Evaluate Dependencies
+        // We evaluate EVERYTHING relevant to the scope.
+        // If row_context, we evaluate that row.
+        // Always evaluate root.
+
+        this.evaluate_dependencies(this.config);
+        if (row_context) {
+            this.evaluate_dependencies(this.config, row_context);
+        }
+
+        // 2. Trigger 'onchange' hooks (Business Logic)
+        const field_def = this.field_map[fieldname];
+        // Use strict internal key to avoid recursion with UI bindings
+        if (field_def && typeof field_def._onchange_logic === 'function') {
+            const ctx = this._get_context(row_context);
+            // Safe execution
+            try {
+                field_def._onchange_logic(value, row_context, ctx);
+            } catch (e) {
+                console.error(`Error in onchange for ${fieldname}:`, e);
+            }
+        }
+
+        // 3. Refresh UI
+        if (this.active_dialog) {
+            this._refresh_dialog_ui(row_context);
+        }
+    }
+
+    /**
+     * Evaluates 'depends_on', 'mandatory_depends_on', 'read_only_depends_on'
+     * Scope:
+     *   If row is null: Evaluates top-level fields against config
+     *   If row exists: Evaluates child-fields of that row against row+config
+     */
+    evaluate_dependencies(doc, row = null) {
+        // Which fields to check?
+        // If row provided, check that row's structure (need to find the table schema)
+        // For simplicity in this primitive: we iterate the KNOWN schema.
+
+        const target_fields = row
+            ? this._get_table_fields_for_row(row)
+            : this.normalized_fields.filter(f => f.fieldtype !== 'Table'); // Top level non-tables
+
+        const context = { doc: this.config, row: row || null, ...this.config };
+        if (row) Object.assign(context, row);
+
+        for (const field of target_fields) {
+            const s = row || this.config; // The state object being modified
+
+            // 1. Visibility (depends_on / hidden)
+            if (field.depends_on) {
+                const visible = this._eval_condition(field.depends_on, context);
+                // We don't delete data, just mark metadata (UI uses this)
+                // In a purely runtime object, where do we store 'hidden' state?
+                // We assume the UI pulls this, but for 'reqd' logic, we need to know.
+                // Let's store ephemeral state in the Object itself using a symbol or non-enumerable?
+                // Or just rely on UI refreshing?
+                // Re-evaluation usually means UI update.
+                // For simplicity, we don't mutate the schema. The UI (Dialog) runs its own eval usually.
+                // BUT, user asked for "Runtime Owns Persistence".
+                // We will rely on the UI layer's standard dependency handler OR force it here.
+                // Since generic Frappe Dialog *does* handle depends_on, we strictly support it
+                // by ensuring the Context passed to the Dialog is correct.
+            }
+
+            // 2. Mandatory (mandatory_depends_on)
+            if (field.mandatory_depends_on) {
+                field.reqd = this._eval_condition(field.mandatory_depends_on, context) ? 1 : 0;
+            }
+
+            // 3. Read Only (read_only_depends_on)
+            if (field.read_only_depends_on) {
+                field.read_only = this._eval_condition(field.read_only_depends_on, context) ? 1 : 0;
+            }
+        }
+    }
+
+    _eval_condition(expression, context) {
+        if (!expression) return true;
+        try {
+            return frappe.utils.eval(expression, context);
+        } catch (e) {
+            console.warn(`Dependency Eval Failed: ${expression}`, e);
+            return false;
+        }
+    }
+
+    _get_table_fields_for_row(row) {
+        // Find which table this row belongs to?
+        // In a flat traversal, this is hard without parent pointer.
+        // Optimization: We just iterate ALL table schemas and check if row looks like it?
+        // Or better: Pass the table field name when calling evaluate.
+        // For now, we iterate all defined table schemas in our normalized fields.
+        let schemas = [];
+        for (const f of this.normalized_fields) {
+            if (f.fieldtype === 'Table' && f.fields) {
+                schemas = schemas.concat(f.fields);
+            }
+        }
+        return schemas;
+    }
+
+    // ============================================================
+    // 4. UI: DIALOG IMPLEMENTATION
+    // ============================================================
+
+    /**
+     * Builds and shows a standard Frappe Dialog connected to this runtime.
      */
     async show_dialog(opts = {}) {
-        const schema = this.get_canonical_schema();
-
-        if (!schema?.fields?.length) {
-            frappe.msgprint(__('No configuration available for this operation'));
-            return null;
-        }
-
-        // Call adapter onload if defined
-        if (typeof this.adapter?.onload === 'function') {
-            this.adapter.onload(this.operation_name, this._get_context());
-        }
-
-        const dialog_fields = await this.build_dialog_fields();
+        if (!this.schema) await this.init();
 
         const dialog = new frappe.ui.Dialog({
-            title: schema.title || __('Configure'),
-            size: schema.size || 'extra-large',
-            fields: dialog_fields,
-            primary_action_label: opts.primary_action_label || __('Save'),
+            title: this.operation_def?.label || this.operation_name,
+            fields: this.normalized_fields,
+            size: 'extra-large',
             primary_action: () => {
-                const values = this.collect_dialog_values(dialog);
-                this.save_config(values);
+                // 1. Frappe Standard Validation
+                const values = dialog.get_values();
+                if (!values) return;
 
+                // 2. Strict / Double-Check Mandatory (User Request)
+                // This now covers both Root fields and Child Table rows
+                if (!this._check_mandatory()) return;
+
+                // 3. Custom Adapter Validation
+                if (!this.validate()) return;
+
+                // 4. Save & Close
+                this._sync_to_node();
                 if (typeof opts.on_save === 'function') {
-                    opts.on_save(values);
+                    opts.on_save(this.config);
                 }
-
+                if (this.on_save_callback) this.on_save_callback(this.config);
                 dialog.hide();
             }
         });
 
+        this.active_dialog = dialog;
+
+        // 1. Hydrate Initial State
+        dialog.set_values(this.config);
+
+        // 2. Bind Root Fields
+        this._bind_dialog_events(dialog);
+
+        // 3. Bind Grid Fields (Tables)
+        this._bind_grid_events(dialog);
+
         dialog.show();
-        this.populate_dialog(dialog);
-        this._bind_change_handlers(dialog);
+
+        // Final refresh to run policies
+        this._refresh_dialog_ui();
 
         return dialog;
     }
 
     /**
-     * Collect values from dialog including table data
+     * Explicitly check if required fields are filled.
+     * Provides standard UI feedback (Red borders/scrolling).
+     * NOW SUPPORTS CHILD TABLES.
      */
-    collect_dialog_values(dialog) {
-        const values = dialog.get_values() || {};
-        const schema = this.get_canonical_schema();
+    _check_mandatory() {
+        if (!this.active_dialog) return true;
+        let is_valid = true;
+        let first_error_field = null;
 
-        if (schema?.fields) {
-            for (const f of schema.fields) {
-                if (f.fieldtype === 'Table') {
-                    const field = dialog.fields_dict[f.fieldname];
-                    if (field?.grid) {
-                        values[f.fieldname] = field.grid.get_data();
-                    }
+        // 1. Validate Root Fields
+        for (const f of this.normalized_fields) {
+            const field_obj = this.active_dialog.fields_dict[f.fieldname];
+            if (!field_obj) continue;
+
+            if (f.fieldtype === 'Table') {
+                // Delegate to Grid Validation
+                if (!this._check_grid_mandatory(f, field_obj)) {
+                    is_valid = false;
+                    // We don't break here, we want to highlight all errors
                 }
+                continue;
+            }
+
+            // Skip invalid types
+            if (f.hidden || ['Section Break', 'Column Break', 'HTML'].includes(f.fieldtype)) continue;
+
+            // Is it required?
+            const reqd = field_obj.df.reqd || f.reqd;
+            if (!reqd) continue;
+
+            // Get Value
+            const val = field_obj.get_value();
+            const has_value = val !== undefined && val !== null && val !== '';
+
+            if (!has_value) {
+                is_valid = false;
+                if (!first_error_field) first_error_field = field_obj;
+
+                // UI Feedback
+                try {
+                    field_obj.set_invalid ? field_obj.set_invalid() : $(field_obj.input).addClass('is-invalid');
+                } catch (e) { }
+            } else {
+                try {
+                    $(field_obj.input).removeClass('is-invalid');
+                } catch (e) { }
             }
         }
 
-        return values;
+        if (!is_valid) {
+            frappe.msgprint(__("Missing required fields"));
+            if (first_error_field && first_error_field.is_focus_able) {
+                // Try to focus
+                setTimeout(() => first_error_field.set_focus(), 100);
+            }
+        }
+        return is_valid;
     }
 
-    /**
-     * Populate dialog with current config values
-     */
-    populate_dialog(dialog) {
-        const schema = this.get_canonical_schema();
-        if (!schema?.fields) return;
+    _check_grid_mandatory(table_field, grid_obj) {
+        if (!grid_obj || !grid_obj.grid) return true;
+        const grid = grid_obj.grid;
+        // The table itself might be required (at least 1 row)
+        // but typically 'reqd' on table means non-empty data.
+        if (table_field.reqd && grid.grid_rows.length === 0) {
+            frappe.msgprint(__("Table {0} requires at least one row", [table_field.label]));
+            return false;
+        }
 
-        // Set table data
-        setTimeout(() => {
-            for (const f of schema.fields) {
-                if (f.fieldtype === 'Table' && this.config[f.fieldname]) {
-                    const field = dialog.fields_dict[f.fieldname];
-                    if (field?.grid) {
-                        field.grid.df.data = this.config[f.fieldname];
-                        field.grid.refresh();
+        let grid_valid = true;
+
+        // Iterate Rows
+        grid.grid_rows.forEach((row, row_idx) => {
+            if (!row.doc) return;
+
+            // Check each column in the child schema
+            const child_fields = table_field.fields || [];
+
+            child_fields.forEach(cf => {
+                if (cf.hidden) return;
+
+                // Resolve reqd using runtime state if possible (reqd might depend on other fields)
+                // We rely on the stored 'cf.reqd' which should have been updated by 'evaluate_dependencies'
+                // However, dependency evaluation updates the Schema definition in this.field_map or similar?
+                // Actually dependencies update 'field_map[fieldname].reqd'.
+                // Since child fields are shared across rows in the schema definition in this.normalized_fields...
+                // Wait. 'evaluate_dependencies' updates the FIELD OBJECT. 
+                // If we share the field object across rows, we might have a problem if reqd varies by row!
+                // Frappe Grids usually handle this by having a per-row docfield copy or using 'mandatory_depends_on' during validation.
+
+                // Let's use the row's doc values to check mandatory_depends_on if needed?
+                // Or assume evaluate_dependencies ran and we should trust cf.reqd? 
+                // Issue: evaluate_dependencies runs for *a* context. If checking all rows, we should assume the latest state 
+                // or ideally re-evaluate per row.
+                // For now, let's trust the STATIC reqd or the value in the row if standard.
+                // Better: Check the value.
+
+                if (!cf.reqd) return;
+
+                const val = row.doc[cf.fieldname];
+                const has_value = val !== undefined && val !== null && val !== '';
+
+                if (!has_value) {
+                    grid_valid = false;
+                    // Highlight logic for Grid Cell
+                    // row.columns[cf.fieldname] gives the control
+                    // But grid rows render lazily or differently.
+                    // We can try to use standard grid methods.
+
+                    // Show indicator on row
+                    row.show_error && row.show_error(cf.label + " is required");
+
+                    // Or try to highlight cell
+                    const $cell = row.get_cell ? row.get_cell(cf.fieldname) : null;
+                    if ($cell) {
+                        $cell.addClass('error');
                     }
                 }
-            }
+            });
+        });
 
-            // Set non-table values
-            const non_table_config = {};
-            for (const [key, value] of Object.entries(this.config)) {
-                const field_def = schema.fields.find(f => f.fieldname === key);
-                if (field_def && field_def.fieldtype !== 'Table') {
-                    non_table_config[key] = value;
-                }
-            }
-
-            if (Object.keys(non_table_config).length > 0) {
-                dialog.set_values(non_table_config);
-            }
-        }, 150);
+        if (!grid_valid) {
+            // maybe collapse open the grid helper?
+        }
+        return grid_valid;
     }
 
     /**
-     * Bind change handlers to dialog fields
+     * Run custom validation logic
      */
-    _bind_change_handlers(dialog) {
-        const schema = this.get_canonical_schema();
-        if (!schema?.fields) return;
+    validate() {
+        if (this.operation_def && typeof this.operation_def.validate === 'function') {
+            try {
+                const err = this.operation_def.validate(this.config, this._get_context());
+                if (err) {
+                    frappe.throw(err);
+                    return false;
+                }
+            } catch (e) {
+                console.error("Validation Error:", e);
+                frappe.msgprint(__("Validation failed: ") + e.message);
+                return false;
+            }
+        }
+        return true;
+    }
 
-        for (const f of schema.fields) {
-            // Bind top-level field onchange
-            if (typeof f.onchange === 'function') {
-                const field = dialog.fields_dict[f.fieldname];
-                if (field?.$input) {
-                    field.$input.on('change', () => {
-                        const value = field.get_value();
-                        this.on_field_change(f.fieldname, value, dialog.get_values());
+    _bind_dialog_events(dialog) {
+        this.normalized_fields.forEach(f => {
+            if (f.fieldtype === 'Table' || f.fieldtype === 'Section Break' || f.fieldtype === 'Column Break') return;
+
+            const field_obj = dialog.fields_dict[f.fieldname];
+            if (!field_obj) return;
+
+            // Native onchange injection
+            const original_change = field_obj.df.onchange;
+            field_obj.df.onchange = () => {
+                const val = field_obj.get_value();
+                this.update_field(f.fieldname, val, null);
+                if (original_change) original_change();
+            };
+        });
+    }
+
+    _bind_grid_events(dialog) {
+        this.normalized_fields.filter(f => f.fieldtype === 'Table').forEach(table_field => {
+            const grid_obj = dialog.fields_dict[table_field.fieldname];
+            if (!grid_obj || !grid_obj.grid) return;
+
+            const grid = grid_obj.grid;
+            this.active_grids[table_field.fieldname] = grid;
+
+            // Hook into Grid Rows
+            // Frappe Grid doesn't have a single "on_cell_change".
+            // We use the standard methodology: monitoring the form actions within the grid.
+            // But actually, we can leverage grid.refresh_row or the field 'onchange' logic inside the grid schema.
+
+            // We ALREADY injected onchange hooks into the schema during normalization (if they existed in adapter).
+            // BUT those hooks were "Business Logic" hooks.
+            // We need "Runtime Binding" hooks.
+
+            // Strategy: Mutate the Grid's internal Field Docs to point to our runtime updater
+            // This is tricky because Grid re-renders. 
+            // Best approach: Use the global grid event if available or specific field bindings.
+
+            // Frappe Grid uses 'frappe.ui.form.Control' for cells. 
+            // We can listen to 'change' on the wrapper, like the user's previous code, which is robust.
+
+            $(grid.wrapper).on('change', 'input, select, textarea', (e) => {
+                this._handle_grid_input_change(e, grid, table_field);
+            });
+
+            // Hook into Row Add to trigger defaults/dependencies
+            const original_add = grid.on_row_add;
+            grid.on_row_add = (row) => {
+                if (original_add) original_add.call(grid, row);
+
+                // 1. Trigger Runtime Updates for Defaults
+                // Frappe has already populated defaults in row.doc
+                // We just need to trigger the logic.
+
+                const table_schema = this.field_map[table_field.fieldname];
+                const child_fields = table_schema.fields || [];
+
+                child_fields.forEach(cf => {
+                    // If the field has a value (default) and an onchange handler, run it.
+                    // This ensures derived fields (like Threshold from Algorithm) are set.
+                    if (row.doc[cf.fieldname] !== undefined && cf._onchange_logic) {
+                        this.update_field(cf.fieldname, row.doc[cf.fieldname], row.doc);
+                    }
+                });
+
+                // 2. Evaluate Dependencies for the new row
+                this.evaluate_dependencies(this.config, row.doc);
+                row.refresh();
+            };
+        });
+    }
+
+    _handle_grid_input_change(e, grid, table_field) {
+        const $input = $(e.currentTarget);
+        const $row = $input.closest('.grid-row');
+        const row_idx = $row.attr('data-idx'); // 1-based index
+        if (!row_idx) return;
+
+        const row = grid.get_row(row_idx - 1);
+        if (!row || !row.doc) return;
+
+        const fieldname = $input.closest('[data-fieldname]').attr('data-fieldname');
+        if (!fieldname) return;
+
+        // Get value safely from doc (Grid generic controls update the doc automatically typically)
+        // Check if we need to pull from input or if Frappe already updated the doc.
+        // Usually Frappe updates doc on 'change'.
+        // We verify slightly later to be safe, or assume 'change' means committed.
+
+        const val = row.doc[fieldname];
+
+        // Trigger Runtime Update
+        this.update_field(fieldname, val, row.doc);
+    }
+
+    _refresh_dialog_ui(row_context = null) {
+        if (!this.active_dialog) return;
+
+        // 1. Root Fields: Sync Properties (reqd, read_only, hidden)
+        // Frappe Dialog doesn't automatically watch these properties on the DF object
+        // We must manually refresh the field if properties changed.
+        this.normalized_fields.forEach(f => {
+            if (f.fieldtype === 'Table' || f.fieldtype === 'Section Break' || f.fieldtype === 'Column Break') return;
+
+            const field = this.active_dialog.fields_dict[f.fieldname];
+            if (field) {
+                // Check for property divergence
+                let dirty = false;
+                ['reqd', 'read_only', 'hidden'].forEach(prop => {
+                    if (field.df[prop] !== f[prop]) {
+                        field.df[prop] = f[prop];
+                        dirty = true;
+                    }
+                });
+                if (dirty) field.refresh();
+            }
+        });
+
+        // 2. Grids: This is where it gets tough. 
+        // If a value in a row changed, we need to refresh that row to reflect 
+        // side-effects (like Read Only changes or Option changes).
+        if (row_context) {
+            // Find which grid contains this row
+            Object.values(this.active_grids).forEach(grid => {
+                // Check if row belongs to this grid? 
+                // Grid rows are proxies. Reference equality might work if no deep clones.
+                const grid_row = grid.grid_rows.find(r => r.doc.name === row_context.name);
+                if (grid_row) {
+                    grid_row.refresh();
+                }
+            });
+        }
+    }
+
+    // ============================================================
+    // 5. INTERNAL HELPERS
+    // ============================================================
+
+    _load_config() {
+        const raw = this.node_data?.config || this.node_data?.method_config;
+        if (!raw) return {};
+        if (typeof raw === 'object') return raw;
+        try {
+            return JSON.parse(raw) || {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    _sync_to_node() {
+        if (this.node_data) {
+            this.node_data.config = JSON.stringify(this.config);
+        }
+    }
+
+    async _resolve_docfield_options(ref) {
+        if (!ref) return [];
+        let target = this.document_type;
+
+        if (ref !== 'DocField' && ref !== 'Field Picker' && ref.indexOf('.') === -1) {
+            target = ref;
+        }
+
+        try {
+            const r = await frappe.call({
+                method: 'flexirule.ruleflow.api.get_doctype_fields',
+                args: { doctype: target }
+            });
+
+            if (r.message) {
+                // Format: [{label, value, fieldtype}, ...]
+                let opts = (r.message.parent_fields || []).map(f => ({
+                    label: `${f.label} (${f.fieldtype})`,
+                    value: f.value
+                }));
+
+                // Children
+                if (r.message.child_tables) {
+                    r.message.child_tables.forEach(ct => {
+                        opts.push({ label: `── ${ct.table_label} ──`, value: '', disabled: true });
+                        ct.fields.forEach(f => {
+                            opts.push({ label: `  ${f.label}`, value: f.value });
+                        });
                     });
                 }
+                return opts;
             }
-
-            // Bind table child field onchange handlers
-            if (f.fieldtype === 'Table') {
-                this._bind_grid_change_handlers(dialog, f);
-            }
+        } catch (e) {
+            console.warn('Field Fetch Failed', e);
         }
-    }
-
-    /**
-     * Bind change handlers for grid (table) child fields
-     */
-    _bind_grid_change_handlers(dialog, table_field) {
-        const field = dialog.fields_dict[table_field.fieldname];
-        if (!field?.grid) return;
-
-        const grid = field.grid;
-        const child_fields = table_field.fields || table_field.table_fields || [];
-        const me = this;
-
-        // Find child fields with onchange handlers
-        const fields_with_onchange = child_fields.filter(cf => typeof cf.onchange === 'function');
-        if (!fields_with_onchange.length) return;
-
-        // Use grid's on_row_change event or field-level refresh
-        // Frappe's grid emits events on field changes
-        $(grid.wrapper).on('change', 'input, select, textarea', function (e) {
-            const $input = $(this);
-            const $row = $input.closest('.grid-row');
-            const row_idx = $row.attr('data-idx');
-
-            if (!row_idx) return;
-
-            const row = grid.get_row(cint(row_idx) - 1);
-            if (!row) return;
-
-            // Find which field changed
-            const $field_wrapper = $input.closest('[data-fieldname]');
-            const fieldname = $field_wrapper.attr('data-fieldname');
-
-            if (!fieldname) return;
-
-            // Check if this field has an onchange handler
-            const field_def = fields_with_onchange.find(cf => cf.fieldname === fieldname);
-            if (!field_def) return;
-
-            // Get the new value
-            const value = row.doc[fieldname];
-
-            // Create context for the handler
-            const ctx = {
-                ...me._get_context(),
-                row: row.doc,
-                grid: grid,
-                update_field: (target_fieldname, target_value) => {
-                    // Update the row's field value
-                    row.doc[target_fieldname] = target_value;
-                    // Refresh the specific field in the grid row
-                    if (row.columns && row.columns[target_fieldname]) {
-                        row.refresh_field(target_fieldname);
-                    }
-                    grid.refresh();
-                }
-            };
-
-            // Call the onchange handler
-            field_def.onchange(value, row.doc, ctx);
-        });
+        return [];
     }
 };

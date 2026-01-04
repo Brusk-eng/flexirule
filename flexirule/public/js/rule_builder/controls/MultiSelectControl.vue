@@ -103,6 +103,12 @@ onBeforeUnmount(() => {
 });
 </script>
 
+<!--
+@deprecated
+Reason: Superseded by standard controls. Imported but unused in ControlFactory.
+Replaced by: flexirule.ui.ConfigurableAction
+Removal Target: v2.0
+-->
 <template>
     <div class="control-wrapper" ref="wrapper"></div>
 </template>

@@ -10,9 +10,7 @@ const props = defineProps({
     df: Object,
     modelValue: [Array, String],
     documentType: String,
-    read_only: Boolean,
-    // Hook context from parent
-    hookContext: Object
+    read_only: Boolean
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -41,6 +39,13 @@ const tableFields = computed(() => {
     return props.df?.table_fields || [];
 });
 
+const visibleTableFields = computed(() => {
+    // If none have in_list_view set, show all. Otherwise filter.
+    const hasInListView = tableFields.value.some(f => f.in_list_view === true);
+    if (!hasInListView) return tableFields.value;
+    return tableFields.value.filter(f => f.in_list_view !== false);
+});
+
 // Initialize options for all rows on mount and when rows change
 watch(rows, (newRows) => {
     newRows.forEach((row, rowIdx) => {
@@ -52,7 +57,7 @@ function initializeRowOptions(rowIdx, rowData) {
     tableFields.value.forEach(field => {
         if (field.get_options && typeof field.get_options === 'function') {
             const key = `${rowIdx}-${field.fieldname}`;
-            const options = field.get_options(rowData, props.hookContext?.get_all_values?.() || {}, props.hookContext?.doc_meta);
+            const options = field.get_options(rowData);
             dynamicOptions.value = { ...dynamicOptions.value, [key]: options };
         }
     });
@@ -97,7 +102,7 @@ function updateCell(rowIdx, fieldname, value) {
     tableFields.value.forEach(depField => {
         if (depField.depends_on_fields?.includes(fieldname) && depField.get_options) {
             const key = `${rowIdx}-${depField.fieldname}`;
-            const options = depField.get_options(updated[rowIdx], props.hookContext?.get_all_values?.() || {}, props.hookContext?.doc_meta);
+            const options = depField.get_options(updated[rowIdx]);
             dynamicOptions.value = { ...dynamicOptions.value, [key]: options };
         }
     });
@@ -112,7 +117,7 @@ function createRowContext(rowIdx, rowData) {
             const field = tableFields.value.find(f => f.fieldname === fieldname);
             if (field?.get_options) {
                 const key = `${rowIdx}-${fieldname}`;
-                const options = field.get_options(rowData, props.hookContext?.get_all_values?.() || {}, props.hookContext?.doc_meta);
+                const options = field.get_options(rowData);
                 dynamicOptions.value = { ...dynamicOptions.value, [key]: options };
             }
         },
@@ -163,7 +168,7 @@ function getSelectValue(options) {
             <table class="table table-sm table-bordered">
                 <thead>
                     <tr>
-                        <th v-for="col in tableFields" :key="col.fieldname" :style="{ width: col.width || (col.fieldtype === 'Percent' ? '100px' : '') }">
+                        <th v-for="col in visibleTableFields" :key="col.fieldname" :style="{ width: col.width || (col.fieldtype === 'Percent' ? '100px' : ''), minWidth: col.width ? '' : '120px' }">
                             {{ __(col.label) }}
                         </th>
                         <th v-if="!read_only" style="width:40px"></th>
@@ -171,7 +176,7 @@ function getSelectValue(options) {
                 </thead>
                 <tbody>
                     <tr v-for="(row, idx) in rows" :key="idx">
-                        <td v-for="col in tableFields" :key="col.fieldname">
+                        <td v-for="col in visibleTableFields" :key="col.fieldname">
                             <!-- Select with dynamic options -->
                             <select 
                                 v-if="col.fieldtype === 'Select'"
@@ -264,13 +269,19 @@ function getSelectValue(options) {
 </template>
 
 <style scoped>
-.inline-table-control { margin-bottom: 15px; }
+.inline-table-control { margin-bottom: 15px; width: 100%; }
 .control-label { font-size: 12px; font-weight: 500; margin-bottom: 5px; display: block; }
-.table-wrapper { margin-bottom: 8px; }
-.table { margin-bottom: 0; }
-.table th { font-size: 11px; font-weight: 500; }
+.table-wrapper { 
+    margin-bottom: 8px; 
+    overflow-x: auto; 
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+.table { margin-bottom: 0; min-width: 100%; table-layout: auto; }
+.table th { font-size: 11px; font-weight: 500; white-space: nowrap; background: #f8f9fa; }
 .table td { padding: 4px; vertical-align: middle; }
-.table input, .table select { font-size: 12px; }
+.table input, .table select { font-size: 12px; min-width: 80px; }
 .table-cell-control :deep(.field-picker-control) { margin-bottom: 0; }
 .table-cell-control :deep(.control-label) { display: none; }
 </style>

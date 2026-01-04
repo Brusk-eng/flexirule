@@ -115,7 +115,7 @@ import ProcessNode from './components/nodes/ProcessNode.vue';
 import ConditionNode from './components/nodes/ConditionNode.vue';
 import LoopNode from './components/nodes/LoopNode.vue';
 import StopNode from './components/nodes/StopNode.vue';
-import Sidebar from './components/SidebarRefactored.vue';
+import Sidebar from './components/Sidebar.vue';
 
 const props = defineProps({ rule: String });
 const store = useStore();
