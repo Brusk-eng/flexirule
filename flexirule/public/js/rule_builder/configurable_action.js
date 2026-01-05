@@ -677,20 +677,111 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
     _load_config() {
         const raw = this.node_data?.config || this.node_data?.method_config;
-        if (!raw) return {};
-        if (typeof raw === 'object') return raw;
-        try {
-            return JSON.parse(raw) || {};
-        } catch (e) {
-            return {};
+        let config = {};
+        if (raw) {
+            try {
+                config = typeof raw === 'object' ? raw : JSON.parse(raw);
+            } catch (e) {
+                config = {};
+            }
         }
+
+        // Hydrate for UI lifecycle (add unique IDs, etc.)
+        this._hydrate_for_ui(config);
+        return config;
     }
 
     _sync_to_node() {
         if (this.node_data) {
-            this.node_data.config = JSON.stringify(this.config);
+            // Clean before saving
+            const clean_config = this._clean_for_storage(this.config);
+            this.node_data.config = JSON.stringify(clean_config);
         }
     }
+
+    /**
+     * Prepares configuration data for the UI.
+     * Frappe Grids require 'name' and unique keys for rows to function correctly.
+     */
+    _hydrate_for_ui(data) {
+        if (!data || typeof data !== 'object') return;
+
+        // Traverse keys
+        for (const key in data) {
+            if (Array.isArray(data[key])) {
+                // This is likely a Child Table
+                data[key].forEach((row, idx) => {
+                    if (typeof row === 'object' && row !== null) {
+                        // Ensure ID
+                        if (!row.name) {
+                            row.name = frappe.utils.get_random(10);
+                            row.__islocal = 1; // Mark as local so we know to strip it later
+                        }
+                        // Ensure idx
+                        if (row.idx === undefined) {
+                            row.idx = idx + 1;
+                        }
+
+                        // Recursive hydration
+                        this._hydrate_for_ui(row);
+                    }
+                });
+            } else if (typeof data[key] === 'object') {
+                this._hydrate_for_ui(data[key]);
+            }
+        }
+    }
+
+    /**
+     * Strips UI-only fields from the configuration data.
+     */
+    _clean_for_storage(data) {
+        if (!data) return data;
+
+        // Deep clone to avoid mutating the active state
+        const clean = JSON.parse(JSON.stringify(data));
+
+        const traverse_and_clean = (obj) => {
+            if (Array.isArray(obj)) {
+                obj.forEach(item => traverse_and_clean(item));
+            } else if (typeof obj === 'object' && obj !== null) {
+                // Determine if local before stripping flags
+                const is_local = !!obj.__islocal;
+
+                // Strip UI fields
+                const keys_to_remove = [
+                    '__islocal', '__checked', '__unsaved', 'docstatus',
+                    'parent', 'parenttype', 'parentfield', 'owner', 'creation', 'modified'
+                ];
+
+                keys_to_remove.forEach(k => delete obj[k]);
+
+                // Remove 'name' logic:
+                // 1. If it was marked local, definitely remove name.
+                // 2. If name looks like a temporary ID (10 chars random), remove it to be safe 
+                //    (in case __islocal was lost or not set but it's logically local).
+                // 3. User reported "row 1" as name, implying some Grids use that. 
+                //    Strictly speaking, if we hydrate with random ID, we want to strip it.
+                //    Valid DocNames are usually alphanumeric or contain special chars but purely 
+                //    config objects shouldn't rely on 'name' for identity across saves unless established.
+
+                if (is_local || (obj.name && obj.name.length === 10) || (obj.name && obj.name.startsWith('row '))) {
+                    delete obj.name;
+                }
+
+                // Also remove 'idx' as order is preserved in array
+                delete obj.idx;
+
+                for (const key in obj) {
+                    traverse_and_clean(obj[key]);
+                }
+            }
+        };
+
+        traverse_and_clean(clean);
+        return clean;
+    }
+
 
     async _resolve_docfield_options(ref) {
         if (!ref) return [];

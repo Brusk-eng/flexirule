@@ -4,64 +4,94 @@
  "doctype": "Process",
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2026-01-04 22:42:04.038293",
+ "modified": "2026-01-05 22:24:22.753806",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "Deduplication",
  "operations": [
   {
+   "allows_async": 0,
+   "can_stop_save": 0,
    "color": "#f59e0a",
    "enabled": 1,
    "func_name": "find_similar_records",
    "icon": "search",
+   "is_terminal": 0,
    "label": "Find Similar Records",
-   "timeout_seconds": 0,
-   "visible_in_builder": 1
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
   },
   {
+   "allows_async": 0,
+   "can_stop_save": 0,
    "color": "#ef4444",
    "enabled": 1,
    "func_name": "find_duplicates_by_fields",
    "icon": "duplicate",
+   "is_terminal": 0,
    "label": "Find Exact Duplicates",
-   "timeout_seconds": 0,
-   "visible_in_builder": 1
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
   },
   {
+   "allows_async": 0,
+   "can_stop_save": 0,
    "color": "#dc2626",
    "enabled": 1,
    "func_name": "check_duplicate_and_prevent_save",
    "icon": "block",
+   "is_terminal": 0,
    "label": "Block If Duplicate Exists",
-   "timeout_seconds": 0,
-   "visible_in_builder": 1
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
   },
   {
+   "allows_async": 0,
+   "can_stop_save": 0,
    "color": "#b91c1c",
    "enabled": 1,
    "func_name": "check_similar_and_prevent_save",
    "icon": "block",
+   "is_terminal": 0,
    "label": "Block If Similar Exists",
-   "timeout_seconds": 0,
-   "visible_in_builder": 1
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
   },
   {
+   "allows_async": 0,
+   "can_stop_save": 0,
    "color": "#8b5cf6",
    "enabled": 1,
    "func_name": "mark_as_duplicate",
    "icon": "link",
+   "is_terminal": 0,
    "label": "Mark as Duplicate",
-   "timeout_seconds": 0,
-   "visible_in_builder": 1
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
   },
   {
+   "allows_async": 0,
+   "can_stop_save": 0,
    "color": "#0ea5e9",
    "enabled": 1,
    "func_name": "find_duplicates_in_child_table",
    "icon": "table",
+   "is_terminal": 0,
    "label": "Find Duplicates in Child Table",
-   "timeout_seconds": 0,
-   "visible_in_builder": 1
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
   }
  ],
  "owner": "Administrator",
