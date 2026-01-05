@@ -135,11 +135,14 @@ def make_process_boilerplate(template, doc):
 
     with open(target_file_path, "w") as target, open(template_file_path) as source:
         content = source.read()
-        rendered_content = cstr(content).format(
-            app_publisher=app_publisher,
-            year=now_datetime().year,
-            classname=doc.name.replace(" ", "").replace("-", ""),
-            name=doc.name,
+        rendered_content = frappe.render_template(
+            content,
+            {
+                "app_publisher": app_publisher,
+                "year": now_datetime().year,
+                "classname": doc.name.replace(" ", "").replace("-", ""),
+                "name": doc.name,
+            },
         )
         target.write(frappe.as_unicode(rendered_content))
 

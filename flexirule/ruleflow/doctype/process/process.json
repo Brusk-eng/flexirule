@@ -31,8 +31,7 @@
             "fieldname": "is_standard",
             "fieldtype": "Select",
             "label": "Is Standard",
-            "options": "No\nYes",
-            "read_only": 1
+            "options": "No\nYes"
         },
         {
             "fieldname": "module",

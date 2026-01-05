@@ -9,13 +9,28 @@
         "func_name",
         "label",
         "enabled",
-        "column_break_main",
         "visible_in_builder",
-        "section_break_config",
-        "config_json",
-        "section_break_overrides",
-        "timeout_seconds",
-        "column_break_ui",
+        "column_break_meta",
+        "description",
+        "section_break_behavior",
+        "writes_to",
+        "requires_doc",
+        "can_stop_save",
+        "is_terminal",
+        "column_break_exec",
+        "allows_async",
+        "transactional",
+        "section_break_targeting",
+        "for_doctype",
+        "doctype_filters",
+        "section_break_variables",
+        "reads_vars",
+        "writes_vars",
+        "section_break_schema",
+        "config_schema",
+        "output_schema",
+        "section_break_ui",
+        "js_config_file",
         "icon",
         "color"
     ],
@@ -24,9 +39,9 @@
             "fieldname": "func_name",
             "fieldtype": "Data",
             "label": "Function Name",
-            "description": "Must match a function in the process file",
             "reqd": 1,
-            "in_list_view": 1
+            "in_list_view": 1,
+            "description": "Python function in process module"
         },
         {
             "fieldname": "label",
@@ -42,52 +57,148 @@
             "in_list_view": 1
         },
         {
-            "fieldname": "column_break_main",
-            "fieldtype": "Column Break"
-        },
-        {
             "fieldname": "visible_in_builder",
             "fieldtype": "Check",
             "label": "Visible in Builder",
             "default": 1
         },
         {
-            "fieldname": "section_break_config",
-            "fieldtype": "Section Break",
-            "label": "Configuration"
+            "fieldname": "column_break_meta",
+            "fieldtype": "Column Break"
         },
         {
-            "fieldname": "config_json",
-            "fieldtype": "Code",
-            "label": "Configuration",
-            "options": "JSON",
-            "description": "Instance-specific configuration values"
+            "fieldname": "description",
+            "fieldtype": "Small Text",
+            "label": "Description",
+            "description": "Tooltip shown in Rule Builder"
         },
         {
-            "fieldname": "section_break_overrides",
+            "fieldname": "section_break_behavior",
             "fieldtype": "Section Break",
-            "label": "Overrides",
+            "label": "Behavior"
+        },
+        {
+            "fieldname": "writes_to",
+            "fieldtype": "Select",
+            "label": "Writes To",
+            "options": "None\nContext\nDocument\nDatabase",
+            "default": "None",
+            "reqd": 1,
+            "in_list_view": 1,
+            "description": "None=pure read, Context=vars only, Document=modifies doc, Database=creates/updates other docs"
+        },
+        {
+            "fieldname": "requires_doc",
+            "fieldtype": "Check",
+            "label": "Requires Document",
+            "default": 1,
+            "description": "Operation needs context['doc'] to be present"
+        },
+        {
+            "fieldname": "can_stop_save",
+            "fieldtype": "Check",
+            "label": "Can Stop Save",
+            "default": 0,
+            "description": "Operation may throw ValidationError to abort save"
+        },
+        {
+            "fieldname": "is_terminal",
+            "fieldtype": "Check",
+            "label": "Terminal",
+            "default": 0,
+            "description": "No next action allowed after this operation"
+        },
+        {
+            "fieldname": "column_break_exec",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "allows_async",
+            "fieldtype": "Check",
+            "label": "Allows Async",
+            "default": 0,
+            "description": "Safe for background queue execution"
+        },
+        {
+            "fieldname": "transactional",
+            "fieldtype": "Check",
+            "label": "Transactional",
+            "default": 0,
+            "description": "Wrap execution in database savepoint"
+        },
+        {
+            "fieldname": "section_break_targeting",
+            "fieldtype": "Section Break",
+            "label": "DocType Targeting",
             "collapsible": 1
         },
         {
-            "fieldname": "timeout_seconds",
-            "fieldtype": "Int",
-            "label": "Timeout Override (seconds)",
-            "description": "Override default timeout for this instance"
+            "fieldname": "for_doctype",
+            "fieldtype": "Link",
+            "label": "For DocType",
+            "options": "DocType",
+            "description": "Restrict to specific DocType (optional)"
         },
         {
-            "fieldname": "column_break_ui",
-            "fieldtype": "Column Break"
+            "fieldname": "doctype_filters",
+            "fieldtype": "Code",
+            "label": "DocType Filters",
+            "options": "JSON",
+            "description": "Frappe-style filters, e.g. [[\"DocType\",\"issingle\",\"=\",0]]"
+        },
+        {
+            "fieldname": "section_break_variables",
+            "fieldtype": "Section Break",
+            "label": "Variable Contract"
+        },
+        {
+            "fieldname": "reads_vars",
+            "fieldtype": "Code",
+            "label": "Reads Variables",
+            "options": "JSON",
+            "description": "DocField-style: [{\"fieldname\":\"x\",\"fieldtype\":\"Data\",\"reqd\":1}]"
+        },
+        {
+            "fieldname": "writes_vars",
+            "fieldtype": "Code",
+            "label": "Writes Variables",
+            "options": "JSON",
+            "description": "DocField-style: [{\"fieldname\":\"y\",\"fieldtype\":\"JSON\",\"label\":\"Output\"}]"
+        },
+        {
+            "fieldname": "section_break_schema",
+            "fieldtype": "Section Break",
+            "label": "Schema Contract"
+        },
+        {
+            "fieldname": "config_schema",
+            "fieldtype": "Code",
+            "label": "Config Schema",
+            "options": "JSON",
+            "description": "JSON Schema for operation configuration"
+        },
+        {
+            "fieldname": "output_schema",
+            "fieldtype": "Code",
+            "label": "Output Schema",
+            "options": "JSON",
+            "description": "JSON Schema for return value"
+        },
+        {
+            "fieldname": "section_break_ui",
+            "fieldtype": "Section Break",
+            "label": "UI Customization",
+            "collapsible": 1
         },
         {
             "fieldname": "icon",
             "fieldtype": "Data",
-            "label": "Icon Override"
+            "label": "Icon"
         },
         {
             "fieldname": "color",
             "fieldtype": "Data",
-            "label": "Color Override"
+            "label": "Color"
         }
     ],
     "grid_page_length": 50,

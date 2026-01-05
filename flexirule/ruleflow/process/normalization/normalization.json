@@ -1,0 +1,14 @@
+{
+ "creation": "2026-01-05 16:27:27.797584",
+ "docstatus": 0,
+ "doctype": "Process",
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2026-01-05 22:24:22.741129",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Normalization",
+ "operations": [],
+ "owner": "Administrator",
+ "process_name": "Normalization"
+}
