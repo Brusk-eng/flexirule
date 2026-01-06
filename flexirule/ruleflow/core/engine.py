@@ -349,7 +349,7 @@ class RuleEngine:
 			
 			execution_path.append(current.action_label)
 			self.path_trace.append({
-				"node": current.action_label,
+				"action": current.action_label,
 				"type": current.action_type,
 				"timestamp": time.time()
 			})

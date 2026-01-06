@@ -39,13 +39,13 @@
 
 <img
   src="https://github.com/user-attachments/assets/97c23be2-f939-4190-ad34-c1318bd2dece"
-  alt="Process Method configuration generated automatically from JSON schema"
+  alt="Process Operation configuration generated automatically from JSON schema"
   width="900"
   style="border-radius:14px;"
 />
 
 <p align="center">
-  <em>Process Method — schema-driven configuration rendered dynamically.</em>
+  <em>Process Operation — schema-driven configuration rendered dynamically.</em>
 </p>
 
 <img
@@ -134,20 +134,22 @@ Defines:
 A **node** in the execution graph.
 
 Each action:
-- References a Process Method
+- References a Process Operation
 - Accepts structured configuration
 - Defines next actions by outcome  
   (`success`, `fail`, `match`, `no-match`, …)
 
 ---
 
-### 3. Process Method
-A reusable Python function that:
+### 3. Process & Operations
+A **Process** is a file-backed module (similar to Frappe Reports) that acts as a container for logic.
+
+A **Process Operation** is a function within a Process that:
 - Performs one unit of logic
 - Declares a JSON Schema for configuration
 - Is safe, composable, and reusable
 
-The UI auto-generates configuration forms directly from the schema.
+The UI auto-generates configuration forms directly from the operation's schema.
 
 ---
 
@@ -230,15 +232,17 @@ Represents a **node** in the execution graph.
 
 Each action:
 
-* Links to a Process Method
+* Links to a Process Operation
 * Has configurable inputs
 * Defines next actions based on outcomes (success, fail, match, no‑match, etc.)
 
 ---
 
-###  Process Method
+###  Process & Operations
 
-A Python function that:
+A **Process** is a file-backed module containing multiple operations.
+
+A **Process Operation** is a Python function that:
 
 * Performs a unit of logic
 * Exposes a **JSON schema** describing its configuration
@@ -282,8 +286,8 @@ FlexiRule is designed to be extended **without modifying core code**.
 
 You can:
 
-* Add new Process Methods
-* Extend schemas for existing methods
+* Add new Process Operations
+* Extend schemas for existing operations
 * Override execution behavior via hooks
 
 This makes FlexiRule suitable for **enterprise‑grade customizations**.
@@ -323,7 +327,7 @@ FlexiRule is evolving fast, and your expertise can help shape the future of visu
 ### How You Can Help
 
 - 🐛 **Report bugs or request features** via [GitHub Issues](https://github.com/Sendipad/flexirule/issues)  
-- 💡 **Propose new Process Methods or enhancements**  
+- 💡 **Propose new Process Operations or enhancements**  
 - 📖 **Improve documentation and examples**  
 - 🔧 **Submit pull requests** with fixes, optimizations, or new features  
 - 🎯 **Start small** — fix typos, add screenshots, or create sample rules  

@@ -22,7 +22,7 @@ flexirule.processes["{{ name }}"] = {
     /**
      * Get the configuration schema for an operation
      * @param {string} operation_name - The func_name of the operation
-     * @returns {{title: string, size: string, fields: Array}}
+     * @returns {Object}
      */
     get_schema(operation_name, context) {
         const operation = this.get_operation(operation_name);

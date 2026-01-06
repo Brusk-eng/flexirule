@@ -1,4 +1,4 @@
-
+#DEPRECATED
 import frappe
 import importlib
 import inspect
