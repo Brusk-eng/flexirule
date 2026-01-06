@@ -122,10 +122,18 @@ def import_process_from_file(json_path, module_name):
         })
     
     # Check if Process already exists
+    # Check if Process already exists
+    # Check if Process already exists
     if frappe.db.exists("Process", process_name):
         # Update existing
         doc = frappe.get_doc("Process", process_name)
-        doc.module = module_name
+        modified = False
+        
+        # Compare module names case-insensitively
+        # DB might have "Ruleflow", JSON/Path might have "ruleflow"
+        if doc.module != module_name and doc.module.lower() != module_name.lower():
+            doc.module = module_name
+            modified = True
         
         # Sync operations - update existing, add new
         existing_funcs = {op.func_name: op for op in doc.operations}
@@ -136,16 +144,20 @@ def import_process_from_file(json_path, module_name):
                 # Update existing operation's metadata (but preserve user overrides)
                 existing = existing_funcs[func_name]
                 # Only update if not user-modified (icon/color/label)
-                if not existing.icon:
+                if not existing.icon and op_data.get("icon"):
                     existing.icon = op_data.get("icon")
-                if not existing.color:
+                    modified = True
+                if not existing.color and op_data.get("color"):
                     existing.color = op_data.get("color")
+                    modified = True
             else:
                 # Add new operation
                 doc.append("operations", op_data)
+                modified = True
         
-        doc.flags.ignore_permissions = True
-        doc.save()
+        if modified:
+            doc.flags.ignore_permissions = True
+            doc.save()
     else:
         # Create new
         doc = frappe.new_doc("Process")

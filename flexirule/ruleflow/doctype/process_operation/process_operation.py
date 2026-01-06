@@ -14,8 +14,27 @@ class ProcessOperation(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		allows_async: DF.Check
+		can_stop_save: DF.Check
+		color: DF.Data | None
+		config_schema: DF.Code | None
+		description: DF.SmallText | None
+		doctype_filters: DF.Code | None
+		enabled: DF.Check
+		for_doctype: DF.Link | None
+		func_name: DF.Data
+		icon: DF.Data | None
+		is_terminal: DF.Check
+		label: DF.Data | None
+		output_schema: DF.Code | None
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data
+		reads_vars: DF.Code | None
+		requires_doc: DF.Check
+		transactional: DF.Check
+		visible_in_builder: DF.Check
+		writes_to: DF.Literal["None", "Context", "Document", "Database"]
+		writes_vars: DF.Code | None
 	# end: auto-generated types
 	pass
