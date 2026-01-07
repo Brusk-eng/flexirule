@@ -737,12 +737,98 @@ export const useStore = defineStore("rule-builder-store", () => {
         return result;
     }
 
+    async function getAvailableVariables(upToNodeId = null) {
+        const vars = [];
+        const seen = new Set();
+        const ruleDoc = rule_doc.value || {};
+
+        // 1. Add Document Fields
+        const doctype = ruleDoc.document_type;
+        if (doctype) {
+            const fields = get_fields_for_doctype(doctype) || [];
+            fields.forEach(f => {
+                if (!seen.has(f.value)) {
+                    vars.push({
+                        label: f.label,
+                        value: f.value,
+                        type: f.fieldtype,
+                        source: 'Document'
+                    });
+                    seen.add(f.value);
+                }
+            });
+        }
+
+        // 2. Iterate "previous" actions in the graph
+        // Since graph can be complex, valid "previous" variables come from:
+        // - Ancestors in the graph
+        // - Or simple topological order if linear
+
+        // For now, let's use the topological sort of the whole graph up to the current node
+        // IF upToNodeId is provided.
+        // We can reuse getTopologicalSort.
+        const nodes = graph.value.elements.filter(el => el.position);
+        const edges = graph.value.elements.filter(el => el.source);
+        const sortedNodes = getTopologicalSort(nodes, edges);
+
+        let limitIndex = sortedNodes.length;
+        if (upToNodeId) {
+            const idx = sortedNodes.findIndex(n => n.id === upToNodeId);
+            if (idx !== -1) limitIndex = idx;
+        }
+
+        for (let i = 0; i < limitIndex; i++) {
+            const node = sortedNodes[i];
+            const data = node.data || {};
+
+            if (!data.return_variable) continue;
+
+            const varName = data.return_variable;
+            if (seen.has(varName)) continue;
+
+            let schema = [];
+            let type = 'Data';
+            let description = `Output from ${data.action_label || node.label}`;
+
+            if (data.process_name) {
+                const adapter = window.flexirule?.processes?.[data.process_name];
+                if (adapter && typeof adapter.get_output_schema === 'function') {
+                    try {
+                        let config = data.config;
+                        if (typeof config === 'string') {
+                            try { config = JSON.parse(config); } catch (e) { }
+                        }
+                        const ctx = { config: config || {}, doc: ruleDoc };
+                        const outputSchema = adapter.get_output_schema(data.operation || data.process_method, config, ctx);
+                        if (outputSchema) {
+                            schema = outputSchema;
+                            type = 'Object';
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+            }
+
+            vars.push({
+                label: `${varName} (${description})`,
+                value: varName,
+                type: type,
+                source: 'Variable',
+                schema: schema
+            });
+            seen.add(varName);
+        }
+
+        return vars;
+    }
+
     return {
         rule_name, rule_doc, graph, process_methods, processes, available_rules, is_dirty, effectiveDisabledIds,
         trigger_event_options, doc_fields, doc_meta, raw_meta, meta_loading,
         fetch, fetch_metadata, get_fields_for_doctype, get_process_method_schema, save_changes, mark_dirty, mark_position_change,
         clear_dirty, delete_node, delete_edge, getEffectivelyDisabledIds, fetch_available_rules,
         fetch_processes, get_process_operations, get_operation_config_fields,
-        undo, redo, can_undo, can_redo, commit_history
+        undo, redo, can_undo, can_redo, commit_history, getAvailableVariables
     };
 });

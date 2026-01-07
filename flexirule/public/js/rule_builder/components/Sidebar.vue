@@ -167,13 +167,16 @@ async function open_config_dialog() {
         return;
     }
     
-    // Use ConfigurableAction class
-    const action = new flexirule.ui.ConfigurableAction({
+    // Use ConfigurableAction (Bridge handles V1 vs V2)
+    const action = flexirule.integration.create_configurable_action({
         process_name: processName,
         operation_name: operationName,
         node_data: selectedNode.value?.data,
         document_type: store.rule_doc?.document_type,
-        doc_meta: store.raw_meta
+        doc_meta: store.raw_meta,
+        get_variable_options: async () => {
+             return store.getAvailableVariables(selectedNode.value?.id);
+        }
     });
     
     await action.show_dialog({

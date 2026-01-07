@@ -35,6 +35,14 @@ flexirule.processes.Deduplication = {
         };
     },
 
+    get_output_schema(operation_name, config, context) {
+        const operation = this.get_operation(operation_name);
+        if (operation && typeof operation.get_output_schema === 'function') {
+            return operation.get_output_schema(config, context);
+        }
+        return [];
+    },
+
     operations: [
         {
             func_name: "find_similar_records",
@@ -104,7 +112,36 @@ flexirule.processes.Deduplication = {
                     reqd: 1,
                     fields: get_dedupe_table_fields()
                 }
-            ]
+            ],
+            get_output_schema: (config, context) => {
+                // Return schema for "List of Matches"
+                // The output is a list of objects, but Frappe Field schema usually describes a single field.
+                // For variables, we might return the structure of the *value*.
+                // If it's a list of objects, we might want to describe the object structure.
+
+                // Construct dynamic field schema based on configured fields
+                const match_fields = [
+                    { fieldname: "name", fieldtype: "Data", label: __("Document Name") },
+                    { fieldname: "score", fieldtype: "Float", label: __("Match Score") },
+                    { fieldname: "doctype", fieldtype: "Link", options: "DocType", label: __("DocType") }
+                ];
+
+                if (config.fields_config && Array.isArray(config.fields_config)) {
+                    // Add matched fields structure
+                    // This is a bit complex for a flat schema, but we can represent 'fields' as a generic Object or dict
+                    match_fields.push({
+                        fieldname: "fields",
+                        fieldtype: "Object",
+                        label: __("Matched Fields"),
+                        description: __("Dictionary of matched field scores: { field: score }")
+                    });
+                }
+
+                // We return this as the schema for the variable itself (which is of type Array/List)
+                // Or if the variable is just a "List", we describe the Item?
+                // For now, let's return the properties of the OBJECT in the list.
+                return match_fields;
+            }
         },
         {
             func_name: "find_duplicates_by_fields",
