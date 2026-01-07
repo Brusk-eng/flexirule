@@ -3,6 +3,9 @@
 
 frappe.provide("flexirule.ui");
 
+// PATCH REMOVED: User requested no global overrides.
+
+
 /**
  * ConfigurableAction - Runtime Primitive for Process Configuration
  * 
@@ -66,7 +69,8 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         }
 
         // 2. Persist to Node Data (Immediate Consistency)
-        this._sync_to_node();
+        // REMOVED: As per user request, we only persist on Primary Action (Save).
+        // this._sync_to_node();
 
         // 3. Trigger Reactive Logic
         this._handle_change(fieldname, value, row_context);
@@ -311,6 +315,9 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
     _eval_condition(expression, context) {
         if (!expression) return true;
+        if (expression.startsWith('eval:')) {
+            expression = expression.slice(5);
+        }
         try {
             return frappe.utils.eval(expression, context);
         } catch (e) {
@@ -354,13 +361,40 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
                 if (!values) return;
 
                 // 2. Strict / Double-Check Mandatory (User Request)
-                // This now covers both Root fields and Child Table rows
                 if (!this._check_mandatory()) return;
 
-                // 3. Custom Adapter Validation
+                // 3. Sync Grid Data (Crucial for Tables)
+                // Dialog.get_values() often misses child tables in custom layouts.
+                // We manually extract data from active grids.
+
+                // Robustness: ensure we check ALL table fields, even if not in active_grids cache yet
+                const table_fields = this.normalized_fields.filter(f => f.fieldtype === 'Table');
+
+                table_fields.forEach(tf => {
+                    let grid = this.active_grids[tf.fieldname];
+
+                    // Fallback: Try to find grid instance directly if missing from cache
+                    if (!grid && dialog.fields_dict[tf.fieldname] && dialog.fields_dict[tf.fieldname].grid) {
+                        grid = dialog.fields_dict[tf.fieldname].grid;
+                        this.active_grids[tf.fieldname] = grid; // Cache it
+                    }
+
+                    if (grid) {
+                        // grid.get_data() safely returns the current rows
+                        // We must ensure we update 'values' or 'this.config' directly.
+                        const rows = grid.get_data() || [];
+                        values[tf.fieldname] = rows;
+                        this.config[tf.fieldname] = rows; // Sync to config immediately
+                    }
+                });
+
+                // 4. Merge Values & Validation
+                // Now unsafe Object.assign won't wipe tables because values[fieldname] is populated
+                Object.assign(this.config, values);
+
                 if (!this.validate()) return;
 
-                // 4. Save & Close
+                // 5. Save & Close
                 this._sync_to_node();
                 if (typeof opts.on_save === 'function') {
                     opts.on_save(this.config);
@@ -378,10 +412,10 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         // 2. Bind Root Fields
         this._bind_dialog_events(dialog);
 
-        // 3. Bind Grid Fields (Tables)
-        this._bind_grid_events(dialog);
-
         dialog.show();
+
+        // 3. Bind Grid Fields (Tables) - MOVED AFTER SHOW to ensure Grid DOM/Object exists
+        this._bind_grid_events(dialog);
 
         // Final refresh to run policies
         this._refresh_dialog_ui();
@@ -450,8 +484,10 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
     }
 
     _check_grid_mandatory(table_field, grid_obj) {
-        if (!grid_obj || !grid_obj.grid) return true;
-        const grid = grid_obj.grid;
+        // Robustness: ensure grid is found
+        const grid = grid_obj.grid || (this.active_grids[table_field.fieldname]);
+        if (!grid) return true; // Can't validate if no grid
+
         // The table itself might be required (at least 1 row)
         // but typically 'reqd' on table means non-empty data.
         if (table_field.reqd && grid.grid_rows.length === 0) {
@@ -635,16 +671,85 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
     _refresh_dialog_ui(row_context = null) {
         if (!this.active_dialog) return;
 
-        // 1. Root Fields: Sync Properties (reqd, read_only, hidden)
+        // 1. Root Fields: Sync Properties (reqd, read_only, hidden) & Value
         // Frappe Dialog doesn't automatically watch these properties on the DF object
         // We must manually refresh the field if properties changed.
         this.normalized_fields.forEach(f => {
-            if (f.fieldtype === 'Table' || f.fieldtype === 'Section Break' || f.fieldtype === 'Column Break') return;
+            if (f.fieldtype === 'Section Break' || f.fieldtype === 'Column Break') return;
+
+            // Table Handling (Special Sync for Grids to support programmatic updates like Profile)
+            if (f.fieldtype === 'Table') {
+                const grid_obj = this.active_dialog.fields_dict[f.fieldname];
+                if (grid_obj && grid_obj.grid) {
+                    const model_val = this.config[f.fieldname] || [];
+                    const grid_val = grid_obj.grid.get_data() || []; // UI state
+
+                    // Check for divergence (Programmatic update vs UI state)
+                    // Simple length check or JSON stringify to detect changes
+                    if (JSON.stringify(model_val) !== JSON.stringify(grid_val)) {
+                        // Model has changed (e.g. Profile applied new rows)
+                        // Sync Model -> Grid
+                        grid_obj.grid.df.data = model_val;
+                        grid_obj.grid.refresh();
+                    }
+
+                    // Also refresh property changes if needed (reqd, read_only)
+                    ['reqd', 'read_only', 'hidden'].forEach(prop => {
+                        if (grid_obj.df[prop] !== f[prop]) {
+                            grid_obj.df[prop] = f[prop];
+                            grid_obj.refresh(); // Refresh wrapper
+                        }
+                    });
+                }
+                return;
+            }
 
             const field = this.active_dialog.fields_dict[f.fieldname];
             if (field) {
-                // Check for property divergence
                 let dirty = false;
+
+                // 1. Sync Value (Model -> UI)
+                // If the model value changed (side-effect), update the UI.
+                // We check strict inequality.
+                const model_val = this.config[f.fieldname];
+                const ui_val = field.get_value();
+
+                // Handle array comparison for MultiSelect/Table? (Table excluded here)
+                // For MultiSelect, generic JSON comparison or simple check.
+                // Frappe's set_value usually handles no-op if same.
+
+                // Simple equality check might fail for arrays/objects, but let's try shallow or strict
+                if (model_val !== ui_val) {
+                    // For arrays (MultiSelect), strict equality fails.
+                    // We only want to set_value if logic updated it.
+                    // To avoid loops (UI -> update_field -> refresh -> set_value -> onchange -> ...),
+                    // we need to be careful.
+                    // But standard field 'set_value' normally triggers onchange? 
+                    // Wait, field.set_value() typically triggers onchange.
+                    // If we set_value, we might trigger infinite loop if onchange calls update_field.
+
+                    // ConfigurableAction.update_field is the SOURCE of truth.
+                    // If UI triggered update_field, model matches UI.
+                    // If Logic triggered update_field, model != UI.
+                    // So validating model_val !== ui_val is correct.
+
+                    // Is deep compare needed?
+                    let diff = model_val !== ui_val;
+                    if (Array.isArray(model_val) && Array.isArray(ui_val)) {
+                        diff = JSON.stringify(model_val) !== JSON.stringify(ui_val);
+                    }
+
+                    if (diff) {
+                        try {
+                            field.set_value(model_val);
+                            // Setting value programmatically might trigger on_change again depending on Frappe version.
+                            // To be safe, we rely on the check above to stop cycles.
+                        } catch (e) { console.warn("Sync error", e); }
+                    }
+                }
+
+                // 2. Sync Properties
+                // Check for property divergence
                 ['reqd', 'read_only', 'hidden'].forEach(prop => {
                     if (field.df[prop] !== f[prop]) {
                         field.df[prop] = f[prop];
@@ -722,6 +827,16 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
                             row.idx = idx + 1;
                         }
 
+                        // Sanitize known fragile fields (like MultiSelects) that crash if undefined
+                        // We check if any field in this row corresponds to a MultiSelect in our schema?
+                        // Schema traversal is expensive here. 
+                        // Simpler: Just ensure 'transformations' is safe if it exists or is expected.
+                        // Or general null check for likely strings? 
+                        // Let's specifically target 'transformations' as that's our known crash point.
+                        if (row.transformations === undefined || row.transformations === null) {
+                            row.transformations = "";
+                        }
+
                         // Recursive hydration
                         this._hydrate_for_ui(row);
                     }
@@ -787,7 +902,27 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         if (!ref) return [];
         let target = this.document_type;
 
-        if (ref !== 'DocField' && ref !== 'Field Picker' && ref.indexOf('.') === -1) {
+        if (ref === 'Variables' || ref === 'Field Picker') {
+            // Dynamic Variable Resolution
+            if (typeof this.get_variable_options === 'function') {
+                try {
+                    const vars = await this.get_variable_options();
+                    // transform to options list if needed, or return raw struct for custom controls
+                    // vars is likely [{label, value, type, source}]
+                    // For 'Select' or 'Autocomplete', we usually want simple strings or label/value
+                    // But 'Field Picker' might handle objects.
+                    // Let's return the objects and let the Control handle it (or normalize to strings).
+                    return vars.map(v => v.value);
+                } catch (e) {
+                    console.warn("Failed to resolve variables", e);
+                    return [];
+                }
+            }
+            // Fallback to empty
+            return [];
+        }
+
+        if (ref !== 'DocField' && ref.indexOf('.') === -1) {
             target = ref;
         }
 
