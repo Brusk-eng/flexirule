@@ -6,6 +6,7 @@ from frappe import _
 import re
 import unicodedata
 from typing import Any, List, Dict
+from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
 
 def execute(context, func=None, config=None):
@@ -145,7 +146,7 @@ def normalize_field(context, config):
     if not isinstance(transformations, list):
         transformations = [transformations] if transformations else []
 
-    value = doc.get(source_field)
+    value = FieldResolver.resolve_picker(doc, source_field, context)
     if value is None:
         return None
 
@@ -153,6 +154,8 @@ def normalize_field(context, config):
 
     # Set to target field (or source field if not specified)
     dest_field = target_field or source_field
+    if isinstance(dest_field, list):
+        dest_field = dest_field[2] # fieldname
     doc.set(dest_field, normalized)
 
     return normalized
@@ -181,13 +184,18 @@ def normalize_field_to_context(context, config):
     if not isinstance(transformations, list):
          transformations = [transformations] if transformations else []
     
-    value = doc.get(source_field)
+    value = FieldResolver.resolve_picker(doc, source_field, context)
     if value is None:
         return None
     
     normalized = apply_transformations(value, transformations)
     
-    key = context_key or f"normalized_{source_field}"
+    if isinstance(source_field, list):
+         source_field_name = source_field[2]
+    else:
+         source_field_name = source_field
+
+    key = context_key or f"normalized_{source_field_name}"
     
     if 'vars' not in context:
         context['vars'] = {}
@@ -229,7 +237,7 @@ def normalize_multiple_fields(context, config):
         if not fieldname:
             continue
         
-        value = doc.get(fieldname)
+        value = FieldResolver.resolve_picker(doc, fieldname, context)
         if value is None:
             continue
 
@@ -248,6 +256,8 @@ def normalize_multiple_fields(context, config):
         else:
             # Set on document
             dest_field = target_field or fieldname
+            if isinstance(dest_field, list):
+                dest_field = dest_field[2]
             doc.set(dest_field, normalized)
         
         results[fieldname] = normalized

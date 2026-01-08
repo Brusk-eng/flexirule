@@ -4,6 +4,7 @@ frappe.provide("flexirule.processes");
 /**
  * Deduplication Process Adapter
  * Standardizes configuration for deduplication operations.
+ * Now directly compatible with ConfigurableAction.
  */
 flexirule.processes.Deduplication = {
     meta: {
@@ -247,12 +248,206 @@ flexirule.processes.Deduplication = {
         }
     ],
 
+    /**
+     * Get an operation definition by name
+     */
     get_operation(name) {
         return this.operations.find(op => op.func_name === name);
     },
 
+    /**
+     * Get visible operations
+     */
     get_visible_operations() {
         return this.operations.filter(op => op.visible !== false);
+    },
+
+    /**
+     * Get default configuration for a specific operation
+     */
+    get_default_config(operation_name, context = {}) {
+        const operation = this.get_operation(operation_name);
+        if (!operation || typeof operation.get_config_fields !== 'function') {
+            return {};
+        }
+
+        const defaults = {};
+        const raw_fields = operation.get_config_fields(context);
+
+        raw_fields.forEach(field => {
+            // Skip layout fields
+            if (['Section Break', 'Column Break', 'HTML'].includes(field.fieldtype)) {
+                return;
+            }
+
+            // Handle Table fields
+            if (field.fieldtype === 'Table') {
+                defaults[field.fieldname] = [];
+                return;
+            }
+
+            // Regular field
+            if (field.default !== undefined) {
+                defaults[field.fieldname] = field.default;
+            }
+        });
+
+        return defaults;
+    },
+
+    /**
+     * Get UI schema for ConfigurableAction
+     */
+    get_ui_schema(operation_name, config = {}, context = {}) {
+        const operation = this.get_operation(operation_name);
+        if (!operation || typeof operation.get_config_fields !== 'function') {
+            return { fields: [], tables: [] };
+        }
+
+        const raw_fields = operation.get_config_fields(context);
+        const fields = [];
+        const tables = [];
+
+        raw_fields.forEach(field => {
+            // Skip layout fields
+            if (['Section Break', 'Column Break'].includes(field.fieldtype)) {
+                return;
+            }
+
+            // Skip HTML fields (help text)
+            if (field.fieldtype === 'HTML') {
+                return;
+            }
+
+            // Handle Table fields
+            if (field.fieldtype === 'Table') {
+                tables.push({
+                    fieldname: field.fieldname,
+                    label: field.label,
+                    reqd: field.reqd || 0,
+                    columns: this._normalize_columns(field.fields || [], config, context),
+                });
+                return;
+            }
+
+            // Regular field
+            fields.push(this._normalize_field(field, config, context));
+        });
+
+        return { fields, tables };
+    },
+
+    /**
+     * Validate configuration
+     */
+    validate(operation_name, config, context = {}) {
+        const operation = this.get_operation(operation_name);
+        if (!operation || typeof operation.validate !== 'function') {
+            return [];
+        }
+
+        const msg = operation.validate(config, context);
+        if (msg) {
+            return [{ fieldname: '_general', message: msg }];
+        }
+
+        return [];
+    },
+
+    /**
+     * Normalize a single field definition
+     */
+    _normalize_field(field, config, context = {}) {
+        const normalized = {
+            fieldname: field.fieldname,
+            label: field.label || frappe.unscrub(field.fieldname || ''),
+            fieldtype: this._map_fieldtype(field.fieldtype),
+            options: this._resolve_options(field, config, context),
+            reqd: field.reqd || 0,
+            read_only: field.read_only || 0,
+            hidden: field.hidden || 0,
+            default: field.default,
+            depends_on: field.depends_on || '',
+            mandatory_depends_on: field.mandatory_depends_on || '',
+            read_only_depends_on: field.read_only_depends_on || '',
+            description: field.description || '',
+        };
+
+        // Handle custom fieldtypes that need widgets
+        if (field.fieldtype === 'DocField') {
+            normalized.render = (opts) => new flexirule.DocFieldWidget(opts);
+            normalized.fieldtype = 'Data';
+        }
+
+        if (field.fieldtype === 'MultiDocField') {
+            normalized.render = (opts) => new flexirule.MultiDocFieldWidget(opts);
+            normalized.fieldtype = 'Data';
+        }
+
+        // Also support string-based widget lookup in UIRuntime
+        if (field.fieldtype === 'DocField') normalized.widget = 'DocFieldWidget';
+        if (field.fieldtype === 'MultiDocField') normalized.widget = 'MultiDocFieldWidget';
+
+        // Preserve onchange handler
+        if (field.onchange) {
+            normalized.onchange = field.onchange;
+        }
+
+        // Preserve get_options for dynamic options
+        if (field.get_options) {
+            normalized.get_options = field.get_options;
+        }
+
+        return normalized;
+    },
+
+    /**
+     * Normalize table columns
+     */
+    _normalize_columns(columns, config, context = {}) {
+        return columns.map(col => {
+            const normalized = this._normalize_field(col, config, context);
+
+            // Add table-specific properties
+            normalized.in_list_view = col.in_list_view !== false;
+            normalized.columns = col.columns || 2;
+
+            return normalized;
+        });
+    },
+
+    /**
+     * Map custom fieldtypes to standard or widget types
+     */
+    _map_fieldtype(fieldtype) {
+        const mapping = {
+            'DocField': 'Data', // Will use FieldSelector widget
+            'MultiDocField': 'Data', // Will use MultiFieldSelector widget
+            // Standard types pass through
+        };
+        return mapping[fieldtype] || fieldtype;
+    },
+
+    /**
+     * Resolve options for a field
+     */
+    _resolve_options(field, config, context = {}) {
+        if (typeof field.options === 'function') {
+            return field.options(config, context);
+        }
+
+        // Handle options referencing parent document
+        if (typeof field.options === 'string' && field.options.startsWith('parent.')) {
+            const parent_field = field.options.replace('parent.', '');
+            // First try to access as context.parent.fieldname
+            if (context.parent && context.parent[parent_field] !== undefined) {
+                return context.parent[parent_field];
+            }
+            // Then try to access directly as context.fieldname (for backward compatibility)
+            return context[parent_field] || '';
+        }
+
+        return field.options || '';
     }
 };
 
@@ -263,13 +458,17 @@ flexirule.processes.Deduplication = {
 const SHARED = {
     validTypes: ['Data', 'Link', 'Text', 'Phone', 'Email', 'Small Text', 'Date', 'Int', 'Float', 'Currency'],
 
-    get_field_options(doc_meta) {
-        if (!doc_meta?.fields) return [];
-        return doc_meta.fields
+    async get_field_options(doc_meta) {
+        if (!doc_meta?.name) return [];
+
+        // Use global utility for rich, cached fields (includes system fields)
+        const all_fields = await flexirule.utils.get_doctype_fields(doc_meta.name);
+
+        return all_fields
             .filter(f => SHARED.validTypes.includes(f.fieldtype))
             .map(f => ({
-                label: `${f.label} (${f.fieldtype})`,
-                value: f.fieldname
+                label: f.label, // Use utility's formatted label
+                value: f.value
             }));
     },
 
@@ -329,8 +528,8 @@ function get_dedupe_table_fields() {
             default: 0.8,
             columns: 1,
             in_list_view: 1,
-            depends_on: "eval:doc.algorithm !== 'Exact'",
-            mandatory_depends_on: "eval:doc.algorithm !== 'Exact'" // Example of conditional mandatory
+            depends_on: "doc && doc.algorithm && doc.algorithm !== 'Exact'",
+            mandatory_depends_on: "doc && doc.algorithm && doc.algorithm !== 'Exact'" // Example of conditional mandatory
         },
         {
             fieldname: "tolerance",
@@ -339,8 +538,8 @@ function get_dedupe_table_fields() {
             default: 30,
             columns: 1,
             in_list_view: 1,
-            depends_on: "eval:['Numeric Range', 'Date Distance'].includes(doc.algorithm)",
-            mandatory_depends_on: "eval:['Numeric Range', 'Date Distance'].includes(doc.algorithm)"
+            depends_on: "doc && doc.algorithm && ['Numeric Range', 'Date Distance'].includes(doc.algorithm)",
+            mandatory_depends_on: "doc && doc.algorithm && ['Numeric Range', 'Date Distance'].includes(doc.algorithm)"
         },
         {
             fieldname: "normalize",

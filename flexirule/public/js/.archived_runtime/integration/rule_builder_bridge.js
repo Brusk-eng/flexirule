@@ -36,20 +36,52 @@ flexirule.integration.show_config_dialog = async function (opts) {
         on_save
     } = opts;
 
-    // 1. Create adapter from process
-    const adapter = flexirule.adapters.create_from_process(
-        process_name,
-        operation_name,
-        {
-            document_type: document_type,
-            doc_meta: doc_meta,
-        }
-    );
-
-    if (!adapter) {
-        frappe.msgprint(__("Failed to load configuration schema for {0}.{1}", [process_name, operation_name]));
+    // 1. Get process adapter directly
+    const process_adapter = flexirule.processes[process_name];
+    if (!process_adapter) {
+        frappe.msgprint(__("Process adapter not found: {0}", [process_name]));
         return null;
     }
+
+    // Create a compatible adapter object using the process adapter's methods
+    const adapter = {
+        process_name: process_name,
+        operation_name: operation_name,
+        context: {
+            document_type: document_type,
+            doc_meta: doc_meta,
+        },
+
+        get_default_config() {
+            return process_adapter.get_default_config(operation_name, {
+                document_type: document_type,
+                doc_meta: doc_meta,
+                parent: {
+                    document_type: document_type
+                }
+            });
+        },
+
+        get_ui_schema(config) {
+            return process_adapter.get_ui_schema(operation_name, config, {
+                document_type: document_type,
+                doc_meta: doc_meta,
+                parent: {
+                    document_type: document_type
+                }
+            });
+        },
+
+        validate(config) {
+            return process_adapter.validate(operation_name, config, {
+                document_type: document_type,
+                doc_meta: doc_meta,
+                parent: {
+                    document_type: document_type
+                }
+            });
+        }
+    };
 
     // 2. Load initial config from node
     let initial_config = {};
@@ -74,8 +106,8 @@ flexirule.integration.show_config_dialog = async function (opts) {
     });
 
     // 4. Get operation label
-    const process_adapter = flexirule.processes[process_name];
-    const operation = process_adapter?.get_operation?.(operation_name);
+    const process_op_adapter = flexirule.processes[process_name];
+    const operation = process_op_adapter?.get_operation?.(operation_name);
     const title = operation?.label || operation_name;
 
     // 5. Create Dialog
@@ -181,16 +213,55 @@ flexirule.integration.ConfigurableActionV2 = class ConfigurableActionV2 {
             });
         }
 
-        // Create adapter
-        this._adapter = flexirule.adapters.create_from_process(
-            this.process_name,
-            this.operation_name,
-            {
+        // Get process adapter directly
+        const proc_adapter = flexirule.processes[this.process_name];
+        if (!proc_adapter) {
+            throw new Error(__("Process adapter not found: {0}", [this.process_name]));
+        }
+
+        // Create a compatible adapter object using the process adapter's methods
+        this._adapter = {
+            process_name: this.process_name,
+            operation_name: this.operation_name,
+            context: {
                 document_type: this.document_type,
                 doc_meta: this.doc_meta,
                 context_vars: context_vars
+            },
+
+            get_default_config() {
+                return proc_adapter.get_default_config(this.operation_name, {
+                    document_type: this.document_type,
+                    doc_meta: this.doc_meta,
+                    context_vars: context_vars,
+                    parent: {
+                        document_type: this.document_type
+                    }
+                });
+            },
+
+            get_ui_schema(config) {
+                return proc_adapter.get_ui_schema(this.operation_name, config, {
+                    document_type: this.document_type,
+                    doc_meta: this.doc_meta,
+                    context_vars: context_vars,
+                    parent: {
+                        document_type: this.document_type
+                    }
+                });
+            },
+
+            validate(config) {
+                return proc_adapter.validate(this.operation_name, config, {
+                    document_type: this.document_type,
+                    doc_meta: this.doc_meta,
+                    context_vars: context_vars,
+                    parent: {
+                        document_type: this.document_type
+                    }
+                });
             }
-        );
+        };
 
         // Create ConfigurableAction
         this._action = new flexirule.ConfigurableAction({
@@ -254,7 +325,7 @@ flexirule.integration.ConfigurableActionV2 = class ConfigurableActionV2 {
  * Feature flag to control which implementation to use.
  * Set to true to use the new runtime, false for legacy.
  */
-flexirule.integration.USE_NEW_RUNTIME = true;
+flexirule.integration.USE_NEW_RUNTIME = false;
 
 /**
  * Factory that returns either V1 or V2 ConfigurableAction based on feature flag.

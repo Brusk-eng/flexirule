@@ -1,30 +1,9 @@
-// Copyright (c) 2026, FlexiRule and contributors
-// For license information, please see license.txt
-
-frappe.provide("flexirule.ui");
-frappe.provide("flexirule.integration");
-
 /**
- * Factory for creating ConfigurableAction instances.
- * Used by Sidebar.vue to instantiate the runtime for a node.
+ * Enhanced ConfigurableAction that uses the hybrid approach
  */
-flexirule.integration.create_configurable_action = function (opts) {
-    return new flexirule.ui.ConfigurableAction(opts);
-};
+frappe.provide("flexirule.grid");
 
-// PATCH REMOVED: User requested no global overrides.
-
-
-/**
- * ConfigurableAction - Runtime Primitive for Process Configuration
- * 
- * DESIGN GUARANTEES:
- * 1. Runtime Owns Persistence: schema is immutable, config is the single source of truth.
- * 2. Strict Context: mutations only via ctx.update_field().
- * 3. Passive Fields: fields react to state, never mutate each other directly.
- * 4. Native Frappe Semantics: supports depends_on, mandatory_depends_on, eval scops.
- */
-flexirule.ui.ConfigurableAction = class ConfigurableAction {
+flexirule.grid.EnhancedConfigurableAction = class EnhancedConfigurableAction {
     constructor(opts) {
         // Options: process_name, operation_name, node_data, document_type, doc_meta
         Object.assign(this, opts);
@@ -42,6 +21,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         // UI Binding (Ephemeral)
         this.active_dialog = null;
         this.active_grids = {}; // fieldname -> grid instance
+        this.enhanced_grids = new Map(); // fieldname -> EnhancedGridController
     }
 
     /**
@@ -58,9 +38,45 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         this.evaluate_dependencies(this.config);
     }
 
-    // ============================================================
-    // 1. STATE & CONTEXT API
-    // ============================================================
+    /**
+     * Enhance a grid with custom functionality
+     */
+    enhance_grid(fieldname, grid, schema) {
+        const enhanced_controller = new flexirule.grid.EnhancedGridController(
+            grid, 
+            schema, 
+            this._get_context()
+        );
+        
+        this.enhanced_grids.set(fieldname, enhanced_controller);
+        
+        // Register custom renderers based on field definitions
+        schema.fields.forEach(field => {
+            if (field.fieldtype === 'Autocomplete' && field.options === 'Field Picker') {
+                const custom_renderer = new flexirule.grid.CustomFieldSelector({
+                    fieldname: field.fieldname,
+                    on_change: (fieldname, value, row_doc) => {
+                        this.update_field(fieldname, value, row_doc);
+                    }
+                });
+                
+                enhanced_controller.register_custom_renderer(field.fieldname, custom_renderer);
+            }
+        });
+    }
+
+    /**
+     * Update context across all enhanced grids
+     */
+    update_context(new_context) {
+        // Update main context
+        Object.assign(this.context, new_context);
+        
+        // Update all enhanced grids
+        for (const [fieldname, controller] of this.enhanced_grids) {
+            controller.update_context(new_context);
+        }
+    }
 
     /**
      * The Single Mutation Surface.
@@ -197,7 +213,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         }
 
         // 3. Dynamic Options (if function) & OnChange Normalization
-        // Note: For top-level fields, we resolve once during init. 
+        // Note: For top-level fields, we resolve once during init.
         // For tables, we might need dynamic resolution per row (handled in Grid).
         if (typeof f.get_options === 'function' && f.fieldtype !== 'Table') {
             // This is static initialization. Runtime dynamic options (dependent)
@@ -212,7 +228,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         }
 
         // 4. Separate Business Logic from UI Binding
-        // We move the adapter's 'onchange' to a private key so that we don't 
+        // We move the adapter's 'onchange' to a private key so that we don't
         // confuse it with the UI binding 'onchange' we will inject later.
         if (f.onchange) {
             f._onchange_logic = f.onchange;
@@ -521,13 +537,13 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
                 // However, dependency evaluation updates the Schema definition in this.field_map or similar?
                 // Actually dependencies update 'field_map[fieldname].reqd'.
                 // Since child fields are shared across rows in the schema definition in this.normalized_fields...
-                // Wait. 'evaluate_dependencies' updates the FIELD OBJECT. 
+                // Wait. 'evaluate_dependencies' updates the FIELD OBJECT.
                 // If we share the field object across rows, we might have a problem if reqd varies by row!
                 // Frappe Grids usually handle this by having a per-row docfield copy or using 'mandatory_depends_on' during validation.
 
                 // Let's use the row's doc values to check mandatory_depends_on if needed?
-                // Or assume evaluate_dependencies ran and we should trust cf.reqd? 
-                // Issue: evaluate_dependencies runs for *a* context. If checking all rows, we should assume the latest state 
+                // Or assume evaluate_dependencies ran and we should trust cf.reqd?
+                // Issue: evaluate_dependencies runs for *a* context. If checking all rows, we should assume the latest state
                 // or ideally re-evaluate per row.
                 // For now, let's trust the STATIC reqd or the value in the row if standard.
                 // Better: Check the value.
@@ -607,6 +623,11 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
             const grid = grid_obj.grid;
             this.active_grids[table_field.fieldname] = grid;
 
+            // Enhance the grid with custom functionality
+            this.enhance_grid(table_field.fieldname, grid, {
+                fields: table_field.fields || []
+            });
+
             // Hook into Grid Rows
             // Frappe Grid doesn't have a single "on_cell_change".
             // We use the standard methodology: monitoring the form actions within the grid.
@@ -617,10 +638,10 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
             // We need "Runtime Binding" hooks.
 
             // Strategy: Mutate the Grid's internal Field Docs to point to our runtime updater
-            // This is tricky because Grid re-renders. 
+            // This is tricky because Grid re-renders.
             // Best approach: Use the global grid event if available or specific field bindings.
 
-            // Frappe Grid uses 'frappe.ui.form.Control' for cells. 
+            // Frappe Grid uses 'frappe.ui.form.Control' for cells.
             // We can listen to 'change' on the wrapper, like the user's previous code, which is robust.
 
             $(grid.wrapper).on('change', 'input, select, textarea', (e) => {
@@ -643,7 +664,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
                     // If the field has a value (default) and an onchange handler, run it.
                     // This ensures derived fields (like Threshold from Algorithm) are set.
                     if (row.doc[cf.fieldname] !== undefined && cf._onchange_logic) {
-                        this.update_field(cf.fieldname, row.doc[cf.fieldname], row.doc);
+                        cf._onchange_logic(row.doc[cf.fieldname], row.doc, this._get_context(row.doc));
                     }
                 });
 
@@ -669,8 +690,6 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         // Get value safely from doc (Grid generic controls update the doc automatically typically)
         // Check if we need to pull from input or if Frappe already updated the doc.
         // Usually Frappe updates doc on 'change'.
-        // We verify slightly later to be safe, or assume 'change' means committed.
-
         const val = row.doc[fieldname];
 
         // Trigger Runtime Update
@@ -733,7 +752,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
                     // We only want to set_value if logic updated it.
                     // To avoid loops (UI -> update_field -> refresh -> set_value -> onchange -> ...),
                     // we need to be careful.
-                    // But standard field 'set_value' normally triggers onchange? 
+                    // But standard field 'set_value' normally triggers onchange?
                     // Wait, field.set_value() typically triggers onchange.
                     // If we set_value, we might trigger infinite loop if onchange calls update_field.
 
@@ -769,13 +788,13 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
             }
         });
 
-        // 2. Grids: This is where it gets tough. 
-        // If a value in a row changed, we need to refresh that row to reflect 
+        // 2. Grids: This is where it gets tough.
+        // If a value in a row changed, we need to refresh that row to reflect
         // side-effects (like Read Only changes or Option changes).
         if (row_context) {
             // Find which grid contains this row
             Object.values(this.active_grids).forEach(grid => {
-                // Check if row belongs to this grid? 
+                // Check if row belongs to this grid?
                 // Grid rows are proxies. Reference equality might work if no deep clones.
                 const grid_row = grid.grid_rows.find(r => r.doc.name === row_context.name);
                 if (grid_row) {
@@ -838,9 +857,9 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
                         // Sanitize known fragile fields (like MultiSelects) that crash if undefined
                         // We check if any field in this row corresponds to a MultiSelect in our schema?
-                        // Schema traversal is expensive here. 
+                        // Schema traversal is expensive here.
                         // Simpler: Just ensure 'transformations' is safe if it exists or is expected.
-                        // Or general null check for likely strings? 
+                        // Or general null check for likely strings?
                         // Let's specifically target 'transformations' as that's our known crash point.
                         if (row.transformations === undefined || row.transformations === null) {
                             row.transformations = "";
@@ -882,11 +901,11 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
                 // Remove 'name' logic:
                 // 1. If it was marked local, definitely remove name.
-                // 2. If name looks like a temporary ID (10 chars random), remove it to be safe 
+                // 2. If name looks like a temporary ID (10 chars random), remove it to be safe
                 //    (in case __islocal was lost or not set but it's logically local).
-                // 3. User reported "row 1" as name, implying some Grids use that. 
+                // 3. User reported "row 1" as name, implying some Grids use that.
                 //    Strictly speaking, if we hydrate with random ID, we want to strip it.
-                //    Valid DocNames are usually alphanumeric or contain special chars but purely 
+                //    Valid DocNames are usually alphanumeric or contain special chars but purely
                 //    config objects shouldn't rely on 'name' for identity across saves unless established.
 
                 if (is_local || (obj.name && obj.name.length === 10) || (obj.name && obj.name.startsWith('row '))) {
@@ -909,26 +928,59 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
     async _resolve_docfield_options(ref) {
         if (!ref) return [];
-
         let target = this.document_type;
-        let is_meta_only = false;
 
         if (ref === 'Variables' || ref === 'Field Picker') {
-            is_meta_only = true;
-        } else if (ref !== 'DocField' && ref.indexOf('.') === -1) {
+            // Dynamic Variable Resolution
+            if (typeof this.get_variable_options === 'function') {
+                try {
+                    const vars = await this.get_variable_options();
+                    // transform to options list if needed, or return raw struct for custom controls
+                    // vars is likely [{label, value, type, source}]
+                    // For 'Select' or 'Autocomplete', we usually want simple strings or label/value
+                    // But 'Field Picker' might handle objects.
+                    // Let's return the objects and let the Control handle it (or normalize to strings).
+                    return vars.map(v => v.value);
+                } catch (e) {
+                    console.warn("Failed to resolve variables", e);
+                    return [];
+                }
+            }
+            // Fallback to empty
+            return [];
+        }
+
+        if (ref !== 'DocField' && ref.indexOf('.') === -1) {
             target = ref;
         }
 
-        // Get variables from instance
-        const context_vars = typeof this.get_variable_options === 'function'
-            ? await this.get_variable_options()
-            : [];
+        try {
+            const r = await frappe.call({
+                method: 'flexirule.ruleflow.api.get_doctype_fields',
+                args: { doctype: target }
+            });
 
-        if (is_meta_only) {
-            return context_vars.map(v => v.value);
+            if (r.message) {
+                // Format: [{label, value, fieldtype}, ...]
+                let opts = (r.message.parent_fields || []).map(f => ({
+                    label: `${f.label} (${f.fieldtype})`,
+                    value: f.value
+                }));
+
+                // Children
+                if (r.message.child_tables) {
+                    r.message.child_tables.forEach(ct => {
+                        opts.push({ label: `── ${ct.table_label} ──`, value: '', disabled: true });
+                        ct.fields.forEach(f => {
+                            opts.push({ label: `  ${f.label}`, value: f.value });
+                        });
+                    });
+                }
+                return opts;
+            }
+        } catch (e) {
+            console.warn('Field Fetch Failed', e);
         }
-
-        // Use global utility for combined result
-        return await flexirule.utils.get_combined_fields(target, context_vars);
+        return [];
     }
 };
