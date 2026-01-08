@@ -143,6 +143,26 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         return [];
     }
 
+    _resolve_actions() {
+        if (!this.adapter) return [];
+
+        let actions = [];
+
+        // 1. Adapter global actions
+        if (typeof this.adapter.get_actions === 'function') {
+            const res = this.adapter.get_actions(this.operation_name, this._get_context());
+            if (Array.isArray(res)) actions = actions.concat(res);
+        }
+
+        // 2. Operation specific actions
+        if (this.operation_def && typeof this.operation_def.get_actions === 'function') {
+            const res = this.operation_def.get_actions(this._get_context());
+            if (Array.isArray(res)) actions = actions.concat(res);
+        }
+
+        return actions;
+    }
+
     /**
      * Compiles the raw schema into a Frappe-compatible field list.
      * Handles type conversions (DocField -> Autocomplete) and Option loading.
@@ -420,6 +440,15 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
         // 2. Bind Root Fields
         this._bind_dialog_events(dialog);
+
+        // 3. Add Custom Quick Actions
+        const custom_actions = this._resolve_actions();
+        custom_actions.forEach(action => {
+            if (!action.label || !action.click) return;
+            dialog.add_custom_button(__(action.label), () => {
+                action.click(this.config, this._get_context());
+            });
+        });
 
         dialog.show();
 

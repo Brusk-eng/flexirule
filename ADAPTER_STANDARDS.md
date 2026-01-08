@@ -41,10 +41,17 @@ flexirule.processes["ProcessName"] = {
     },
 
     /**
-     * Optional: Logic to run when the configuration dialog is opened.
+     * Optional: Returns custom buttons (Quick Actions) for the dialog header.
      */
-    onload(operation_name, context) {
-        // ... initialization
+    get_actions(operation_name, context) {
+        return [
+            {
+                label: __('Preview JSON'),
+                click: (config) => {
+                    frappe.msgprint('<pre>' + JSON.stringify(config, null, 2) + '</pre>');
+                }
+            }
+        ];
     },
 
     operations: [
@@ -59,15 +66,18 @@ flexirule.processes["ProcessName"] = {
              * Returns the raw Frappe field definitions for the UI.
              */
             get_config_fields: (ctx) => {
+                // ... fields
+            },
+
+            /**
+             * Optional: Operation-specific quick actions.
+             */
+            get_actions: (ctx) => {
                 return [
                     {
-                        fieldname: "source_field",
-                        label: __("Source Field"),
-                        fieldtype: "DocField", // Standard: Maps to Autocomplete with rich options
-                        options: ctx.document_type,
-                        reqd: 1
-                    },
-                    // ... other fields
+                        label: __('Reset'),
+                        click: (config, ctx) => ctx.update_field('source_field', null)
+                    }
                 ];
             }
         }
