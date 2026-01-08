@@ -3,7 +3,7 @@
 This document defines the standard structure and requirements for FlexiRule Process Adapters. Following these standards ensures compatibility with the Rule Builder's `ConfigurableAction` runtime.
 
 ## File Location
-Process adapters should be placed in `apps/flexirule/flexirule/ruleflow/process/[process_name]/[process_name].js`.
+Process adapters should be placed in `apps/[apps name/[ app name]/[Module def] /process/[process_name]/[process_name].js`.
 
 ## Example Structure
 
