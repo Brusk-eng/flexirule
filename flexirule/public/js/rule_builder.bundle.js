@@ -1,9 +1,9 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 
-// Import FlexiRule Runtime (Unified Bundle)
-import "./flexirule/index.js";
-
+// Import FlexiRule Utilities
+import "./rule_builder/utils/meta.js";
+import "./rule_builder/configurable_action.js"
 import { useStore } from "./rule_builder/store";
 import RuleBuilderComponent from "./rule_builder/RuleBuilder.vue";
 

@@ -15,6 +15,7 @@ frappe.provide("flexirule.integration");
 // 1. Utils
 import './utils/eval.js';
 import './utils/dom.js';
+import './utils/meta.js';
 
 // 2. Controls
 import './controls/control_factory.js';
@@ -31,11 +32,12 @@ import './table/flexi_table_schema.js';
 import './table/flexi_table_row.js';
 import './table/flexi_table.js';
 
-// 5. Adapters
-import './adapters/adapter_bridge.js';
 
 // 6. Integration
 import './integration/rule_builder_bridge.js';
+
+// 7. Legacy Rule Builder Components (as fallback)
+import '../rule_builder/configurable_action.js';
 
 /**
  * Note: Individual files attach themselves to the flexirule namespace

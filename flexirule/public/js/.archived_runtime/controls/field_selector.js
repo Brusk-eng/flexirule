@@ -238,15 +238,20 @@ flexirule.FieldSelector = class FieldSelector {
     _on_source_change() {
         const source = this.source_control.get_value();
 
-        // Clear field
+        // Clear field and value
         this.field_input.val('');
         this.field_options = [];
         this.awesomplete.list = [];
+        this.value = null; // Important: reset value so mandatory check fails
 
         if (source === 'doctype') {
             this._render_doctype_control();
         } else {
             this._render_context_control();
+        }
+
+        if (this.on_change) {
+            this.on_change(this.value);
         }
     }
 
@@ -256,9 +261,15 @@ flexirule.FieldSelector = class FieldSelector {
      */
     _on_doctype_change() {
         const doctype = this.doctype_control.get_value();
+
+        // Reset field and value parts
+        this.field_input.val('');
+        this.value = null; // Reset value
+
         if (!doctype) {
             this.field_options = [];
             this.awesomplete.list = [];
+            if (this.on_change) this.on_change(this.value);
             return;
         }
 
@@ -266,6 +277,10 @@ flexirule.FieldSelector = class FieldSelector {
         frappe.model.with_doctype(doctype, () => {
             this._build_field_options(doctype);
         });
+
+        if (this.on_change) {
+            this.on_change(this.value);
+        }
     }
 
     /**
@@ -407,6 +422,10 @@ flexirule.FieldSelector = class FieldSelector {
      * @returns {Array|null} - [source, doctype_or_key, fieldname, fieldtype, options]
      */
     get_value() {
+        // Return null if fieldname is missing
+        if (!this.value || !this.value[2]) {
+            return null;
+        }
         return this.value;
     }
 
@@ -503,5 +522,61 @@ flexirule.FieldSelector = class FieldSelector {
         this.awesomplete = null;
         this.field_options = [];
         this.fields_by_name = {};
+    }
+};
+
+/**
+ * frappe.ui.form.ControlFieldSelector
+ * Standard Frappe Control wrapper for FlexiRule FieldSelector
+ */
+frappe.ui.form.ControlFieldSelector = class ControlFieldSelector extends frappe.ui.form.ControlData {
+    make_input() {
+        this.$input_wrapper.empty();
+        this.widget = new flexirule.FieldSelector({
+            parent: this.$input_wrapper,
+            df: this.df,
+            on_change: (val) => {
+                this.set_value(val);
+            },
+            context: this.df.context || {}
+        });
+        this.widget.render();
+        // Point to the input for accessibility/focus
+        this.input = this.widget.field_input.get(0);
+    }
+    get_value() {
+        return this.widget ? this.widget.get_value() : this.value;
+    }
+    set_value(val) {
+        if (this.widget) {
+            this.widget.set_value(val);
+        }
+        return super.set_value(val);
+    }
+    refresh_input() {
+        if (this.widget) {
+            this.widget.refresh({
+                context: this.df.context || {},
+                value: this.value
+            });
+        }
+    }
+    set_invalid() {
+        if (this.widget && this.widget.$wrapper) {
+            this.widget.$wrapper.addClass('is-invalid');
+            this.widget.$wrapper.css('border', '1px solid var(--red-400)');
+        }
+    }
+    set_valid() {
+        if (this.widget && this.widget.$wrapper) {
+            this.widget.$wrapper.removeClass('is-invalid');
+            this.widget.$wrapper.css('border', 'none');
+        }
+    }
+    destroy() {
+        if (this.widget) {
+            this.widget.destroy();
+        }
+        super.destroy();
     }
 };

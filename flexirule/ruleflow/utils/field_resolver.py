@@ -46,6 +46,40 @@ class FieldResolver:
 		return doc.get(field_path)
 	
 	@staticmethod
+	def resolve_picker(doc, picker_val: Any, context: Dict = None) -> Any:
+		"""
+		Resolve value from a FieldSelector structured value:
+		[source, doctype_or_key, fieldname, fieldtype, options]
+		"""
+		if not picker_val:
+			return None
+		
+		if isinstance(picker_val, str):
+			# Transparently handle old-style string fieldnames
+			return FieldResolver.resolve(doc, picker_val)
+		
+		if isinstance(picker_val, list) and len(picker_val) >= 3:
+			source, source_id, fieldname = picker_val[0:3]
+			
+			if source == 'doctype':
+				# Resolve typically from the current doc or related
+				# For now we assume doctype refers to the current doc structure 
+				# (Or we could check if source_id matches doc.doctype)
+				return FieldResolver.resolve(doc, fieldname)
+			
+			elif source == 'context':
+				# Resolve from context variables
+				if context and 'vars' in context:
+					# FieldSelector uses context key as source_id
+					# If the context var is a dict (DocField selection), resolve subfield
+					var_val = context['vars'].get(source_id)
+					if isinstance(var_val, dict) and fieldname:
+						return var_val.get(fieldname)
+					return var_val
+		
+		return None
+	
+	@staticmethod
 	def _resolve_nested(doc, field_path: str) -> Any:
 		"""
 		Resolve nested field (child table or parent)

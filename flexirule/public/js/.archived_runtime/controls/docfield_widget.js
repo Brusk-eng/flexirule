@@ -448,3 +448,87 @@ flexirule.MultiDocFieldWidget = class MultiDocFieldWidget {
         this.fields_by_name = {};
     }
 };
+
+/**
+ * frappe.ui.form.ControlDocField
+ */
+frappe.ui.form.ControlDocField = class ControlDocField extends frappe.ui.form.ControlData {
+    make_input() {
+        this.$input_wrapper.empty();
+        this.widget = new flexirule.DocFieldWidget({
+            parent: this.$input_wrapper,
+            df: this.df,
+            on_change: (val) => {
+                this.set_value(val);
+            },
+            context: this.df.context || {}
+        });
+        this.widget.render();
+        this.input = this.widget.$input.get(0);
+    }
+    get_value() {
+        return this.widget ? this.widget.get_value() : this.value;
+    }
+    set_value(val) {
+        if (this.widget) {
+            this.widget.set_value(val);
+        }
+        return super.set_value(val);
+    }
+    refresh_input() {
+        if (this.widget) {
+            this.widget.refresh({
+                context: this.df.context || {},
+                value: this.value
+            });
+        }
+    }
+    destroy() {
+        if (this.widget) {
+            this.widget.destroy();
+        }
+        super.destroy();
+    }
+};
+
+/**
+ * frappe.ui.form.ControlMultiDocField
+ */
+frappe.ui.form.ControlMultiDocField = class ControlMultiDocField extends frappe.ui.form.ControlData {
+    make_input() {
+        this.$input_wrapper.empty();
+        this.widget = new flexirule.MultiDocFieldWidget({
+            parent: this.$input_wrapper,
+            df: this.df,
+            on_change: (val) => {
+                this.set_value(val);
+            },
+            context: this.df.context || {}
+        });
+        this.widget.render();
+        this.input = this.widget.$input.get(0);
+    }
+    get_value() {
+        return this.widget ? this.widget.get_value() : this.value;
+    }
+    set_value(val) {
+        if (this.widget) {
+            this.widget.set_value(val);
+        }
+        return super.set_value(val);
+    }
+    refresh_input() {
+        if (this.widget) {
+            this.widget.refresh({
+                context: this.df.context || {},
+                value: this.value
+            });
+        }
+    }
+    destroy() {
+        if (this.widget) {
+            this.widget.destroy();
+        }
+        super.destroy();
+    }
+};
