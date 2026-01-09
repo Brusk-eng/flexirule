@@ -1,5 +1,8 @@
-import frappe
+# DEPRECTATED
 from functools import wraps
+
+import frappe
+
 
 def processmethod(
     category="Custom",
@@ -13,12 +16,12 @@ def processmethod(
     output_schema=None,
     config_schema=None,
     usage_example=None,
-    requires_permission=None
+    requires_permission=None,
 ):
     """
     Decorator to register a Process Method.
     Metadata is attached to the function object and synced to the database.
-    
+
     Args:
         category (str): Category (Validation, Enrichment, etc.)
         description (str): Method description
@@ -33,6 +36,7 @@ def processmethod(
         usage_example (dict/str): Example usage config
         requires_permission (str): Role needed to run
     """
+
     def decorator(func):
         # Attach metadata to the function
         func._is_process_method = True
@@ -49,17 +53,17 @@ def processmethod(
             "output_schema": output_schema,
             "config_schema": config_schema,
             "usage_example": usage_example,
-            "requires_permission": requires_permission
+            "requires_permission": requires_permission,
         }
-        
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
-            
+
         # Ensure wrapper has the metadata too
         wrapper._is_process_method = True
         wrapper._metadata = func._metadata
-        
+
         return wrapper
-        
+
     return decorator

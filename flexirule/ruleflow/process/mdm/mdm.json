@@ -1,110 +1,110 @@
 {
-    "process_name": "MDM",
-    "module": "Ruleflow",
-    "description": "Master Data Management operations for data quality and deduplication",
-    "operations": [
-        {
-            "func_name": "create_review_task",
-            "label": "Create Review Task",
-            "description": "Create a Data Review Task for steward review",
-            "category": "MDM",
-            "side_effects": "Creates New Docs",
-            "output_mode": "value",
-            "mutates_doc": false,
-            "creates_new_docs": true,
-            "requires_permission": "Rule Manager",
-            "supports_dry_run": false,
-            "icon": "task",
-            "color": "#6366f1",
-            "config_schema": {
-                "fields": [
-                    {
-                        "fieldname": "task_type",
-                        "fieldtype": "Select",
-                        "label": "Task Type",
-                        "options": "Duplicate Review\nData Quality\nMerge Request",
-                        "reqd": 1,
-                        "default": "Duplicate Review"
-                    },
-                    {
-                        "fieldname": "priority",
-                        "fieldtype": "Select",
-                        "label": "Priority",
-                        "options": "Low\nMedium\nHigh\nUrgent",
-                        "default": "Medium"
-                    },
-                    {
-                        "fieldname": "description",
-                        "fieldtype": "Small Text",
-                        "label": "Description"
-                    }
-                ]
-            }
-        },
-        {
-            "func_name": "find_duplicates",
-            "label": "Find Duplicates",
-            "description": "Find potential duplicate records based on similarity threshold",
-            "category": "Deduplication",
-            "side_effects": "Pure",
-            "output_mode": "dict",
-            "mutates_doc": false,
-            "supports_dry_run": true,
-            "icon": "duplicate",
-            "color": "#f59e0b",
-            "config_schema": {
-                "fields": [
-                    {
-                        "fieldname": "threshold",
-                        "fieldtype": "Float",
-                        "label": "Similarity Threshold",
-                        "default": 0.8,
-                        "reqd": 1,
-                        "description": "Minimum similarity score (0.0 - 1.0)"
-                    },
-                    {
-                        "fieldname": "fields_to_compare",
-                        "fieldtype": "Small Text",
-                        "label": "Fields to Compare",
-                        "description": "Comma-separated list of field names"
-                    },
-                    {
-                        "fieldname": "max_results",
-                        "fieldtype": "Int",
-                        "label": "Max Results",
-                        "default": 10
-                    }
-                ]
-            }
-        },
-        {
-            "func_name": "normalize_field",
-            "label": "Normalize Field",
-            "description": "Apply normalization transformations to a field value",
-            "category": "Normalization",
-            "side_effects": "Modifies Doc",
-            "output_mode": "value",
-            "mutates_doc": true,
-            "supports_dry_run": true,
-            "icon": "format",
-            "color": "#10b981",
-            "config_schema": {
-                "fields": [
-                    {
-                        "fieldname": "field",
-                        "fieldtype": "Data",
-                        "label": "Field Name",
-                        "reqd": 1
-                    },
-                    {
-                        "fieldname": "transformations",
-                        "fieldtype": "Small Text",
-                        "label": "Transformations",
-                        "description": "Comma-separated: lowercase, uppercase, trim, remove_special_chars",
-                        "default": "trim,lowercase"
-                    }
-                ]
-            }
-        }
-    ]
+	"process_name": "MDM",
+	"module": "Ruleflow",
+	"description": "Master Data Management operations for data quality and deduplication",
+	"operations": [
+		{
+			"func_name": "create_review_task",
+			"label": "Create Review Task",
+			"description": "Create a Data Review Task for steward review",
+			"category": "MDM",
+			"side_effects": "Creates New Docs",
+			"output_mode": "value",
+			"mutates_doc": false,
+			"creates_new_docs": true,
+			"requires_permission": "Rule Manager",
+			"supports_dry_run": false,
+			"icon": "task",
+			"color": "#6366f1",
+			"config_schema": {
+				"fields": [
+					{
+						"fieldname": "task_type",
+						"fieldtype": "Select",
+						"label": "Task Type",
+						"options": "Duplicate Review\nData Quality\nMerge Request",
+						"reqd": 1,
+						"default": "Duplicate Review"
+					},
+					{
+						"fieldname": "priority",
+						"fieldtype": "Select",
+						"label": "Priority",
+						"options": "Low\nMedium\nHigh\nUrgent",
+						"default": "Medium"
+					},
+					{
+						"fieldname": "description",
+						"fieldtype": "Small Text",
+						"label": "Description"
+					}
+				]
+			}
+		},
+		{
+			"func_name": "find_duplicates",
+			"label": "Find Duplicates",
+			"description": "Find potential duplicate records based on similarity threshold",
+			"category": "Deduplication",
+			"side_effects": "Pure",
+			"output_mode": "dict",
+			"mutates_doc": false,
+			"supports_dry_run": true,
+			"icon": "duplicate",
+			"color": "#f59e0b",
+			"config_schema": {
+				"fields": [
+					{
+						"fieldname": "threshold",
+						"fieldtype": "Float",
+						"label": "Similarity Threshold",
+						"default": 0.8,
+						"reqd": 1,
+						"description": "Minimum similarity score (0.0 - 1.0)"
+					},
+					{
+						"fieldname": "fields_to_compare",
+						"fieldtype": "Small Text",
+						"label": "Fields to Compare",
+						"description": "Comma-separated list of field names"
+					},
+					{
+						"fieldname": "max_results",
+						"fieldtype": "Int",
+						"label": "Max Results",
+						"default": 10
+					}
+				]
+			}
+		},
+		{
+			"func_name": "normalize_field",
+			"label": "Normalize Field",
+			"description": "Apply normalization transformations to a field value",
+			"category": "Normalization",
+			"side_effects": "Modifies Doc",
+			"output_mode": "value",
+			"mutates_doc": true,
+			"supports_dry_run": true,
+			"icon": "format",
+			"color": "#10b981",
+			"config_schema": {
+				"fields": [
+					{
+						"fieldname": "field",
+						"fieldtype": "Data",
+						"label": "Field Name",
+						"reqd": 1
+					},
+					{
+						"fieldname": "transformations",
+						"fieldtype": "Small Text",
+						"label": "Transformations",
+						"description": "Comma-separated: lowercase, uppercase, trim, remove_special_chars",
+						"default": "trim,lowercase"
+					}
+				]
+			}
+		}
+	]
 }

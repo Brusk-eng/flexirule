@@ -28,5 +28,5 @@ def execute():
                 ALTER TABLE `tabRule Action`
                 DROP COLUMN `method_config`
             """)
-        
+
         frappe.db.commit()

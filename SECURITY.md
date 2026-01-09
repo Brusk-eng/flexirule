@@ -4,14 +4,14 @@
 
 If you discover a security vulnerability in FlexiRule, please report it **privately**:
 
-- Email: 
+-   Email:
 
 Do **not** create a public issue for security vulnerabilities.
 
 ## Supported Versions
 
 | Version | Supported |
-|---------|-----------|
+| ------- | --------- |
 | develop | ✅ Yes    |
 
 ## Response Time

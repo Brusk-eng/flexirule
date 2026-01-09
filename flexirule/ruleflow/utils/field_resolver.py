@@ -6,8 +6,9 @@ FieldResolver - Smart field value resolution
 Handles dot notation, child tables, and aggregate functions
 """
 
+from typing import Any, Dict, List
+
 import frappe
-from typing import Any, List, Dict
 
 
 class FieldResolver:
@@ -18,7 +19,7 @@ class FieldResolver:
 	- Aggregate functions (SUM, AVG, COUNT, MAX, MIN)
 	- Parent/grandparent references
 	"""
-	
+
 	@staticmethod
 	def resolve(doc, field_path: str) -> Any:
 		"""
@@ -33,40 +34,40 @@ class FieldResolver:
 		"""
 		if doc is None or not field_path:
 			return None
-		
+
 		# Check for aggregate functions
 		if ':' in field_path:
 			return FieldResolver._resolve_aggregate(doc, field_path)
-		
+
 		# Check for dot notation (child table or parent reference)
 		if '.' in field_path:
 			return FieldResolver._resolve_nested(doc, field_path)
-		
+
 		# Simple field
 		return doc.get(field_path)
-	
+
 	@staticmethod
-	def resolve_picker(doc, picker_val: Any, context: Dict = None) -> Any:
+	def resolve_picker(doc, picker_val: Any, context: dict = None) -> Any:
 		"""
 		Resolve value from a FieldSelector structured value:
 		[source, doctype_or_key, fieldname, fieldtype, options]
 		"""
 		if not picker_val:
 			return None
-		
+
 		if isinstance(picker_val, str):
 			# Transparently handle old-style string fieldnames
 			return FieldResolver.resolve(doc, picker_val)
-		
+
 		if isinstance(picker_val, list) and len(picker_val) >= 3:
 			source, source_id, fieldname = picker_val[0:3]
-			
+
 			if source == 'doctype':
 				# Resolve typically from the current doc or related
-				# For now we assume doctype refers to the current doc structure 
+				# For now we assume doctype refers to the current doc structure
 				# (Or we could check if source_id matches doc.doctype)
 				return FieldResolver.resolve(doc, fieldname)
-			
+
 			elif source == 'context':
 				# Resolve from context variables
 				if context and 'vars' in context:
@@ -76,9 +77,9 @@ class FieldResolver:
 					if isinstance(var_val, dict) and fieldname:
 						return var_val.get(fieldname)
 					return var_val
-		
+
 		return None
-	
+
 	@staticmethod
 	def _resolve_nested(doc, field_path: str) -> Any:
 		"""
@@ -89,7 +90,7 @@ class FieldResolver:
 			- 'parent.customer_name' → 'Acme Corp'
 		"""
 		parts = field_path.split('.')
-		
+
 		# Check if first part is 'parent'
 		if parts[0] == 'parent' and doc.get('parent'):
 			parent_doc = frappe.get_doc(doc.get('parenttype'), doc.get('parent'))
@@ -98,24 +99,24 @@ class FieldResolver:
 			else:
 				# Multiple levels (rare but supported)
 				return FieldResolver.resolve(parent_doc, '.'.join(parts[1:]))
-		
+
 		# Child table field
 		child_table_fieldname = parts[0]
 		child_field = parts[1] if len(parts) > 1 else None
-		
+
 		# Get child table rows
 		child_rows = doc.get(child_table_fieldname)
 		if not child_rows:
 			return []
-		
+
 		# If no child field specified, return all rows
 		if not child_field:
 			return child_rows
-		
+
 		# Extract values from child field
 		values = [row.get(child_field) for row in child_rows if row.get(child_field) is not None]
 		return values
-	
+
 	@staticmethod
 	def _resolve_aggregate(doc, field_path: str) -> Any:
 		"""
@@ -134,16 +135,16 @@ class FieldResolver:
 		"""
 		# Split path and function
 		path, func = field_path.split(':')
-		
+
 		# Get values
 		values = FieldResolver._resolve_nested(doc, path)
 		if not values:
 			return 0 if func in ['sum', 'count'] else None
-		
+
 		# Filter numeric values for numeric functions
 		if func in ['sum', 'avg', 'max', 'min']:
 			values = [v for v in values if isinstance(v, (int, float))]
-		
+
 		# Apply function
 		if func == 'sum':
 			return sum(values)
@@ -162,9 +163,9 @@ class FieldResolver:
 		else:
 			frappe.log_error(f"Unknown aggregate function: {func}", "FieldResolver")
 			return None
-	
+
 	@staticmethod
-	def get_child_table_fields(doctype: str) -> List[str]:
+	def get_child_table_fields(doctype: str) -> list[str]:
 		"""
 		Get all child table fieldnames for a DocType
 		
@@ -176,7 +177,7 @@ class FieldResolver:
 		"""
 		meta = frappe.get_meta(doctype)
 		return [f.fieldname for f in meta.fields if f.fieldtype == 'Table']
-	
+
 	@staticmethod
 	def get_field_type(doctype: str, fieldname: str) -> str:
 		"""
@@ -192,9 +193,9 @@ class FieldResolver:
 		meta = frappe.get_meta(doctype)
 		field = meta.get_field(fieldname)
 		return field.fieldtype if field else None
-	
+
 	@staticmethod
-	def get_all_fields(doctype: str, include_child_tables: bool = False) -> List[Dict]:
+	def get_all_fields(doctype: str, include_child_tables: bool = False) -> list[dict]:
 		"""
 		Get all fields for a DocType with metadata
 		
@@ -207,7 +208,7 @@ class FieldResolver:
 		"""
 		meta = frappe.get_meta(doctype)
 		fields = []
-		
+
 		for field in meta.fields:
 			if field.fieldtype not in ['Section Break', 'Column Break', 'HTML', 'Tab Break']:
 				fields.append({
@@ -216,7 +217,7 @@ class FieldResolver:
 					'fieldtype': field.fieldtype,
 					'options': field.options
 				})
-				
+
 				# Add child table fields
 				if include_child_tables and field.fieldtype == 'Table' and field.options:
 					child_meta = frappe.get_meta(field.options)
@@ -230,7 +231,7 @@ class FieldResolver:
 								'is_child': True,
 								'parent_field': field.fieldname
 							})
-		
+
 		return fields
 
 

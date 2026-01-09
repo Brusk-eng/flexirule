@@ -46,7 +46,7 @@ fixtures = []
 
 flexirule_excluded_doctypes = [
     "Error Log",
-    "Activity Log", 
+    "Activity Log",
     "Access Log",
     "Email Queue",
     "Scheduled Job Log",

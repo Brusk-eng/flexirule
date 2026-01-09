@@ -1,9 +1,12 @@
-import frappe
-import unittest
 import json
+import unittest
+
+import frappe
+
 from flexirule.ruleflow.core.coordinator import RuleCoordinator
 from flexirule.ruleflow.core.engine import RuleEngine
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
+
 
 class TestV1Compliance(unittest.TestCase):
 	def setUp(self):
@@ -19,15 +22,15 @@ class TestV1Compliance(unittest.TestCase):
 		rule.trigger_event = 'Before Save'
 		rule.document_type = 'ToDo'
 		# Only memory, don't save
-		
+
 		# Test Signature
 		val = RuleCoordinator.check_eligibility(rule, frappe.new_doc('ToDo'), 'Before Save')
 		# Expect tuple
 		self.assertIsInstance(val, tuple)
 		is_eligible, reason = val
-		
+
 		self.assertTrue(is_eligible)
-		
+
 		# Test Mismatch Event
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, frappe.new_doc('ToDo'), 'After Save')
 		self.assertFalse(is_eligible)
@@ -39,19 +42,19 @@ class TestV1Compliance(unittest.TestCase):
 			{"left": {"type": "field", "value": "status"}, "operator": "==", "right": "Open"}
 		])
 		rule.trigger_condition_expression = None  # No compiled version
-		
+
 		doc = frappe.new_doc('ToDo')
 		doc.status = "Closed"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, 'Before Save')
 		self.assertFalse(is_eligible)
 		# New behavior: Returns error about missing compiled filters
 		self.assertIn("trigger_condition_expression", reason)
-		
+
 		# Test with properly compiled trigger_condition_expression
 		rule.trigger_condition_expression = "resolve(doc, 'status') == 'Open'"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, 'Before Save')
 		self.assertFalse(is_eligible)  # status is Closed, filter fails
-		
+
 		doc.status = "Open"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, 'Before Save')
 		self.assertTrue(is_eligible)
@@ -63,17 +66,17 @@ class TestV1Compliance(unittest.TestCase):
 		rule = frappe.new_doc('Rule')
 		rule.append('actions', {
 			'action_id': 'A',
-			'action_type': 'Process', 
+			'action_type': 'Process',
 			'action_label': 'Step A',
 			'next_step_if_true': 'B'
 		})
 		rule.append('actions', {
 			'action_id': 'B',
-			'action_type': 'Process', 
+			'action_type': 'Process',
 			'action_label': 'Step B',
 			'next_step_if_true': 'A' # Cycle
 		})
-		
+
 		with self.assertRaises(frappe.ValidationError) as cm:
 			validate_graph_integrity(rule)
 		self.assertIn("Cycle detected", str(cm.exception))
@@ -85,7 +88,7 @@ class TestV1Compliance(unittest.TestCase):
 		rule = frappe.new_doc('Rule')
 		rule.append('actions', {
 			'action_id': 'A',
-			'action_type': 'Process', 
+			'action_type': 'Process',
 			'action_label': 'Step A',
 			'is_entry_action': 1,
 			'next_step_if_true': 'B' # B doesn't exist yet
@@ -96,7 +99,7 @@ class TestV1Compliance(unittest.TestCase):
 			'action_type': 'Process',
 			'action_label': 'Step C'
 		})
-		
+
 		with self.assertRaises(frappe.ValidationError) as cm:
 			validate_graph_integrity(rule)
 		self.assertIn("Unreachable", str(cm.exception))

@@ -11,26 +11,33 @@ Enhanced Rule Engine with:
 - Comprehensive logging
 """
 
-import frappe
-from frappe import _
 import json
 import time
 import traceback
-import jsonschema
-from jsonschema import validate, ValidationError as SchemaValidationError
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from contextlib import contextmanager
+
+import frappe
+import jsonschema
+from frappe import _
+from jsonschema import ValidationError as SchemaValidationError
+from jsonschema import validate
+
+from flexirule.ruleflow.core.evaluator import check_link_match
 from flexirule.ruleflow.core.exceptions import (
-	RuleDisabledError,
+	CycleDetectedError,
 	EmptyRuleError,
 	MethodExecutionError,
-	TimeoutError as BoltonTimeoutError,
-	CycleDetectedError
+	RuleDisabledError,
 )
-from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
-from flexirule.ruleflow.utils.schema_validator import get_custom_validator, frappe_fields_to_json_schema
+from flexirule.ruleflow.core.exceptions import TimeoutError as BoltonTimeoutError
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
-from flexirule.ruleflow.core.evaluator import check_link_match
+from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
+from flexirule.ruleflow.utils.schema_validator import (
+	frappe_fields_to_json_schema,
+	get_custom_validator,
+)
 
 
 class TimeoutException(Exception):
@@ -42,10 +49,10 @@ class ReadOnlyDocument:
 	"""Proxy for Document that prevents mutation"""
 	def __init__(self, doc):
 		object.__setattr__(self, "_doc", doc)
-	
+
 	def __getattr__(self, name):
 		return getattr(self._doc, name)
-		
+
 	def __getitem__(self, key):
 		return self._doc[key]
 
@@ -54,19 +61,19 @@ class ReadOnlyDocument:
 
 	def __setattr__(self, name, value):
 		raise frappe.ValidationError("Cannot mutate document in Pure method")
-			
+
 	def __setitem__(self, key, value):
 		raise frappe.ValidationError("Cannot mutate document in Pure method")
-		
+
 	def save(self, *args, **kwargs):
 		raise frappe.ValidationError("Cannot save document in Pure method")
-		
+
 	def insert(self, *args, **kwargs):
 		raise frappe.ValidationError("Cannot insert document in Pure method")
-		
+
 	def delete(self, *args, **kwargs):
 		raise frappe.ValidationError("Cannot delete document in Pure method")
-		
+
 	def db_set(self, *args, **kwargs):
 		raise frappe.ValidationError("Cannot db_set document in Pure method")
 
@@ -80,7 +87,7 @@ def time_limit(seconds):
 	if seconds <= 0:
 		yield
 		return
-	
+
 	# Note: This context manager doesn't actually enforce timeout
 	# The timeout is enforced in _execute_with_timeout method
 	yield
@@ -91,77 +98,77 @@ class SafeFrappeAPI:
 	Restricted Frappe API proxy for rule condition evaluation.
 	Exposes only safe, read-only operations to prevent security issues.
 	"""
-	
+
 	def __init__(self):
 		# Safe utilities
 		self.utils = frappe.utils
 		self._dict = frappe._dict
-		
+
 	# Safe read operations
 	@staticmethod
 	def get_value(doctype, filters, fieldname=None, **kwargs):
 		"""Read-only get_value"""
 		return frappe.get_value(doctype, filters, fieldname, **kwargs)
-	
+
 	@staticmethod
 	def get_all(doctype, filters=None, fields=None, **kwargs):
 		"""Read-only get_all"""
 		return frappe.get_all(doctype, filters=filters, fields=fields, **kwargs)
-	
+
 	@staticmethod
 	def db_exists(doctype, name):
 		"""Check if document exists"""
 		return frappe.db.exists(doctype, name)
-	
+
 	@staticmethod
 	def get_meta(doctype):
 		"""Get doctype metadata"""
 		return frappe.get_meta(doctype)
-	
+
 	@staticmethod
 	def format_value(value, df=None, doc=None, currency=None):
 		"""Format value for display"""
 		return frappe.format_value(value, df, doc, currency)
-	
+
 	# Logging (safe)
 	@staticmethod
 	def log(message):
 		"""Log a message"""
 		frappe.logger().info(message)
-	
+
 	# Explicitly denied operations (will raise)
 	def get_doc(self, *args, **kwargs):
 		raise PermissionError("get_doc is not allowed in rule conditions. Use frappe.get_value instead.")
-	
+
 	def new_doc(self, *args, **kwargs):
 		raise PermissionError("new_doc is not allowed in rule conditions.")
-	
+
 	def delete_doc(self, *args, **kwargs):
 		raise PermissionError("delete_doc is not allowed in rule conditions.")
-	
+
 	def db_set_value(self, *args, **kwargs):
 		raise PermissionError("db.set_value is not allowed in rule conditions.")
-	
+
 	@property
 	def db(self):
 		"""Return restricted db proxy"""
 		return self._SafeDB()
-	
+
 	class _SafeDB:
 		"""Restricted database operations"""
 		def exists(self, doctype, name):
 			return frappe.db.exists(doctype, name)
-		
+
 		def get_value(self, doctype, filters, fieldname=None, **kwargs):
 			return frappe.db.get_value(doctype, filters, fieldname, **kwargs)
-		
+
 		def get_all(self, doctype, filters=None, fields=None, **kwargs):
 			return frappe.db.get_all(doctype, filters=filters, fields=fields, **kwargs)
-		
+
 		# Explicitly deny write operations
 		def set_value(self, *args, **kwargs):
 			raise PermissionError("db.set_value is not allowed in rule conditions.")
-		
+
 		def sql(self, *args, **kwargs):
 			raise PermissionError("db.sql is not allowed in rule conditions.")
 
@@ -178,7 +185,7 @@ class RuleEngine:
 	- Security enforcement
 	- Audit logging
 	"""
-	
+
 	def __init__(self, rule_doc, execution_context=None):
 		"""
 		Args:
@@ -192,12 +199,12 @@ class RuleEngine:
 		self.context = execution_context or {}
 		self.execution_log = []
 		self.cache = {}
-		
+
 		# Build action maps for fast lookup
 		self.action_map_by_id = {a.action_id: a for a in self.actions if a.action_id}
 		self.action_map_by_label = {a.action_label: a for a in self.actions}
 		self.action_map_by_name = {a.name: a for a in self.actions}
-	
+
 	@staticmethod
 	def _get_action_config(action):
 		"""Get config JSON with backward compatibility for method_config"""
@@ -209,7 +216,7 @@ class RuleEngine:
 			return json.loads(config_str)
 		except (json.JSONDecodeError, TypeError):
 			return {}
-	
+
 	def execute(self, doc, **kwargs):
 		"""
 		Execute rule with comprehensive error handling
@@ -226,11 +233,11 @@ class RuleEngine:
 		status = "Success"
 		error_detail = None
 		self.path_trace = []
-		
+
 		try:
 			# Pre-execution validation
 			self._validate_execution()
-			
+
 			# Check role-based skipping
 			if self.rule.get('skip_for_roles'):
 				user_roles = frappe.get_roles()
@@ -239,32 +246,32 @@ class RuleEngine:
 					self._log("INFO", f"Skipping rule execution for user with role(s): {skip_roles}")
 					status = "Skipped"
 					return self.context
-			
+
 			# Initialize context
 			context = self._initialize_context(doc, **kwargs)
-			
+
 			# Log start
 			self._log("INFO", f"Starting rule execution: {self.rule.name}")
-			
+
 			# Execute with timeout if configured
 			timeout = self.rule.max_execution_time or 30
-			
+
 			if self.context.get('test_mode'):
 				# No timeout in test mode
 				result = self._execute_graph(context)
 			else:
 				with time_limit(timeout):
 					result = self._execute_graph(context)
-			
+
 			# Post-execution cleanup
 			self._log("INFO", "Rule execution completed successfully")
-			
+
 			if not self.context.get('test_mode'):
 				self._update_rule_stats(success=True)
-			
+
 			return result
-			
-		except (TimeoutException, FuturesTimeoutError, BoltonTimeoutError) as e:
+
+		except (TimeoutException, FuturesTimeoutError, BoltonTimeoutError):
 			status = "Failed"
 			error_msg = _("Rule execution exceeded timeout ({0}s)").format(timeout if 'timeout' in locals() else 'unknown')
 			error_detail = traceback.format_exc()
@@ -272,7 +279,7 @@ class RuleEngine:
 			if context if 'context' in locals() else None:
 				self._update_rule_stats(success=False, error=error_msg)
 			raise BoltonTimeoutError(error_msg)
-		
+
 		except Exception as e:
 			status = "Failed"
 			error_msg = str(e)
@@ -281,20 +288,20 @@ class RuleEngine:
 			if context if 'context' in locals() else None:
 				self._update_rule_stats(success=False, error=error_msg)
 			raise
-			
+
 		finally:
 			# Persist Log
 			duration = time.time() - start_time
 			self._save_execution_log(status, duration, error_detail, context=context if 'context' in locals() else None)
-	
+
 	def _validate_execution(self):
 		"""Validate rule is executable"""
 		if not self.rule.is_active:
 			raise RuleDisabledError(_("Rule {0} is disabled").format(self.rule.name))
-		
+
 		if not self.actions:
 			raise EmptyRuleError(_("Rule {0} has no enabled actions").format(self.rule.name))
-	
+
 	def _initialize_context(self, doc, **kwargs):
 		return {
 			**self.context,
@@ -312,51 +319,51 @@ class RuleEngine:
 			'stop': False,
 			**kwargs
 		}
-	
+
 	def _get_safe_frappe_api(self):
 		"""Return a restricted frappe API object for condition evaluation"""
 		return _safe_frappe
-	
+
 	def _execute_graph(self, context):
 		"""Execute action graph with cycle detection and loop support"""
-		
+
 		# Change strict cycle detection to visit counting for loops
 		node_visits = {} # node_id -> count
 		max_visits_per_node = 100 # Safety for infinite loops
-		
+
 		execution_path = []
 		current = self._get_start_node()
 		max_iterations = 1000 # Total step limit
-		
+
 		for iteration in range(max_iterations):
 			if not current:
 				self._log("INFO", _("Reached end of flow (no next action)"))
 				break
-			
+
 			if context.get('stop'):
 				self._log("INFO", _("Flow stopped by action"))
 				break
-			
+
 			# Cycle/Loop detection
 			node_id = current.action_id or current.name
-			
+
 			# Track visits
 			visits = node_visits.get(node_id, 0) + 1
 			node_visits[node_id] = visits
-			
+
 			if visits > max_visits_per_node:
 				raise CycleDetectedError(_("Infinite loop detected: Action {0} visited {1} times").format(current.action_label, visits))
-			
+
 			execution_path.append(current.action_label)
 			self.path_trace.append({
 				"action": current.action_label,
 				"type": current.action_type,
 				"timestamp": time.time()
 			})
-			
+
 			# Log execution
 			self._log("INFO", _("Executing action: {0} (type: {1})").format(current.action_label, current.action_type))
-			
+
 			try:
 				# Standardized Handlers (Dispatcher)
 				handler_map = {
@@ -368,7 +375,7 @@ class RuleEngine:
 					'Wait': self._execute_wait,
 					'Loop': self._execute_loop
 				}
-				
+
 				handler = handler_map.get(current.action_type)
 				if not handler:
 					self._log("WARNING", _("Unknown action type: {0}").format(current.action_type))
@@ -377,10 +384,10 @@ class RuleEngine:
 				else:
 					# Handlers now return (result, next_id)
 					result, next_id = handler(current, context)
-				
+
 				# Enhance path trace with result/inputs for Process
 				if current.action_type == 'Process':
-					# Ideally we want inputs (config) too, but handlers consume it. 
+					# Ideally we want inputs (config) too, but handlers consume it.
 					# We can reconstruct it or just log result.
 					self.path_trace[-1]['output'] = str(result)
 					try:
@@ -391,7 +398,7 @@ class RuleEngine:
 				if current.return_variable and result is not None:
 					context['vars'][current.return_variable] = result
 					self._log("DEBUG", _("Stored result in variable: {0}").format(current.return_variable))
-				
+
 				# Move to next node
 				current = self._get_action_by_id(next_id) if next_id else None
 
@@ -409,17 +416,17 @@ class RuleEngine:
 					elif current.on_error == 'Escalate':
 						self._log("ERROR", _("Error in action {0}, escalating: {1}").format(current.action_label, str(e)))
 						raise
-				
+
 				# Default: stop on error
 				self._log("ERROR", _("Error in action {0}: {1}").format(current.action_label, str(e)))
 				raise
-		
+
 		if iteration >= max_iterations - 1:
 			raise CycleDetectedError(_("Max total iterations ({0}) exceeded").format(max_iterations))
-		
+
 		self._log("INFO", _("Execution path: {0}").format(' → '.join(execution_path)))
 		return context
-	
+
 	def _get_start_node(self):
 		"""Get the first action to execute (one with no incoming edges)"""
 		# 1. Look for explicit Root / Entry Action
@@ -430,17 +437,17 @@ class RuleEngine:
 
 		# 2. Backward compatibility: Find action with no incoming edges
 		has_incoming = set()
-		
+
 		for action in self.actions:
 			action_id = action.action_id or action.name
-			
+
 			# Check all actions' next_step fields
 			for other in self.actions:
 				if other.next_step_if_true == action_id:
 					has_incoming.add(action_id)
 				if other.next_step_if_false == action_id:
 					has_incoming.add(action_id)
-				
+
 				# Check Switch cases for incoming edges
 				if other.action_type == 'Switch':
 					try:
@@ -449,30 +456,30 @@ class RuleEngine:
 							if target_id == action_id:
 								has_incoming.add(action_id)
 					except: pass
-		
+
 		# Find action with no incoming edges (true start node)
 		for action in self.actions:
 			action_id = action.action_id or action.name
 			if action_id not in has_incoming:
 				self._log("INFO", _("Start node (deduced): {0} ({1})").format(action.action_label, action_id))
 				return action
-		
+
 		# Fallback to first action if no clear start
 		self._log("WARNING", _("No clear start node, using first action"))
 		return self.actions[0] if self.actions else None
-	
+
 	def _get_action_by_id(self, action_id):
 		"""Get action by ID (supports action_id, name, or label)"""
 		if not action_id:
 			return None
-		
+
 		# Try different lookup methods
 		return (
 			self.action_map_by_id.get(action_id) or
 			self.action_map_by_name.get(action_id) or
 			self.action_map_by_label.get(action_id)
 		)
-	
+
 	def _execute_condition(self, action, context):
 		"""Execute a condition node"""
 		# Conditions MUST be pre-compiled during Rule.validate()
@@ -486,10 +493,10 @@ class RuleEngine:
 			result = True  # Empty condition passes
 		else:
 			result = self._evaluate_python_condition(action.condition_expression, context)
-		
+
 		next_id = action.next_step_if_true if result else action.next_step_if_false
 		return result, next_id
-	
+
 	def _evaluate_python_condition(self, expression, context):
 		"""Evaluate Python expression safely"""
 		if not expression:
@@ -520,27 +527,27 @@ class RuleEngine:
 		"""
 		if '_loops' not in context['vars']:
 			context['vars']['_loops'] = {}
-			
+
 		loop_state = context['vars']['_loops'].get(action.action_id, {
 			'index': 0, 'initialized': False
 		})
-		
+
 		config = self._get_action_config(action)
-			
+
 		iterator_name = config.get('iterator') # e.g. "doc.items" or "vars.my_list"
 		item_alias = config.get('alias', 'item')
-		
+
 		items = []
 		if iterator_name:
 			# Resolve iterator
 			items = self._evaluate_python_condition(iterator_name, context)
-			
+
 		if not isinstance(items, (list, tuple)):
 			self._log("WARNING", _("Loop iterator {0} is not a list/tuple. Got {1}").format(iterator_name, type(items)))
 			items = []
-			
+
 		current_index = loop_state['index']
-		
+
 		if current_index < len(items):
 			# Valid iteration
 			item = items[current_index]
@@ -551,7 +558,7 @@ class RuleEngine:
 				'last': current_index == len(items) - 1,
 				'length': len(items)
 			}
-			
+
 			# Advance index for NEXT time
 			loop_state['index'] += 1
 			context['vars']['_loops'][action.action_id] = loop_state
@@ -566,22 +573,22 @@ class RuleEngine:
 	def _execute_wait(self, action, context):
 		"""Execute Wait (Sleep)"""
 		config = self._get_action_config(action)
-			
+
 		duration = config.get('duration', 0)
 		if not duration and action.timeout:
 			duration = action.timeout
-			
+
 		if duration > 0:
 			self._log("INFO", _("Waiting for {0} seconds...").format(duration))
 			time.sleep(duration)
-		
+
 		return None, action.next_step_if_true
 
 	def _execute_stop(self, action, context):
 		"""Execute Stop action"""
 		self._log("INFO", _("Stop action encountered"))
 		return None, None
-	
+
 	def _execute_process(self, action, context):
 		"""
 		Execute Process Logic (Supports both 'Process' DocType and legacy 'Process Method')
@@ -596,7 +603,7 @@ class RuleEngine:
 
 		# Parse configuration
 		config = self._get_action_config(action)
-		
+
 		# Apply Input Mapping (Context -> Config)
 		if getattr(action, 'input_mapping', None):
 			config = apply_input_mapping(context, action.input_mapping, config)
@@ -608,21 +615,21 @@ class RuleEngine:
 			if process_name:
 				if not frappe.db.exists("Process", process_name):
 					raise MethodExecutionError(_("Process {0} not found").format(process_name))
-				
+
 				process_doc = frappe.get_cached_doc("Process", process_name)
-				
+
 				# Validation: Check Execution Mode Constraints (Basic check)
 				# Note: Detailed validation might be needed similar to legacy but logic is delegated to Process internal checks or assumed safe
 				if self.rule.execution_mode == 'Asynchronous' and getattr(action, 'is_async', False):
-					# Check if operation allows async? 
+					# Check if operation allows async?
 					# For now, we trust the Process implementation handles transactional safety or we add checks later.
 					pass
 
 				# Execute with retry logic wrapper
 				result = self._call_process_with_retry(
-					process_doc=process_doc, 
+					process_doc=process_doc,
 					operation=operation,
-					config=config, 
+					config=config,
 					context=context,
 					retry_count=action.retry_count or 0,
 					timeout=action.timeout or 30
@@ -712,11 +719,11 @@ class RuleEngine:
 			try:
 				if attempt > 0:
 					self._log("INFO", _("Retry attempt {0}/{1} for {2}:{3}").format(attempt, retry_count, process_doc.name, operation))
-				
+
 				# Call the Process execute method
 				# Passing context, func (operation name), and config
 				return process_doc.execute(context, func=operation, config=config)
-				
+
 			except Exception as e:
 				last_error = e
 				self._log("ERROR", _("Process execution failed (attempt {0}): {1}").format(attempt + 1, str(e)))
@@ -724,35 +731,35 @@ class RuleEngine:
 					time.sleep(2 ** attempt)
 				else:
 					break
-		
+
 		raise MethodExecutionError(
 			_("Process {0}:{1} failed after {2} attempts: {3}").format(process_doc.name, operation, retry_count + 1, str(last_error))
 		)
-	
+
 	def _call_method_with_retry(self, process_method, config, context, retry_count, timeout):
 		"""Execute method with retry logic"""
 		last_error = None
-		
+
 		for attempt in range(retry_count + 1):
 			try:
 				# Log attempt
 				if attempt > 0:
 					self._log("INFO", _("Retry attempt {0}/{1} for {2}").format(attempt, retry_count, process_method.method_name))
-				
+
 				# Execute via Process Method document
 				result = process_method.execute(
 					doc=context['doc'],
 					context=context,
 					config=config
 				)
-				
+
 				# Success
 				return result
-				
+
 			except Exception as e:
 				last_error = e
 				self._log("ERROR", _("Method execution failed (attempt {0}): {1}").format(attempt + 1, str(e)))
-				
+
 				if attempt < retry_count:
 					# Exponential backoff
 					backoff_seconds = 2 ** attempt
@@ -761,7 +768,7 @@ class RuleEngine:
 				else:
 					# All retries exhausted
 					break
-		
+
 		# All retries failed
 		raise MethodExecutionError(
 			_("Method {0} failed after {1} attempts: {2}").format(process_method.method_name, retry_count + 1, str(last_error))
@@ -772,26 +779,26 @@ class RuleEngine:
 		config = self._get_action_config(action)
 		if not config:
 			return None, getattr(action, 'next_step_if_true', None)
-			
+
 		try:
 			expression = config.get('expression')
 			cases = config.get('cases', {})
-			
+
 			if not expression:
 				return None, getattr(action, 'next_step_if_true', None)
-				
+
 			# Evaluate expression
 			val = self._evaluate_python_condition(expression, context)
-			
+
 			# Match case - convert val to string for key lookup as JSON keys are strings
 			next_id = cases.get(val) or cases.get(str(val)) or action.next_step_if_true
-			
+
 			return val, next_id
-			
+
 		except Exception as e:
 			self._log("ERROR", _("Switch evaluation failed: {0}").format(str(e)))
 			raise
-		
+
 	def _execute_sub_rule(self, action, context):
 		"""Execute a Sub-Rule with bypass flags and proper trigger evaluation"""
 		try:
@@ -901,11 +908,11 @@ class RuleEngine:
 			'message': message
 		}
 		self.execution_log.append(entry)
-		
+
 		# Also log to console if debug mode
 		if self.rule.debug_mode or self.context.get('test_mode'):
 			frappe.logger().info(f"[{self.rule.name}] [{level}] {message}")
-	
+
 	def _update_rule_stats(self, success=True, error=None):
 		"""Update rule execution statistics (non-blocking, no commit)"""
 		try:
@@ -923,7 +930,7 @@ class RuleEngine:
 			)
 		except Exception as e:
 			# Don't fail execution if stats update fails
-			frappe.logger().error(f"Failed to update rule stats: {str(e)}")
+			frappe.logger().error(f"Failed to update rule stats: {e!s}")
 
 	def _save_execution_log(self, status, duration, error_trace=None, context=None):
 		"""Save execution details to Rule Execution Log"""
@@ -931,14 +938,14 @@ class RuleEngine:
 			# Serialize context snapshot (remove complex objects)
 			context_snapshot = {}
 			active_context = context or getattr(self, 'context', {})
-			
+
 			if active_context:
 				# Only keep serializable vars
 				context_snapshot = {
-					k: v for k, v in active_context.get('vars', {}).items() 
+					k: v for k, v in active_context.get('vars', {}).items()
 					if isinstance(v, (str, int, float, bool, list, dict, type(None)))
 				}
-				
+
 				# Add document snapshot for debugging
 				if active_context.get('doc'):
 					try:
@@ -947,13 +954,13 @@ class RuleEngine:
 						context_snapshot['doc'] = doc_dict
 					except:
 						context_snapshot['doc'] = "<Not Serializable>"
-			
+
 			# Handle Local Documents (New Docs)
 			# If we rollback, the doc might disappear, so the link will be broken.
 			# We still save the name for reference.
 			doc = active_context.get('doc') if active_context else None
 			doc_name = doc.name if doc else None
-			
+
 			if doc and doc.get('__islocal'):
 				# If it's local, it might not exist after rollback
 				pass
@@ -971,18 +978,18 @@ class RuleEngine:
 				"context_snapshot": json.dumps(context_snapshot, default=str),
 				"error_trace": error_trace
 			})
-			
+
 			# PERSISTENCE LOGIC
-			# If failed, we MUST rollback partial changes to clean up, 
+			# If failed, we MUST rollback partial changes to clean up,
 			# then insert and commit the log so it survives the final rollback by the framework.
-			if status in ('Failed', 'Error') and not (active_context or {}).get('test_mode'): 
+			if status in ('Failed', 'Error') and not (active_context or {}).get('test_mode'):
 				frappe.db.rollback()
 				log_doc.insert(ignore_permissions=True)
 				frappe.db.commit()
 			else:
 				# Success or Test Mode: Just insert (part of current transaction)
 				log_doc.insert(ignore_permissions=True)
-			
+
 		except Exception as e:
 			# Fallback if logging itself fails
-			frappe.logger().error(f"Failed to save Rule Execution Log: {str(e)}")
+			frappe.logger().error(f"Failed to save Rule Execution Log: {e!s}")

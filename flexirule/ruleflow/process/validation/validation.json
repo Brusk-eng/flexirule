@@ -1,0 +1,123 @@
+{
+ "creation": "2026-01-09 22:45:46.027314",
+ "docstatus": 0,
+ "doctype": "Process",
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2026-01-09 22:46:19.399969",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Validation",
+ "operations": [
+  {
+   "allows_async": 0,
+   "can_stop_save": 1,
+   "enabled": 1,
+   "func_name": "required_fields",
+   "is_terminal": 0,
+   "label": "Required Fields",
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 1,
+   "enabled": 1,
+   "func_name": "field_pattern",
+   "is_terminal": 0,
+   "label": "Field Pattern",
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 1,
+   "enabled": 1,
+   "func_name": "value_in_range",
+   "is_terminal": 0,
+   "label": "Value in Range",
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 1,
+   "enabled": 1,
+   "func_name": "unique_field",
+   "is_terminal": 0,
+   "label": "Unique Field",
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 1,
+   "enabled": 1,
+   "func_name": "conditional_required",
+   "is_terminal": 0,
+   "label": "Conditional Required",
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 1,
+   "enabled": 1,
+   "func_name": "child_table_rows",
+   "is_terminal": 0,
+   "label": "Child Table Rows",
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 1,
+   "enabled": 1,
+   "func_name": "composite_uniqueness",
+   "is_terminal": 0,
+   "label": "Composite Uniqueness",
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 0,
+   "enabled": 1,
+   "func_name": "role_check",
+   "is_terminal": 0,
+   "label": "Role Check",
+   "requires_doc": 0,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "Context"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 0,
+   "enabled": 1,
+   "func_name": "on_field_change",
+   "is_terminal": 0,
+   "label": "On Field Change",
+   "requires_doc": 1,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "Context"
+  }
+ ],
+ "owner": "Administrator",
+ "process_name": "Validation"
+}

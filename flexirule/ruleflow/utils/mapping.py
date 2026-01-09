@@ -6,10 +6,10 @@ Utilities for input/output mapping in Rule Actions
 """
 
 import json
-from typing import Dict, Any
+from typing import Any, Dict
 
 
-def apply_input_mapping(context: Dict, mapping_json: str, config: Dict) -> Dict:
+def apply_input_mapping(context: dict, mapping_json: str, config: dict) -> dict:
     """
     Apply input mapping to merge context variables into config
     
@@ -26,23 +26,23 @@ def apply_input_mapping(context: Dict, mapping_json: str, config: Dict) -> Dict:
     """
     if not mapping_json:
         return config
-    
+
     try:
         mapping = json.loads(mapping_json)
     except json.JSONDecodeError:
         return config
-    
+
     result = dict(config)
     for target_field, source_path in mapping.items():
         # Source is a path in context (e.g. "doc.items")
         val = resolve_path(context, source_path)
         if val is not None:
             result[target_field] = val
-    
+
     return result
 
 
-def apply_output_mapping(result: Any, mapping_json: str, context: Dict) -> Dict:
+def apply_output_mapping(result: Any, mapping_json: str, context: dict) -> dict:
     """
     Apply output mapping to store result in context
     
@@ -59,15 +59,15 @@ def apply_output_mapping(result: Any, mapping_json: str, context: Dict) -> Dict:
     """
     if not mapping_json:
         return context
-    
+
     try:
         mapping = json.loads(mapping_json)
     except json.JSONDecodeError:
         return context
-    
+
     for source_key, target_var in mapping.items():
         value_to_map = None
-        
+
         # Determine value to map
         if source_key == "__self__" or source_key == "result" or source_key == "":
             value_to_map = result
@@ -75,12 +75,12 @@ def apply_output_mapping(result: Any, mapping_json: str, context: Dict) -> Dict:
             value_to_map = result[source_key]
         elif hasattr(result, source_key):
              value_to_map = getattr(result, source_key)
-            
+
         if value_to_map is not None:
              # Target is a variable name in context (usually vars.X)
              # We support simple assignment to vars dict or top-level
              update_context(context, target_var, value_to_map)
-    
+
     return context
 
 
@@ -91,23 +91,23 @@ def resolve_path(data: Any, path: str) -> Any:
     """
     if not path:
         return None
-        
+
     parts = path.split('.')
     current = data
-    
+
     for part in parts:
         if current is None:
             return None
-            
+
         if isinstance(current, dict):
             current = current.get(part)
         else:
             current = getattr(current, part, None)
-            
+
     return current
 
 
-def update_context(context: Dict, path: str, value: Any):
+def update_context(context: dict, path: str, value: Any):
     """
     Update context variable supporting basic dot-notation for 'vars'
     e.g. "vars.my_score" -> context['vars']['my_score'] = value
@@ -116,10 +116,10 @@ def update_context(context: Dict, path: str, value: Any):
         return
 
     parts = path.split('.')
-    
+
     # Secure: Only allow updating 'vars' or direct context keys if strictly needed
     # Ideally we only write to 'vars' layer
-    
+
     if len(parts) == 1:
         # Top-level (Not recommended to overwrite 'doc' etc, but allowed by engine constraints if pure?)
         # Let's write to vars by default if top-level? No, explicitly respect path.

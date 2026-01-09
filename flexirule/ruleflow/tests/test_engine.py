@@ -9,15 +9,17 @@ All process methods use the context-first pattern:
     where context contains 'doc' and 'vars'
 """
 
-import frappe
 import unittest
+
+import frappe
 from frappe.tests.utils import FrappeTestCase
+
 from flexirule.ruleflow.core.engine import RuleEngine
 
 
 class TestRuleEngine(FrappeTestCase):
     """Test cases for Rule Engine"""
-    
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -32,22 +34,22 @@ class TestRuleEngine(FrappeTestCase):
                 "is_active": 1,
                 "priority": 10
             }).insert(ignore_permissions=True)
-    
+
     def test_rule_creation(self):
         """Test rule is created correctly"""
         rule = frappe.get_doc("Rule", "Test Validation Rule")
         self.assertEqual(rule.document_type, "ToDo")
         self.assertEqual(rule.is_active, 1)
-    
+
     def test_process_method_loading(self):
         """Test process methods can be loaded"""
-        from flexirule.ruleflow.methods.validation import validate_required_fields
         from flexirule.ruleflow.methods.enrichment import set_default_value
-        
+        from flexirule.ruleflow.methods.validation import validate_required_fields
+
         self.assertTrue(callable(validate_required_fields))
         self.assertTrue(callable(set_default_value))
-    
-    @classmethod  
+
+    @classmethod
     def tearDownClass(cls):
         # Cleanup - don't delete, just rollback
         frappe.db.rollback()
@@ -58,16 +60,16 @@ class TestRuleEngine(FrappeTestCase):
         Test fix for TypeError: cannot unpack non-iterable NoneType object
         and support for Process name + operation
         """
-        # Mock Rule 
+        # Mock Rule
         rule_doc = frappe._dict({
             "name": "Test New Process Fix",
             "is_active": 1,
-            "execution_mode": "Synchronous", 
+            "execution_mode": "Synchronous",
             "document_type": "User",
             "actions": [
                 frappe._dict({
                     "action_id": "root",
-                    "action_type": "Entry Action", 
+                    "action_type": "Entry Action",
                     "action_label": "Manual",
                     "is_enabled": 1,
                     "next_step_if_true": "ACT-PROCESS"
@@ -90,7 +92,7 @@ class TestRuleEngine(FrappeTestCase):
         class MockProcess:
             def __init__(self, name):
                 self.name = name
-            
+
             def execute(self, context, func=None, config=None):
                 return {"result": "success", "func": func}
 
@@ -110,7 +112,7 @@ class TestRuleEngine(FrappeTestCase):
             engine = RuleEngine(rule_doc)
             # Should not raise TypeError
             context = engine.execute(frappe._dict({"name": "TestDoc"}))
-            
+
             # Verify execution happened
             trace = [t for t in engine.path_trace if t["type"] == "Process"]
             self.assertTrue(len(trace) > 0)
@@ -124,30 +126,30 @@ class TestRuleEngine(FrappeTestCase):
 
 class TestValidationMethods(FrappeTestCase):
     """Test validation process methods"""
-    
+
     def test_validate_required_fields_pass(self):
         """Test required fields validation passes"""
         from flexirule.ruleflow.methods.validation import validate_required_fields
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         context = {"doc": doc, "vars": {}}
         result = validate_required_fields(context, fields=["description"])
         self.assertTrue(result)
-    
+
     def test_validate_required_fields_fail(self):
         """Test required fields validation fails"""
         from flexirule.ruleflow.methods.validation import validate_required_fields
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": ""})
         context = {"doc": doc, "vars": {}}
-        
+
         with self.assertRaises(frappe.ValidationError):
             validate_required_fields(context, fields=["description"])
-    
+
     def test_validate_field_pattern(self):
         """Test regex pattern validation"""
         from flexirule.ruleflow.methods.validation import validate_field_pattern
-        
+
         doc = frappe._dict({"email": "test@example.com"})
         context = {"doc": doc, "vars": {}}
         result = validate_field_pattern(context, field="email", pattern=r".*@.*\..*")
@@ -156,37 +158,37 @@ class TestValidationMethods(FrappeTestCase):
 
 class TestEnrichmentMethods(FrappeTestCase):
     """Test enrichment process methods"""
-    
+
     def test_set_default_value(self):
         """Test default value setting"""
         from flexirule.ruleflow.methods.enrichment import set_default_value
-        
+
         # Use actual document, not _dict
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         context = {"doc": doc, "vars": {}}
         result = set_default_value(context, field="priority", default_value="Medium")
-        
+
         self.assertEqual(doc.priority, "Medium")
         self.assertEqual(result, "Medium")
-    
+
     def test_set_default_no_overwrite(self):
         """Test default doesn't overwrite existing"""
         from flexirule.ruleflow.methods.enrichment import set_default_value
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test", "priority": "High"})
         context = {"doc": doc, "vars": {}}
         result = set_default_value(context, field="priority", default_value="Low", overwrite=False)
-        
+
         self.assertEqual(doc.priority, "High")
-    
+
     def test_calculate_field_value(self):
         """Test formula calculation"""
         from flexirule.ruleflow.methods.enrichment import calculate_field_value
-        
+
         # Use actual document with set() method
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         context = {"doc": doc, "vars": {}}
         result = calculate_field_value(context, target_field="priority", formula='"High"')
-        
+
         self.assertEqual(doc.priority, "High")
 

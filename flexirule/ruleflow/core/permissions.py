@@ -21,11 +21,11 @@ def check_rule_permission(rule_doc, throw=True):
         Boolean if throw=False
     """
     user = frappe.session.user
-    
+
     # System Manager can always execute
     if "System Manager" in frappe.get_roles(user):
         return True
-    
+
     # Check if user has permission on the target doctype
     target_doctype = rule_doc.document_type
     if not frappe.has_permission(target_doctype, "write"):
@@ -35,12 +35,12 @@ def check_rule_permission(rule_doc, throw=True):
                 frappe.PermissionError
             )
         return False
-    
+
     # Check rule-specific allowed roles if defined
     if hasattr(rule_doc, 'allowed_roles') and rule_doc.allowed_roles:
         allowed = [r.role for r in rule_doc.allowed_roles]
         user_roles = frappe.get_roles(user)
-        
+
         if not any(role in user_roles for role in allowed):
             if throw:
                 frappe.throw(
@@ -48,7 +48,7 @@ def check_rule_permission(rule_doc, throw=True):
                     frappe.PermissionError
                 )
             return False
-    
+
     return True
 
 
@@ -62,7 +62,7 @@ def check_method_permission(method_path, throw=True):
     """
     # Check against blocklist
     blocklist = frappe.get_hooks("flexirule_method_blocklist") or []
-    
+
     if method_path in blocklist:
         if throw:
             frappe.throw(
@@ -70,26 +70,26 @@ def check_method_permission(method_path, throw=True):
                 frappe.PermissionError
             )
         return False
-    
+
     return True
 
 
 def can_modify_rule(rule_doc, throw=True):
     """Check if user can modify a rule"""
     user = frappe.session.user
-    
+
     # System Manager can always modify
     if "System Manager" in frappe.get_roles(user):
         return True
-    
+
     # Rule Builder role can modify
     if "Rule Builder" in frappe.get_roles(user):
         return True
-    
+
     # Check if user owns the rule
     if rule_doc.owner == user:
         return True
-    
+
     if throw:
         frappe.throw(
             _("You don't have permission to modify this rule"),
@@ -110,11 +110,11 @@ def validate_safe_eval(expression):
     """
     # Dangerous patterns
     dangerous = [
-        "import ", "__import__", "exec(", "eval(", 
+        "import ", "__import__", "exec(", "eval(",
         "open(", "os.", "subprocess", "system(",
         "__class__", "__bases__", "__globals__"
     ]
-    
+
     expr_lower = expression.lower()
     for pattern in dangerous:
         if pattern in expr_lower:

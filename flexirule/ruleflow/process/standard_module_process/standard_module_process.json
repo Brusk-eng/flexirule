@@ -1,13 +1,13 @@
 {
- "creation": "2026-01-01 17:38:47.681598",
- "docstatus": 0,
- "doctype": "Process",
- "idx": 0,
- "modified": "2026-01-01 17:38:47.681598",
- "modified_by": "Administrator",
- "module": "Ruleflow",
- "name": "Standard Module Process",
- "operations": [],
- "owner": "Administrator",
- "process_name": "Standard Module Process"
+	"creation": "2026-01-01 17:38:47.681598",
+	"docstatus": 0,
+	"doctype": "Process",
+	"idx": 0,
+	"modified": "2026-01-01 17:38:47.681598",
+	"modified_by": "Administrator",
+	"module": "Ruleflow",
+	"name": "Standard Module Process",
+	"operations": [],
+	"owner": "Administrator",
+	"process_name": "Standard Module Process"
 }

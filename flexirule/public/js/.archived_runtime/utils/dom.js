@@ -16,16 +16,16 @@ flexirule.utils.dom = {};
  * @param {HTMLElement|jQuery} el - Element to remove
  */
 flexirule.utils.dom.remove_element = function (el) {
-    if (!el) return;
+	if (!el) return;
 
-    if (el instanceof jQuery) {
-        el.remove();
-    } else if (el instanceof HTMLElement) {
-        el.remove();
-    } else if (el.wrapper) {
-        // Frappe control pattern
-        $(el.wrapper).remove();
-    }
+	if (el instanceof jQuery) {
+		el.remove();
+	} else if (el instanceof HTMLElement) {
+		el.remove();
+	} else if (el.wrapper) {
+		// Frappe control pattern
+		$(el.wrapper).remove();
+	}
 };
 
 /**
@@ -34,13 +34,13 @@ flexirule.utils.dom.remove_element = function (el) {
  * @param {HTMLElement|jQuery} el - Element to empty
  */
 flexirule.utils.dom.empty_element = function (el) {
-    if (!el) return;
+	if (!el) return;
 
-    if (el instanceof jQuery) {
-        el.empty();
-    } else if (el instanceof HTMLElement) {
-        el.innerHTML = '';
-    }
+	if (el instanceof jQuery) {
+		el.empty();
+	} else if (el instanceof HTMLElement) {
+		el.innerHTML = "";
+	}
 };
 
 /**
@@ -51,33 +51,33 @@ flexirule.utils.dom.empty_element = function (el) {
  * @returns {jQuery} - jQuery-wrapped element
  */
 flexirule.utils.dom.create_element = function (tag, opts = {}) {
-    const $el = $(`<${tag}>`);
+	const $el = $(`<${tag}>`);
 
-    if (opts.classes) {
-        if (Array.isArray(opts.classes)) {
-            $el.addClass(opts.classes.join(' '));
-        } else {
-            $el.addClass(opts.classes);
-        }
-    }
+	if (opts.classes) {
+		if (Array.isArray(opts.classes)) {
+			$el.addClass(opts.classes.join(" "));
+		} else {
+			$el.addClass(opts.classes);
+		}
+	}
 
-    if (opts.attrs) {
-        for (const key in opts.attrs) {
-            if (opts.attrs.hasOwnProperty(key)) {
-                $el.attr(key, opts.attrs[key]);
-            }
-        }
-    }
+	if (opts.attrs) {
+		for (const key in opts.attrs) {
+			if (opts.attrs.hasOwnProperty(key)) {
+				$el.attr(key, opts.attrs[key]);
+			}
+		}
+	}
 
-    if (opts.text) {
-        $el.text(opts.text);
-    }
+	if (opts.text) {
+		$el.text(opts.text);
+	}
 
-    if (opts.html) {
-        $el.html(opts.html);
-    }
+	if (opts.html) {
+		$el.html(opts.html);
+	}
 
-    return $el;
+	return $el;
 };
 
 /**
@@ -87,15 +87,15 @@ flexirule.utils.dom.create_element = function (tag, opts = {}) {
  * @returns {Object} - { $table, $thead, $tbody }
  */
 flexirule.utils.dom.create_table = function (opts) {
-    const $table = $('<table class="table table-bordered flexi-table">');
-    const $thead = $('<thead>').appendTo($table);
-    const $tbody = $('<tbody>').appendTo($table);
+	const $table = $('<table class="table table-bordered flexi-table">');
+	const $thead = $("<thead>").appendTo($table);
+	const $tbody = $("<tbody>").appendTo($table);
 
-    if (opts.parent) {
-        $table.appendTo(opts.parent);
-    }
+	if (opts.parent) {
+		$table.appendTo(opts.parent);
+	}
 
-    return { $table, $thead, $tbody };
+	return { $table, $thead, $tbody };
 };
 
 /**
@@ -106,24 +106,18 @@ flexirule.utils.dom.create_table = function (opts) {
  * @returns {jQuery} - Header row element
  */
 flexirule.utils.dom.create_header_row = function (columns, opts = {}) {
-    const $tr = $('<tr>');
+	const $tr = $("<tr>");
 
-    columns.forEach(col => {
-        const label = col.label || frappe.unscrub(col.fieldname || '');
-        $('<th>')
-            .text(__(label))
-            .attr('data-fieldname', col.fieldname)
-            .appendTo($tr);
-    });
+	columns.forEach((col) => {
+		const label = col.label || frappe.unscrub(col.fieldname || "");
+		$("<th>").text(__(label)).attr("data-fieldname", col.fieldname).appendTo($tr);
+	});
 
-    if (opts.include_actions) {
-        $('<th class="flexi-table-actions">')
-            .text('')
-            .css('width', '40px')
-            .appendTo($tr);
-    }
+	if (opts.include_actions) {
+		$('<th class="flexi-table-actions">').text("").css("width", "40px").appendTo($tr);
+	}
 
-    return $tr;
+	return $tr;
 };
 
 /**
@@ -133,13 +127,13 @@ flexirule.utils.dom.create_header_row = function (columns, opts = {}) {
  * @returns {jQuery} - Row element
  */
 flexirule.utils.dom.create_body_row = function (opts = {}) {
-    const $tr = $('<tr class="flexi-table-row">');
+	const $tr = $('<tr class="flexi-table-row">');
 
-    if (opts.row_idx !== undefined) {
-        $tr.attr('data-row-idx', opts.row_idx);
-    }
+	if (opts.row_idx !== undefined) {
+		$tr.attr("data-row-idx", opts.row_idx);
+	}
 
-    return $tr;
+	return $tr;
 };
 
 /**
@@ -149,11 +143,11 @@ flexirule.utils.dom.create_body_row = function (opts = {}) {
  * @returns {jQuery} - Cell element
  */
 flexirule.utils.dom.create_cell = function (opts = {}) {
-    const $td = $('<td class="flexi-table-cell">');
+	const $td = $('<td class="flexi-table-cell">');
 
-    if (opts.fieldname) {
-        $td.attr('data-fieldname', opts.fieldname);
-    }
+	if (opts.fieldname) {
+		$td.attr("data-fieldname", opts.fieldname);
+	}
 
-    return $td;
+	return $td;
 };

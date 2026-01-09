@@ -7,17 +7,18 @@ User-friendly error handling for Bolton Rule Engine
 
 import frappe
 from frappe import _
-#TODO : find if this files are needed or not 
+
+#TODO : find if this files are needed or not
 
 class BoltonError(Exception):
     """Base Bolton error with user-friendly message"""
-    
+
     def __init__(self, message, title=None, indicator="red"):
         self.message = message
         self.title = title or _("Rule Error")
         self.indicator = indicator
         super().__init__(message)
-    
+
     def show(self):
         frappe.msgprint(
             msg=self.message,
@@ -42,10 +43,10 @@ class RuleExecutionError(BoltonError):
             message = _("Rule '{0}' failed at action '{1}'").format(rule_name, action)
         else:
             message = _("Rule '{0}' failed to execute").format(rule_name)
-        
+
         if original_error:
-            message += f": {str(original_error)}"
-        
+            message += f": {original_error!s}"
+
         super().__init__(message, _("Rule Execution Failed"), "red")
 
 

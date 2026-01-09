@@ -5,11 +5,14 @@
 Validation process methods for the Bolton Rule Engine
 """
 
+import re
+
 import frappe
 from frappe import _
-import re
-from .utils import parse_field_list, parse_pattern_type
+
 import flexirule
+
+from .utils import parse_field_list, parse_pattern_type
 
 
 @flexirule.processmethod(
@@ -42,18 +45,18 @@ def validate_required_fields(context, fields=None, **kwargs):
     """
     doc = context.get('doc')
     field_list = parse_field_list(fields)
-    
+
     missing_fields = []
     for field in field_list:
         value = doc.get(field)
         if not value and value != 0:
             missing_fields.append(field)
-    
+
     if missing_fields:
         frappe.throw(
             _("Required fields are missing: {0}").format(", ".join(missing_fields))
         )
-    
+
     return True
 
 
@@ -108,14 +111,14 @@ def validate_field_pattern(context, field=None, pattern=None, pattern_type=None,
     value = doc.get(field)
     if not value:
         return True  # Empty values pass
-    
+
     # Get pattern from type or use custom
     actual_pattern = parse_pattern_type(pattern_type, pattern) if pattern_type else pattern
-    
+
     if not actual_pattern or not re.match(actual_pattern, str(value)):
         msg = error_message or _(f"Field {field} does not match required pattern")
         frappe.throw(msg)
-    
+
     return True
 
 
@@ -152,22 +155,22 @@ def validate_value_in_range(context, field=None, min_value=None, max_value=None,
     """
     doc = context.get('doc')
     value = doc.get(field)
-    
+
     if value is None:
         return True  # Empty values pass
-    
+
     try:
         num_value = float(value)
     except (ValueError, TypeError):
         frappe.throw(_(f"Field {field} must be a number"))
         return False
-    
+
     if min_value is not None and num_value < float(min_value):
         frappe.throw(_(f"Field {field} must be at least {min_value}"))
-    
+
     if max_value is not None and num_value > float(max_value):
         frappe.throw(_(f"Field {field} must be at most {max_value}"))
-    
+
     return True
 
 
@@ -200,20 +203,20 @@ def validate_unique_field(context, field=None, ignore_cancelled=True, **kwargs):
     """
     doc = context.get('doc')
     value = doc.get(field)
-    
+
     if not value:
         return True
-    
+
     filters = {field: value}
     if doc.name:
         filters['name'] = ['!=', doc.name]
     if ignore_cancelled:
         filters['docstatus'] = ['!=', 2]
-    
+
     existing = frappe.db.exists(doc.doctype, filters)
     if existing:
         frappe.throw(_(f"Value '{value}' for {field} already exists in {existing}"))
-    
+
     return True
 
 
@@ -252,28 +255,28 @@ def validate_conditional_required(context, condition_field=None, condition_value
     Make fields required when a condition is met
     """
     doc = context.get('doc')
-    
+
     # Check if condition is met
     actual_value = doc.get(condition_field)
     if str(actual_value) != str(condition_value):
         return True  # Condition not met, pass
-    
+
     # Validate required fields
     field_list = parse_field_list(required_fields)
     missing = []
-    
+
     for field in field_list:
         value = doc.get(field)
         if not value and value != 0:
             missing.append(field)
-    
+
     if missing:
         frappe.throw(
             _("When {0} is {1}, the following fields are required: {2}").format(
                 condition_field, condition_value, ", ".join(missing)
             )
         )
-    
+
     return True
 
 
@@ -331,16 +334,16 @@ def on_field_change(context, watched_fields=None, match_mode="Any", store_result
     """
     doc = context.get('doc')
     old_doc = context.get('old_doc')
-    
+
     field_list = parse_field_list(watched_fields)
     if not field_list:
         return False
-    
+
     changed_fields = []
-    
+
     for field in field_list:
         new_value = doc.get(field)
-        
+
         if old_doc is None:
             # New document - all fields are "changed" from nothing
             changed_fields.append(field)
@@ -348,15 +351,15 @@ def on_field_change(context, watched_fields=None, match_mode="Any", store_result
             old_value = old_doc.get(field)
             if new_value != old_value:
                 changed_fields.append(field)
-    
+
     # Store result if variable name provided
     if store_result and 'vars' in context:
         context['vars'][store_result] = changed_fields
-    
+
     # Evaluate match mode
     if match_mode == "All":
         result = len(changed_fields) == len(field_list)
     else:  # Any
         result = len(changed_fields) > 0
-    
+
     return result

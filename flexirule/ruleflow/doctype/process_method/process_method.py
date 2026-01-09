@@ -1,9 +1,10 @@
 # Copyright (c) 2025, Bolton and contributors
 # For license information, please see license.txt
 
+import json
+
 import frappe
 from frappe.model.document import Document
-import json
 
 
 class ProcessMethod(Document):
@@ -38,7 +39,7 @@ class ProcessMethod(Document):
     # end: auto-generated types
     def validate(self):
         self.method_path = self.method_path.strip() if self.method_path else ""
-		
+
 		# 1. Check Allow List (Security)
         self.validate_allowed_module()
 
@@ -53,7 +54,7 @@ class ProcessMethod(Document):
             frappe.throw(frappe._("Method '{0}' not found").format(self.method_path))
         except Exception as e:
             frappe.throw(frappe._("Invalid method path: {0}").format(str(e)))
-			
+
 		# 3. Validate Schemas
         self._validate_json_schema(self.config_schema, "Config Schema")
         self._validate_json_schema(self.input_schema, "Input Schema")
@@ -97,7 +98,7 @@ class ProcessMethod(Document):
                 json.loads(schema_string)
             except json.JSONDecodeError as e:
                 frappe.throw(frappe._("Invalid {0} JSON: {1}").format(schema_name, str(e)))
-    
+
     def execute(self, context, config=None, **kwargs):
         """
         Execute this process method
@@ -111,29 +112,29 @@ class ProcessMethod(Document):
         """
         if not self.is_enabled:
             frappe.throw(f"Process method '{self.method_name}' is disabled")
-        
+
         # Import and call the method
         method = frappe.get_attr(self.method_path)
-        
+
         # Merge config with context-based params
         params = config or {}
-        
+
         # Track execution stats
         import time
         start_time = time.time()
-        
+
         try:
             result = method(context, **params)
-            
+
             # Update stats
             execution_time = (time.time() - start_time) * 1000  # ms
             self.update_execution_stats(execution_time)
-            
+
             return result
-        except Exception as e:
+        except Exception:
             # Re-raise to let the Engine handle logging
             raise
-    
+
     def update_execution_stats(self, execution_time_ms):
         """Update execution statistics"""
         try:
@@ -150,12 +151,12 @@ class ProcessMethod(Document):
             """, (execution_time_ms, self.name))
         except Exception:
             pass  # Don't fail execution due to stats update failure
-    
+
     def get_schema_fields(self):
         """Parse config_schema and return list of field definitions"""
         if not self.config_schema:
             return []
-        
+
         try:
             schema = json.loads(self.config_schema)
             return schema.get('fields', [])
@@ -178,19 +179,19 @@ def test_method(method_name, config=None):
             'error': str (if any)
         }
     """
-    import time
     import json
-    
+    import time
+
     try:
         # Load Doc (and ensure permissions)
         doc = frappe.get_doc("Process Method", method_name)
         if not doc.has_permission("read"):
             raise frappe.PermissionError
-        
+
         # Parse Config
         if isinstance(config, str):
             config = json.loads(config)
-        
+
         # Dummy Context (expand as needed for realistic tests)
         context = {
             'frappe': frappe,
@@ -198,9 +199,9 @@ def test_method(method_name, config=None):
             'vars': {},
             'test_mode': True
         }
-        
+
         start_time = time.time()
-        
+
         # Execute (wrap in try-except to catch method-specific errors without failing the request)
         try:
             method = frappe.get_attr(doc.method_path)
@@ -213,19 +214,19 @@ def test_method(method_name, config=None):
             result = None
             success = False
             error = str(e)
-            
+
         end_time = time.time()
         execution_time_ms = (end_time - start_time) * 1000
-        
+
         # Note: We do NOT update statistics for test runs to avoid polluting metrics
-        
+
         return {
             'success': success,
             'result': result,
             'execution_time': round(execution_time_ms, 2),
             'error': error
         }
-    
+
     except Exception as e:
         return {
             'success': False,

@@ -1,6 +1,9 @@
-import frappe
-from flexirule.ruleflow.core.engine import RuleEngine
 from unittest.mock import MagicMock
+
+import frappe
+
+from flexirule.ruleflow.core.engine import RuleEngine
+
 
 def test_engine_fix():
     # Mock the rule document structure provided by the user
@@ -12,7 +15,7 @@ def test_engine_fix():
                 "action_id": "root",
                 "action_type": "Entry Action",
                 "action_label": "Manual",
-                "is_enabled": 1, 
+                "is_enabled": 1,
                 "next_step_if_true": "ACT-ACP3"
             }),
             frappe._dict({
@@ -26,7 +29,7 @@ def test_engine_fix():
                 "on_error": "Stop"
             })
         ],
-        "execution_mode": "Synchronous", 
+        "execution_mode": "Synchronous",
         "max_execution_time": 30,
         "debug_mode": 1
     })
@@ -35,14 +38,14 @@ def test_engine_fix():
     process_doc = MagicMock()
     process_doc.name = "Deduplication"
     process_doc.execute.return_value = "Mock Result"
-    
+
     # Mock frappe.get_cached_doc
     original_get_cached = frappe.get_cached_doc
     def mock_get_cached(doctype, name):
         if doctype == "Process" and name == "Deduplication":
             return process_doc
         return original_get_cached(doctype, name)
-    
+
     frappe.get_cached_doc = mock_get_cached
     frappe.db.exists = MagicMock(return_value=True)
 

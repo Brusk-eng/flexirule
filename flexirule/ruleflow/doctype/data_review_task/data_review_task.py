@@ -12,8 +12,11 @@ class DataReviewTask(Document):
     from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
-        from flexirule.ruleflow.doctype.data_review_related_document.data_review_related_document import DataReviewRelatedDocument
         from frappe.types import DF
+
+        from flexirule.ruleflow.doctype.data_review_related_document.data_review_related_document import (
+            DataReviewRelatedDocument,
+        )
 
         context_json: DF.Code | None
         description: DF.TextEditor | None
@@ -33,12 +36,12 @@ class DataReviewTask(Document):
     # end: auto-generated types
     def validate(self):
         pass
-    
+
     def before_save(self):
         # Auto-set resolved info when status changes to Resolved
         if self.status == 'Resolved' and not self.resolved_by:
             self.resolved_by = frappe.session.user
             self.resolved_on = frappe.utils.now()
-    
+
     def on_update(self):
         pass

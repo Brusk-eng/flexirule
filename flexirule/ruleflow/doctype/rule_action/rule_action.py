@@ -1,9 +1,10 @@
 # Copyright (c) 2025, Bolton and contributors
 # For license information, please see license.txt
 
+import uuid
+
 import frappe
 from frappe.model.document import Document
-import uuid
 
 
 class RuleAction(Document):

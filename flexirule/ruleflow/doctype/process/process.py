@@ -2,8 +2,9 @@
 # For license information, please see license.txt
 import datetime
 import json
-import threading
 import os
+import threading
+
 import frappe
 from frappe import _, cstr, scrub
 from frappe.model.document import Document
@@ -19,17 +20,21 @@ class Process(Document):
     from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
-        from flexirule.ruleflow.doctype.process_operation.process_operation import ProcessOperation
         from frappe.types import DF
 
+        from flexirule.ruleflow.doctype.process_operation.process_operation import (
+            ProcessOperation,
+        )
+
         default_ref_doctype: DF.Link | None
+        description: DF.Data | None
         is_standard: DF.Literal["No", "Yes"]
         module: DF.Link
         operations: DF.Table[ProcessOperation]
         process_name: DF.Data
     # end: auto-generated types
 
- 
+
     def validate(self):
         """Ensure module is set (same as Report)."""
         if not self.module:
@@ -55,7 +60,7 @@ class Process(Document):
         """Create boilerplate files in developer_mode."""
         self.export_doc()
 
-    
+
     def export_doc(self):
         if frappe.flags.in_import:
             return
@@ -116,7 +121,7 @@ def make_process_boilerplate(template, doc):
     # Target path: {app}/{module}/process/{name}/
     module_path = get_module_path(doc.module)
     target_path = os.path.join(module_path, "process", scrub(doc.name))
-    
+
     if not os.path.exists(target_path):
         os.makedirs(target_path)
 
@@ -146,7 +151,7 @@ def make_process_boilerplate(template, doc):
         )
         target.write(frappe.as_unicode(rendered_content))
 
-   
+
     def execute(self, context,func=None,config=None):
         """
         Execute the process.
@@ -164,7 +169,7 @@ def make_process_boilerplate(template, doc):
         )
         return frappe.get_attr(method_path)(context, func,config)
 
-   
+
     def get_operation(self, func_name):
         """
         Return enabled operation row by func_name.
@@ -228,7 +233,7 @@ def get_script(process_name):
         script += f"\n\n//# sourceURL={scrub(process.name)}__custom"
 
     if not script:
-        script = "flexirule.processes['{}']={{}}".format(process_name)
+        script = f"flexirule.processes['{process_name}']={{}}"
 
     return {
         "script": render_include(script),

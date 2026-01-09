@@ -7,4 +7,5 @@ Deduplication logic has been moved to flexirule.ruleflow.process.deduplication.d
 """
 
 import warnings
+
 warnings.warn("flexirule.ruleflow.methods.deduplication is deprecated. Use flexirule.ruleflow.process.deduplication.deduplication instead.", DeprecationWarning, stacklevel=2)
