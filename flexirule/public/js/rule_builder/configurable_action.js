@@ -199,12 +199,9 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         }
 
         // 2. Resolve 'System' Types to Frappe Types
-        if (f.fieldtype === 'DocField') {
-            f.fieldtype = 'Autocomplete';
-            f.options = await this._resolve_docfield_options(f.options);
-        }
-        else if (f.fieldtype === 'MultiDocField') {
-            f.fieldtype = 'MultiSelectList';
+        f.fieldtype = this._map_fieldtype(f.fieldtype);
+
+        if (f.fieldtype === 'Autocomplete' || f.fieldtype === 'MultiSelectList') {
             f.options = await this._resolve_docfield_options(f.options);
         }
         else if (f.fieldtype === 'Table') {
@@ -216,20 +213,8 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
             f.data = this.config[f.fieldname];
         }
 
-        // 3. Dynamic Options (if function) & OnChange Normalization
-        // Note: For top-level fields, we resolve once during init. 
-        // For tables, we might need dynamic resolution per row (handled in Grid).
-        if (typeof f.get_options === 'function' && f.fieldtype !== 'Table') {
-            // This is static initialization. Runtime dynamic options (dependent)
-            // are harder in standard Dialogs without custom controls.
-            // We assume get_options here is for "Start State".
-            try {
-                const opts = await f.get_options(null, this._get_context(), this.doc_meta);
-                if (opts) f.options = opts;
-            } catch (e) {
-                console.warn(`Failed to resolve options for ${f.fieldname}`, e);
-            }
-        }
+        // 3. Resolve Options
+        f.options = await this._resolve_options(f, this.config, this._get_context());
 
         // 4. Separate Business Logic from UI Binding
         // We move the adapter's 'onchange' to a private key so that we don't 
@@ -240,6 +225,49 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
         }
 
         return f;
+    }
+
+    /**
+     * Resolve options for a field based on context
+     */
+    async _resolve_options(field, config, context = {}) {
+        // 1. Support function-based options (get_options or options)
+        const getter = field.get_options || (typeof field.options === 'function' ? field.options : null);
+        if (getter) {
+            try {
+                return await getter(config, context, this.doc_meta);
+            } catch (e) {
+                console.warn(`Failed to resolve dynamic options for ${field.fieldname}`, e);
+                return [];
+            }
+        }
+
+        // 2. Support context-based string options
+        if (typeof field.options === 'string') {
+            // doc.fieldname -> values from current configuration
+            if (field.options.startsWith('doc.')) {
+                const key = field.options.replace('doc.', '');
+                return config[key] || '';
+            }
+            // vars.fieldname -> values from context variables (backwards compatibility with parent. prefix too if needed)
+            if (field.options.startsWith('vars.') || field.options.startsWith('parent.')) {
+                const key = field.options.replace('vars.', '').replace('parent.', '');
+                return context[key] || (context.parent ? context.parent[key] : '');
+            }
+        }
+
+        return field.options || '';
+    }
+
+    /**
+     * Map custom fieldtypes to standard Frappe types
+     */
+    _map_fieldtype(fieldtype) {
+        const mapping = {
+            'DocField': 'Autocomplete',
+            'MultiDocField': 'MultiSelectList',
+        };
+        return mapping[fieldtype] || fieldtype;
     }
 
     _build_field_map() {
@@ -308,7 +336,12 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
             ? this._get_table_fields_for_row(row)
             : this.normalized_fields.filter(f => f.fieldtype !== 'Table'); // Top level non-tables
 
-        const context = { doc: this.config, row: row || null, ...this.config };
+        const context = {
+            doc: row || this.config,
+            parent: this.config,
+            row: row || null,
+            ...this.config
+        };
         if (row) Object.assign(context, row);
 
         for (const field of target_fields) {
@@ -786,11 +819,16 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
                     }
                 }
 
-                // 2. Sync Properties
+                // 2. Sync Properties (reqd, read_only, hidden)
                 // Check for property divergence
                 ['reqd', 'read_only', 'hidden'].forEach(prop => {
                     if (field.df[prop] !== f[prop]) {
                         field.df[prop] = f[prop];
+                        // Also apply some properties directly to the control instance 
+                        // as refresh() behavior varies across controls.
+                        if (prop === 'read_only' && typeof field.set_read_only === 'function') {
+                            field.set_read_only();
+                        }
                         dirty = true;
                     }
                 });
