@@ -158,7 +158,7 @@ flexirule.processes.Deduplication = {
                     fieldname: "fields",
                     fieldtype: "MultiDocField",
                     label: __("Fields to Match"),
-                    options: "parent.document_type",
+                    options: "vars.document_type",
                     reqd: 1,
                     description: __("Select fields that must match exactly")
                 },
@@ -184,7 +184,7 @@ flexirule.processes.Deduplication = {
                     fieldname: "fields",
                     fieldtype: "MultiDocField",
                     label: __("Unique Fields"),
-                    options: "parent.document_type",
+                    options: "vars.document_type",
                     reqd: 1,
                     description: __("If a document exists with these exact values, save will be blocked.")
                 }
@@ -296,48 +296,6 @@ flexirule.processes.Deduplication = {
     },
 
     /**
-     * Get UI schema for ConfigurableAction
-     */
-    get_ui_schema(operation_name, config = {}, context = {}) {
-        const operation = this.get_operation(operation_name);
-        if (!operation || typeof operation.get_config_fields !== 'function') {
-            return { fields: [], tables: [] };
-        }
-
-        const raw_fields = operation.get_config_fields(context);
-        const fields = [];
-        const tables = [];
-
-        raw_fields.forEach(field => {
-            // Skip layout fields
-            if (['Section Break', 'Column Break'].includes(field.fieldtype)) {
-                return;
-            }
-
-            // Skip HTML fields (help text)
-            if (field.fieldtype === 'HTML') {
-                return;
-            }
-
-            // Handle Table fields
-            if (field.fieldtype === 'Table') {
-                tables.push({
-                    fieldname: field.fieldname,
-                    label: field.label,
-                    reqd: field.reqd || 0,
-                    columns: this._normalize_columns(field.fields || [], config, context),
-                });
-                return;
-            }
-
-            // Regular field
-            fields.push(this._normalize_field(field, config, context));
-        });
-
-        return { fields, tables };
-    },
-
-    /**
      * Validate configuration
      */
     validate(operation_name, config, context = {}) {
@@ -352,102 +310,6 @@ flexirule.processes.Deduplication = {
         }
 
         return [];
-    },
-
-    /**
-     * Normalize a single field definition
-     */
-    _normalize_field(field, config, context = {}) {
-        const normalized = {
-            fieldname: field.fieldname,
-            label: field.label || frappe.unscrub(field.fieldname || ''),
-            fieldtype: this._map_fieldtype(field.fieldtype),
-            options: this._resolve_options(field, config, context),
-            reqd: field.reqd || 0,
-            read_only: field.read_only || 0,
-            hidden: field.hidden || 0,
-            default: field.default,
-            depends_on: field.depends_on || '',
-            mandatory_depends_on: field.mandatory_depends_on || '',
-            read_only_depends_on: field.read_only_depends_on || '',
-            description: field.description || '',
-        };
-
-        // Handle custom fieldtypes that need widgets
-        if (field.fieldtype === 'DocField') {
-            normalized.render = (opts) => new flexirule.DocFieldWidget(opts);
-            normalized.fieldtype = 'Data';
-        }
-
-        if (field.fieldtype === 'MultiDocField') {
-            normalized.render = (opts) => new flexirule.MultiDocFieldWidget(opts);
-            normalized.fieldtype = 'Data';
-        }
-
-        // Also support string-based widget lookup in UIRuntime
-        if (field.fieldtype === 'DocField') normalized.widget = 'DocFieldWidget';
-        if (field.fieldtype === 'MultiDocField') normalized.widget = 'MultiDocFieldWidget';
-
-        // Preserve onchange handler
-        if (field.onchange) {
-            normalized.onchange = field.onchange;
-        }
-
-        // Preserve get_options for dynamic options
-        if (field.get_options) {
-            normalized.get_options = field.get_options;
-        }
-
-        return normalized;
-    },
-
-    /**
-     * Normalize table columns
-     */
-    _normalize_columns(columns, config, context = {}) {
-        return columns.map(col => {
-            const normalized = this._normalize_field(col, config, context);
-
-            // Add table-specific properties
-            normalized.in_list_view = col.in_list_view !== false;
-            normalized.columns = col.columns || 2;
-
-            return normalized;
-        });
-    },
-
-    /**
-     * Map custom fieldtypes to standard or widget types
-     */
-    _map_fieldtype(fieldtype) {
-        const mapping = {
-            'DocField': 'Data', // Will use FieldSelector widget
-            'MultiDocField': 'Data', // Will use MultiFieldSelector widget
-            // Standard types pass through
-        };
-        return mapping[fieldtype] || fieldtype;
-    },
-
-    /**
-     * Resolve options for a field
-     */
-    _resolve_options(field, config, context = {}) {
-        if (typeof field.options === 'function') {
-            return field.options(config, context);
-        }
-
-        // Handle options referencing parent document
-        if (typeof field.options === 'string' && field.options.startsWith('parent.')) {
-            const parent_field = field.options.replace('parent.', '');
-            // First try to access as context.parent.fieldname
-            if (context.parent && context.parent[parent_field] !== undefined) {
-                return context.parent[parent_field];
-            }
-            // Then try to access directly as context.fieldname (for backward compatibility)
-            return context[parent_field] || '';
-        }
-
-        return field.options || '';
     }
 };
 
@@ -495,7 +357,7 @@ function get_dedupe_table_fields() {
         {
             fieldname: "fieldname",
             fieldtype: "DocField", // Runtime will map to Autocomplete
-            options: "parent.document_type",
+            options: "vars.document_type",
             label: __("Field"),
             reqd: 1,
             columns: 2,

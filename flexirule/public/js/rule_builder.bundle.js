@@ -3,6 +3,7 @@ import { createPinia } from "pinia";
 
 // Import FlexiRule Utilities
 import "./rule_builder/utils/meta.js";
+import "./rule_builder/patches.js";
 import "./rule_builder/configurable_action.js"
 import { useStore } from "./rule_builder/store";
 import RuleBuilderComponent from "./rule_builder/RuleBuilder.vue";

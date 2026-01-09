@@ -94,48 +94,6 @@ flexirule.processes["Normalization"] = {
     },
 
     /**
-     * Get UI schema for ConfigurableAction
-     */
-    get_ui_schema(operation_name, config = {}, context = {}) {
-        const operation = this.get_operation(operation_name);
-        if (!operation || typeof operation.get_config_fields !== 'function') {
-            return { fields: [], tables: [] };
-        }
-
-        const raw_fields = operation.get_config_fields(context);
-        const fields = [];
-        const tables = [];
-
-        raw_fields.forEach(field => {
-            // Skip layout fields
-            if (['Section Break', 'Column Break'].includes(field.fieldtype)) {
-                return;
-            }
-
-            // Skip HTML fields (help text)
-            if (field.fieldtype === 'HTML') {
-                return;
-            }
-
-            // Handle Table fields
-            if (field.fieldtype === 'Table') {
-                tables.push({
-                    fieldname: field.fieldname,
-                    label: field.label,
-                    reqd: field.reqd || 0,
-                    columns: this._normalize_columns(field.fields || [], config, context),
-                });
-                return;
-            }
-
-            // Regular field
-            fields.push(this._normalize_field(field, config, context));
-        });
-
-        return { fields, tables };
-    },
-
-    /**
      * Validate configuration
      */
     validate(operation_name, config, context = {}) {
@@ -150,120 +108,6 @@ flexirule.processes["Normalization"] = {
         }
 
         return [];
-    },
-
-    /**
-     * Normalize a single field definition
-     */
-    _normalize_field(field, config, context = {}) {
-        const normalized = {
-            fieldname: field.fieldname,
-            label: field.label || frappe.unscrub(field.fieldname || ''),
-            fieldtype: this._map_fieldtype(field.fieldtype),
-            options: this._resolve_options(field, config, context),
-            reqd: field.reqd || 0,
-            read_only: field.read_only || 0,
-            hidden: field.hidden || 0,
-            default: field.default,
-            depends_on: field.depends_on || '',
-            mandatory_depends_on: field.mandatory_depends_on || '',
-            read_only_depends_on: field.read_only_depends_on || '',
-            description: field.description || '',
-        };
-
-
-        // Preserve onchange handler
-        if (field.onchange) {
-            normalized.onchange = field.onchange;
-        }
-
-        // Preserve get_options for dynamic options
-        if (field.get_options) {
-            normalized.get_options = field.get_options;
-        }
-
-        return normalized;
-    },
-
-    /**
-     * Normalize table columns
-     */
-    _normalize_columns(columns, config, context = {}) {
-        return columns.map(col => {
-            const normalized = this._normalize_field(col, config, context);
-
-            // Add table-specific properties
-            normalized.in_list_view = col.in_list_view !== false;
-            normalized.columns = col.columns || 2;
-
-            return normalized;
-        });
-    },
-
-    /**
-     * Map custom fieldtypes to standard or widget types
-     */
-    _map_fieldtype(fieldtype) {
-        const mapping = {
-            'DocField': 'Autocomplete',
-            'MultiDocField': 'MultiSelectList',
-        };
-        return mapping[fieldtype] || fieldtype;
-    },
-
-    /**
-     * Resolve options for a field
-     */
-    _resolve_options(field, config, context = {}) {
-        if (typeof field.options === 'function') {
-            return field.options(config, context);
-        }
-
-        // Handle options referencing parent document
-        if (typeof field.options === 'string' && field.options.startsWith('parent.')) {
-            const parent_field = field.options.replace('parent.', '');
-            // First try to access as context.parent.fieldname
-            if (context.parent && context.parent[parent_field] !== undefined) {
-                return context.parent[parent_field];
-            }
-            // Then try to access directly as context.fieldname (for backward compatibility)
-            return context[parent_field] || '';
-        }
-
-        return field.options || '';
-    },
-
-    /**
-     * Get default configuration for a specific operation
-     */
-    get_default_config(operation_name, context = {}) {
-        const operation = this.get_operation(operation_name);
-        if (!operation || typeof operation.get_config_fields !== 'function') {
-            return {};
-        }
-
-        const defaults = {};
-        const raw_fields = operation.get_config_fields(context);
-
-        raw_fields.forEach(field => {
-            // Skip layout fields
-            if (['Section Break', 'Column Break', 'HTML'].includes(field.fieldtype)) {
-                return;
-            }
-
-            // Handle Table fields
-            if (field.fieldtype === 'Table') {
-                defaults[field.fieldname] = [];
-                return;
-            }
-
-            // Regular field
-            if (field.default !== undefined) {
-                defaults[field.fieldname] = field.default;
-            }
-        });
-
-        return defaults;
     },
 
     // Operations Definition
@@ -283,21 +127,26 @@ flexirule.processes["Normalization"] = {
                         fieldname: "source_field",
                         label: __("Source Field"),
                         fieldtype: "DocField",
-                        options: ctx.document_type || "DocField",
+                        options: "vars.document_type",
                         reqd: 1
+                    },
+                    { fieldtype: "Column Break" },
+                    {
+                        fieldname: "target_field",
+                        label: __("Target Field (Optional)"),
+                        fieldtype: "DocField",
+                        options: "vars.document_type",
+                        description: __("If empty, normalizes in-place.")
+                    },
+                    {
+                        fieldtype: "Section Break",
+                        label: __("Transformation Rules")
                     },
                     profile_field,
                     {
                         ...transformation_field,
                         read_only_depends_on: "eval:doc.profile && doc.profile !== ''"
                     },
-                    {
-                        fieldname: "target_field",
-                        label: __("Target Field (Optional)"),
-                        fieldtype: "DocField",
-                        options: "parent.document_type",
-                        description: __("If empty, normalizes in-place.")
-                    }
                 ];
             }
         },
@@ -316,19 +165,24 @@ flexirule.processes["Normalization"] = {
                         fieldname: "source_field",
                         label: __("Source Field"),
                         fieldtype: "DocField",
-                        options: ctx.document_type,
+                        options: "vars.document_type",
                         reqd: 1
                     },
-                    profile_field,
-                    {
-                        ...transformation_field,
-                        read_only_depends_on: "eval:doc.profile && doc.profile !== ''"
-                    },
+                    { fieldtype: "Column Break" },
                     {
                         fieldname: "context_key",
                         label: __("Variable Name"),
                         fieldtype: "Data",
                         description: __("Key to store in 'vars'. Defaults to normalized_{source_field}")
+                    },
+                    {
+                        fieldtype: "Section Break",
+                        label: __("Transformation Rules")
+                    },
+                    profile_field,
+                    {
+                        ...transformation_field,
+                        read_only_depends_on: "eval:doc.profile && doc.profile !== ''"
                     }
                 ];
             },
@@ -361,6 +215,10 @@ flexirule.processes["Normalization"] = {
                         default: 0
                     },
                     {
+                        fieldtype: "Section Break",
+                        label: __("Field Selection")
+                    },
+                    {
                         fieldname: "field_config",
                         label: __("Field Configuration"),
                         fieldtype: "Table",
@@ -370,7 +228,7 @@ flexirule.processes["Normalization"] = {
                                 fieldname: "fieldname",
                                 label: __("Field"),
                                 fieldtype: "DocField",
-                                options: ctx.document_type,
+                                options: "vars.document_type",
                                 reqd: 1,
                                 in_list_view: 1,
                                 columns: 3
@@ -417,19 +275,10 @@ function get_transformation_field_table() {
     return {
         fieldname: "transformations",
         label: __("Transformations"),
-        fieldtype: "Table",
-        reqd: 1,
-        fields: [
-            {
-                fieldname: "transformation",
-                label: __("Transformation"),
-                fieldtype: "Select",
-                options: get_transformation_options(),
-                in_list_view: 1,
-                columns: 10,
-                reqd: 1
-            }
-        ]
+        fieldtype: "MultiCheck",
+        columns: 3,
+        options: get_transformation_options(),
+        reqd: 1
     };
 }
 
@@ -437,30 +286,30 @@ function get_transformation_field_multiselect() {
     return {
         fieldname: "transformations",
         label: __("Transformations"),
-        fieldtype: "MultiSelect",
+        fieldtype: "MultiCheck",
+        columns: 2,
         options: get_transformation_options(),
-        default: "", // Critical: Prevent undefined which crashes MultiSelect.get_value
         reqd: 1
     };
 }
 
 function get_transformation_options() {
     return [
-        { label: "Trim", value: "trim" },
-        { label: "Lowercase", value: "lowercase" },
-        { label: "Uppercase", value: "uppercase" },
-        { label: "Casefold", value: "casefold" },
-        { label: "Unicode Normalize", value: "unicode_normalize" },
-        { label: "Translate Chars (Common)", value: "translate_chars" },
-        { label: "Remove Spaces", value: "remove_spaces" },
-        { label: "Remove Extra Spaces", value: "remove_extra_spaces" },
-        { label: "Remove Punctuation", value: "remove_punctuation" },
-        { label: "Remove Numbers", value: "remove_numbers" },
-        { label: "Digits Only", value: "numeric_only" },
-        { label: "Alphanumeric Only", value: "alphanumeric_only" },
-        { label: "Slugify", value: "slug" },
-        { label: "Title Case", value: "title_case" },
-        { label: "Email Normalize", value: "email_normalize" }
+        { label: __("Trim"), value: "trim", description: __("Remove leading and trailing whitespace") },
+        { label: __("Lowercase"), value: "lowercase", description: __("Convert all characters to lowercase") },
+        { label: __("Uppercase"), value: "uppercase", description: __("Convert all characters to uppercase") },
+        { label: __("Casefold"), value: "casefold", description: __("Aggressive lowercase for caseless matching (supports special Unicode characters)") },
+        { label: __("Unicode Normalize"), value: "unicode_normalize", description: __("Normalize Unicode characters to NFKD form for consistent representation") },
+        { label: __("Translate Chars"), value: "translate_chars", description: __("Translate Arabic/Special characters to their standard base forms") },
+        { label: __("Remove Spaces"), value: "remove_spaces", description: __("Remove all spaces from the text") },
+        { label: __("Remove Extra Spaces"), value: "remove_extra_spaces", description: __("Replace multiple consecutive spaces with a single space") },
+        { label: __("Remove Punctuation"), value: "remove_punctuation", description: __("Remove all punctuation and special characters") },
+        { label: __("Remove Numbers"), value: "remove_numbers", description: __("Remove all numeric characters") },
+        { label: __("Numeric Only"), value: "numeric_only", description: __("Keep only numeric characters") },
+        { label: __("Alphanumeric Only"), value: "alphanumeric_only", description: __("Keep only letters and numbers (removes symbols and spaces)") },
+        { label: __("Slug"), value: "slug", description: __("Convert text to a URL-friendly slug (lowercase, alphanumeric, and hyphens)") },
+        { label: __("Title Case"), value: "title_case", description: __("Capitalize the first letter of each word") },
+        { label: __("Email Normalize"), value: "email_normalize", description: __("Standardize email format (lowercase, remove dots/plus in Gmail addresses)") }
     ];
 }
 
@@ -479,17 +328,9 @@ function get_profile_field(is_table_target = true) {
         ],
         onchange: (val, row, ctx) => {
             if (val) {
-                const transforms = PROFILES[val] || [];
-                if (is_table_target) {
-                    // Map to Table Rows
-                    // [{ transformation: 'trim' }, ...]
-                    const table_rows = transforms.map(t => ({ transformation: t }));
-                    ctx.update_field("transformations", table_rows);
-                } else {
-                    // Map to Comma Separated String for MultiSelect (Tags)
-                    // "trim, lowercase"
-                    ctx.update_field("transformations", transforms.join(', '));
-                }
+                // Use spread to copy array and prevent mutation of the PROFILES constant
+                const transforms = [...(PROFILES[val] || [])];
+                ctx.update_field("transformations", transforms);
             }
         }
     };
