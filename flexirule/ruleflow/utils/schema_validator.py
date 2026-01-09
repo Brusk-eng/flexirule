@@ -1,9 +1,11 @@
 # Copyright (c) 2025, Bolton and contributors
 # For license information, please see license.txt
 
-import frappe
 import json
+
+import frappe
 from frappe import _
+
 
 def validate_config(config_json, schema_json, mapped_fields=None):
     """
@@ -16,16 +18,16 @@ def validate_config(config_json, schema_json, mapped_fields=None):
     """
     if not schema_json:
         return
-        
+
     try:
-        from jsonschema import validate, ValidationError, validators
+        from jsonschema import ValidationError, validate, validators
     except ImportError:
         frappe.throw(_("jsonschema library not found. Please pip install jsonschema"))
 
     # Parse inputs if they are strings
     config = _parse_json(config_json)
     schema = _parse_json(schema_json)
-    
+
     if not schema:
         return
 
@@ -35,7 +37,7 @@ def validate_config(config_json, schema_json, mapped_fields=None):
     # Deep copy schema so we don't mutate the cached version
     import copy
     schema = copy.deepcopy(schema)
-    
+
     # If fields are provided via mapping, they shouldn't trigger "Required" errors in static config
     if mapped_fields and "required" in schema:
         schema["required"] = [f for f in schema["required"] if f not in mapped_fields]
@@ -46,7 +48,7 @@ def validate_config(config_json, schema_json, mapped_fields=None):
         # Validate using the custom validator
         Validator = get_custom_validator(schema)
         Validator(schema).validate(config)
-            
+
     except ValidationError as e:
         frappe.throw(_("Configuration Error: {0}").format(e.message))
 
@@ -56,15 +58,15 @@ def get_custom_validator(schema):
     (e.g., handles 0/1 for booleans)
     """
     from jsonschema import validators
-    
+
     DefaultValidator = validators.validator_for(schema)
-    
+
     # Redefine the boolean type checker to allow 0 and 1 (Frappe convention)
     type_checker = DefaultValidator.TYPE_CHECKER.redefine(
-        "boolean", 
+        "boolean",
         lambda checker, instance: isinstance(instance, (bool, int)) and instance in (True, False, 0, 1)
     )
-    
+
     return validators.extend(DefaultValidator, type_checker=type_checker)
 
 def _parse_json(data):

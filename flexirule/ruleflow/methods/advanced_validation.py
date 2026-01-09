@@ -10,12 +10,14 @@ Includes:
 - Role-based permission checks
 """
 
+from typing import Any, Dict, List, Optional
+
 import frappe
 from frappe import _
-from .utils import parse_field_list
-from typing import Dict, List, Any, Optional
+
 import flexirule
 
+from .utils import parse_field_list
 
 # ============================================================================
 # CHILD TABLE VALIDATION
@@ -118,94 +120,94 @@ def validate_child_table_rows(context, child_table=None, validations=None, **kwa
     doc = context.get('doc')
     if not doc or not child_table or not validations:
         return True
-    
+
     rows = doc.get(child_table) or []
     if not rows:
         return True
-    
+
     errors = []
-    
+
     for idx, row in enumerate(rows, start=1):
         for validation in validations:
             v_type = validation.get('type')
             error_msg = validation.get('error_message', _('Validation failed'))
-            
+
             if v_type == 'fields_not_equal':
                 field1 = validation.get('field1')
                 field2 = validation.get('field2')
                 val1 = row.get(field1)
                 val2 = row.get(field2)
-                
+
                 if val1 and val2 and str(val1) == str(val2):
                     errors.append(f"Row {idx}: {error_msg}")
-            
+
             elif v_type == 'fields_equal':
                 field1 = validation.get('field1')
                 field2 = validation.get('field2')
                 val1 = row.get(field1)
                 val2 = row.get(field2)
-                
+
                 if val1 and val2 and str(val1) != str(val2):
                     errors.append(f"Row {idx}: {error_msg}")
-            
+
             elif v_type == 'field_required':
                 field = validation.get('field')
                 value = row.get(field)
-                
+
                 if not value and value != 0:
                     errors.append(f"Row {idx}: {error_msg}")
-            
+
             elif v_type == 'field_greater_than':
                 field = validation.get('field')
                 threshold = validation.get('value', 0)
                 value = row.get(field)
-                
+
                 try:
                     if value is not None and float(value) <= float(threshold):
                         errors.append(f"Row {idx}: {error_msg}")
                 except (ValueError, TypeError):
                     pass
-            
+
             elif v_type == 'field_less_than':
                 field = validation.get('field')
                 threshold = validation.get('value', 0)
                 value = row.get(field)
-                
+
                 try:
                     if value is not None and float(value) >= float(threshold):
                         errors.append(f"Row {idx}: {error_msg}")
                 except (ValueError, TypeError):
                     pass
-            
+
             elif v_type == 'either_field_required':
                 field1 = validation.get('field1')
                 field2 = validation.get('field2')
                 val1 = row.get(field1)
                 val2 = row.get(field2)
-                
+
                 # Both empty or both zero
                 has_val1 = val1 and (val1 != 0 if isinstance(val1, (int, float)) else True)
                 has_val2 = val2 and (val2 != 0 if isinstance(val2, (int, float)) else True)
-                
+
                 if not has_val1 and not has_val2:
                     errors.append(f"Row {idx}: {error_msg}")
-            
+
             elif v_type == 'field_in_list':
                 field = validation.get('field')
                 allowed_values = validation.get('values', [])
                 value = row.get(field)
-                
+
                 if value and value not in allowed_values:
                     errors.append(f"Row {idx}: {error_msg}")
-            
+
             elif v_type == 'field_not_in_list':
                 field = validation.get('field')
                 blocked_values = validation.get('values', [])
                 value = row.get(field)
-                
+
                 if value and value in blocked_values:
                     errors.append(f"Row {idx}: {error_msg}")
-            
+
             elif v_type == 'custom_expression':
                 # Evaluate a Python expression
                 expression = validation.get('expression')
@@ -216,10 +218,10 @@ def validate_child_table_rows(context, child_table=None, validations=None, **kwa
                             errors.append(f"Row {idx}: {error_msg}")
                     except Exception as e:
                         frappe.log_error(f"Custom validation expression error: {e}")
-    
+
     if errors:
         frappe.throw("<br>".join(errors), title=_("Validation Error"))
-    
+
     return True
 
 
@@ -295,37 +297,37 @@ def check_duplicate_with_child_fields(context, parent_fields=None, child_table=N
     doc = context.get('doc')
     if not doc or not parent_fields or not child_table or not child_fields:
         return True
-    
+
     parent_field_list = parse_field_list(parent_fields)
     child_field_list = parse_field_list(child_fields)
-    
+
     # Build parent filters
     parent_filters = {}
     for field in parent_field_list:
         value = doc.get(field)
         if value:
             parent_filters[field] = value
-    
+
     if not parent_filters:
         return True  # No parent values to match
-    
+
     # Exclude self
     if doc.name:
         parent_filters['name'] = ['!=', doc.name]
     parent_filters['docstatus'] = ['!=', 2]
-    
+
     # Get current doc's child values
     current_child_rows = doc.get(child_table) or []
     current_child_values = []
-    
+
     for row in current_child_rows:
         row_values = tuple(row.get(f) for f in child_field_list)
         if all(v for v in row_values):  # Only include if all fields have values
             current_child_values.append(row_values)
-    
+
     if not current_child_values:
         return True  # No child values to match
-    
+
     # Find candidate parent documents
     candidates = frappe.get_all(
         doc.doctype,
@@ -333,10 +335,10 @@ def check_duplicate_with_child_fields(context, parent_fields=None, child_table=N
         pluck='name',
         limit=100
     )
-    
+
     if not candidates:
         return True
-    
+
     # Check each candidate's child table
     meta = frappe.get_meta(doc.doctype)
     child_doctype = None
@@ -344,10 +346,10 @@ def check_duplicate_with_child_fields(context, parent_fields=None, child_table=N
         if df.fieldname == child_table and df.fieldtype == 'Table':
             child_doctype = df.options
             break
-    
+
     if not child_doctype:
         return True
-    
+
     for candidate_name in candidates:
         # Get candidate's child rows
         candidate_child_rows = frappe.get_all(
@@ -355,12 +357,12 @@ def check_duplicate_with_child_fields(context, parent_fields=None, child_table=N
             filters={'parent': candidate_name, 'parenttype': doc.doctype},
             fields=child_field_list
         )
-        
+
         candidate_values = []
         for row in candidate_child_rows:
             row_values = tuple(row.get(f) for f in child_field_list)
             candidate_values.append(row_values)
-        
+
         # Check for matches
         if match_mode == 'any':
             # Any current row matches any candidate row
@@ -370,7 +372,7 @@ def check_duplicate_with_child_fields(context, parent_fields=None, child_table=N
                         "Duplicate found: {0} has the same {1} with matching {2}"
                     ).format(candidate_name, ", ".join(parent_field_list), ", ".join(child_field_list))
                     frappe.throw(msg)
-        
+
         elif match_mode == 'all':
             # All current rows match all candidate rows
             if set(current_child_values) == set(candidate_values):
@@ -378,7 +380,7 @@ def check_duplicate_with_child_fields(context, parent_fields=None, child_table=N
                     "Duplicate found: {0} has identical entries"
                 ).format(candidate_name)
                 frappe.throw(msg)
-    
+
     return True
 
 
@@ -422,33 +424,33 @@ def check_duplicate_with_amount(context, date_field=None, child_table=None,
     doc = context.get('doc')
     if not doc or not date_field or not child_table or not party_field:
         return True
-    
+
     date_value = doc.get(date_field)
     if not date_value:
         return True
-    
+
     # Build filters
     filters = {date_field: date_value, 'docstatus': ['!=', 2]}
     if doc.name:
         filters['name'] = ['!=', doc.name]
-    
+
     candidates = frappe.get_all(doc.doctype, filters=filters, pluck='name', limit=100)
     if not candidates:
         return True
-    
+
     # Get current doc's party/amount combinations
     current_rows = doc.get(child_table) or []
     current_combos = []
-    
+
     for row in current_rows:
         party = row.get(party_field)
         amount = row.get(amount_field) if amount_field else None
         if party:
             current_combos.append((party, float(amount or 0)))
-    
+
     if not current_combos:
         return True
-    
+
     # Get child doctype
     meta = frappe.get_meta(doc.doctype)
     child_doctype = None
@@ -456,29 +458,29 @@ def check_duplicate_with_amount(context, date_field=None, child_table=None,
         if df.fieldname == child_table and df.fieldtype == 'Table':
             child_doctype = df.options
             break
-    
+
     if not child_doctype:
         return True
-    
+
     # Check candidates
     for candidate_name in candidates:
         fields_to_fetch = [party_field]
         if amount_field:
             fields_to_fetch.append(amount_field)
-        
+
         candidate_rows = frappe.get_all(
             child_doctype,
             filters={'parent': candidate_name, 'parenttype': doc.doctype},
             fields=fields_to_fetch
         )
-        
+
         for current_combo in current_combos:
             current_party, current_amount = current_combo
-            
+
             for cand_row in candidate_rows:
                 cand_party = cand_row.get(party_field)
                 cand_amount = float(cand_row.get(amount_field) or 0) if amount_field else 0
-                
+
                 if cand_party == current_party:
                     # Party matches, check amount if specified
                     if not amount_field:
@@ -486,14 +488,14 @@ def check_duplicate_with_amount(context, date_field=None, child_table=None,
                             "Duplicate found: {0} has the same date and party"
                         ).format(candidate_name)
                         frappe.throw(msg)
-                    
+
                     # Check amount with tolerance
                     if abs(cand_amount - current_amount) <= amount_tolerance:
                         msg = error_message or _(
                             "Duplicate found: {0} has the same date, party, and amount"
                         ).format(candidate_name)
                         frappe.throw(msg)
-    
+
     return True
 
 
@@ -535,14 +537,14 @@ def check_user_has_role(context, roles=None, **kwargs):
     """
     if not roles:
         return False
-    
+
     role_list = parse_field_list(roles)
     user_roles = frappe.get_roles()
-    
+
     for role in role_list:
         if role in user_roles:
             return True
-    
+
     return False
 
 
@@ -595,8 +597,8 @@ def check_user_permission(context, doctype=None, perm_type='read', **kwargs):
     """
     doc = context.get('doc')
     target_doctype = doctype or (doc.doctype if doc else None)
-    
+
     if not target_doctype:
         return False
-    
+
     return frappe.has_permission(target_doctype, perm_type)

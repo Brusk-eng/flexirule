@@ -1,12 +1,17 @@
 # Developer Note:
+
 ## Supported FieldType for Config Schema and method resolving value
+
 Beside all fieldtype that provided by frappe framework, we also support some custom fieldtype:
-- DocField : To pick field from document type accept options to fetch pointer to target Doctype.
-- MultiFieldPicker : To pick multiple fields from document type accept options to fetch pointer to target Doctype.
-- MultiSelectList : To pick multiple values from list accept Static list of options or options to fetch pointer to target Doctype.
-- MultiSelect : To pick multiple values from list accept Static list of options or options to fetch pointer to target Doctype.
+
+-   DocField : To pick field from document type accept options to fetch pointer to target Doctype.
+-   MultiFieldPicker : To pick multiple fields from document type accept options to fetch pointer to target Doctype.
+-   MultiSelectList : To pick multiple values from list accept Static list of options or options to fetch pointer to target Doctype.
+-   MultiSelect : To pick multiple values from list accept Static list of options or options to fetch pointer to target Doctype.
+
 ### ChildTable :
-    To add a Child Table : the child table must be reference by name even if it did not exist in frappe doctype 
+
+    To add a Child Table : the child table must be reference by name even if it did not exist in frappe doctype
     and childtable must be added to child_tables :
     ```
      "fields": [
@@ -92,4 +97,3 @@ Beside all fieldtype that provided by frappe framework, we also support some cus
             ]
         }
         ```
-    

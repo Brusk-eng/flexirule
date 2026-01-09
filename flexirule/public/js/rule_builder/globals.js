@@ -6,10 +6,10 @@ import TextControl from "./controls/TextControl.vue";
 import CodeControl from "./controls/CodeControl.vue";
 
 export function registerGlobalComponents(app) {
-    app.component("LinkControl", LinkControl)
-        .component("DataControl", DataControl)
-        .component("SelectControl", SelectControl)
-        .component("CheckControl", CheckControl)
-        .component("TextControl", TextControl)
-        .component("CodeControl", CodeControl);
+	app.component("LinkControl", LinkControl)
+		.component("DataControl", DataControl)
+		.component("SelectControl", SelectControl)
+		.component("CheckControl", CheckControl)
+		.component("TextControl", TextControl)
+		.component("CodeControl", CodeControl);
 }

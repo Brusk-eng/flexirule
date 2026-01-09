@@ -6,16 +6,17 @@ RuleCoordinator - Main entry point for rule execution
 Finds applicable rules and dispatches them to appropriate executors
 """
 
+import json
+from typing import Any, Dict, List
+
 import frappe
 from frappe import _
-from typing import List, Dict, Any
-import json
 
 
 class RuleCoordinator:
 	"""Coordinates rule loading, filtering, and execution"""
-	
-	
+
+
 	@staticmethod
 	def has_active_rules(doctype: str, event_name: str) -> bool:
 		"""
@@ -25,26 +26,26 @@ class RuleCoordinator:
 		cache_key = f"flexirule_active:{doctype}:{event_name}"
 		if cache_key in frappe.local.cache:
 			return frappe.local.cache[cache_key]
-			
+
 		# Check Redis
 		has_rules = frappe.cache().hget('flexirule_active_rules', f"{doctype}:{event_name}")
-		
-		# If None, it means cache miss/not initialized. 
+
+		# If None, it means cache miss/not initialized.
 		# If 0/False, it means strictly no rules.
-		
+
 		if has_rules is None:
-			# Rebuild cache for this doctype? 
-			# Or just query DB once. 
+			# Rebuild cache for this doctype?
+			# Or just query DB once.
 			# Let's query DB to be safe and simple for V1.
 			count = frappe.db.count('Rule', {
-				'document_type': doctype, 
-				'trigger_event': event_name, 
+				'document_type': doctype,
+				'trigger_event': event_name,
 				'is_active': 1
 			})
 			has_rules = (count > 0)
 			# Update Redis to avoid future DB hits
 			frappe.cache().hset('flexirule_active_rules', f"{doctype}:{event_name}", 1 if has_rules else 0)
-			
+
 		result = bool(has_rules)
 		frappe.local.cache[cache_key] = result
 		return result
@@ -58,30 +59,30 @@ class RuleCoordinator:
 			doc: Frappe document
 			event_name: Event that triggered execution (before_save, validate, etc.)
 		"""
-		# TODO : after allowing in_import We must have optimized way to get rules with allowed in_import 
+		# TODO : after allowing in_import We must have optimized way to get rules with allowed in_import
 		# Skip during import/migration
 		if frappe.flags.in_import or frappe.flags.in_migrate:
 			return
-			
+
 		# Quick check if any rules exist for this doctype/event
 		if not RuleCoordinator.has_active_rules(doc.doctype, event_name):
 			return
-		
+
 		# Get applicable rules
 		rules = RuleCoordinator.get_applicable_rules(doc.doctype, event_name)
-		
+
 		if not rules:
 			return
-		
+
 			return
-			
+
 		# Strict Eligibility Check (V1 Contract)
 
 		from flexirule.ruleflow.utils.field_resolver import FieldResolver
-		
+
 		# Fetch old_doc for change detection
 		old_doc = doc.get_doc_before_save() if hasattr(doc, 'get_doc_before_save') else None
-		
+
 		valid_rules = []
 		for rule_doc in rules:
 			is_eligible, reason = RuleCoordinator.check_eligibility(rule_doc, doc, event_name, old_doc=old_doc)
@@ -91,7 +92,7 @@ class RuleCoordinator:
 				# Optional: Log ineligibility if debug/trace mode is on for this rule
 				if rule_doc.debug_mode:
 					frappe.log_error(title=_("Rule Skipped: {0}").format(rule_doc.name), message=_(reason))
-		
+
 		# Execute eligible rules
 		for rule_doc in valid_rules:
 			try:
@@ -101,19 +102,19 @@ class RuleCoordinator:
 				error_msg = str(e)
 				if len(error_msg) > 139:
 					error_msg = error_msg[:139]
-				
+
 				rule_doc.db_set('last_error', error_msg)
-				
+
 				if rule_doc.debug_mode:
 					frappe.log_error(
 						title=_("Rule Execution Failed: {0}").format(rule_doc.name),
 						message=_("DocType: {0} Doc: {1} Error: {2}").format(doc.doctype, doc.name, str(e))
 					)
-				
+
 				# Re-raise blocking exceptions (Stop the save)
 				if isinstance(e, frappe.ValidationError):
 					raise e
-					
+
 	@staticmethod
 	def check_eligibility(rule_doc, doc, event_name, execution_mode='Synchronous', skip_event_check=False, old_doc=None) -> tuple[bool, str]:
 		"""
@@ -134,43 +135,43 @@ class RuleCoordinator:
 		# Async is handled by the executor, but we should flag mismatch if needed.
 		# Currently, we don't have explicit 'mode' passed from hooks, so we assume Sync.
 		# If Rule is Async, it will be queued by execute_single_rule.
-		
+
 		# 4. Condition Check (Compiled Expression)
 		# We now rely solely on trigger_condition_expression which is the compiled version of trigger_condition
 		if rule_doc.get('trigger_condition_expression'):
 			try:
-				from flexirule.ruleflow.utils.field_resolver import FieldResolver
 				from flexirule.ruleflow.core.evaluator import check_link_match
-				
+				from flexirule.ruleflow.utils.field_resolver import FieldResolver
+
 				# Fetch old_doc if missing
 				if not old_doc and hasattr(doc, 'get_doc_before_save'):
 					old_doc = doc.get_doc_before_save()
 
 				eval_globals = {
-					'doc': doc, 
-					'old_doc': old_doc, 
-					'frappe': frappe, 
+					'doc': doc,
+					'old_doc': old_doc,
+					'frappe': frappe,
 					'resolve': FieldResolver.resolve,
 					'check_link_match': check_link_match,
 					'True': True,
 					'False': False,
 					'None': None
 				}
-				
+
 				if not frappe.safe_eval(rule_doc.get('trigger_condition_expression'), None, eval_globals):
 					return False, _("Trigger Conditions failed")
-					
+
 			except Exception as e:
 				return False, _("Trigger Evaluation Error: {0}").format(str(e))
-		
+
 		# Conditions MUST be pre-compiled - no runtime JSON parsing
 		elif rule_doc.get('trigger_condition'):
 			return False, _("Rule has trigger_condition but no compiled trigger_condition_expression. Please re-save the Rule.")
 
 		return True, _("Eligible")
-	
+
 	@staticmethod
-	def get_applicable_rules(doctype: str, event_name: str, doc=None) -> List:
+	def get_applicable_rules(doctype: str, event_name: str, doc=None) -> list:
 		"""
 		Get active rules for a doctype and event
 		Uses caching for performance
@@ -184,11 +185,11 @@ class RuleCoordinator:
 			List of Rule documents
 		"""
 		cache_key = f"rules:{doctype}:{event_name}"
-		
+
 		# Try cache first
 		cached = frappe.cache().get_value(cache_key)
 		rules = []
-		
+
 		if cached:
 			try:
 				rule_names = json.loads(cached)
@@ -215,18 +216,18 @@ class RuleCoordinator:
 				fields=["name"],
 				order_by="priority DESC"
 			)
-			
+
 			rule_names = [r.name for r in rule_list]
-			
+
 			# Cache for 5 minutes
 			frappe.cache().set_value(cache_key, json.dumps(rule_names), expires_in_sec=300)
-			
+
 			rules = [frappe.get_cached_doc("Rule", name) for name in rule_names]
-		
-		# Note: Trigger condition filtering is now handled by check_eligibility 
+
+		# Note: Trigger condition filtering is now handled by check_eligibility
 		# using compiled trigger_condition_expression - no runtime JSON parsing
 		return rules
-	
+
 	@staticmethod
 	def execute_single_rule(doc, rule_doc, old_doc=None):
 		"""
@@ -250,13 +251,13 @@ class RuleCoordinator:
 					timeout=rule_doc.max_execution_time or 300
 				)
 				return
-		
+
 		from flexirule.ruleflow.core.engine import RuleEngine
-		
+
 		# Increment execution count (Cached in Redis, not DB write)
 		frappe.cache().hincrby(f"rule_stats:{rule_doc.name}", "count", 1)
 		frappe.cache().hset(f"rule_stats:{rule_doc.name}", "last_executed", frappe.utils.now())
-		
+
 		# Execute using new Engine
 		# Pass old_doc in context
 		execution_context = {'old_doc': old_doc}
@@ -271,19 +272,19 @@ class RuleCoordinator:
 		try:
 			rule_doc = frappe.get_doc("Rule", rule_name)
 			doc = frappe.get_doc(doc_doctype, doc_name)
-			
+
 			from flexirule.ruleflow.core.engine import RuleEngine
-			
+
 			# Stats for async
 			frappe.cache().hincrby(f"rule_stats:{rule_doc.name}", "count", 1)
 			frappe.cache().hset(f"rule_stats:{rule_doc.name}", "last_executed", frappe.utils.now())
-			
+
 			engine = RuleEngine(rule_doc)
 			engine.execute(doc)
-			
+
 		except Exception as e:
 			frappe.log_error(_("Async Rule Execution Failed: {0}").format(rule_name), str(e))
-	
+
 	@staticmethod
 	def clear_cache(doctype: str = None):
 		"""
@@ -297,14 +298,14 @@ class RuleCoordinator:
 			# Get all possible events from Rule metadata
 			meta = frappe.get_meta('Rule')
 			events = meta.get_field('trigger_event').options.split('\n')
-			
+
 			for event in events:
 				# Clear Hash Field
 				frappe.cache().hdel('flexirule_active_rules', f"{doctype}:{event}")
-				
+
 				# Clear Old Keys (Legacy support if any)
 				frappe.cache().delete_value(f"rules:{doctype}:{event}")
-				
+
 				# Clear Local Cache
 				key = f"flexirule_active:{doctype}:{event}"
 				if key in frappe.local.cache:
@@ -313,15 +314,15 @@ class RuleCoordinator:
 			# Clear all
 			frappe.cache().delete_key('flexirule_active_rules')
 			frappe.cache().delete_keys("rules:*")
-			
-			# Clear local cache 
+
+			# Clear local cache
 			to_remove = []
 			for k in frappe.local.cache.keys():
 				if isinstance(k, str) and k.startswith("flexirule_active:"):
 					to_remove.append(k)
 				elif isinstance(k, bytes) and k.startswith(b"flexirule_active:"):
 					to_remove.append(k)
-					
+
 			for k in to_remove:
 				del frappe.local.cache[k]
 

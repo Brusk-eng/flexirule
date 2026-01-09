@@ -1,7 +1,10 @@
 from unittest.mock import patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
+
 from flexirule.ruleflow.core.registry import sync_process_methods
+
 
 class TestRegistrySync(FrappeTestCase):
     def test_sync_custom_module(self):

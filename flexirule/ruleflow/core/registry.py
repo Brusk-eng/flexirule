@@ -1,9 +1,11 @@
 #DEPRECATED
-import frappe
 import importlib
 import inspect
 import json
+
+import frappe
 from frappe import _
+
 
 def sync_process_methods():
     """
@@ -15,15 +17,15 @@ def sync_process_methods():
         frappe.msgprint(_("No flexirule_allowed_modules defined in hooks."))
         return
 
-    count = 0 
-    errors = 0 
+    count = 0
+    errors = 0
     found_methods = set()
 
     for module_name in allowed_modules:
         try:
             # Import module
             module = importlib.import_module(module_name)
-            
+
             # Inspect members
             for name, obj in inspect.getmembers(module):
                 if inspect.isfunction(obj) and getattr(obj, "_is_process_method", False):
@@ -47,10 +49,10 @@ def sync_process_methods():
 
     # Prune orphaned methods (Managed only)
     managed_methods_in_db = frappe.get_all(
-        "Process Method", 
-        filters={"is_managed": 1}, 
-        pluck="name", 
-        ignore_permissions=True 
+        "Process Method",
+        filters={"is_managed": 1},
+        pluck="name",
+        ignore_permissions=True
     ) or []
 
     methods_to_delete = set(managed_methods_in_db) - found_methods
@@ -63,7 +65,7 @@ def sync_process_methods():
                 print(_("Skipping {0}: Used in active Rules.").format(path))
                 errors += 1
                 continue
-            
+
             frappe.delete_doc("Process Method", path, force=1)
             print(_("Deleted {0}").format(path))
 
@@ -78,7 +80,7 @@ def _sync_single_method(module_name, func_name, func):
     metadata = getattr(func, "_metadata", {})
     method_path = f"{module_name}.{func_name}"
 
-    # Prepare data 
+    # Prepare data
     doc_data = {
         "doctype": "Process Method",
         "method_name": metadata.get("method_name") or frappe.unscrub(func_name),

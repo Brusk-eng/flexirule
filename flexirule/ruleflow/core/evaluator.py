@@ -6,17 +6,18 @@ ConditionEvaluator - Evaluates JSON-based rule conditions
 Supports nested AND/OR logic, field comparisons, and various operators
 """
 
-import frappe
 import json
 import operator
 import re
 from typing import Any, Dict
-from frappe.utils import getdate, cint, flt
+
+import frappe
+from frappe.utils import cint, flt, getdate
 
 
 class ConditionEvaluator:
 	"""Evaluates rule conditions against a document"""
-	
+
 	# Operator mapping
 	OPERATORS = {
 		'==': operator.eq,
@@ -33,7 +34,7 @@ class ConditionEvaluator:
 		'is_not_set': lambda a, b: a is None or a == '',
 		'regex': lambda a, b: bool(re.search(b, str(a))) if a and b else False,
 	}
-	
+
 	def __init__(self, conditions_json: str):
 		"""
 		Initialize evaluator with conditions JSON
@@ -42,7 +43,7 @@ class ConditionEvaluator:
 			conditions_json: JSON string containing conditions array
 		"""
 		self.conditions = json.loads(conditions_json) if conditions_json else []
-	
+
 	def evaluate(self, doc, row=None) -> bool:
 		"""
 		Evaluate all conditions against a document
@@ -56,20 +57,20 @@ class ConditionEvaluator:
 		"""
 		if not self.conditions:
 			return True
-		
+
 		# Root evaluation always starts with doc as primary context
 		return self._evaluate_group(self.conditions, doc, row)
-	
+
 	def _evaluate_group(self, conditions: list, doc, row=None) -> bool:
 		"""
 		Evaluate a group of conditions with AND/OR logic
 		"""
 		if not conditions:
 			return True
-		
+
 		result = True
 		current_operator = 'AND'
-		
+
 		for condition in conditions:
 			# 1. Detect Type
 			if 'collection' in condition and 'where' in condition:
@@ -81,47 +82,47 @@ class ConditionEvaluator:
 			else:
 				# Evaluate single condition
 				group_result = self._evaluate_single(condition, doc, row)
-			
+
 			# 2. Apply Logical Operator
 			if current_operator == 'AND':
 				result = result and group_result
 			else:  # OR
 				result = result or group_result
-			
+
 			# 3. Get next operator
 			current_operator = condition.get('op', condition.get('logical_operator', 'AND')).upper()
-		
+
 		return result
-	
-	def _evaluate_collection(self, node: Dict, doc, row=None) -> bool:
+
+	def _evaluate_collection(self, node: dict, doc, row=None) -> bool:
 		"""
 		Evaluate collection logic (any/all/none)
 		Example: { "op": "any", "collection": "items", "where": { "op": "and", "conditions": [...] } }
 		"""
 		from flexirule.ruleflow.utils.field_resolver import FieldResolver
-		
+
 		collection_path = node.get('collection')
 		logic = node.get('op', 'any').lower()
 		where = node.get('where')
-		
+
 		if not collection_path or not where:
 			return True
-			
+
 		# Resolve collection rows
 		rows = FieldResolver.resolve(doc, collection_path)
 		if not isinstance(rows, list):
 			return False
-			
+
 		if logic == 'any':
 			return any(self._evaluate_group([where], doc, r) for r in rows)
 		elif logic == 'all':
 			return all(self._evaluate_group([where], doc, r) for r in rows) if rows else True
 		elif logic == 'none':
 			return not any(self._evaluate_group([where], doc, r) for r in rows)
-			
+
 		return False
 
-	def _evaluate_single(self, condition: Dict, doc, row=None) -> bool:
+	def _evaluate_single(self, condition: dict, doc, row=None) -> bool:
 		"""
 		Evaluate a single condition
 		"""
@@ -130,17 +131,17 @@ class ConditionEvaluator:
 		try:
 			# Get left value
 			left = self._resolve_value(condition.get('left'), doc, row)
-			
+
 			# Get operator
 			op = condition.get('op', condition.get('operator', '=='))
-			
+
 			# Special case for operators that don't need right value
 			if op in ['is_set', 'is_not_set']:
 				return self.OPERATORS[op](left, None)
-			
+
 			# Get right value
 			right = self._resolve_value(condition.get('right'), doc, row)
-			
+
 			# Special Handling for Link/Dynamic Link Tuples
 			# right might be ["DocType", "Value"] or ["DocType", ["V1", "V2"]]
 			if isinstance(right, (list, tuple)) and len(right) == 2 and isinstance(right[0], str):
@@ -152,22 +153,22 @@ class ConditionEvaluator:
 			if not op_func:
 				# Try with spaces (compiler uses 'not in')
 				op_func = self.OPERATORS.get(op.replace(' ', '_'))
-				
+
 			if not op_func:
 				frappe.log_error(f"Unknown operator: {op}", "ConditionEvaluator")
 				return False
-			
+
 			# Evaluate
 			return op_func(left, right)
-			
+
 		except Exception as e:
 			frappe.log_error(
 				title="Condition Evaluation Error",
-				message=f"Condition: {json.dumps(condition)}\\nError: {str(e)}"
+				message=f"Condition: {json.dumps(condition)}\\nError: {e!s}"
 			)
 			return False
 
-	
+
 	def _resolve_value(self, value_def: Any, doc, row=None) -> Any:
 		"""
 		Resolve a value from its definition
@@ -175,20 +176,20 @@ class ConditionEvaluator:
 		"""
 		if value_def is None:
 			return None
-		
+
 		# If it's a simple scalar, return as-is
 		if not isinstance(value_def, dict):
 			return value_def
-		
+
 		# 1. New Structure: { "ref": "doc.status" } | { "value": 10 }
 		if 'ref' in value_def:
 			ref_path = value_def['ref']
 			if not ref_path: return None
-			
+
 			parts = ref_path.split('.')
 			scope = parts[0]
 			subpath = '.'.join(parts[1:]) if len(parts) > 1 else ""
-			
+
 			if scope == 'doc':
 				return self._get_field_value(doc, subpath)
 			elif scope == 'row' and row:
@@ -196,8 +197,8 @@ class ConditionEvaluator:
 			elif scope == 'old_doc':
 				old_doc = getattr(doc, '_doc_before_save', None) or (doc.get_doc_before_save() if hasattr(doc, 'get_doc_before_save') else None)
 				return self._get_field_value(old_doc, subpath) if old_doc else None
-			
-			# Dynamic alias support: If scope is not doc/old_doc/vars and we have a row, 
+
+			# Dynamic alias support: If scope is not doc/old_doc/vars and we have a row,
 			# assume it's an alias for the row
 			if row:
 				if not subpath: return row # Alias itself refers to the row
@@ -211,7 +212,7 @@ class ConditionEvaluator:
 			if 'type' in value_def:
 				value_type = value_def.get('type', 'literal')
 				value = value_def.get('value')
-				
+
 				if value_type == 'field':
 					return self._get_field_value(row or doc, value)
 				elif value_type == 'literal':
@@ -222,9 +223,9 @@ class ConditionEvaluator:
 			else:
 				# New {value: x}
 				return value_def['value']
-		
+
 		return None
-	
+
 	def _get_field_value(self, doc, fieldname: str) -> Any:
 		"""
 		Get field value from document, supports dot notation and aggregates
@@ -238,7 +239,7 @@ class ConditionEvaluator:
 		"""
 		if not fieldname:
 			return None
-		
+
 		# Use FieldResolver for advanced resolution
 		from flexirule.ruleflow.utils.field_resolver import FieldResolver
 		return FieldResolver.resolve(doc, fieldname)
@@ -255,11 +256,11 @@ def check_link_match(lhs, rhs, op='=='):
 	3. Perform standard comparison on values.
 	"""
 	if not rhs or not isinstance(rhs, (list, tuple)) or len(rhs) < 2:
-		return False 
+		return False
 
 	target_doctype = rhs[0]
 	target_value = rhs[1]
-	
+
 	# Mapping standard operators
 	ops = {
 		'==': lambda a, b: a == b,
@@ -268,10 +269,10 @@ def check_link_match(lhs, rhs, op='=='):
 		'not in': lambda a, b: a not in b if b else True,
 		'not_in': lambda a, b: a not in b if b else True,
 	}
-	
+
 	op_func = ops.get(op) or ops.get(op.replace(' ', '_'))
-	
+
 	if not op_func:
 		return False
-		
+
 	return op_func(lhs, target_value)

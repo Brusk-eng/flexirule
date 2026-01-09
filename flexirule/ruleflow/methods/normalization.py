@@ -11,11 +11,13 @@ All methods use the context-first pattern:
         ...
 """
 
-import frappe
-from frappe import _
 import re
 import unicodedata
-from typing import Any, List, Dict
+from typing import Any, Dict, List
+
+import frappe
+from frappe import _
+
 import flexirule
 
 # =============================================================================
@@ -34,7 +36,7 @@ TRANSLATION_TABLE = str.maketrans({
 # TRANSFORMATIONS (single-arg, stateless)
 # =============================================================================
 
-TRANSFORMATIONS: Dict[str, callable] = {
+TRANSFORMATIONS: dict[str, callable] = {
     "trim": lambda x: x.strip() if isinstance(x, str) else x,
     "lowercase": lambda x: x.lower() if isinstance(x, str) else x,
     "uppercase": lambda x: x.upper() if isinstance(x, str) else x,
@@ -78,7 +80,7 @@ TRANSFORMATIONS: Dict[str, callable] = {
 # PREDEFINED PROFILES (UI-selectable)
 # =============================================================================
 
-NORMALIZATION_PROFILES: Dict[str, List[str]] = {
+NORMALIZATION_PROFILES: dict[str, list[str]] = {
     "default": [
         "trim",
         "unicode_normalize",
@@ -115,7 +117,7 @@ NORMALIZATION_PROFILES: Dict[str, List[str]] = {
 # CORE HELPERS
 # =============================================================================
 
-def resolve_transformations(value) -> List[str]:
+def resolve_transformations(value) -> list[str]:
     """
     Accepts:
     - profile name
@@ -141,7 +143,7 @@ def resolve_transformations(value) -> List[str]:
     return []
 
 
-def apply_transformations(value: Any, transformations: List[str]) -> Any:
+def apply_transformations(value: Any, transformations: list[str]) -> Any:
     if value is None:
         return None
 
@@ -271,7 +273,7 @@ def normalize_field_to_context(context, source_field, transformations, context_k
     Does NOT modify the document
     """
     doc = context.get('doc')
-    
+
     # Parse transformations if passed as string/JSON
     if isinstance(transformations, str):
         import json
@@ -279,21 +281,21 @@ def normalize_field_to_context(context, source_field, transformations, context_k
             transformations = json.loads(transformations)
         except json.JSONDecodeError:
             transformations = [t.strip() for t in transformations.split(',')]
-    
+
     value = doc.get(source_field)
     if value is None:
         return None
-    
+
     normalized = apply_transformations(value, transformations)
-    
+
     # Store in context for later use (e.g., fuzzy matching)
     key = context_key or f"normalized_{source_field}"
-    
+
     if 'vars' not in context:
         context['vars'] = {}
-    
+
     context['vars'][key] = normalized
-    
+
     return key
 
 
@@ -340,28 +342,28 @@ def normalize_multiple_fields(context, field_config, store_in_context=False, **k
     Batch normalize multiple fields with their own transformation configs
     """
     doc = context.get('doc')
-    
+
     # Parse field_config if passed as string/JSON
     if isinstance(field_config, str):
         import json
         field_config = json.loads(field_config)
-    
+
     results = {}
-    
+
     for config in field_config:
         fieldname = config.get('fieldname')
         transformations = config.get('transformations', [])
         target_field = config.get('target_field')
-        
+
         if not fieldname:
             continue
-        
+
         value = doc.get(fieldname)
         if value is None:
             continue
-        
+
         normalized = apply_transformations(value, transformations)
-        
+
         if store_in_context:
             # Store in context
             key = target_field or f"normalized_{fieldname}"
@@ -372,9 +374,9 @@ def normalize_multiple_fields(context, field_config, store_in_context=False, **k
             # Set on document
             dest_field = target_field or fieldname
             doc.set(dest_field, normalized)
-        
+
         results[fieldname] = normalized
-    
+
     return results
 
 
@@ -416,7 +418,7 @@ def normalize_for_comparison(context, source_field, transformations, **kwargs):
         Normalized value (doc is not modified)
     """
     doc = context.get('doc')
-    
+
     # Parse transformations if passed as string/JSON
     if isinstance(transformations, str):
         import json
@@ -424,11 +426,11 @@ def normalize_for_comparison(context, source_field, transformations, **kwargs):
             transformations = json.loads(transformations)
         except json.JSONDecodeError:
             transformations = [t.strip() for t in transformations.split(',')]
-    
+
     value = doc.get(source_field)
     if value is None:
         return None
-    
+
     return apply_transformations(value, transformations)
 
 
@@ -456,11 +458,11 @@ def preview_normalization(text, transformations):
         Normalized text
     """
     import json
-    
+
     if isinstance(transformations, str):
         try:
             transformations = json.loads(transformations)
         except json.JSONDecodeError:
             transformations = [t.strip() for t in transformations.split(',')]
-    
+
     return apply_transformations(text, transformations)

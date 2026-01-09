@@ -10,12 +10,14 @@ Includes:
 - Duplicate detection with task creation
 """
 
+from typing import Any, Dict, List, Optional
+
 import frappe
 from frappe import _
-from .utils import parse_field_list
-from typing import Dict, List, Any, Optional
+
 import flexirule
 
+from .utils import parse_field_list
 
 # ============================================================================
 # DATA REVIEW TASK CREATION
@@ -52,7 +54,7 @@ import flexirule
     description="Create a Data Review Task (e.g., for duplicate review)."
 )
 def create_data_review_task(context, task_type='Duplicate Review', description=None,
-                    priority='Medium', similarity_score=None, 
+                    priority='Medium', similarity_score=None,
                     related_document=None, process_method=None, method_inputs=None, **kwargs):
     """
     Create a Data Review Task for data steward review.
@@ -61,12 +63,12 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
     rule = context.get('rule')
     if not doc:
         return None
-    
+
     # Check if Data Review Task doctype exists
     if not frappe.db.exists('DocType', 'Data Review Task'):
         frappe.log_error(_("Data Review Task DocType not found. Please create it first."))
         return None
-    
+
     # Parse description with placeholders
     if description:
         try:
@@ -75,7 +77,7 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
             pass
     else:
         description = f"Review required for {doc.doctype}: {doc.name}"
-    
+
     # Create task
     task = frappe.new_doc('Data Review Task')
     task.task_type = task_type
@@ -85,19 +87,19 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
     task.source_doctype = doc.doctype
     task.source_document = doc.name
     task.context_json = frappe.as_json(doc.as_dict())
-    
+
     if rule:
         task.rule = rule.name
-        
+
     if process_method:
         task.process_method = process_method
-        
+
     if method_inputs:
         task.method_inputs = frappe.as_json(method_inputs) if isinstance(method_inputs, (dict, list)) else method_inputs
-    
+
     if similarity_score:
         task.similarity_score = similarity_score
-    
+
     # Add related document if provided
     if related_document and hasattr(task, 'related_documents'):
         task.append('related_documents', {
@@ -105,7 +107,7 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
             'related_document': related_document,
             'reason': 'Duplicate Candidate'
         })
-    
+
     try:
         task.insert(ignore_permissions=True)
         if not (context.get('test_mode') or frappe.flags.in_test):
@@ -191,7 +193,7 @@ def create_data_review_task(context, task_type='Duplicate Review', description=N
     },
     description="Find duplicates and auto-create review tasks"
 )
-def find_duplicates_and_create_task(context, fields_config=None, 
+def find_duplicates_and_create_task(context, fields_config=None,
                                      overall_threshold=0.8,
                                      task_type='Duplicate Review',
                                      priority='Medium',
@@ -202,10 +204,10 @@ def find_duplicates_and_create_task(context, fields_config=None,
     doc = context.get('doc')
     if not doc or not fields_config:
         return []
-    
+
     # Import deduplication method
     from .deduplication import find_similar_records
-    
+
     # Find similar records
     matches = find_similar_records(
         context,
@@ -213,31 +215,31 @@ def find_duplicates_and_create_task(context, fields_config=None,
         fields_config=fields_config,
         stop_after_first_match=False
     )
-    
+
     if not matches:
         return []
-    
+
     created_tasks = []
-    
+
     for match in matches[:max_tasks]:
         match_name = match.get('name')
         match_score = match.get('score', 0)
-        
+
         # Check if task already exists for this pair
         existing = frappe.db.exists('Data Review Task', {
             'source_doctype': doc.doctype,
             'source_document': doc.name,
             'status': ['in', ['Open', 'In Progress']]
         })
-        
+
         if existing:
             continue
-        
+
         description = f"Potential duplicate found:\n" \
                       f"• {doc.name} (current)\n" \
                       f"• {match_name} (match)\n" \
                       f"Similarity: {match_score}%"
-        
+
         task_name = create_data_review_task(
             context,
             task_type=task_type,
@@ -246,10 +248,10 @@ def find_duplicates_and_create_task(context, fields_config=None,
             similarity_score=match_score,
             related_document=match_name
         )
-        
+
         if task_name:
             created_tasks.append(task_name)
-    
+
     return created_tasks
 
 
@@ -277,31 +279,31 @@ def find_duplicates_and_create_task(context, fields_config=None,
     description="Normalize all documents of a type (Synchronous/Long Running)."
 )
 def normalize_all_documents(context, doctype=None, field=None, target_field=None,
-                             transformations=None, batch_size=100, 
+                             transformations=None, batch_size=100,
                              filters=None, **kwargs):
     """
     Normalize a field for all documents of a type (runs as background job).
     """
     if not doctype or not field:
         return 0
-    
+
     target_field = target_field or f"{field}_normalized"
-    
+
     # Build filters
     doc_filters = filters or {}
     doc_filters['docstatus'] = ['!=', 2]
-    
+
     # Get total count
     total = frappe.db.count(doctype, doc_filters)
     if total == 0:
         return 0
-    
+
     # Import normalization
     from .normalization import apply_transformations
-    
+
     processed = 0
     offset = 0
-    
+
     while offset < total:
         docs = frappe.get_all(
             doctype,
@@ -310,15 +312,15 @@ def normalize_all_documents(context, doctype=None, field=None, target_field=None
             limit_start=offset,
             limit_page_length=batch_size
         )
-        
+
         for doc_data in docs:
             value = doc_data.get(field)
             if value:
                 normalized = apply_transformations(value, transformations or ['lowercase', 'strip'])
-                
+
                 try:
                     frappe.db.set_value(
-                        doctype, doc_data.name, 
+                        doctype, doc_data.name,
                         target_field, normalized,
                         update_modified=False
                     )
@@ -327,11 +329,11 @@ def normalize_all_documents(context, doctype=None, field=None, target_field=None
                     if context.get('test_mode') or frappe.flags.in_test:
                         raise
                     frappe.log_error(_("Normalization failed for {0} {1}: {2}").format(doctype, doc_data.name, str(e)))
-        
+
         if not (context.get('test_mode') or frappe.flags.in_test):
             frappe.db.commit()
         offset += batch_size
-    
+
     return processed
 
 
@@ -364,7 +366,7 @@ def normalize_all_documents(context, doctype=None, field=None, target_field=None
     },
     description="Normalize all documents in background"
 )
-def enqueue_normalize_all_documents(context, doctype=None, field=None, 
+def enqueue_normalize_all_documents(context, doctype=None, field=None,
                                      target_field=None, transformations=None,
                                      batch_size=100, filters=None, **kwargs):
     """
@@ -372,7 +374,7 @@ def enqueue_normalize_all_documents(context, doctype=None, field=None,
     """
     if not doctype or not field:
         return None
-    
+
     job = frappe.enqueue(
         'flexirule.ruleflow.methods.mdm.normalize_all_documents',
         context=context,
@@ -385,7 +387,7 @@ def enqueue_normalize_all_documents(context, doctype=None, field=None,
         queue='long',
         timeout=3600
     )
-    
+
     return job
 
 
@@ -460,12 +462,12 @@ def run_batch_duplicate_detection(context, doctype=None, fields_config=None,
     """
     if not doctype or not fields_config:
         return 0
-    
+
     from .deduplication import find_similar_records
-    
+
     total = frappe.db.count(doctype, {'docstatus': ['!=', 2]})
     duplicates_found = 0
-    
+
     offset = 0
     while offset < total:
         docs = frappe.get_all(
@@ -475,21 +477,21 @@ def run_batch_duplicate_detection(context, doctype=None, fields_config=None,
             limit_start=offset,
             limit_page_length=batch_size
         )
-        
+
         for doc_data in docs:
             doc = frappe.get_doc(doctype, doc_data.name)
             ctx = {'doc': doc}
-            
+
             matches = find_similar_records(
                 ctx,
                 overall_threshold=overall_threshold,
                 fields_config=fields_config,
                 stop_after_first_match=True
             )
-            
+
             if matches:
                 duplicates_found += 1
-                
+
                 if create_tasks:
                     find_duplicates_and_create_task(
                         ctx,
@@ -497,9 +499,9 @@ def run_batch_duplicate_detection(context, doctype=None, fields_config=None,
                         overall_threshold=overall_threshold,
                         max_tasks=1
                     )
-        
+
         if not (context.get('test_mode') or frappe.flags.in_test):
             frappe.db.commit()
         offset += batch_size
-    
+
     return duplicates_found

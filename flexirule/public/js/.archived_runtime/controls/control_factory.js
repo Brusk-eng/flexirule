@@ -22,38 +22,38 @@ flexirule.ControlFactory = {};
  * @returns {Object} - Frappe control instance
  */
 flexirule.ControlFactory.create_control = function (opts) {
-    const { parent, df, doc, on_change, context } = opts;
+	const { parent, df, doc, on_change, context } = opts;
 
-    // Clone df to avoid mutating the original
-    const field_df = Object.assign({}, df);
+	// Clone df to avoid mutating the original
+	const field_df = Object.assign({}, df);
 
-    // Attach change handler
-    if (on_change) {
-        field_df.onchange = function () {
-            // `this` is the control instance
-            const value = this.get_value();
-            on_change(field_df.fieldname, value, this);
-        };
-    }
+	// Attach change handler
+	if (on_change) {
+		field_df.onchange = function () {
+			// `this` is the control instance
+			const value = this.get_value();
+			on_change(field_df.fieldname, value, this);
+		};
+	}
 
-    // Create control using Frappe factory
-    const control = frappe.ui.form.make_control({
-        parent: parent instanceof jQuery ? parent.get(0) : parent,
-        df: field_df,
-        doc: doc || {},
-        only_input: false,
-        render_input: true,
-    });
+	// Create control using Frappe factory
+	const control = frappe.ui.form.make_control({
+		parent: parent instanceof jQuery ? parent.get(0) : parent,
+		df: field_df,
+		doc: doc || {},
+		only_input: false,
+		render_input: true,
+	});
 
-    // Store reference to context for dependency evaluation
-    control._flexirule_context = context || {};
+	// Store reference to context for dependency evaluation
+	control._flexirule_context = context || {};
 
-    // Ensure control is refreshed to apply initial state
-    if (control.refresh) {
-        control.refresh();
-    }
+	// Ensure control is refreshed to apply initial state
+	if (control.refresh) {
+		control.refresh();
+	}
 
-    return control;
+	return control;
 };
 
 /**
@@ -68,43 +68,43 @@ flexirule.ControlFactory.create_control = function (opts) {
  * @returns {Object} - Frappe control instance
  */
 flexirule.ControlFactory.create_cell_control = function (opts) {
-    const { parent, df, row, on_change, row_idx } = opts;
+	const { parent, df, row, on_change, row_idx } = opts;
 
-    // Clone df
-    const field_df = Object.assign({}, df);
+	// Clone df
+	const field_df = Object.assign({}, df);
 
-    // Attach change handler
-    if (on_change) {
-        field_df.onchange = function () {
-            const value = this.get_value();
-            on_change(field_df.fieldname, value, this, row_idx);
-        };
-    }
+	// Attach change handler
+	if (on_change) {
+		field_df.onchange = function () {
+			const value = this.get_value();
+			on_change(field_df.fieldname, value, this, row_idx);
+		};
+	}
 
-    // Create control with only_input for table cells
-    const control = frappe.ui.form.make_control({
-        parent: parent instanceof jQuery ? parent.get(0) : parent,
-        df: field_df,
-        doc: row || {},
-        only_input: true, // No label/wrapper for table cells
-        render_input: true,
-    });
+	// Create control with only_input for table cells
+	const control = frappe.ui.form.make_control({
+		parent: parent instanceof jQuery ? parent.get(0) : parent,
+		df: field_df,
+		doc: row || {},
+		only_input: true, // No label/wrapper for table cells
+		render_input: true,
+	});
 
-    // Store row reference
-    control._flexirule_row = row;
-    control._flexirule_row_idx = row_idx;
+	// Store row reference
+	control._flexirule_row = row;
+	control._flexirule_row_idx = row_idx;
 
-    // Set initial value if present in row
-    if (row && row[field_df.fieldname] !== undefined) {
-        control.set_value(row[field_df.fieldname]);
-    }
+	// Set initial value if present in row
+	if (row && row[field_df.fieldname] !== undefined) {
+		control.set_value(row[field_df.fieldname]);
+	}
 
-    // Refresh to apply state
-    if (control.refresh) {
-        control.refresh();
-    }
+	// Refresh to apply state
+	if (control.refresh) {
+		control.refresh();
+	}
 
-    return control;
+	return control;
 };
 
 /**
@@ -113,18 +113,18 @@ flexirule.ControlFactory.create_cell_control = function (opts) {
  * @param {Object} control - Frappe control instance
  */
 flexirule.ControlFactory.destroy_control = function (control) {
-    if (!control) return;
+	if (!control) return;
 
-    // Remove DOM wrapper
-    if (control.$wrapper) {
-        control.$wrapper.remove();
-    } else if (control.wrapper) {
-        $(control.wrapper).remove();
-    }
+	// Remove DOM wrapper
+	if (control.$wrapper) {
+		control.$wrapper.remove();
+	} else if (control.wrapper) {
+		$(control.wrapper).remove();
+	}
 
-    // Clear references
-    control._flexirule_context = null;
-    control._flexirule_row = null;
+	// Clear references
+	control._flexirule_context = null;
+	control._flexirule_row = null;
 };
 
 /**
@@ -134,23 +134,23 @@ flexirule.ControlFactory.destroy_control = function (control) {
  * @param {Object} doc - New document values
  */
 flexirule.ControlFactory.refresh_control = function (control, doc) {
-    if (!control) return;
+	if (!control) return;
 
-    // Update doc reference
-    if (doc) {
-        control.doc = doc;
+	// Update doc reference
+	if (doc) {
+		control.doc = doc;
 
-        // Update value from doc
-        const fieldname = control.df.fieldname;
-        if (doc[fieldname] !== undefined) {
-            control.set_value(doc[fieldname]);
-        }
-    }
+		// Update value from doc
+		const fieldname = control.df.fieldname;
+		if (doc[fieldname] !== undefined) {
+			control.set_value(doc[fieldname]);
+		}
+	}
 
-    // Refresh display state
-    if (control.refresh) {
-        control.refresh();
-    }
+	// Refresh display state
+	if (control.refresh) {
+		control.refresh();
+	}
 };
 
 /**
@@ -161,32 +161,32 @@ flexirule.ControlFactory.refresh_control = function (control, doc) {
  * @param {Object} props - Properties to update { hidden, read_only, reqd }
  */
 flexirule.ControlFactory.update_control_props = function (control, props) {
-    if (!control || !control.df) return;
+	if (!control || !control.df) return;
 
-    let needs_refresh = false;
+	let needs_refresh = false;
 
-    if (props.hasOwnProperty('hidden')) {
-        if (control.df.hidden !== props.hidden) {
-            control.df.hidden = props.hidden;
-            needs_refresh = true;
-        }
-    }
+	if (props.hasOwnProperty("hidden")) {
+		if (control.df.hidden !== props.hidden) {
+			control.df.hidden = props.hidden;
+			needs_refresh = true;
+		}
+	}
 
-    if (props.hasOwnProperty('read_only')) {
-        if (control.df.read_only !== props.read_only) {
-            control.df.read_only = props.read_only;
-            needs_refresh = true;
-        }
-    }
+	if (props.hasOwnProperty("read_only")) {
+		if (control.df.read_only !== props.read_only) {
+			control.df.read_only = props.read_only;
+			needs_refresh = true;
+		}
+	}
 
-    if (props.hasOwnProperty('reqd')) {
-        if (control.df.reqd !== props.reqd) {
-            control.df.reqd = props.reqd;
-            needs_refresh = true;
-        }
-    }
+	if (props.hasOwnProperty("reqd")) {
+		if (control.df.reqd !== props.reqd) {
+			control.df.reqd = props.reqd;
+			needs_refresh = true;
+		}
+	}
 
-    if (needs_refresh && control.refresh) {
-        control.refresh();
-    }
+	if (needs_refresh && control.refresh) {
+		control.refresh();
+	}
 };

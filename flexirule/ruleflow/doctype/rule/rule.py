@@ -4,8 +4,10 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from flexirule.ruleflow.utils.schema_validator import validate_config
+
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
+from flexirule.ruleflow.utils.schema_validator import validate_config
+
 
 class Rule(Document):
     # begin: auto-generated types
@@ -14,9 +16,10 @@ class Rule(Document):
     from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
-        from flexirule.ruleflow.doctype.rule_action.rule_action import RuleAction
         from frappe.core.doctype.has_role.has_role import HasRole
         from frappe.types import DF
+
+        from flexirule.ruleflow.doctype.rule_action.rule_action import RuleAction
 
         actions: DF.Table[RuleAction]
         apply_to_child_tables: DF.Check
@@ -52,7 +55,7 @@ class Rule(Document):
         """Ensure a Start Node (Entry Action) exists with ID 'root'"""
         # Check if root exists
         root_action = next((a for a in self.actions if a.action_id == 'root'), None)
-        
+
         if not root_action:
             # Determine next step if there are existing actions
             # We pick the first action that is NOT 'root'
@@ -73,7 +76,7 @@ class Rule(Document):
     def compile_conditions(self):
         from flexirule.ruleflow.core.compiler import ConditionCompiler
         compiler = ConditionCompiler()
-        
+
         # Compile Trigger
         if self.trigger_condition:
             try:
@@ -86,7 +89,7 @@ class Rule(Document):
                 frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
             except Exception as e:
                 frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
-        
+
     def validate_actions(self):
         if not self.actions:
             return
@@ -114,13 +117,13 @@ class Rule(Document):
             self._validate_json_field(config_value, _("Action {0}: Configuration").format(action.action_label))
             self._validate_json_field(action.input_mapping, _("Action {0}: Input Mapping").format(action.action_label))
             self._validate_json_field(action.output_mapping, _("Action {0}: Output Mapping").format(action.action_label))
-            
+
             # 2. Check Process Method config against Schema
             if action.action_type == 'Process' and action.process_method:
                 self._validate_action_config(action)
-                
+
     def _validate_json_field(self, json_str, label):
-        if not json_str: 
+        if not json_str:
             return
         import json
         try:
@@ -131,18 +134,18 @@ class Rule(Document):
     def _validate_action_config(self, action):
         if not frappe.db.exists("Process Method", action.process_method):
             frappe.throw(_("Process Method not found: {0}").format(action.process_method))
-            
+
         method = frappe.get_cached_doc("Process Method", action.process_method)
-        
+
         # Validate Config against config_schema (if defined)
-        # Note: We prioritize config_schema mostly for UI builder, 
+        # Note: We prioritize config_schema mostly for UI builder,
         # but input_schema is for strict validation if present.
         schema = method.input_schema or method.config_schema
         schema = method.input_schema or method.config_schema
-        
+
         # Use new 'config' field with backward compatibility for 'method_config'
         config_value = getattr(action, 'config', None) or getattr(action, 'method_config', None)
-        
+
         if schema and config_value:
             # Extract mapped fields to skip required check in static config
             mapped_fields = []
@@ -153,7 +156,7 @@ class Rule(Document):
                         mapped_fields = list(mapping.keys())
                 except:
                     pass
-            
+
             # Use new 'config' field with backward compatibility for 'method_config'
             config_value = getattr(action, 'config', None) or getattr(action, 'method_config', None)
             validate_config(config_value, schema, mapped_fields=mapped_fields)
@@ -168,10 +171,10 @@ class Rule(Document):
         for action in (self.actions or []):
             if action.action_type == 'Sub-Rule' and action.rule:
                 sub_rules.add(action.rule)
-        
+
         if not sub_rules:
             return  # No sub-rules, no cycles possible
-        
+
         def get_child_sub_rules(rule_name):
             """Get all sub-rule references from a rule"""
             return frappe.db.get_all(
@@ -183,7 +186,7 @@ class Rule(Document):
                 },
                 pluck="rule"
             )
-        
+
         def dfs_detect_cycle(current_rule, path, globally_visited):
             """DFS with path tracking to detect any cycle"""
             if current_rule in path:
@@ -191,26 +194,26 @@ class Rule(Document):
                 cycle_start = path.index(current_rule)
                 cycle_path = path[cycle_start:] + [current_rule]
                 return ' → '.join(cycle_path)
-            
+
             if current_rule in globally_visited:
                 return None  # Already fully explored, no cycle from here
-            
+
             path.append(current_rule)
-            
+
             child_sub_rules = get_child_sub_rules(current_rule)
             for child in child_sub_rules:
                 if child:
                     result = dfs_detect_cycle(child, path.copy(), globally_visited)
                     if result:
                         return result
-            
+
             globally_visited.add(current_rule)
             return None
-        
+
         # Start DFS from this rule
         globally_visited = set()
         initial_path = [self.name]
-        
+
         for sub_rule in sub_rules:
             if sub_rule:
                 cycle = dfs_detect_cycle(sub_rule, initial_path.copy(), globally_visited)
@@ -233,9 +236,9 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
     Supports either an existing document (by docname) or a transient document (by document_json).
     """
     import json
-    
+
     rule = frappe.get_doc("Rule", rule_name)
-    
+
     if docname:
         doc = frappe.get_doc(doctype, docname)
     elif document_json:
@@ -245,20 +248,18 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
         doc.flags.ignore_permissions = True
     else:
         frappe.throw(_("Either docname or document_json must be provided"))
-    
+
     from flexirule.ruleflow.core.coordinator import RuleCoordinator
-    
-    # Capture logs if possible? 
-    # The requirement was "return execution logs". 
-    
+
+    # Capture logs if possible?
+    # The requirement was "return execution logs".
     from flexirule.ruleflow.core.engine import RuleEngine
     # Check if rule is actually applicable (User Request: filters must apply)
-    from flexirule.ruleflow.core.coordinator import RuleCoordinator
-    
+
     is_eligible, reason = RuleCoordinator.check_eligibility(
             rule, doc, event_name="Manual Test", skip_event_check=True
     )
-    
+
     if not is_eligible:
             return {
                 "success": False,
@@ -266,27 +267,27 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
                 "message": frappe._("Rule Skipped: {0}").format(reason),
                 "execution_log": {}
             }
-    
+
     try:
         # Run in test_mode to prevent rollback of the rule itself during tests
         engine = RuleEngine(rule, {'test_mode': True})
         engine.execute(doc)
-        
+
         # Get log from memory (engine.execution_log is list of dicts, not the Doc)
-        # But _save_execution_log inserts a doc. We can fetch it if needed, 
+        # But _save_execution_log inserts a doc. We can fetch it if needed,
         # or just rely on what we have.
         # The test expects 'status', 'message', 'execution_path'.
-        
+
         # Fetch the latest log (created by engine even in test mode)
         # Since we are in the same transaction, we should find it.
-        logs = frappe.get_all("Rule Execution Log", 
+        logs = frappe.get_all("Rule Execution Log",
                              filters={"rule": rule_name, "reference_docname": doc.name},
                              order_by="creation desc",
                              limit=1,
                              fields=["status", "message", "execution_path"])
-        
+
         log_data = logs[0] if logs else {}
-        
+
         return {
             "success": True,
             "status": _(log_data.get("status", "Success")),

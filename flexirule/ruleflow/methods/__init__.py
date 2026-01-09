@@ -5,10 +5,6 @@
 Bolton Rule Engine - Process Methods Package
 """
 
-from . import validation
-from . import enrichment
-from . import notifications
-from . import deduplication
-from . import normalization
+from . import deduplication, enrichment, normalization, notifications, validation
 
-__all__ = ['validation', 'enrichment', 'notifications', 'deduplication', 'normalization']
+__all__ = ['deduplication', 'enrichment', 'normalization', 'notifications', 'validation']

@@ -17,33 +17,33 @@ flexirule.utils = flexirule.utils || {};
  * @returns {boolean} - Result of expression, false on error
  */
 flexirule.utils.safe_eval = function (expr, context) {
-    if (!expr || typeof expr !== 'string') {
-        return true; // No expression means no condition (always visible)
-    }
+	if (!expr || typeof expr !== "string") {
+		return true; // No expression means no condition (always visible)
+	}
 
-    // Build evaluation context
-    const eval_context = {
-        doc: context.doc || {},
-        parent: context.parent || {},
-        row: context.row || {},
-        // Add common Frappe globals
-        frappe: frappe,
-        __: __,
-        cint: cint,
-        cstr: cstr,
-        flt: flt,
-        in_list: in_list,
-        is_null: is_null,
-    };
+	// Build evaluation context
+	const eval_context = {
+		doc: context.doc || {},
+		parent: context.parent || {},
+		row: context.row || {},
+		// Add common Frappe globals
+		frappe: frappe,
+		__: __,
+		cint: cint,
+		cstr: cstr,
+		flt: flt,
+		in_list: in_list,
+		is_null: is_null,
+	};
 
-    try {
-        // Use Frappe's eval utility which handles the expression safely
-        const result = frappe.utils.eval(expr, eval_context);
-        return Boolean(result);
-    } catch (e) {
-        console.warn(`[FlexiRule] Expression evaluation failed: "${expr}"`, e);
-        return false;
-    }
+	try {
+		// Use Frappe's eval utility which handles the expression safely
+		const result = frappe.utils.eval(expr, eval_context);
+		return Boolean(result);
+	} catch (e) {
+		console.warn(`[FlexiRule] Expression evaluation failed: "${expr}"`, e);
+		return false;
+	}
 };
 
 /**
@@ -54,11 +54,11 @@ flexirule.utils.safe_eval = function (expr, context) {
  * @returns {Object} - Object with boolean results { key: boolean }
  */
 flexirule.utils.eval_all = function (expressions, context) {
-    const results = {};
-    for (const key in expressions) {
-        if (expressions.hasOwnProperty(key)) {
-            results[key] = flexirule.utils.safe_eval(expressions[key], context);
-        }
-    }
-    return results;
+	const results = {};
+	for (const key in expressions) {
+		if (expressions.hasOwnProperty(key)) {
+			results[key] = flexirule.utils.safe_eval(expressions[key], context);
+		}
+	}
+	return results;
 };

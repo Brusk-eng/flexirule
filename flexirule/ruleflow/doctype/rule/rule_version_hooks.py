@@ -5,8 +5,9 @@
 Rule versioning hooks - uses Frappe's built-in Version tracking
 """
 
-import frappe
 import json
+
+import frappe
 
 
 def get_rule_versions(rule_name, limit=20):
@@ -21,13 +22,13 @@ def get_rule_versions(rule_name, limit=20):
         order_by="creation desc",
         limit=limit
     )
-    
+
     result = []
     for v in versions:
         try:
             data = json.loads(v.data) if v.data else {}
             changes = []
-            
+
             # Parse changes
             for row in data.get("changed", []):
                 changes.append({
@@ -35,7 +36,7 @@ def get_rule_versions(rule_name, limit=20):
                     "old": row[1],
                     "new": row[2]
                 })
-            
+
             result.append({
                 "version": v.name,
                 "created": v.creation,
@@ -44,28 +45,28 @@ def get_rule_versions(rule_name, limit=20):
             })
         except:
             pass
-    
+
     return result
 
 
 def restore_rule_version(rule_name, version_name):
     """Restore a rule to a previous version"""
     version = frappe.get_doc("Version", version_name)
-    
+
     if version.ref_doctype != "Rule" or version.docname != rule_name:
         frappe.throw("Invalid version for this rule")
-    
+
     # Get saved state
     data = json.loads(version.data)
-    
+
     # Restore rule
     rule = frappe.get_doc("Rule", rule_name)
-    
+
     for row in data.get("changed", []):
         field, old_value, new_value = row
         # Restore old value
         rule.set(field, old_value)
-    
+
     rule.save()
-    
+
     return True

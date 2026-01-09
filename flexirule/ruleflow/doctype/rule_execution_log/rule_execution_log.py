@@ -4,6 +4,7 @@
 import frappe
 from frappe.model.document import Document
 
+
 class RuleExecutionLog(Document):
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
@@ -24,8 +25,8 @@ class RuleExecutionLog(Document):
 		rule: DF.Link
 		status: DF.Literal["Success", "Failed", "Stopped"]
 	# end: auto-generated types
-	
-	
+
+
 	@staticmethod
 	def clear_old_logs(days=30):
 		from frappe.query_builder import Interval
@@ -33,9 +34,8 @@ class RuleExecutionLog(Document):
 
 		table = frappe.qb.DocType("Rule Execution Log")
 		frappe.db.delete(table, filters=(table.creation < (Now() - Interval(days=days))))
-		
+
 	def before_insert(self):
 		if not self.executed_by:
 			self.executed_by = frappe.session.user
 
-		

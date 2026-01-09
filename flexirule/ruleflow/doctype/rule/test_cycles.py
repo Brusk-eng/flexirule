@@ -1,6 +1,8 @@
+import json
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
-import json
+
 
 class TestRuleCycles(FrappeTestCase):
     def setUp(self):
@@ -40,7 +42,7 @@ class TestRuleCycles(FrappeTestCase):
         # A calls B, B calls A
         rule_a = self.create_rule("Rule A")
         rule_b = self.create_rule("Rule B")
-        
+
         # A calls B
         rule_a.set("actions", [])
         rule_a.append("actions", {
@@ -51,7 +53,7 @@ class TestRuleCycles(FrappeTestCase):
             "config": json.dumps({"rule": rule_b.name})
         })
         rule_a.save()
-        
+
         # B calls A -> Cycle
         rule_b.set("actions", [])
         rule_b.append("actions", {
@@ -75,7 +77,7 @@ class TestRuleCycles(FrappeTestCase):
         rule_a.append("actions", {
             "action_id": "act_a_next",
             "action_label": "Next",
-            "action_type": "Sub-Rule", 
+            "action_type": "Sub-Rule",
             "rule": rule_b.name,
             "config": json.dumps({"rule": rule_b.name})
         })
@@ -85,7 +87,7 @@ class TestRuleCycles(FrappeTestCase):
         rule_b.append("actions", {
             "action_id": "act_b_next",
             "action_label": "Next",
-            "action_type": "Sub-Rule", 
+            "action_type": "Sub-Rule",
             "rule": rule_c.name,
             "config": json.dumps({"rule": rule_c.name})
         })
@@ -95,7 +97,7 @@ class TestRuleCycles(FrappeTestCase):
         rule_c.append("actions", {
             "action_id": "act_c_next",
             "action_label": "Next",
-            "action_type": "Sub-Rule", 
+            "action_type": "Sub-Rule",
             "rule": rule_a.name,
             "config": json.dumps({"rule": rule_a.name})
         })

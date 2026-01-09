@@ -11,7 +11,6 @@ File-backed execution following the Frappe Script Report pattern.
 import frappe
 from frappe import _
 
-
 # ============================================================
 # OPERATION: create_review_task
 # ============================================================
@@ -30,25 +29,25 @@ def create_review_task(context, config):
     doc = context.get("doc")
     if not doc:
         frappe.throw(_("Document is required in context"))
-    
+
     task_type = config.get("task_type", "Duplicate Review")
     priority = config.get("priority", "Medium")
     description = config.get("description", "")
-    
+
     # Check if Data Review Task DocType exists
     if not frappe.db.exists("DocType", "Data Review Task"):
         frappe.throw(_("Data Review Task DocType not found"))
-    
+
     task = frappe.new_doc("Data Review Task")
     task.task_type = task_type
     task.priority = priority
     task.description = description or f"Review {doc.doctype}: {doc.name}"
     task.reference_doctype = doc.doctype
     task.reference_name = doc.name
-    
+
     if context.get("dry_run"):
         return None
-    
+
     task.insert(ignore_permissions=True)
     return task.name
 
@@ -71,21 +70,21 @@ def find_duplicates(context, config):
     doc = context.get("doc")
     if not doc:
         frappe.throw(_("Document is required in context"))
-    
+
     threshold = float(config.get("threshold", 0.8))
     fields_str = config.get("fields_to_compare", "")
     max_results = int(config.get("max_results", 10))
-    
+
     # Parse fields
     if fields_str:
         fields = [f.strip() for f in fields_str.split(",") if f.strip()]
     else:
         # Default to name field
         fields = ["name"]
-    
+
     # Simple duplicate detection (placeholder - production would use proper similarity)
     duplicates = []
-    
+
     # Get existing records
     existing = frappe.get_all(
         doc.doctype,
@@ -93,7 +92,7 @@ def find_duplicates(context, config):
         fields=["name"] + fields,
         limit=max_results * 2
     )
-    
+
     for record in existing:
         similarity = _calculate_similarity(doc, record, fields)
         if similarity >= threshold:
@@ -102,11 +101,11 @@ def find_duplicates(context, config):
                 "similarity": similarity,
                 "fields_matched": fields
             })
-    
+
     # Sort by similarity descending
     duplicates.sort(key=lambda x: x["similarity"], reverse=True)
     duplicates = duplicates[:max_results]
-    
+
     return {
         "duplicates": duplicates,
         "count": len(duplicates),
@@ -118,14 +117,14 @@ def _calculate_similarity(doc1, doc2, fields):
     """Calculate simple field similarity score."""
     if not fields:
         return 0.0
-    
+
     matches = 0
     for field in fields:
         val1 = str(doc1.get(field) or "").lower().strip()
         val2 = str(doc2.get(field) or "").lower().strip()
         if val1 and val2 and val1 == val2:
             matches += 1
-    
+
     return matches / len(fields) if fields else 0.0
 
 
@@ -147,20 +146,20 @@ def normalize_field(context, config):
     doc = context.get("doc")
     if not doc:
         frappe.throw(_("Document is required in context"))
-    
+
     field = config.get("field")
     if not field:
         frappe.throw(_("Field name is required"))
-    
+
     transformations_str = config.get("transformations", "trim,lowercase")
     transformations = [t.strip() for t in transformations_str.split(",") if t.strip()]
-    
+
     value = doc.get(field)
     if value is None:
         return None
-    
+
     value = str(value)
-    
+
     for transform in transformations:
         if transform == "lowercase":
             value = value.lower()
@@ -173,11 +172,11 @@ def normalize_field(context, config):
             value = re.sub(r'[^a-zA-Z0-9\s]', '', value)
         elif transform == "title":
             value = value.title()
-    
+
     # Apply to doc if not dry_run
     if not context.get("dry_run"):
         doc.set(field, value)
-    
+
     return value
 
 
@@ -209,10 +208,10 @@ def execute(context, func=None, config=None):
     """
     if not func:
         frappe.throw(_("Operation function name is required"))
-    
+
     if func not in _OPERATIONS:
         frappe.throw(_("Unknown operation: {0}. Available: {1}").format(
             func, ", ".join(_OPERATIONS.keys())
         ))
-    
+
     return _OPERATIONS[func](context, config or {})

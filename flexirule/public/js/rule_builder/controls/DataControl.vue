@@ -30,7 +30,9 @@ if (props.df?.fieldtype === "Icon") {
 			<slot name="label" />
 			<slot name="actions" />
 		</div>
-		<div v-else-if="df?.label" class="control-label label" :class="{ reqd: df.reqd }">{{ __(df.label) }}</div>
+		<div v-else-if="df?.label" class="control-label label" :class="{ reqd: df.reqd }">
+			{{ __(df.label) }}
+		</div>
 
 		<!-- data input -->
 		<input
