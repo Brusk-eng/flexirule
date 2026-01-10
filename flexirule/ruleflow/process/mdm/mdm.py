@@ -3,7 +3,7 @@
 
 import frappe
 from frappe import _
-from flexirule.ruleflow.methods.utils import parse_field_list
+from flexirule.ruleflow.utils.field_resolver import parse_field_list
 
 
 def create_review_task(context, config=None, **kwargs):
@@ -198,3 +198,24 @@ def run_batch_dedupe(doctype, config):
         if frappe.flags.in_test:
             continue
         frappe.db.commit()
+
+
+# ============================================================
+# DISPATCHER
+# ============================================================
+
+_OPERATIONS = {
+    "create_review_task": create_review_task,
+    "find_duplicates_and_task": find_duplicates_and_task,
+    "batch_normalize": batch_normalize,
+    "batch_dedupe": batch_dedupe,
+}
+
+
+def execute(context, func=None, config=None):
+    if not func:
+        frappe.throw(_("Operation function name is required"))
+    if func not in _OPERATIONS:
+        frappe.throw(_("Unknown MDM operation: {0}").format(func))
+
+    return _OPERATIONS[func](context, config or {})

@@ -5,177 +5,173 @@ import { useStore } from "../../store";
 const props = defineProps(["data", "label", "id", "selected"]);
 const store = useStore();
 
+const isEffectiveDisabled = computed(() => {
+	return store.effectiveDisabledIds?.has(props.id);
+});
+
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 }
 </script>
 
 <template>
-	<div class="condition-node-wrapper">
-		<div
-			class="rhombus-shape"
-			:class="{ selected: selected, 'effectively-disabled': data.is_effectively_disabled }"
-		>
-			<div class="inner-rhombus">
-				<i class="fa fa-code-fork"></i>
-			</div>
-		</div>
+	<div 
+		class="condition-node-card" 
+		:class="{ selected: selected, disabled: isEffectiveDisabled }"
+	>
+		<!-- Input Handle -->
+		<Handle type="target" :position="Position.Left" class="handle-target" />
 
-		<!-- Handles -->
-		<Handle type="target" :position="Position.Left" class="handle-input" />
-
-		<div class="handle-container handle-true-pos">
-			<span class="port-label true-label">{{ __("YES") }}</span>
-			<Handle
-				type="source"
-				:position="Position.Top"
-				id="true"
-				class="handle-out handle-true"
-			/>
-		</div>
-
-		<div class="handle-container handle-false-pos">
-			<span class="port-label false-label">{{ __("NO") }}</span>
-			<Handle
-				type="source"
-				:position="Position.Bottom"
-				id="false"
-				class="handle-out handle-false"
-			/>
-		</div>
-
-		<!-- Label below -->
-		<div class="condition-label">{{ label }}</div>
-
-		<!-- Toolbar -->
-		<div class="node-toolbar" v-if="selected">
-			<button class="toolbar-btn delete" @click.stop="deleteNode">
+		<!-- Card Body -->
+		<div class="node-header">
+			<i class="fa fa-question-circle"></i>
+			<span class="type-text">{{ __("CONDITION") }}</span>
+			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
 				<i class="fa fa-trash"></i>
 			</button>
+		</div>
+
+		<div class="node-body">
+			<div class="condition-text">{{ label }}</div>
+		</div>
+
+		<!-- True Output (Top) -->
+		<div class="out-port out-true">
+			<span class="port-label">{{ __("YES") }}</span>
+			<Handle type="source" :position="Position.Top" id="true" class="handle-out handle-true" />
+		</div>
+
+		<!-- False Output (Bottom) -->
+		<div class="out-port out-false">
+			<span class="port-label">{{ __("NO") }}</span>
+			<Handle type="source" :position="Position.Bottom" id="false" class="handle-out handle-false" />
 		</div>
 	</div>
 </template>
 
 <style scoped>
-.condition-node-wrapper {
+.condition-node-card {
+	width: 160px;
+	background: #fff;
+	border: 1px solid #ffd8a8; /* Light Orange */
+	border-radius: 8px;
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 	position: relative;
-	width: 140px;
-	height: 100px;
+	border-top: 4px solid #fd7e14; /* Orange 700 */
+	transition: all 0.2s ease;
+}
+
+.condition-node-card:hover {
+	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+	border-color: #fd7e14;
+}
+
+.condition-node-card.selected {
+	box-shadow: 0 0 0 2px #fd7e14;
+	border-color: #fd7e14;
+}
+
+/* Header */
+.node-header {
 	display: flex;
-	justify-content: center;
 	align-items: center;
+	padding: 6px 10px;
+	border-bottom: 1px solid #fff4e6;
+	gap: 6px;
 }
 
-.rhombus-shape {
-	width: 100px;
-	height: 60px;
-	background: var(--orange-500);
-	transform: skewX(-20deg); /* Slanted Rect / Rhombus */
-	border-radius: 4px;
-	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	transition: all 0.3s ease;
-	border: 2px solid white;
+.node-header i {
+	color: #fd7e14;
+	font-size: 12px;
 }
 
-.rhombus-shape.selected {
-	box-shadow: 0 0 0 4px rgba(var(--orange-rgb), 0.4);
-	transform: skewX(-20deg) scale(1.05);
-}
-
-.inner-rhombus {
-	transform: skewX(20deg); /* Counter-skew content */
-	color: white;
-	font-size: 24px;
-}
-
-.condition-label {
-	position: absolute;
-	bottom: -15px;
-	font-size: 11px;
+.type-text {
+	font-size: 9px;
 	font-weight: 800;
-	color: var(--orange-700);
-	text-transform: uppercase;
+	color: #6c757d;
 	letter-spacing: 0.5px;
+	flex: 1;
 }
 
-/* Handles */
-.handle-input {
-	background: var(--gray-400) !important;
-	border: 2px solid white !important;
-	width: 12px !important;
-	height: 12px !important;
-	left: 5px !important;
+.action-btn {
+	background: none;
+	border: none;
+	padding: 0 2px;
+	cursor: pointer;
+	color: #adb5bd;
+	font-size: 10px;
 }
 
-.handle-container {
+.action-btn:hover {
+	color: #dc3545;
+}
+
+/* Body */
+.node-body {
+	padding: 10px;
+	text-align: center;
+	min-height: 40px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.condition-text {
+	font-size: 12px;
+	font-weight: 600;
+	color: #1a1a1a;
+	line-height: 1.2;
+}
+
+/* Ports/Handles */
+.handle-target {
+	width: 10px !important;
+	height: 10px !important;
+	background-color: #fff !important;
+	border: 2px solid #fd7e14 !important;
+}
+
+.out-port {
 	position: absolute;
+	left: 50%;
+	transform: translateX(-50%);
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	z-index: 10;
+	z-index: 5;
 }
 
-.handle-true-pos {
-	top: -10px;
-	left: 50%;
-	transform: translateX(-50%);
+.out-true { top: -20px; }
+.out-false { bottom: -20px; }
+
+.port-label {
+	font-size: 8px;
+	font-weight: 800;
 }
-.handle-false-pos {
-	bottom: -10px;
-	left: 50%;
-	transform: translateX(-50%);
-}
+
+.out-true .port-label { color: #198754; }
+.out-false .port-label { color: #dc3545; }
 
 .handle-out {
 	position: relative !important;
 	transform: none !important;
 	top: auto !important;
-	width: 12px !important;
-	height: 12px !important;
-	border: 2px solid white !important;
+	width: 10px !important;
+	height: 10px !important;
+	background: #fff !important;
+	border-width: 2px !important;
+	border-style: solid !important;
 }
 
-.handle-true {
-	background: var(--success) !important;
-}
-.handle-false {
-	background: var(--danger) !important;
+.handle-true { border-color: #198754 !important; }
+.handle-false { border-color: #dc3545 !important; }
+
+/* Fixed port label alignment */
+.out-true .port-label {
+    top: -12px;
 }
 
-.port-label {
-	font-size: 9px;
-	font-weight: 900;
-}
-.true-label {
-	color: var(--success);
-	margin-bottom: 2px;
-}
-.false-label {
-	color: var(--danger);
-	margin-top: 2px;
-}
-
-/* Toolbar */
-.node-toolbar {
-	position: absolute;
-	top: -30px;
-	right: 0;
-	background: var(--gray-900);
-	border-radius: 50%;
-	padding: 4px;
-}
-.toolbar-btn {
-	width: 24px;
-	height: 24px;
-	border: none;
-	background: transparent;
-	color: white;
-	cursor: pointer;
-}
-.toolbar-btn:hover {
-	color: var(--danger);
+.out-false .port-label {
+    bottom: -12px;
 }
 </style>

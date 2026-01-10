@@ -139,7 +139,8 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 	// ============================================================
 
 	async _load_adapter() {
-		this.adapter = window.flexirule?.processes?.[this.process_name];
+		await flexirule.utils.load_process_adapter(this.process_name);
+		this.adapter = flexirule.utils.get_process_adapter(this.process_name);
 
 		if (this.adapter && this.adapter.get_operation) {
 			this.operation_def = this.adapter.get_operation(this.operation_name);
@@ -994,22 +995,28 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
 					if (!state) return;
 
-					// 2. Properties
-					// ... (rest of property sync logic)
-					// Use control-level methods to avoid mutating shared df
-					if (state.hidden !== undefined) {
-						// toggle_display(fieldname, !hidden)
-						control.toggle_display && control.toggle_display(!state.hidden);
+					// 🔒 STEP 1: Isolate DF PER ROW
+					// Frappe shares the 'df' object across all controls in a grid.
+					// We must isolate it to prevent property leakage between rows.
+					if (!control.df._flexirule_isolated) {
+						control.df = { ...control.df };
+						control.df._flexirule_isolated = true;
 					}
 
+					// 🔧 STEP 2: Apply row-specific state
 					if (state.read_only !== undefined) {
 						control.set_read_only && control.set_read_only(state.read_only);
+						// Ensure the isolated df is also updated
+						control.df.read_only = state.read_only;
+					}
+
+					if (state.hidden !== undefined) {
+						control.toggle_display && control.toggle_display(!state.hidden);
+						control.df.hidden = state.hidden;
 					}
 
 					if (state.reqd !== undefined) {
-						// Frappe internal: set_working_mandatory is often used for grid controls
 						control.set_working_mandatory && control.set_working_mandatory(state.reqd);
-						// Also ensure standard 'reqd' on control matches
 						control.df.reqd = state.reqd;
 					}
 

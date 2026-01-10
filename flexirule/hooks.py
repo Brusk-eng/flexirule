@@ -1,7 +1,9 @@
 app_name = "flexirule"
 app_title = "FlexiRule"
 app_publisher = "Abdo Ruzaqi"
-app_description = "a true Advanced Rule and Orchestration Engine for the Frappe Framework"
+app_description = (
+    "a true Advanced Rule and Orchestration Engine for the Frappe Framework"
+)
 app_email = "ruzaqi@gmail.com"
 app_license = "agpl-3.0"
 
@@ -10,9 +12,7 @@ app_license = "agpl-3.0"
 
 # required_apps = []
 # JS/CSS includes
-app_include_js = [
-    "/assets/flexirule/js/rule_builder.bundle.js"
-]
+app_include_js = ["/assets/flexirule/js/rule_builder.bundle.js"]
 # Document Events - ALL paths must be to MODULE-LEVEL functions
 # NEVER use class method paths like "module.ClassName.method"
 doc_events = {
@@ -34,13 +34,11 @@ doc_events = {
     "Rule": {
         "after_insert": "flexirule.ruleflow.hooks.clear_rule_cache",
         "after_save": "flexirule.ruleflow.hooks.clear_rule_cache",
-        "on_trash": "flexirule.ruleflow.hooks.clear_rule_cache"
-    }
+        "on_trash": "flexirule.ruleflow.hooks.clear_rule_cache",
+    },
 }
 
-doctype_js = {
-    "Rule": "ruleflow/doctype/rule/rule.js"
-}
+doctype_js = {"Rule": "ruleflow/doctype/rule/rule.js"}
 
 fixtures = []
 
@@ -53,7 +51,7 @@ flexirule_excluded_doctypes = [
     "Version",
     "Comment",
     "Communication",
-    "File"
+    "File",
 ]
 
 export_python_type_annotations = True
@@ -75,18 +73,14 @@ export_python_type_annotations = True
 flexirule_allowed_modules = [
     "frappe.utils",
     "frappe.model",
-
-    "flexirule.ruleflow.methods.deduplication",
-    "flexirule.ruleflow.methods.validation",
-    "flexirule.ruleflow.methods.logging",
-    "flexirule.ruleflow.methods.mdm",
-    "flexirule.ruleflow.methods.advanced_validation",
-    "flexirule.ruleflow.methods.enrichment",
-    "flexirule.ruleflow.methods.notifications",
-    "flexirule.ruleflow.methods.normalization",
-    "flexirule.ruleflow.methods.utils",
-
-	# Add app specific modules here
+    "flexirule.ruleflow.utils.field_resolver",
+    "flexirule.ruleflow.process.validation.validation",
+    "flexirule.ruleflow.process.enrichment.enrichment",
+    "flexirule.ruleflow.process.notification.notification",
+    "flexirule.ruleflow.process.mdm.mdm",
+    "flexirule.ruleflow.process.normalization.normalization",
+    "flexirule.ruleflow.process.deduplication.deduplication",
+    # Add app specific modules here
 ]
 # Includes in <head>
 # ------------------
@@ -151,9 +145,7 @@ flexirule_allowed_modules = [
 
 # before_install = "flexirule.install.before_install"
 # after_install = "flexirule.install.after_install"
-#after_install = "flexirule.ruleflow.core.registry.sync_process_methods"
 after_migrate = [
-    #"flexirule.ruleflow.core.registry.sync_process_methods",
     "flexirule.ruleflow.core.process_sync.sync_all_processes",
 ]
 
@@ -220,11 +212,7 @@ after_migrate = [
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {
-	"daily": [
-		"flexirule.tasks.clear_old_logs"
-	]
-}
+scheduler_events = {"daily": ["flexirule.tasks.clear_old_logs"]}
 
 # Testing
 # -------
@@ -301,4 +289,3 @@ scheduler_events = {
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
-
