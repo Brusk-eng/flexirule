@@ -39,7 +39,7 @@ def sync_processes_for_app(app_name):
 
     Scans {app}/{module}/process/{name}/{name}.json for all modules in the app.
     """
-    modules = frappe.local.app_modules.get(app_name, [])
+    modules = frappe.get_all("Module Def", filters={"app_name": app_name}, pluck="name")
     if not modules:
         return
 
