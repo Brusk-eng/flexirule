@@ -3,7 +3,7 @@
 
 import frappe
 from frappe import _
-from flexirule.ruleflow.methods.utils import parse_field_list
+from flexirule.ruleflow.utils.field_resolver import parse_field_list
 
 
 def send_email(context, config=None, **kwargs):
@@ -225,3 +225,25 @@ def send_via_provider(context, config=None, **kwargs):
             "Notification Error",
         )
         return False
+
+
+# ============================================================
+# DISPATCHER
+# ============================================================
+
+_OPERATIONS = {
+    "send_email": send_email,
+    "create_todo": create_todo,
+    "create_system_notification": create_system_notification,
+    "add_comment": add_comment,
+    "send_via_provider": send_via_provider,
+}
+
+
+def execute(context, func=None, config=None):
+    if not func:
+        frappe.throw(_("Operation function name is required"))
+    if func not in _OPERATIONS:
+        frappe.throw(_("Unknown notification operation: {0}").format(func))
+
+    return _OPERATIONS[func](context, config or {})

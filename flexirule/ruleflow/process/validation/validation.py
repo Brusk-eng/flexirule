@@ -11,45 +11,7 @@ import json
 import re
 import frappe
 from frappe import _
-
-# ============================================================
-# HELPERS
-# ============================================================
-
-
-def parse_field_list(fields) -> list[str]:
-    """Parse fields from multiple formats (list, newline, comma, JSON)"""
-    if not fields:
-        return []
-    if isinstance(fields, list):
-        return [f.strip() if isinstance(f, str) else f for f in fields]
-    if isinstance(fields, str):
-        fields = fields.strip()
-        if fields.startswith("["):
-            try:
-                return json.loads(fields)
-            except json.JSONDecodeError:
-                pass
-        if "\n" in fields:
-            return [f.strip() for f in fields.split("\n") if f.strip()]
-        if "," in fields:
-            return [f.strip() for f in fields.split(",") if f.strip()]
-        return [fields]
-    return []
-
-
-def parse_pattern_type(pattern_type, custom_pattern=None):
-    """Return regex pattern based on type"""
-    patterns = {
-        "Email": r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
-        "Phone": r"^\+?1?\d{9,15}$",
-        "URL": r"https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+",
-        "Alphanumeric": r"^[a-zA-Z0-9 ]*$",
-        "Numeric": r"^-?\d*\.?\d*$",
-    }
-    if pattern_type == "Custom Regex":
-        return custom_pattern
-    return patterns.get(pattern_type, custom_pattern)
+from flexirule.ruleflow.utils.field_resolver import parse_field_list, parse_pattern_type
 
 
 # ============================================================

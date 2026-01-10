@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 import frappe
 from frappe import _
+from flexirule.ruleflow.utils.field_resolver import parse_field_list
 from rapidfuzz import fuzz, process
 
 # ============================================================
@@ -328,6 +329,7 @@ def find_duplicates_in_child_table(context, config):
 # ============================================================
 
 _OPERATIONS = {
+    "find_duplicates": find_similar_records,  # Alias
     "find_similar_records": find_similar_records,
     "find_duplicates_by_fields": find_duplicates_by_fields,
     "check_duplicate_and_prevent_save": check_duplicate_and_prevent_save,

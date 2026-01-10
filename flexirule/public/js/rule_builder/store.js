@@ -4,7 +4,9 @@ import { ref, computed } from "vue";
 export const useStore = defineStore("rule-builder-store", () => {
 	let rule_name = ref(null);
 	let rule_doc = ref(null);
-	let graph = ref({ elements: [], selected: null });
+	let nodes = ref([]);
+	let edges = ref([]);
+	let selected_id = ref(null);
 	let process_methods = ref([]);
 	let processes = ref([]); // File-backed processes
 	let available_rules = ref([]);
@@ -111,9 +113,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		return doc_meta.value[doctype].map((f) => ({
 			...f,
-			label: `${alias}.${f.fieldname} (${
-				f.label.split("(")[1] ? f.label.split("(")[1].replace(")", "") : f.label
-			})`,
+			label: `${alias}.${f.fieldname} (${f.label.split("(")[1] ? f.label.split("(")[1].replace(")", "") : f.label
+				})`,
 			value: `${alias}.${f.fieldname}`,
 		}));
 	}
@@ -138,6 +139,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		if (rule_doc.value?.document_type) {
 			await fetch_metadata(rule_doc.value.document_type);
+		}
+
+		// Load only relevant process adapters in parallel
+		const relevantProcesses = new Set();
+		if (rule_doc.value?.actions) {
+			rule_doc.value.actions.forEach(a => {
+				if (a.process_name) relevantProcesses.add(a.process_name);
+			});
+		}
+		if (relevantProcesses.size > 0) {
+			await Promise.all([...relevantProcesses].map(p => flexirule.utils.load_process_adapter(p)));
 		}
 
 		if (!trigger_event_options.value.length) {
@@ -165,11 +177,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 				: null;
 
 		if (visual_data && visual_data.length > 0) {
-			graph.value.elements = visual_data;
+			nodes.value = visual_data.filter((el) => el.position);
+			edges.value = visual_data.filter((el) => el.source);
 		} else if (rule_doc.value.actions && rule_doc.value.actions.length > 0) {
 			sync_actions_to_graph();
 		} else {
-			graph.value.elements = [
+			nodes.value = [
 				{
 					id: "start",
 					type: "start",
@@ -183,6 +196,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 					},
 				},
 			];
+			edges.value = [];
 		}
 
 		setup_breadcrumbs();
@@ -194,13 +208,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 	// --- Cascade Disable Logic ---
 	const effectiveDisabledIds = computed(() => {
 		const disabledSet = new Set();
-		const nodes = graph.value.elements.filter((el) => el.position);
-		const edges = graph.value.elements.filter((el) => el.source);
-
-		const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+		const nodeMap = new Map(nodes.value.map((n) => [n.id, n]));
 		const adj = new Map();
 
-		edges.forEach((e) => {
+		edges.value.forEach((e) => {
 			if (!adj.has(e.source)) adj.set(e.source, []);
 			adj.get(e.source).push(e.target);
 		});
@@ -229,7 +240,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		}
 
 		// All nodes NOT in visited are effectively disabled
-		nodes.forEach((n) => {
+		nodes.value.forEach((n) => {
 			if (!visited.has(n.id)) disabledSet.add(n.id);
 		});
 
@@ -242,7 +253,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 	// -----------------------------
 
 	function commit_history() {
-		const state = JSON.stringify(graph.value.elements);
+		const state = JSON.stringify({ nodes: nodes.value, edges: edges.value });
 		if (history_index.value < history.value.length - 1) {
 			history.value = history.value.slice(0, history_index.value + 1);
 		}
@@ -255,7 +266,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 	function undo() {
 		if (history_index.value > 0) {
 			history_index.value--;
-			graph.value.elements = JSON.parse(history.value[history_index.value]);
+			const state = JSON.parse(history.value[history_index.value]);
+			nodes.value = state.nodes;
+			edges.value = state.edges;
 			is_dirty.value = true;
 		}
 	}
@@ -263,7 +276,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 	function redo() {
 		if (history_index.value < history.value.length - 1) {
 			history_index.value++;
-			graph.value.elements = JSON.parse(history.value[history_index.value]);
+			const state = JSON.parse(history.value[history_index.value]);
+			nodes.value = state.nodes;
+			edges.value = state.edges;
 			is_dirty.value = true;
 		}
 	}
@@ -288,26 +303,20 @@ export const useStore = defineStore("rule-builder-store", () => {
 	}
 
 	function getStateSnapshot() {
-		return graph.value.elements
-			.map((el) => {
-				if (el.position) {
-					return {
-						id: el.id,
-						type: el.type,
-						label: el.label,
-						data: el.data,
-						position: { x: Math.round(el.position.x), y: Math.round(el.position.y) },
-					};
-				} else {
-					return {
-						id: el.id,
-						source: el.source,
-						target: el.target,
-						sourceHandle: el.sourceHandle,
-					};
-				}
-			})
-			.sort((a, b) => a.id.localeCompare(b.id));
+		const nodesSnapshot = nodes.value.map((el) => ({
+			id: el.id,
+			type: el.type,
+			label: el.label,
+			data: el.data,
+			position: { x: Math.round(el.position.x), y: Math.round(el.position.y) },
+		}));
+		const edgesSnapshot = edges.value.map((el) => ({
+			id: el.id,
+			source: el.source,
+			target: el.target,
+			sourceHandle: el.sourceHandle,
+		}));
+		return [...nodesSnapshot, ...edgesSnapshot].sort((a, b) => a.id.localeCompare(b.id));
 	}
 
 	function checkDirty() {
@@ -316,24 +325,22 @@ export const useStore = defineStore("rule-builder-store", () => {
 	}
 
 	function sync_actions_to_graph() {
-		const nodes = [];
-		const edges = [];
-		// ... (Existing sync logic skipped for brevity, keeping it simple as fetch calls this)
-		// Re-implementing basic Sync for robustness in this script
+		const actionNodes = [];
+		const actionEdges = [];
+
 		// Check if we have an existing root/entry action
 		const rootAction = rule_doc.value.actions.find(
 			(a) => a.action_type === "Entry Action" || a.action_id === "root"
 		);
 
 		if (!rootAction) {
-			// Fallback for empty/legacy rules (though backend migration should handle this)
-			nodes.push({
-				id: "root",
+			actionNodes.push({
+				id: "start",
 				type: "start",
 				position: { x: 50, y: 250 },
 				label: "Start",
 				data: {
-					action_id: "root",
+					action_id: "start",
 					action_type: "Entry Action",
 					document_type: rule_doc.value.document_type,
 					trigger_event: rule_doc.value.trigger_event,
@@ -348,17 +355,14 @@ export const useStore = defineStore("rule-builder-store", () => {
 			const nodeId = action.action_id || `action-${index}`;
 			let type = (action.action_type || "Process").toLowerCase();
 
-			// Map Entry Action to 'start' type for VueFlow
 			if (action.action_type === "Entry Action") {
 				type = "start";
 			} else if (action.action_type === "Sub-Rule" || action.action_type === "Sub-rule") {
 				type = "sub-rule";
 			}
 
-			// If it's the root entry action, ensure we merge the Rule's trigger data into it
-			const isRoot = action.action_type === "Entry Action" || action.action_id === "root";
+			const isRoot = action.action_type === "Entry Action" || action.action_id === "start" || action.action_id === "root";
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;
-
 			const configData = action.config || action.method_config;
 
 			const nodeData = {
@@ -381,25 +385,21 @@ export const useStore = defineStore("rule-builder-store", () => {
 				name: action.name,
 				input_mapping: action.input_mapping,
 				output_mapping: action.output_mapping,
-				rule:
-					action.rule ||
-					(action.action_type === "Sub-Rule" ? getSubRuleName(configData) : null),
+				rule: action.rule || (action.action_type === "Sub-Rule" ? getSubRuleName(configData) : null),
 				skip_conditions: action.skip_conditions !== undefined ? action.skip_conditions : 1,
 				skip_permissions: action.skip_permissions || 0,
-				// Flow control
 				next_step_if_true: action.next_step_if_true,
 				next_step_if_false: action.next_step_if_false,
 			};
 
 			if (isRoot) {
-				// Merge rule-level metadata for display/editing
 				nodeData.document_type = rule_doc.value.document_type;
 				nodeData.trigger_event = rule_doc.value.trigger_event;
 				nodeData.trigger_condition = rule_doc.value.trigger_condition;
 				nodeData.trigger_condition_expression = rule_doc.value.trigger_condition_expression;
 			}
 
-			nodes.push({
+			actionNodes.push({
 				id: nodeId,
 				type: type,
 				position: {
@@ -415,19 +415,16 @@ export const useStore = defineStore("rule-builder-store", () => {
 		rule_doc.value.actions.forEach((action, index) => {
 			const nodeId = action.action_id || `action-${index}`;
 			if (action.next_step_if_true) {
-				edges.push({
+				actionEdges.push({
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
 					source: nodeId,
 					target: action.next_step_if_true,
-					sourceHandle:
-						action.action_type === "Condition" || action.action_type === "Loop"
-							? "true"
-							: "default",
+					sourceHandle: (action.action_type === "Condition" || action.action_type === "Loop") ? "true" : "default",
 					animated: action.action_type === "Entry Action",
 				});
 			}
 			if (action.next_step_if_false) {
-				edges.push({
+				actionEdges.push({
 					id: `e-${nodeId}-${action.next_step_if_false}-false`,
 					source: nodeId,
 					target: action.next_step_if_false,
@@ -435,7 +432,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 				});
 			}
 		});
-		graph.value.elements = [...nodes, ...edges];
+
+		nodes.value = actionNodes;
+		edges.value = actionEdges;
 	}
 
 	function getSubRuleName(configStr) {
@@ -489,78 +488,21 @@ export const useStore = defineStore("rule-builder-store", () => {
 				method: "flexirule.ruleflow.doctype.process.process.get_process_list",
 			});
 			processes.value = response.message || [];
-
-			// Load JS adapters for each process
-			for (const proc of processes.value) {
-				await load_process_adapter(proc.name);
-			}
+			// Removed eager loading of all adapters
 		} catch (e) {
-			console.error("Failed to load processes", e);
 			processes.value = [];
 		}
 	}
 
-	async function load_process_adapter(process_name) {
-		// Skip if already loaded
-		if (window.flexirule?.processes?.[process_name]) {
-			return;
-		}
-
-		try {
-			// Fetch JS content from backend (supports any app's processes)
-			const response = await frappe.call({
-				method: "flexirule.ruleflow.doctype.process.process.get_script",
-				args: { process_name },
-			});
-
-			if (response.message && response.message.script) {
-				// Initialize namespace
-				window.flexirule = window.flexirule || {};
-				window.flexirule.processes = window.flexirule.processes || {};
-
-				// Eval the JS content
-				try {
-					// Use Function constructor instead of eval for slightly better security
-					new Function(response.message.script)();
-				} catch (e) {
-					console.error(`Error loading adapter for ${process_name}:`, e);
-				}
-			}
-		} catch {
-			// Adapter not available - not an error
-		}
-	}
-
-	function get_process_operations(process_name) {
-		if (!process_name) return [];
-
-		// Try getting operations from the loaded process definition (DB source)
+	async function get_process_operations(process_name) {
 		const process = processes.value.find((p) => p.name === process_name);
-		if (process?.operations?.length) {
-			return process.operations;
-		}
+		const db_ops = process?.operations || [];
 
-		// Fallback to JS adapter
-		const adapter = window.flexirule?.processes?.[process_name];
-		if (!adapter) return [];
-
-		return adapter.get_visible_operations?.() || adapter.operations || [];
+		return await flexirule.utils.get_process_operations(process_name, db_ops);
 	}
 
-	function get_operation_config_fields(process_name, operation_name, frm) {
-		if (!process_name || !operation_name) return [];
-
-		const adapter = window.flexirule?.processes?.[process_name];
-		if (!adapter) return [];
-
-		const operation = adapter.get_operation?.(operation_name);
-		if (!operation) return [];
-
-		if (typeof operation.get_config_fields === "function") {
-			return operation.get_config_fields(frm);
-		}
-
-		return [];
+	async function get_operation_config_fields(process_name, operation_name, frm) {
+		return await flexirule.utils.get_operation_config_fields(process_name, operation_name, frm);
 	}
 
 	async function fetch_available_rules(doctype) {
@@ -617,9 +559,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				return !!doc[expr];
 			};
 
-			const nodes = graph.value.elements.filter((el) => el.position);
-
-			nodes.forEach((node) => {
+			nodes.value.forEach((node) => {
 				// Skip Start node validation against Rule Action (it uses Rule fields)
 				if (node.type === "start") return;
 
@@ -666,16 +606,16 @@ export const useStore = defineStore("rule-builder-store", () => {
 			doc.is_active = currentIsActive;
 			doc.visual_data = JSON.stringify(clean_graph_data());
 
-			const startNode = graph.value.elements.find((el) => el.type === "start");
+			const startNode = nodes.value.find((el) => el.type === "start");
 			doc.trigger_condition_expression =
 				startNode?.data?.trigger_condition_expression || null;
 			doc.trigger_condition = startNode?.data?.trigger_condition || null;
 
 			// Sort nodes but ensure Entry Action is processed
-			const edgesList = graph.value.elements.filter((el) => el.source);
+			const edgesList = edges.value;
 
 			// Re-use topological sort
-			const orderedNodes = getTopologicalSort(nodes, edgesList);
+			const orderedNodes = getTopologicalSort(nodes.value, edgesList);
 
 			doc.actions = orderedNodes.map((node, idx) => {
 				const outgoing = edgesList.filter((e) => e.source === node.id);
@@ -691,14 +631,14 @@ export const useStore = defineStore("rule-builder-store", () => {
 				const action_type = is_start_node
 					? "Entry Action"
 					: node.data?.action_type === "Sub-rule"
-					? "Sub-Rule"
-					: node.data?.action_type || "Process";
+						? "Sub-Rule"
+						: node.data?.action_type || "Process";
 
 				// Parent ID logic
 				let prev_action_id = null;
 				if (!is_start_node && incoming) {
-					const parentNode = nodes.find((n) => n.id === incoming.source);
-					prev_action_id = parentNode?.data?.action_id || incoming.source;
+					const parentNode = nodes.value.find((n) => n.id === incoming.source);
+					prev_action_id = parentNode?.data?.action_id || parentNode?.id || incoming.source;
 				}
 
 				return {
@@ -751,7 +691,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 	}
 
 	function clean_graph_data() {
-		return graph.value.elements.map((el) => {
+		return [...nodes.value, ...edges.value].map((el) => {
 			const { selected, dragging, resizing, sourceNode, targetNode, ...obj } = el;
 			// Normalize action_type casing
 			if (obj.data?.action_type === "Sub-rule") {
@@ -762,24 +702,23 @@ export const useStore = defineStore("rule-builder-store", () => {
 	}
 
 	function delete_node(nodeId) {
-		const node = graph.value.elements.find((el) => el.id === nodeId);
-		if (nodeId === "start" || nodeId === "root" || node?.type === "start") {
+		const node = nodes.value.find((el) => el.id === nodeId);
+		if (nodeId === "start" || nodeId === "root" || node?.type === "start" || node?.data?.action_type === "Entry Action") {
 			frappe.msgprint(__("Cannot delete start node"));
 			return;
 		}
-		graph.value.elements = graph.value.elements.filter(
-			(el) => el.id !== nodeId && el.source !== nodeId && el.target !== nodeId
-		);
-		if (graph.value.selected?.id === nodeId) graph.value.selected = null;
+		nodes.value = nodes.value.filter((el) => el.id !== nodeId);
+		edges.value = edges.value.filter((el) => el.source !== nodeId && el.target !== nodeId);
+		if (selected_id.value === nodeId) selected_id.value = null;
 		mark_dirty();
 	}
 
 	function delete_edge(edgeId) {
-		const edge = graph.value.elements.find((el) => el.id === edgeId && el.source);
+		const edge = edges.value.find((el) => el.id === edgeId);
 		if (!edge) return;
 
 		// Clear the next_step reference in the source node's data
-		const sourceNode = graph.value.elements.find((el) => el.position && el.id === edge.source);
+		const sourceNode = nodes.value.find((el) => el.id === edge.source);
 		if (sourceNode && sourceNode.data) {
 			if (edge.sourceHandle === "false") {
 				sourceNode.data.next_step_if_false = null;
@@ -789,30 +728,24 @@ export const useStore = defineStore("rule-builder-store", () => {
 		}
 
 		// Remove the edge
-		graph.value.elements = graph.value.elements.filter((el) => el.id !== edgeId);
+		edges.value = edges.value.filter((el) => el.id !== edgeId);
 		mark_dirty();
 	}
 
 	function getTopologicalSort(nodes, edges) {
-		// ... (Same topological sort logic)
 		const adj = {};
-		const visited = new Set();
+		const processed = new Set();
 		const result = [];
 		nodes.forEach((n) => (adj[n.id] = []));
 		edges.forEach((e) => {
 			if (adj[e.source]) adj[e.source].push(e.target);
 		});
-		const startEdges = graph.value.elements.filter((el) => el.source === "start");
-		const queue = startEdges
-			.map((e) => e.target)
-			.filter((id) => nodes.find((n) => n.id === id));
-		const processed = new Set();
-		queue.forEach((id) => {
-			if (id && !processed.has(id)) {
-				processed.add(id);
-				result.push(nodes.find((n) => n.id === id));
-			}
-		});
+		const entryNode = nodes.find((n) => n.id === "start" || n.type === "start" || n.data?.action_type === "Entry Action");
+		if (entryNode && !processed.has(entryNode.id)) {
+			processed.add(entryNode.id);
+			result.push(entryNode);
+		}
+
 		let ptr = 0;
 		while (ptr < result.length) {
 			const current = result[ptr++];
@@ -832,38 +765,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 	}
 
 	async function getAvailableVariables(upToNodeId = null) {
-		const vars = [];
-		const seen = new Set();
 		const ruleDoc = rule_doc.value || {};
-
-		// 1. Add Document Fields
 		const doctype = ruleDoc.document_type;
-		if (doctype) {
-			const fields = get_fields_for_doctype(doctype) || [];
-			fields.forEach((f) => {
-				if (!seen.has(f.value)) {
-					vars.push({
-						label: f.label,
-						value: f.value,
-						type: f.fieldtype,
-						source: "Document",
-					});
-					seen.add(f.value);
-				}
-			});
-		}
 
-		// 2. Iterate "previous" actions in the graph
-		// Since graph can be complex, valid "previous" variables come from:
-		// - Ancestors in the graph
-		// - Or simple topological order if linear
-
-		// For now, let's use the topological sort of the whole graph up to the current node
-		// IF upToNodeId is provided.
-		// We can reuse getTopologicalSort.
-		const nodes = graph.value.elements.filter((el) => el.position);
-		const edges = graph.value.elements.filter((el) => el.source);
-		const sortedNodes = getTopologicalSort(nodes, edges);
+		// Collect variables from previous nodes
+		const context_vars = [];
+		const sortedNodes = getTopologicalSort(nodes.value, edges.value);
 
 		let limitIndex = sortedNodes.length;
 		if (upToNodeId) {
@@ -874,59 +781,24 @@ export const useStore = defineStore("rule-builder-store", () => {
 		for (let i = 0; i < limitIndex; i++) {
 			const node = sortedNodes[i];
 			const data = node.data || {};
-
 			if (!data.return_variable) continue;
 
-			const varName = data.return_variable;
-			if (seen.has(varName)) continue;
-
-			let schema = [];
-			let type = "Data";
-			let description = `Output from ${data.action_label || node.label}`;
-
-			if (data.process_name) {
-				const adapter = window.flexirule?.processes?.[data.process_name];
-				if (adapter && typeof adapter.get_output_schema === "function") {
-					try {
-						let config = data.config;
-						if (typeof config === "string") {
-							try {
-								config = JSON.parse(config);
-							} catch (e) {}
-						}
-						const ctx = { config: config || {}, doc: ruleDoc };
-						const outputSchema = adapter.get_output_schema(
-							data.operation || data.process_method,
-							config,
-							ctx
-						);
-						if (outputSchema) {
-							schema = outputSchema;
-							type = "Object";
-						}
-					} catch (e) {
-						// ignore
-					}
-				}
-			}
-
-			vars.push({
-				label: `${varName} (${description})`,
-				value: varName,
-				type: type,
-				source: "Variable",
-				schema: schema,
+			context_vars.push({
+				label: data.return_variable,
+				value: data.return_variable,
+				type: "Data" // In the future, we can resolve actual type
 			});
-			seen.add(varName);
 		}
 
-		return vars;
+		return await flexirule.utils.get_combined_fields(doctype, context_vars, "doc");
 	}
 
 	return {
 		rule_name,
 		rule_doc,
-		graph,
+		nodes,
+		edges,
+		selected_id,
 		process_methods,
 		processes,
 		available_rules,

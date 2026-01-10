@@ -4,18 +4,21 @@
 
 frappe.provide("flexirule.utils");
 frappe.provide("flexirule.meta_cache");
+frappe.provide("flexirule.processes");
 
 /**
  * Get all fields for a DocType, including standard/system fields and child table fields.
  * Results are cached globally in flexirule.meta_cache.
  *
  * @param {string} doctype - The name of the DocType
+ * @param {string} prefix - Optional prefix for field values (e.g. 'doc')
  * @returns {Promise<Array>} - List of field options in {label, value, fieldtype, doctype} format
  */
-flexirule.utils.get_doctype_fields = async function (doctype) {
+flexirule.utils.get_doctype_fields = async function (doctype, prefix = "") {
 	if (!doctype) return [];
-	if (!flexirule.meta_cache) flexirule.meta_cache = {};
-	if (flexirule.meta_cache[doctype]) return flexirule.meta_cache[doctype];
+
+	const cache_key = prefix ? `${doctype}:${prefix}` : doctype;
+	if (flexirule.meta_cache[cache_key]) return flexirule.meta_cache[cache_key];
 
 	return new Promise((resolve) => {
 		frappe.model.with_doctype(doctype, async () => {
@@ -35,15 +38,27 @@ flexirule.utils.get_doctype_fields = async function (doctype) {
 				if (frappe.model.no_value_type.includes(df.fieldtype)) return;
 				if (df.is_virtual) return;
 
-				const fieldname = table_prefix ? `${table_prefix}.${df.fieldname}` : df.fieldname;
+				let fieldname = df.fieldname;
+				if (table_prefix) {
+					fieldname = `${table_prefix}.${df.fieldname}`;
+				} else if (prefix) {
+					fieldname = `${prefix}.${df.fieldname}`;
+				}
+
 				if (seen_fields.has(fieldname)) return;
 
 				let label = "";
 				if (parent_table === doctype) {
 					label = __(df.label, null, parent_table);
+					if (prefix && !table_prefix) {
+						label = `${prefix}.${df.fieldname} (${label})`;
+					}
 				} else {
 					// Match FieldSelect format: Label (Table)
 					label = __(df.label, null, parent_table) + " (" + __(parent_table) + ")";
+					if (table_prefix) {
+						label = `${table_prefix}.${df.fieldname} (${__(df.label, null, parent_table)})`;
+					}
 				}
 
 				options.push({
@@ -56,19 +71,27 @@ flexirule.utils.get_doctype_fields = async function (doctype) {
 				seen_fields.add(fieldname);
 			};
 
-			// 1. Main Table (Standard + Fields)
-			const std_filters = frappe.model.std_fields
-				.filter((d) => !frappe.model.no_value_type.includes(d.fieldtype))
-				.map((d) => ({ ...d, parent: doctype }));
+			// 1. Standard Fields (if it's the main doctype and has doc prefix)
+			if (prefix === "doc") {
+				const stdFields = [
+					{ label: "Name", fieldname: "name", fieldtype: "Data" },
+					{ label: "Owner", fieldname: "owner", fieldtype: "Data" },
+					{ label: "Creation", fieldname: "creation", fieldtype: "Datetime" },
+					{ label: "Modified", fieldname: "modified", fieldtype: "Datetime" },
+					{ label: "Modified By", fieldname: "modified_by", fieldtype: "Data" },
+					{ label: "DocStatus", fieldname: "docstatus", fieldtype: "Int" },
+				];
+				stdFields.forEach((f) => add_option(f, doctype));
+			}
 
-			const main_fields = std_filters.concat(meta.fields || []);
-			// Sort main fields by label like FieldSelect
-			frappe.utils.sort(main_fields, "label", "string").forEach((df) => {
+			// 2. Main Table Fields
+			const fields = meta.fields || [];
+			frappe.utils.sort(fields, "label", "string").forEach((df) => {
 				add_option(df, doctype);
 			});
 
-			// 2. Child Tables
-			const table_fields = (meta.fields || []).filter(
+			// 3. Child Tables
+			const table_fields = fields.filter(
 				(f) => (f.fieldtype === "Table" || f.fieldtype === "Table MultiSelect") && f.options
 			);
 
@@ -87,7 +110,7 @@ flexirule.utils.get_doctype_fields = async function (doctype) {
 				});
 			}
 
-			flexirule.meta_cache[doctype] = options;
+			flexirule.meta_cache[cache_key] = options;
 			resolve(options);
 		});
 	});
@@ -98,23 +121,17 @@ flexirule.utils.get_doctype_fields = async function (doctype) {
  *
  * @param {string} doctype - DocType name
  * @param {Array} context_vars - List of variable objects {label, value, type}
+ * @param {string} prefix - Optional prefix for DocType fields
  * @returns {Promise<Array>}
  */
-flexirule.utils.get_combined_fields = async function (doctype, context_vars = []) {
-	const base_fields = doctype ? await flexirule.utils.get_doctype_fields(doctype) : [];
+flexirule.utils.get_combined_fields = async function (doctype, context_vars = [], prefix = "") {
+	const base_fields = doctype ? await flexirule.utils.get_doctype_fields(doctype, prefix) : [];
 	const seen_values = new Set(base_fields.map((f) => f.value));
 
 	// Normalize variables and filter out duplicates found in base_fields
 	const vars = (context_vars || [])
 		.filter((v) => {
 			if (seen_values.has(v.value)) return false;
-
-			// Handle "doc.fieldname" duplicates if "fieldname" is already in base_fields
-			if (v.value && v.value.startsWith("doc.")) {
-				const raw_field = v.value.replace("doc.", "");
-				if (seen_values.has(raw_field)) return false;
-			}
-
 			return true;
 		})
 		.map((v) => ({
@@ -131,4 +148,90 @@ flexirule.utils.get_combined_fields = async function (doctype, context_vars = []
 	vars.forEach((v) => combined.push(v));
 
 	return combined;
+};
+
+/**
+ * Lazy load a process adapter JS file.
+ *
+ * @param {string} process_name - Name of the process
+ * @returns {Promise<void>}
+ */
+flexirule.utils.load_process_adapter = async function (process_name) {
+	if (!process_name) return;
+
+	// Already loaded?
+	if (flexirule.processes[process_name]) {
+		return;
+	}
+
+	try {
+		const response = await frappe.call({
+			method: "flexirule.ruleflow.doctype.process.process.get_script",
+			args: { process_name },
+		});
+
+		if (response.message && response.message.script) {
+			// Use Function constructor for evaluation
+			try {
+				new Function(response.message.script)();
+			} catch (e) {
+				console.error(`Failed to evaluate adapter for ${process_name}:`, e);
+			}
+		}
+	} catch (e) {
+		console.warn(`Adapter not found or failed to load for ${process_name}`);
+	}
+};
+
+/**
+ * Get a loaded process adapter.
+ * 
+ * @param {string} process_name 
+ * @returns {Object|null}
+ */
+flexirule.utils.get_process_adapter = function (process_name) {
+	return flexirule.processes[process_name] || null;
+};
+
+/**
+ * Get operations for a process, ensuring the adapter is loaded first.
+ *
+ * @param {string} process_name - Name of the process
+ * @param {Array} db_operations - Optional pre-loaded operations from DB
+ * @returns {Promise<Array>}
+ */
+flexirule.utils.get_process_operations = async function (process_name, db_operations = []) {
+	if (!process_name) return [];
+
+	// 1. If we have DB operations, use them (they are authoritative for visible operations)
+	if (db_operations && db_operations.length > 0) {
+		return db_operations;
+	}
+
+	// 2. Otherwise load adapter and get from JS
+	await flexirule.utils.load_process_adapter(process_name);
+	const adapter = flexirule.utils.get_process_adapter(process_name);
+	if (!adapter) return [];
+
+	return adapter.get_visible_operations?.() || adapter.operations || [];
+};
+
+/**
+ * Get config fields for an operation, ensuring the adapter is loaded.
+ */
+flexirule.utils.get_operation_config_fields = async function (process_name, operation_name, frm) {
+	if (!process_name || !operation_name) return [];
+
+	await flexirule.utils.load_process_adapter(process_name);
+	const adapter = flexirule.utils.get_process_adapter(process_name);
+	if (!adapter) return [];
+
+	const operation = adapter.get_operation?.(operation_name);
+	if (!operation) return [];
+
+	if (typeof operation.get_config_fields === "function") {
+		return operation.get_config_fields(frm);
+	}
+
+	return [];
 };

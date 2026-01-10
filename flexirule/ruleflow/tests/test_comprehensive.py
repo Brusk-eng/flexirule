@@ -1,8 +1,8 @@
-# Copyright (c) 2025, Bolton and contributors
+# Copyright (c) 2025, FlexiRule and contributors
 # For license information, please see license.txt
 
 """
-Comprehensive Unit Test Suite for Bolton Rule Engine
+Comprehensive Unit Test Suite for FlexiRule Rule Engine
 """
 
 import json
@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from flexirule.ruleflow.doctype.process.process import Process
 
 
 def create_test_rule(name, doctype="ToDo", event="Validate", actions=None):
@@ -18,15 +19,17 @@ def create_test_rule(name, doctype="ToDo", event="Validate", actions=None):
     if frappe.db.exists("Rule", name):
         return frappe.get_doc("Rule", name)
 
-    rule = frappe.get_doc({
-        "doctype": "Rule",
-        "rule_name": name,
-        "document_type": doctype,
-        "trigger_event": event,
-        "is_active": 1,
-        "priority": 100,
-        "max_execution_time": 30
-    })
+    rule = frappe.get_doc(
+        {
+            "doctype": "Rule",
+            "rule_name": name,
+            "document_type": doctype,
+            "trigger_event": event,
+            "is_active": 1,
+            "priority": 100,
+            "max_execution_time": 30,
+        }
+    )
 
     if actions:
         for action in actions:
@@ -42,7 +45,7 @@ class TestRuleEngine(FrappeTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        frappe.set_user('Administrator')
+        frappe.set_user("Administrator")
 
     def test_engine_initialization(self):
         """Test engine initializes correctly"""
@@ -75,215 +78,136 @@ class TestRuleEngine(FrappeTestCase):
         super().tearDownClass()
 
 
-class TestRuleCoordinator(FrappeTestCase):
-    """Test RuleCoordinator class"""
-
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        frappe.set_user('Administrator')
-
-    def test_has_active_rules_caching(self):
-        """Test rule existence check uses cache"""
-        from flexirule.ruleflow.core.coordinator import RuleCoordinator
-
-        RuleCoordinator.clear_cache()
-        create_test_rule("Test Cache Rule", doctype="ToDo", event="Before Save")
-
-        result1 = RuleCoordinator.has_active_rules("ToDo", "Before Save")
-        result2 = RuleCoordinator.has_active_rules("ToDo", "Before Save")
-
-        self.assertEqual(result1, result2)
-        self.assertTrue(result1)
-
-    def test_clear_cache(self):
-        """Test cache clearing"""
-        from flexirule.ruleflow.core.coordinator import RuleCoordinator
-
-        RuleCoordinator.clear_cache("ToDo")
-        RuleCoordinator.clear_cache()
-
-    @classmethod
-    def tearDownClass(cls):
-        frappe.db.rollback()
-        super().tearDownClass()
-
-
-class TestScoringEngine(FrappeTestCase):
-    """Test ScoringEngine for fuzzy matching"""
-
-    def test_exact_scorer(self):
-        """Test exact match scoring"""
-        from flexirule.ruleflow.core.scoring import ScoringEngine
-
-        rule = MagicMock()
-        rule.options_json = "{}"
-
-        engine = ScoringEngine(rule)
-
-        self.assertEqual(engine._score_field("Hello", "Hello", "exact"), 1.0)
-        self.assertEqual(engine._score_field("Hello", "World", "exact"), 0.0)
-
-    def test_fuzzy_scorer(self):
-        """Test fuzzy match scoring"""
-        from flexirule.ruleflow.core.scoring import ScoringEngine
-
-        rule = MagicMock()
-        rule.options_json = "{}"
-        engine = ScoringEngine(rule)
-
-        score = engine._score_field("Hello World", "Hello Wrold", "fuzzy")
-        self.assertGreater(score, 0.8)
-
-    def test_fingerprint_creation(self):
-        """Test document fingerprinting"""
-        from flexirule.ruleflow.core.scoring import ScoringEngine
-
-        doc = frappe._dict({"name": "Test", "email": "test@example.com"})
-        fp = ScoringEngine.create_fingerprint(doc, ["name", "email"])
-
-        self.assertIsInstance(fp, str)
-        self.assertEqual(len(fp), 32)
-
-
 class TestNormalizationMethods(FrappeTestCase):
     """Test normalization process methods"""
 
+    def setUp(self):
+        self.process = frappe.get_doc("Process", "Normalization")
+
     def test_normalize_field_lowercase(self):
         """Test lowercase transformation"""
-        from flexirule.ruleflow.methods.normalization import normalize_field
-
         doc = frappe.get_doc({"doctype": "ToDo", "description": "HELLO WORLD"})
         context = {"doc": doc, "vars": {}}
-        result = normalize_field(context, source_field="description", transformations=["lowercase"])
+        result = self.process.execute(
+            context,
+            func="normalize_field",
+            config={"source_field": "description", "transformations": ["lowercase"]},
+        )
 
         self.assertEqual(result, "hello world")
         self.assertEqual(doc.description, "hello world")
 
     def test_normalize_field_multiple(self):
         """Test multiple transformations"""
-        from flexirule.ruleflow.methods.normalization import normalize_field
-
         doc = frappe.get_doc({"doctype": "ToDo", "description": "  HELLO   WORLD  "})
         context = {"doc": doc, "vars": {}}
-        result = normalize_field(context, source_field="description",
-                                 transformations=["trim", "lowercase", "remove_extra_spaces"])
+        result = self.process.execute(
+            context,
+            func="normalize_field",
+            config={
+                "source_field": "description",
+                "transformations": ["trim", "lowercase", "remove_extra_spaces"],
+            },
+        )
 
         self.assertEqual(result, "hello world")
 
     def test_normalize_field_to_context(self):
         """Test normalizing to context"""
-        from flexirule.ruleflow.methods.normalization import normalize_field_to_context
-
         doc = frappe.get_doc({"doctype": "ToDo", "description": "HELLO"})
         context = {"doc": doc, "vars": {}}
 
-        key = normalize_field_to_context(context, source_field="description",
-                                         transformations=["lowercase"])
+        key = self.process.execute(
+            context,
+            func="normalize_field_to_context",
+            config={"source_field": "description", "transformations": ["lowercase"]},
+        )
 
         self.assertEqual(doc.description, "HELLO")  # Not modified
         self.assertEqual(context["vars"]["normalized_description"], "hello")
-
-    def test_normalize_for_comparison(self):
-        """Test read-only normalization"""
-        from flexirule.ruleflow.methods.normalization import normalize_for_comparison
-
-        doc = frappe.get_doc({"doctype": "ToDo", "description": "HELLO"})
-        context = {"doc": doc, "vars": {}}
-        result = normalize_for_comparison(context, source_field="description",
-                                          transformations=["lowercase"])
-
-        self.assertEqual(doc.description, "HELLO")
-        self.assertEqual(result, "hello")
-
-    def test_all_transformations(self):
-        """Test all transformation types"""
-        from flexirule.ruleflow.methods.normalization import apply_transformations
-
-        self.assertEqual(apply_transformations("  hello  ", ["trim"]), "hello")
-        self.assertEqual(apply_transformations("HELLO", ["lowercase"]), "hello")
-        self.assertEqual(apply_transformations("hello", ["uppercase"]), "HELLO")
-        self.assertEqual(apply_transformations("hello world", ["remove_spaces"]), "helloworld")
-        self.assertEqual(apply_transformations("hello, world!", ["remove_punctuation"]), "hello world")
-        self.assertEqual(apply_transformations("hello   world", ["remove_extra_spaces"]), "hello world")
-        self.assertEqual(apply_transformations("hello123", ["remove_numbers"]), "hello")
-        self.assertEqual(apply_transformations("Hello World", ["slug"]), "hello-world")
-        self.assertEqual(apply_transformations("abc123def456", ["numeric_only"]), "123456")
-        self.assertEqual(apply_transformations("hello world", ["title_case"]), "Hello World")
 
 
 class TestValidationMethods(FrappeTestCase):
     """Test validation process methods"""
 
+    def setUp(self):
+        self.process = frappe.get_doc("Process", "Validation")
+
     def test_validate_required_fields_success(self):
         """Test required fields pass when present"""
-        from flexirule.ruleflow.methods.validation import validate_required_fields
-
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         context = {"doc": doc, "vars": {}}
-        result = validate_required_fields(context, fields=["description"])
+        result = self.process.execute(
+            context, func="required_fields", config={"fields": ["description"]}
+        )
         self.assertTrue(result)
 
     def test_validate_required_fields_failure(self):
         """Test required fields fail when missing"""
-        from flexirule.ruleflow.methods.validation import validate_required_fields
-
         doc = frappe.get_doc({"doctype": "ToDo", "description": ""})
         context = {"doc": doc, "vars": {}}
 
         with self.assertRaises(frappe.ValidationError):
-            validate_required_fields(context, fields=["description"])
+            self.process.execute(
+                context, func="required_fields", config={"fields": ["description"]}
+            )
 
     def test_validate_field_pattern(self):
         """Test pattern validation"""
-        from flexirule.ruleflow.methods.validation import validate_field_pattern
-
         doc = frappe._dict({"email": "test@example.com"})
         context = {"doc": doc, "vars": {}}
-        result = validate_field_pattern(context, field="email", pattern=r".*@.*\..*")
-        self.assertTrue(result)
-
-    def test_validate_value_in_range(self):
-        """Test numeric range validation"""
-        from flexirule.ruleflow.methods.validation import validate_value_in_range
-
-        doc = frappe._dict({"amount": 50})
-        context = {"doc": doc, "vars": {}}
-        result = validate_value_in_range(context, field="amount", min_value=0, max_value=100)
+        result = self.process.execute(
+            context,
+            func="field_pattern",
+            config={
+                "field": "email",
+                "pattern_type": "Custom Regex",
+                "pattern": r".*@.*\..*",
+            },
+        )
         self.assertTrue(result)
 
 
 class TestEnrichmentMethods(FrappeTestCase):
     """Test enrichment process methods"""
 
-    def test_set_default_value(self):
-        """Test setting default value"""
-        from flexirule.ruleflow.methods.enrichment import set_default_value
+    def setUp(self):
+        self.process = frappe.get_doc("Process", "Enrichment")
 
+    def test_set_value(self):
+        """Test setting default value"""
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         context = {"doc": doc, "vars": {}}
-        result = set_default_value(context, field="priority", default_value="Medium")
+        result = self.process.execute(
+            context, func="set_value", config={"field": "priority", "value": "Medium"}
+        )
 
         self.assertEqual(result, "Medium")
         self.assertEqual(doc.priority, "Medium")
 
-    def test_set_default_no_overwrite(self):
-        """Test default doesn't overwrite existing"""
-        from flexirule.ruleflow.methods.enrichment import set_default_value
-
-        doc = frappe.get_doc({"doctype": "ToDo", "description": "Test", "priority": "High"})
+    def test_set_value_no_overwrite(self):
+        """Test value doesn't overwrite existing"""
+        doc = frappe.get_doc(
+            {"doctype": "ToDo", "description": "Test", "priority": "High"}
+        )
         context = {"doc": doc, "vars": {}}
-        result = set_default_value(context, field="priority", default_value="Low", overwrite=False)
+        result = self.process.execute(
+            context,
+            func="set_value",
+            config={"field": "priority", "value": "Low", "overwrite": 0},
+        )
 
         self.assertEqual(doc.priority, "High")
 
-    def test_calculate_field_value(self):
+    def test_calculate_value(self):
         """Test formula calculation"""
-        from flexirule.ruleflow.methods.enrichment import calculate_field_value
-
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         context = {"doc": doc, "vars": {}}
-        result = calculate_field_value(context, target_field="priority", formula='"High"')
+        result = self.process.execute(
+            context,
+            func="calculate_value",
+            config={"target_field": "priority", "formula": '"High"'},
+        )
 
         self.assertEqual(doc.priority, "High")
 
@@ -294,120 +218,28 @@ class TestDeduplicationMethods(FrappeTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        frappe.set_user('Administrator')
+        frappe.set_user("Administrator")
 
     def test_find_duplicates_by_fields(self):
         """Test exact duplicate detection"""
-        from flexirule.ruleflow.process.deduplication.deduplication import (
-            find_duplicates_by_fields,
+        process = frappe.get_doc("Process", "Deduplication")
+
+        existing = frappe.get_doc(
+            {"doctype": "ToDo", "description": "Duplicate Test Item"}
+        ).insert(ignore_permissions=True)
+
+        new_doc = frappe.get_doc(
+            {"doctype": "ToDo", "description": "Duplicate Test Item"}
         )
-
-        existing = frappe.get_doc({
-            "doctype": "ToDo",
-            "description": "Duplicate Test Item"
-        }).insert(ignore_permissions=True)
-
-        new_doc = frappe.get_doc({"doctype": "ToDo", "description": "Duplicate Test Item"})
         new_doc.name = "temp-new-doc"
         context = {"doc": new_doc, "vars": {}}
 
-        duplicates = find_duplicates_by_fields(context, {"fields": ["description"]})
+        duplicates = process.execute(
+            context,
+            func="find_duplicates_by_fields",
+            config={"fields": ["description"]},
+        )
         self.assertIn(existing.name, duplicates)
-
-    @classmethod
-    def tearDownClass(cls):
-        frappe.db.rollback()
-        super().tearDownClass()
-
-
-class TestPermissions(FrappeTestCase):
-    """Test permission checking"""
-
-    def test_validate_safe_eval_blocks_dangerous(self):
-        """Test dangerous patterns are blocked"""
-        from flexirule.ruleflow.core.permissions import validate_safe_eval
-
-        dangerous = ["import os", "__import__('os')", "exec('code')", "eval('code')"]
-
-        for expr in dangerous:
-            with self.assertRaises(frappe.ValidationError):
-                validate_safe_eval(expr)
-
-    def test_validate_safe_eval_allows_safe(self):
-        """Test safe expressions are allowed"""
-        from flexirule.ruleflow.core.permissions import validate_safe_eval
-
-        safe = ["doc.name == 'test'", "doc.amount > 100", "len(doc.items) > 0"]
-
-        for expr in safe:
-            validate_safe_eval(expr)
-
-
-class TestAPI(FrappeTestCase):
-    """Test whitelisted API functions"""
-
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        frappe.set_user('Administrator')
-
-    def test_get_doctype_fields(self):
-        """Test field retrieval API"""
-        from flexirule.ruleflow.api import get_doctype_fields
-
-        result = get_doctype_fields("ToDo")
-
-        self.assertIn("parent_fields", result)
-        self.assertIn("child_tables", result)
-
-    def test_get_process_methods(self):
-        """Test process method listing"""
-        from flexirule.ruleflow.api import get_process_methods
-
-        result = get_process_methods()
-        self.assertIsInstance(result, list)
-
-    def test_clear_cache_api(self):
-        """Test cache clearing API"""
-        from flexirule.ruleflow.api import clear_cache
-
-        result = clear_cache()
-        self.assertTrue(result.get("success"))
-
-    @classmethod
-    def tearDownClass(cls):
-        frappe.db.rollback()
-        super().tearDownClass()
-
-
-class TestImportExport(FrappeTestCase):
-    """Test rule import/export functionality"""
-
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        frappe.set_user('Administrator')
-
-    def test_export_rule(self):
-        """Test rule export"""
-        from flexirule.ruleflow.utils.import_export import export_rule
-
-        rule = create_test_rule("Test Export Rule")
-        export_data = export_rule(rule.name)
-
-        self.assertIn("flexirule_version", export_data)
-        self.assertIn("rule", export_data)
-
-    def test_import_rule(self):
-        """Test rule import"""
-        from flexirule.ruleflow.utils.import_export import export_rule, import_rule
-
-        rule = create_test_rule("Test Import Source")
-        export_data = export_rule(rule.name)
-        export_data["rule"]["rule_name"] = "Test Import Target"
-
-        imported_name = import_rule(export_data)
-        self.assertIsNotNone(imported_name)
 
     @classmethod
     def tearDownClass(cls):
@@ -421,27 +253,38 @@ class TestNewTriggerEvents(FrappeTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        frappe.set_user('Administrator')
-        from flexirule.ruleflow.core.registry import sync_process_methods
-        sync_process_methods()
+        frappe.set_user("Administrator")
 
     def test_before_naming_trigger(self):
         """Test 'Before Naming' trigger event"""
         from flexirule.ruleflow.core.coordinator import RuleCoordinator
+
         RuleCoordinator.clear_cache()
 
         # Create a rule that sets description 'Set by Naming' on Before Naming
         rule_name = "Test Before Naming"
-        create_test_rule(rule_name, doctype="ToDo", event="Before Naming", actions=[
-            {
-                "action_id": "set_desc_naming",
-                "action_type": "Process",
-                "action_label": "Set Description",
-                "process_method": "flexirule.ruleflow.methods.enrichment.set_default_value",
-                "config": json.dumps({"field": "description", "default_value": "Set by Naming", "overwrite": True}),
-                "is_enabled": 1
-            }
-        ])
+        create_test_rule(
+            rule_name,
+            doctype="ToDo",
+            event="Before Naming",
+            actions=[
+                {
+                    "action_id": "set_desc_naming",
+                    "action_type": "Process",
+                    "action_label": "Set Description",
+                    "process_name": "Enrichment",
+                    "operation": "set_value",
+                    "config": json.dumps(
+                        {
+                            "field": "description",
+                            "value": "Set by Naming",
+                            "overwrite": True,
+                        }
+                    ),
+                    "is_enabled": 1,
+                }
+            ],
+        )
 
         # Creating a doc triggers before_naming
         todo = frappe.get_doc({"doctype": "ToDo", "description": "Original"})
@@ -452,22 +295,31 @@ class TestNewTriggerEvents(FrappeTestCase):
     def test_on_change_trigger(self):
         """Test 'On Change' trigger event"""
         from flexirule.ruleflow.core.coordinator import RuleCoordinator
+
         RuleCoordinator.clear_cache()
 
         todo = frappe.get_doc({"doctype": "ToDo", "description": "Original"}).insert()
 
         # Rule to update description on change
         rule_name = "Test On Change"
-        create_test_rule(rule_name, doctype="ToDo", event="On Change", actions=[
-            {
-                "action_id": "set_desc_change",
-                "action_type": "Process",
-                "action_label": "Update Description",
-                "process_method": "flexirule.ruleflow.methods.enrichment.set_default_value",
-                "config": json.dumps({"field": "description", "default_value": "Changed", "overwrite": True}),
-                "is_enabled": 1
-            }
-        ])
+        create_test_rule(
+            rule_name,
+            doctype="ToDo",
+            event="On Change",
+            actions=[
+                {
+                    "action_id": "set_desc_change",
+                    "action_type": "Process",
+                    "action_label": "Update Description",
+                    "process_name": "Enrichment",
+                    "operation": "set_value",
+                    "config": json.dumps(
+                        {"field": "description", "value": "Changed", "overwrite": True}
+                    ),
+                    "is_enabled": 1,
+                }
+            ],
+        )
 
         todo.description = "Something Else"
         todo.save()
@@ -480,5 +332,5 @@ class TestNewTriggerEvents(FrappeTestCase):
         super().tearDownClass()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

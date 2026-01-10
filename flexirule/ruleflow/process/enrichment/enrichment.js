@@ -3,7 +3,7 @@
  * Provides high-quality UI for document enrichment operations.
  */
 
-flexirule.rule_builder.enrichment = {
+flexirule.processes["Enrichment"] = {
     /**
      * Get the process schema metadata
      */

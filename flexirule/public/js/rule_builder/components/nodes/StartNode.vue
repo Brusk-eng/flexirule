@@ -6,24 +6,21 @@ const props = defineProps(["data", "label"]);
 
 const displayLabel = computed(() => {
 	if (props.data?.document_type && props.data?.trigger_event) {
-		return `${props.data.document_type}\n${props.data.trigger_event}`;
+		return `${props.data.document_type} / ${props.data.trigger_event}`;
 	}
 	return props.label || __("Start");
 });
 </script>
 
 <template>
-	<div class="start-node-capsule">
-		<div class="capsule-body">
-			<div class="glow-effect"></div>
-			<div class="content">
-				<div class="play-icon">
-					<i class="fa fa-play"></i>
-				</div>
-				<div class="text-group">
-					<span class="entry-label">{{ __("TRIGGER") }}</span>
-					<span class="main-text">{{ displayLabel }}</span>
-				</div>
+	<div class="start-node-d">
+		<div class="node-body">
+			<div class="icon-section">
+				<i class="fa fa-play"></i>
+			</div>
+			<div class="info-section">
+				<div class="type-label">{{ __("TRIGGER") }}</div>
+				<div class="main-label">{{ displayLabel }}</div>
 			</div>
 		</div>
 		<Handle type="source" :position="Position.Right" id="default" class="handle-source" />
@@ -31,81 +28,68 @@ const displayLabel = computed(() => {
 </template>
 
 <style scoped>
-.start-node-capsule {
+.start-node-d {
 	position: relative;
-	padding: 2px;
+	min-width: 180px;
 }
 
-.capsule-body {
-	background: linear-gradient(135deg, var(--green-500) 0%, #157347 100%);
+.node-body {
+	background: #157347; /* Professional Green */
 	color: white;
-	padding: 12px 24px 12px 16px;
-	border-radius: 50px 10px 50px 10px; /* Aerodynamic Capsule */
-	min-width: 160px;
-	box-shadow: 0 10px 15px -3px rgba(0, 128, 0, 0.2);
-	position: relative;
-	overflow: hidden;
 	display: flex;
 	align-items: center;
-	transition: all 0.3s ease;
+	padding: 10px 20px 10px 12px;
+	border-radius: 4px 50px 50px 4px; /* Reflected D-Shape */
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+	transition: all 0.2s ease;
+	border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.capsule-body:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 20px 25px -5px rgba(0, 128, 0, 0.3);
+.node-body:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+	background: #198754;
 }
 
-.glow-effect {
-	position: absolute;
-	top: -50%;
-	left: -50%;
-	width: 100%;
-	height: 100%;
-	background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
-	pointer-events: none;
-}
-
-.content {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	z-index: 1;
-}
-
-.play-icon {
+.icon-section {
 	width: 32px;
 	height: 32px;
-	background: rgba(255, 255, 255, 0.2);
+	background: rgba(255, 255, 255, 0.15);
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-size: 12px;
-	backdrop-filter: blur(4px);
+	margin-right: 12px;
+	flex-shrink: 0;
 }
 
-.text-group {
+.info-section {
 	display: flex;
 	flex-direction: column;
+	overflow: hidden;
 }
 
-.entry-label {
-	font-size: 8px;
-	font-weight: 900;
+.type-label {
+	font-size: 9px;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
 	opacity: 0.8;
-	letter-spacing: 1px;
+	margin-bottom: 2px;
 }
 
-.main-text {
+.main-label {
 	font-size: 13px;
-	font-weight: 700;
-	white-space: pre-line;
-	line-height: 1.1;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .handle-source {
 	background: white !important;
-	border: 3px solid var(--green-600) !important;
+	border: 3px solid #157347 !important;
 	width: 14px !important;
 	height: 14px !important;
 	right: -7px !important;

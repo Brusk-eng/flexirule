@@ -74,8 +74,12 @@ import ConditionBuilder from "./condition_builder/ConditionBuilder.vue";
 const emit = defineEmits(["close"]);
 const store = useStore();
 
-// Selected node from store
-const selectedNode = computed(() => store.graph.selected);
+// Selected node from store - find the original reference for reactivity
+const selectedNode = computed(() => {
+	const id = store.selected_id;
+	if (!id) return null;
+	return (store.nodes || []).find((el) => el.id === id);
+});
 
 // Sidebar title
 const sidebar_title = computed(() => {
@@ -136,13 +140,13 @@ function update_edge(field, newTarget) {
 			: "false";
 
 	// Remove existing edge
-	store.graph.elements = store.graph.elements.filter(
+	store.edges = store.edges.filter(
 		(el) => !(el.source === nodeId && el.sourceHandle === handleType)
 	);
 
 	// Add new edge if target specified
 	if (newTarget) {
-		store.graph.elements.push({
+		store.edges.push({
 			id: `e-${nodeId}-${newTarget}-${handleType}`,
 			source: nodeId,
 			target: newTarget,
@@ -199,6 +203,48 @@ const showConditionModal = ref(false);
 const currentConditions = ref({});
 const showOldDoc = ref(false);
 
+/**
+ * Strips ephemeral 'id' fields from the condition tree before saving.
+ */
+function dehydrate_conditions(tree) {
+	if (!tree || typeof tree !== "object") return tree;
+	const clean = Array.isArray(tree) ? [...tree] : { ...tree };
+
+	if (clean.id) delete clean.id;
+
+	if (clean.conditions && Array.isArray(clean.conditions)) {
+		clean.conditions = clean.conditions.map((c) => dehydrate_conditions(c));
+	}
+
+	if (clean.where) {
+		clean.where = dehydrate_conditions(clean.where);
+	}
+
+	return clean;
+}
+
+/**
+ * Injects ephemeral 'id' fields into the condition tree for Vue reactivity.
+ */
+function hydrate_conditions(tree) {
+	if (!tree || typeof tree !== "object") return tree;
+	const hydrated = Array.isArray(tree) ? [...tree] : { ...tree };
+
+	if (!hydrated.id) {
+		hydrated.id = frappe.utils.get_random(12);
+	}
+
+	if (hydrated.conditions && Array.isArray(hydrated.conditions)) {
+		hydrated.conditions = hydrated.conditions.map((c) => hydrate_conditions(c));
+	}
+
+	if (hydrated.where) {
+		hydrated.where = hydrate_conditions(hydrated.where);
+	}
+
+	return hydrated;
+}
+
 const docFields = computed(() => {
 	let fields = [...store.doc_fields];
 
@@ -241,8 +287,8 @@ watch(showConditionModal, (val) => {
 
 		currentConditions.value =
 			parsed && (parsed.op || parsed.conditions)
-				? JSON.parse(JSON.stringify(parsed))
-				: { op: "and", conditions: [] };
+				? hydrate_conditions(parsed)
+				: { id: frappe.utils.get_random(12), op: "and", conditions: [] };
 	}
 });
 
@@ -253,7 +299,9 @@ function update_conditions(val) {
 function save_conditions() {
 	if (!selectedNode.value?.data) return;
 
-	const json = JSON.stringify(currentConditions.value);
+	// Strip ephemeral IDs before saving
+	const cleanConditions = dehydrate_conditions(currentConditions.value);
+	const json = JSON.stringify(cleanConditions);
 
 	if (selectedNode.value.type === "start") {
 		selectedNode.value.data.trigger_condition = json;
@@ -281,7 +329,6 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	background: #fff;
-	border-left: 1px solid var(--border-color);
 }
 
 .sidebar-header {

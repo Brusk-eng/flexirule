@@ -59,20 +59,8 @@ async function loadFields() {
 	}
 	loading.value = true;
 	try {
-		const result = await frappe.call({
-			method: "flexirule.ruleflow.api.get_doctype_fields",
-			args: {
-				doctype: props.documentType,
-				filters: { include_system_fields: true },
-			},
-		});
-		const data = result.message;
-		apiFields.value = data.parent_fields || [];
-		if (data.system_fields) {
-			apiFields.value = [...apiFields.value, ...data.system_fields];
-		}
+		apiFields.value = await flexirule.utils.get_doctype_fields(props.documentType);
 	} catch (e) {
-		console.error("Failed to load fields:", e);
 		apiFields.value = [];
 	} finally {
 		loading.value = false;

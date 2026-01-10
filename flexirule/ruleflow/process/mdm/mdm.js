@@ -3,7 +3,7 @@
  * Provides high-quality UI for Master Data Management operations.
  */
 
-flexirule.rule_builder.mdm = {
+flexirule.processes["MDM"] = {
 	/**
 	 * Get the process schema metadata
 	 */

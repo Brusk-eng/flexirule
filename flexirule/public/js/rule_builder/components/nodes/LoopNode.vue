@@ -2,8 +2,12 @@
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 
-const props = defineProps(["data", "label", "id"]);
+const props = defineProps(["data", "label", "id", "selected"]);
 const store = useStore();
+
+const isEffectiveDisabled = computed(() => {
+	return store.effectiveDisabledIds?.has(props.id);
+});
 
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
@@ -11,142 +15,150 @@ function deleteNode() {
 </script>
 
 <template>
-	<div
-		class="loop-node-container"
-		:class="{ 'effectively-disabled': data.is_effectively_disabled }"
+	<div 
+		class="loop-node-card" 
+		:class="{ selected: selected, disabled: isEffectiveDisabled }"
 	>
 		<Handle type="target" :position="Position.Left" class="handle-target" />
 
-		<div class="pill-body">
-			<div class="inset-stripe"></div>
-			<div class="content">
-				<i class="fa fa-refresh"></i>
-				<div class="text-group">
-					<span class="node-title">{{ data.action_label || label }}</span>
-					<span class="node-type">ITERATE</span>
-				</div>
-			</div>
+		<div class="node-header">
+			<i class="fa fa-refresh"></i>
+			<span class="type-text">{{ __("ITERATION") }}</span>
+			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
+				<i class="fa fa-trash"></i>
+			</button>
 		</div>
 
-		<button class="delete-btn" @click.stop="deleteNode">×</button>
+		<div class="node-body">
+			<div class="loop-title">{{ data.action_label || label }}</div>
+		</div>
 
-		<Handle type="source" :position="Position.Right" id="default" class="handle-do" />
-		<span class="handle-label label-do">DO</span>
+		<!-- Iteration Handle -->
+		<div class="out-port out-do">
+			<span class="port-label">{{ __("DO") }}</span>
+			<Handle type="source" :position="Position.Right" id="default" class="handle-out handle-do" />
+		</div>
 
-		<Handle type="source" :position="Position.Bottom" id="false" class="handle-done" />
-		<span class="handle-label label-done">DONE</span>
+		<!-- Done Handle -->
+		<div class="out-port out-done">
+			<span class="port-label">{{ __("DONE") }}</span>
+			<Handle type="source" :position="Position.Bottom" id="false" class="handle-out handle-done" />
+		</div>
 	</div>
 </template>
 
 <style scoped>
-.loop-node-container {
-	position: relative;
-	padding: 5px;
-}
-
-.pill-body {
+.loop-node-card {
+	width: 180px;
 	background: #fff;
-	border: 2px solid var(--yellow-400);
-	border-radius: 50px; /* Pill */
-	padding: 10px 20px;
-	min-width: 150px;
-	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-	display: flex;
-	align-items: center;
+	border: 1px solid #ffe066; /* Light Yellow */
+	border-radius: 8px;
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 	position: relative;
-	background: var(--yellow-50);
+	border-left: 4px solid #fab005; /* Yellow 7 */
+	transition: all 0.2s ease;
 }
 
-.inset-stripe {
-	position: absolute;
-	left: 10px;
-	right: 10px;
-	top: 6px;
-	height: 2px;
-	background: var(--yellow-200);
-	border-radius: 1px;
+.loop-node-card:hover {
+	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+	border-color: #fab005;
 }
 
-.content {
+.loop-node-card.selected {
+	box-shadow: 0 0 0 2px #fab005;
+	border-color: #fab005;
+}
+
+.node-header {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	padding: 6px 10px;
+	border-bottom: 1px solid #fff9db;
+	gap: 8px;
 }
 
-.content i {
-	font-size: 18px;
-	color: var(--yellow-600);
+.node-header i {
+	color: #fab005;
+	font-size: 12px;
 }
 
-.text-group {
-	display: flex;
-	flex-direction: column;
-}
-.node-title {
-	font-weight: 700;
-	font-size: 13px;
-	color: var(--text-color);
-}
-.node-type {
-	font-size: 8px;
-	font-weight: 900;
-	color: var(--yellow-700);
-	opacity: 0.7;
-	letter-spacing: 1px;
-}
-
-.delete-btn {
-	position: absolute;
-	top: 0;
-	right: 0;
-	width: 22px;
-	height: 22px;
-	border-radius: 50%;
-	background: var(--danger);
-	color: white;
-	border: 2px solid white;
-	cursor: pointer;
-	display: none;
-	align-items: center;
-	justify-content: center;
-	z-index: 5;
-}
-.loop-node-container:hover .delete-btn {
-	display: flex;
-}
-
-.handle-target {
-	background: var(--gray-400) !important;
-	border: 2px solid white;
-}
-.handle-do {
-	background: var(--yellow-500) !important;
-	border: 2px solid white;
-	width: 12px !important;
-	height: 12px !important;
-}
-.handle-done {
-	background: var(--gray-400) !important;
-	border: 2px solid white;
-	width: 12px !important;
-	height: 12px !important;
-}
-
-.handle-label {
-	position: absolute;
+.type-text {
 	font-size: 9px;
-	font-weight: 900;
-	color: var(--text-muted);
-	pointer-events: none;
+	font-weight: 800;
+	color: #6c757d;
+	letter-spacing: 0.5px;
+	flex: 1;
 }
-.label-do {
-	right: -25px;
-	top: 38%;
-	color: var(--yellow-600);
+
+.action-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: #adb5bd;
+	font-size: 10px;
 }
-.label-done {
-	bottom: -20px;
+
+.action-btn:hover {
+	color: #dc3545;
+}
+
+.node-body {
+	padding: 12px;
+	min-height: 40px;
+}
+
+.loop-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: #1a1a1a;
+}
+
+/* Handles */
+.handle-target {
+	width: 10px !important;
+	height: 10px !important;
+	background-color: #fff !important;
+	border: 2px solid #fab005 !important;
+}
+
+.handle-out {
+	position: relative !important;
+	transform: none !important;
+	width: 10px !important;
+	height: 10px !important;
+	background: #fff !important;
+	border-width: 2px !important;
+	border-style: solid !important;
+}
+
+.handle-do { border-color: #fab005 !important; }
+.handle-done { border-color: #adb5bd !important; }
+
+.out-port {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.out-do {
+	right: -24px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+.out-done {
+	bottom: -22px;
 	left: 50%;
 	transform: translateX(-50%);
+	flex-direction: column;
 }
+
+.port-label {
+	font-size: 8px;
+	font-weight: 800;
+	color: #6c757d;
+}
+
+.out-do .port-label { color: #fab005; }
 </style>

@@ -2,14 +2,6 @@
 	<div class="rule-builder-container">
 		<!-- Main Canvas + Sidebar -->
 		<div class="builder-main">
-			<div
-				class="sidebar-container"
-				:class="{ 'sidebar-rtl': isRTL }"
-				v-if="showSidebar"
-				@click.stop
-			>
-				<Sidebar @close="closeSidebar" />
-			</div>
 			<div class="canvas-container" ref="flowWrapper" @dragover="onDragOver" @drop="onDrop">
 				<VueFlow
 					:edges-editable="false"
@@ -168,6 +160,14 @@
 					</div>
 				</div>
 			</div>
+			<div
+				class="sidebar-container"
+				:class="{ 'sidebar-rtl': isRTL }"
+				v-if="showSidebar"
+				@click.stop
+			>
+				<Sidebar @close="closeSidebar" />
+			</div>
 		</div>
 	</div>
 </template>
@@ -179,6 +179,7 @@ import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { useStore } from "./store";
 import { generateShortId } from "./utils";
+import "./utils/meta.js";
 
 import StartNode from "./components/nodes/StartNode.vue";
 import ProcessNode from "./components/nodes/ProcessNode.vue";
@@ -247,52 +248,33 @@ const showDisabledNodes = ref(true);
 
 const nodes = computed({
 	get: () => {
-		const disabledIds = store.effectiveDisabledIds || new Set();
-		return (store.graph.elements || [])
-			.filter((el) => {
-				if (!el.position) return false;
-				if (el.type === "start") return true;
-				// Filtering
-				if (!showDisabledNodes.value && el.data?.is_enabled === 0) return false;
-				return true;
-			})
-			.map((el) => {
-				// Determine effective disablement
-				const isEffectiveDisabled = disabledIds.has(el.id);
-				// Return shallow copy with updated data
-				return {
-					...el,
-					data: {
-						...el.data,
-						is_effectively_disabled: isEffectiveDisabled,
-					},
-				};
-			});
+		return (store.nodes || []).filter((el) => {
+			if (el.type === "start") return true;
+			// Filtering
+			if (!showDisabledNodes.value && el.data?.is_enabled === 0) return false;
+			return true;
+		});
 	},
 	set: (val) => {
-		const edges = store.graph.elements.filter((el) => el.source);
 		const currentIds = new Set(val.map((n) => n.id));
 		// Preserve hidden nodes
-		const hiddenNodes = store.graph.elements.filter(
-			(el) => el.position && !currentIds.has(el.id)
-		);
-		store.graph.elements = [...val, ...hiddenNodes, ...edges];
+		const hiddenNodes = store.nodes.filter((el) => !currentIds.has(el.id));
+		store.nodes = [...val, ...hiddenNodes];
 	},
 });
 
 const edges = computed({
-	get: () => (store.graph.elements || []).filter((el) => el.source),
+	get: () => store.edges || [],
 	set: (val) => {
-		const nodesList = store.graph.elements.filter((el) => el.position);
-		store.graph.elements = [...nodesList, ...val];
+		store.edges = val;
 	},
 });
 
-const showSidebar = computed(() => store.graph.selected !== null);
+const showSidebar = computed(() => store.selected_id !== null);
 const isRTL = computed(() => document.documentElement.dir === "rtl");
 
 function closeSidebar() {
-	store.graph.selected = null;
+	store.selected_id = null;
 }
 
 function onPaneReady(instance) {
@@ -379,23 +361,23 @@ function addNode(type, position) {
 			is_enabled: 1,
 		},
 	};
-	store.graph.elements.push(newNode);
-	store.graph.selected = newNode;
+	store.nodes.push(newNode);
+	store.selected_id = id;
 	store.mark_dirty();
 }
 function autoConnectStartNode() {
-	const startNode = (store.graph.elements || []).find((el) => el.type === "start");
+	const startNode = (store.nodes || []).find((el) => el.id === "start" || el.type === "start");
 	if (!startNode) return;
 
 	// Check if start node has any outgoing edges
-	const hasStartEdge = (store.graph.elements || []).some((el) => el.source === startNode.id);
+	const hasStartEdge = (store.edges || []).some((el) => el.source === startNode.id);
 	if (hasStartEdge) return;
 
-	const firstNode = (store.graph.elements || []).find(
-		(el) => el.position && el.type !== "start" && el.data?.is_enabled !== 0
+	const firstNode = (store.nodes || []).find(
+		(el) => el.type !== "start" && el.data?.is_enabled !== 0
 	);
 	if (firstNode) {
-		store.graph.elements.push({
+		store.edges.push({
 			id: `e-${startNode.id}-${firstNode.id}`,
 			source: startNode.id,
 			target: firstNode.id,
@@ -406,10 +388,10 @@ function autoConnectStartNode() {
 }
 
 function onNodeClick(event) {
-	store.graph.selected = event.node;
+	store.selected_id = event.node.id;
 }
 function onPaneClick() {
-	store.graph.selected = null;
+	store.selected_id = null;
 }
 
 function onConnect(params) {
@@ -418,9 +400,9 @@ function onConnect(params) {
 		source: params.source,
 		target: params.target,
 		sourceHandle: params.sourceHandle || "default",
-		animated: store.graph.elements.find((el) => el.id === params.source)?.type === "start",
+		animated: store.nodes.find((el) => el.id === params.source)?.type === "start",
 	};
-	store.graph.elements.push(newEdge);
+	store.edges.push(newEdge);
 	store.mark_dirty();
 }
 
@@ -519,10 +501,11 @@ function onEdgeClick({ edge, event }) {
 .sidebar-container {
 	position: relative;
 	height: 100%;
-	margin-right: 10px;
+	margin-left: 10px;
 	border-radius: var(--border-radius-lg);
 	border: 1px solid var(--border-color);
 	background-color: var(--fg-color);
+	order: 2;
 }
 .canvas-container {
 	flex: 1;
@@ -530,7 +513,8 @@ function onEdgeClick({ edge, event }) {
 	border-radius: var(--border-radius-lg);
 	border: 1px solid var(--border-color);
 	background-color: var(--fg-color);
-	position: relative; /* For absolute positioning of children */
+	position: relative;
+	order: 1;
 }
 .toolbar-center {
 	display: flex;
@@ -649,8 +633,8 @@ input:checked + .slider:before {
 
 /* RTL sidebar positioning */
 .sidebar-rtl {
-	order: 1; /* Move after canvas in flex */
-	margin-right: 0;
-	margin-left: 10px;
+	order: 0;
+	margin-left: 0;
+	margin-right: 10px;
 }
 </style>

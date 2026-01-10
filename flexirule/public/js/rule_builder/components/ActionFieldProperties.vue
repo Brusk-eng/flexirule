@@ -122,7 +122,7 @@ async function get_autocomplete_options(df) {
 
 	// operation field - get from process adapter
 	if (df.fieldname === "operation" && props.nodeData?.process_name) {
-		const operations = store.get_process_operations(props.nodeData.process_name);
+		const operations = await store.get_process_operations(props.nodeData.process_name);
 		return operations.map((op) => ({
 			value: op.func_name,
 			label: op.label || op.func_name,
@@ -142,8 +142,8 @@ async function get_autocomplete_options(df) {
 function get_action_node_options() {
 	const current_id = props.nodeData?.action_id;
 
-	return store.graph.elements
-		.filter((el) => el.position && el.id !== current_id && el.id !== "start")
+	return (store.nodes || [])
+		.filter((el) => el.id !== current_id && el.id !== "start")
 		.map((el) => ({
 			value: el.id,
 			label: el.label || el.data?.action_label || el.id,

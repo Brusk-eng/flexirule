@@ -3,7 +3,10 @@
 
 import frappe
 from frappe import _
-from flexirule.ruleflow.methods.utils import parse_field_list, parse_field_mapping
+from flexirule.ruleflow.utils.field_resolver import (
+    parse_field_list,
+    parse_field_mapping,
+)
 
 
 def set_value(context, config=None, **kwargs):
@@ -192,3 +195,25 @@ def apply_naming_series(context, config=None, **kwargs):
         doc.naming_series = naming_series
 
     return naming_series
+
+
+# ============================================================
+# DISPATCHER
+# ============================================================
+
+_OPERATIONS = {
+    "set_value": set_value,
+    "calculate_value": calculate_value,
+    "linked_doc_autocomplete": linked_doc_autocomplete,
+    "copy_from_template": copy_from_template,
+    "apply_naming_series": apply_naming_series,
+}
+
+
+def execute(context, func=None, config=None):
+    if not func:
+        frappe.throw(_("Operation function name is required"))
+    if func not in _OPERATIONS:
+        frappe.throw(_("Unknown enrichment operation: {0}").format(func))
+
+    return _OPERATIONS[func](context, config or {})

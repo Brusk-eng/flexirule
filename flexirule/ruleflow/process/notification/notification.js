@@ -3,7 +3,7 @@
  * Provides a future-proof UI for communication and notification tasks.
  */
 
-flexirule.rule_builder.notification = {
+flexirule.processes["Notification"] = {
     /**
      * Get the process schema metadata
      */
