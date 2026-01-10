@@ -1,217 +1,200 @@
 # Copyright (c) 2025, FlexiRule and contributors
 # For license information, please see license.txt
 
-"""
-MDM (Master Data Management) Process
-
-This process provides operations for data quality, deduplication, and normalization.
-File-backed execution following the Frappe Script Report pattern.
-"""
-
 import frappe
 from frappe import _
+from flexirule.ruleflow.methods.utils import parse_field_list
 
-# ============================================================
-# OPERATION: create_review_task
-# ============================================================
 
-def create_review_task(context, config):
+def create_review_task(context, config=None, **kwargs):
     """
-    Create a Data Review Task for steward review.
-    
-    Args:
-        context: Execution context with 'doc', 'dry_run', etc.
-        config: Configuration dict with 'task_type', 'priority', 'description'
-    
-    Returns:
-        str: Name of the created task (or None if dry_run)
+    Create a Data Review Task for data steward review.
+
+    config: {
+        "task_type": "Duplicate Review",
+        "priority": "Medium",
+        "description": "Please review {{ doc.name }}"
+    }
     """
     doc = context.get("doc")
-    if not doc:
-        frappe.throw(_("Document is required in context"))
+    if not doc or not config:
+        return
 
-    task_type = config.get("task_type", "Duplicate Review")
+    task_type = config.get("task_type", "Data Quality")
     priority = config.get("priority", "Medium")
     description = config.get("description", "")
 
-    # Check if Data Review Task DocType exists
+    # Check if Data Review Task doctype exists
     if not frappe.db.exists("DocType", "Data Review Task"):
-        frappe.throw(_("Data Review Task DocType not found"))
+        frappe.log_error(_("Data Review Task DocType not found."), "MDM Error")
+        return
+
+    # Render description
+    rendered_desc = frappe.render_template(
+        description, {"doc": doc, "frappe": frappe, "context": context}
+    )
 
     task = frappe.new_doc("Data Review Task")
     task.task_type = task_type
     task.priority = priority
-    task.description = description or f"Review {doc.doctype}: {doc.name}"
-    task.reference_doctype = doc.doctype
-    task.reference_name = doc.name
+    task.description = rendered_desc
+    task.source_doctype = doc.doctype
+    task.source_document = doc.name
+    task.status = "Open"
 
-    if context.get("dry_run"):
-        return None
+    if context.get("rule"):
+        task.rule = context["rule"].name
 
     task.insert(ignore_permissions=True)
     return task.name
 
 
-# ============================================================
-# OPERATION: find_duplicates
-# ============================================================
-
-def find_duplicates(context, config):
+def find_duplicates_and_task(context, config=None, **kwargs):
     """
-    Find potential duplicate records based on similarity.
-    
-    Args:
-        context: Execution context with 'doc'
-        config: Configuration dict with 'threshold', 'fields_to_compare', 'max_results'
-    
-    Returns:
-        dict: {duplicates: [...], count: int, threshold: float}
+    Find similar records and create Data Review Tasks.
     """
     doc = context.get("doc")
-    if not doc:
-        frappe.throw(_("Document is required in context"))
+    if not doc or not config:
+        return []
 
-    threshold = float(config.get("threshold", 0.8))
-    fields_str = config.get("fields_to_compare", "")
-    max_results = int(config.get("max_results", 10))
-
-    # Parse fields
-    if fields_str:
-        fields = [f.strip() for f in fields_str.split(",") if f.strip()]
-    else:
-        # Default to name field
-        fields = ["name"]
-
-    # Simple duplicate detection (placeholder - production would use proper similarity)
-    duplicates = []
-
-    # Get existing records
-    existing = frappe.get_all(
-        doc.doctype,
-        filters={"name": ["!=", doc.name]},
-        fields=["name"] + fields,
-        limit=max_results * 2
+    # Import deduplication logic
+    from flexirule.ruleflow.process.deduplication.deduplication import (
+        find_similar_records,
     )
 
-    for record in existing:
-        similarity = _calculate_similarity(doc, record, fields)
-        if similarity >= threshold:
-            duplicates.append({
-                "name": record.name,
-                "similarity": similarity,
-                "fields_matched": fields
-            })
+    # Find similar records
+    matches = find_similar_records(
+        context,
+        config=config,  # Passes overall_threshold, fields_config, etc.
+        **kwargs,
+    )
 
-    # Sort by similarity descending
-    duplicates.sort(key=lambda x: x["similarity"], reverse=True)
-    duplicates = duplicates[:max_results]
+    if not matches:
+        return []
 
-    return {
-        "duplicates": duplicates,
-        "count": len(duplicates),
-        "threshold": threshold
-    }
+    created_tasks = []
+    max_tasks = config.get("max_tasks", 5)
+
+    for match in matches[:max_tasks]:
+        match_name = match.get("name")
+        match_score = match.get("score", 0)
+
+        # Skip if task already exists
+        if frappe.db.exists(
+            "Data Review Task",
+            {
+                "source_doctype": doc.doctype,
+                "source_document": doc.name,
+                "related_document": match_name,
+                "status": ["in", ["Open", "In Progress"]],
+            },
+        ):
+            continue
+
+        description = (
+            f"Potential duplicate found with {match_name} (Score: {match_score}%)"
+        )
+
+        task_config = {
+            "task_type": config.get("task_type", "Duplicate Review"),
+            "priority": config.get("priority", "Medium"),
+            "description": description,
+        }
+
+        task_name = create_review_task(context, task_config)
+        if task_name:
+            # Update task with match details
+            frappe.db.set_value(
+                "Data Review Task",
+                task_name,
+                {"similarity_score": match_score, "related_document": match_name},
+            )
+            created_tasks.append(task_name)
+
+    return created_tasks
 
 
-def _calculate_similarity(doc1, doc2, fields):
-    """Calculate simple field similarity score."""
-    if not fields:
-        return 0.0
-
-    matches = 0
-    for field in fields:
-        val1 = str(doc1.get(field) or "").lower().strip()
-        val2 = str(doc2.get(field) or "").lower().strip()
-        if val1 and val2 and val1 == val2:
-            matches += 1
-
-    return matches / len(fields) if fields else 0.0
-
-
-# ============================================================
-# OPERATION: normalize_field
-# ============================================================
-
-def normalize_field(context, config):
+def batch_normalize(context, config=None, **kwargs):
     """
-    Apply normalization transformations to a field value.
-    
-    Args:
-        context: Execution context with 'doc'
-        config: Configuration dict with 'field', 'transformations'
-    
-    Returns:
-        str: The normalized value
+    Enqueue normalization of all documents in background.
     """
-    doc = context.get("doc")
-    if not doc:
-        frappe.throw(_("Document is required in context"))
+    doctype = config.get("doctype")
+    if not doctype:
+        return
+
+    frappe.enqueue(
+        "flexirule.ruleflow.process.mdm.mdm.run_batch_normalize",
+        doctype=doctype,
+        config=config,
+        timeout=3600,
+        queue="long",
+    )
+    return True
+
+
+def run_batch_normalize(doctype, config):
+    """Background job for normalization."""
+    from flexirule.ruleflow.process.normalization.normalization import (
+        apply_transformations,
+    )
 
     field = config.get("field")
-    if not field:
-        frappe.throw(_("Field name is required"))
+    target_field = config.get("target_field") or field
+    transformations = config.get("transformations", [])
+    batch_size = config.get("batch_size", 100)
 
-    transformations_str = config.get("transformations", "trim,lowercase")
-    transformations = [t.strip() for t in transformations_str.split(",") if t.strip()]
+    filters = config.get("filters") or {"docstatus": ["!=", 2]}
 
-    value = doc.get(field)
-    if value is None:
-        return None
+    docs = frappe.get_all(doctype, filters=filters, fields=["name", field])
 
-    value = str(value)
+    for doc_data in docs:
+        val = doc_data.get(field)
+        if val:
+            normalized = apply_transformations(val, transformations)
+            frappe.db.set_value(
+                doctype, doc_data.name, target_field, normalized, update_modified=False
+            )
 
-    for transform in transformations:
-        if transform == "lowercase":
-            value = value.lower()
-        elif transform == "uppercase":
-            value = value.upper()
-        elif transform == "trim":
-            value = value.strip()
-        elif transform == "remove_special_chars":
-            import re
-            value = re.sub(r'[^a-zA-Z0-9\s]', '', value)
-        elif transform == "title":
-            value = value.title()
-
-    # Apply to doc if not dry_run
-    if not context.get("dry_run"):
-        doc.set(field, value)
-
-    return value
+        if frappe.flags.in_test:
+            continue  # Don't commit in tests
+        frappe.db.commit()
 
 
-# ============================================================
-# DISPATCHER — single entry point (no registry, no decorators)
-# ============================================================
-
-_OPERATIONS = {
-    "create_review_task": create_review_task,
-    "find_duplicates": find_duplicates,
-    "normalize_field": normalize_field,
-}
-
-
-def execute(context, func=None, config=None):
+def batch_dedupe(context, config=None, **kwargs):
     """
-    Execute a process operation.
-    
-    This is the single entry point for the MDM process, following the
-    Frappe Script Report pattern.
-    
-    Args:
-        context: Execution context with 'doc', 'event', 'dry_run', etc.
-        func: Operation function name to execute
-        config: Configuration dict for the operation
-    
-    Returns:
-        Operation result (varies by operation)
+    Enqueue duplicate detection of all documents in background.
     """
-    if not func:
-        frappe.throw(_("Operation function name is required"))
+    doctype = config.get("doctype")
+    if not doctype:
+        return
 
-    if func not in _OPERATIONS:
-        frappe.throw(_("Unknown operation: {0}. Available: {1}").format(
-            func, ", ".join(_OPERATIONS.keys())
-        ))
+    frappe.enqueue(
+        "flexirule.ruleflow.process.mdm.mdm.run_batch_dedupe",
+        doctype=doctype,
+        config=config,
+        timeout=3600,
+        queue="long",
+    )
+    return True
 
-    return _OPERATIONS[func](context, config or {})
+
+def run_batch_dedupe(doctype, config):
+    """Background job for deduplication."""
+    from flexirule.ruleflow.process.deduplication.deduplication import (
+        find_similar_records,
+    )
+
+    batch_size = config.get("batch_size", 50)
+    filters = config.get("filters") or {"docstatus": ["!=", 2]}
+
+    docs = frappe.get_all(doctype, filters=filters, fields=["name"])
+
+    for doc_data in docs:
+        doc = frappe.get_doc(doctype, doc_data.name)
+        ctx = {"doc": doc}
+
+        find_duplicates_and_task(ctx, config)
+
+        if frappe.flags.in_test:
+            continue
+        frappe.db.commit()
