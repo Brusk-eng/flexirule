@@ -217,7 +217,7 @@ scheduler_events = {"daily": ["flexirule.tasks.clear_old_logs"]}
 # Testing
 # -------
 
-# before_tests = "flexirule.install.before_tests"
+before_tests = "flexirule.ruleflow.core.process_sync.sync_all_processes"
 
 # Overriding Methods
 # ------------------------------
