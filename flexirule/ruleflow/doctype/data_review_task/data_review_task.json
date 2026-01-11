@@ -15,7 +15,6 @@
 		"context_json",
 		"similarity_score",
 		"section_break_method",
-		"process_method",
 		"method_inputs",
 		"section_break_description",
 		"description",
@@ -102,13 +101,6 @@
 			"fieldname": "section_break_method",
 			"fieldtype": "Section Break",
 			"label": "Resolution Method"
-		},
-		{
-			"description": "Suggested method to resolve this task",
-			"fieldname": "process_method",
-			"fieldtype": "Link",
-			"label": "Process Method",
-			"options": "Process Method"
 		},
 		{
 			"description": "Pre-configured inputs for the resolution method",

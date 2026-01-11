@@ -1,11 +1,11 @@
-# Bolton Rule Engine
+# FlexiRule (beta 2)
 
 A visual rule builder and execution engine for Frappe/ERPNext.
 
 ## Features
 
 -   **Visual Rule Builder** - Drag-and-drop interface for building rules
--   **Process Methods** - Extensible library of validation, enrichment, and notification methods
+-   **Processes** - Extensible file-backed processes and operations
 -   **Graph-Based Execution** - Complex rule flows with conditions and branching
 -   **Event Integration** - Trigger rules on document events (save, submit, etc.)
 
@@ -32,32 +32,16 @@ Navigate to `/app/rule-builder/{rule_name}` to open the visual builder.
 
 Add Process nodes and configure them using the sidebar.
 
-## Process Methods
+## Process Architecture
 
-### Validation
+FlexiRule uses file-backed **Processes** which contain multiple **Operations**.
 
--   `Validate Required Fields` - Check required fields have values
--   `Validate Field Pattern` - Regex validation
--   `Validate Value in Range` - Numeric range validation
--   `Validate Unique Field` - Prevent duplicates
+### Standard Processes
 
-### Enrichment
-
--   `Set Default Value` - Set field defaults
--   `Calculate Field Value` - Formula-based calculation
--   `Autocomplete from Linked Doc` - Copy from linked documents
-
-### Deduplication
-
--   `Find Duplicates` - Find exact matches
--   `Find Similar Records` - Fuzzy matching
--   `Prevent Duplicate Save` - Block duplicate saves
-
-### Notification
-
--   `Send Email Notification` - Email alerts
--   `Create TODO` - Task assignment
--   `Create Notification` - In-app notifications
+-   `Normalization` - Clean and standardize field data
+-   `Validation` - Complex multi-field validation
+-   `Enrichment` - Auto-populate fields from multiple sources
+-   `Deduplication` - Detect and prevent duplicates using various algorithms
 
 ## API
 
@@ -81,17 +65,12 @@ frappe.call({
 
 ## Extending
 
-### Custom Process Method
+### Custom Processes
 
-1. Create Python function:
-
-```python
-def my_custom_method(doc, context, param1, param2, **kwargs):
-    # Your logic here
-    return result
-```
-
-2. Register in Process Method doctype with config_schema.
+1. Create a new `Process` document in Frappe.
+2. If `is_standard` is checked, boilerplate files (`.py` and `.js`) will be created in your app.
+3. Add `Process Operation` rows to define your methods.
+4. Implement the logic in the generated controller.
 
 ## License
 

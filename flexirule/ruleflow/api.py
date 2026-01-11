@@ -235,21 +235,6 @@ def clear_cache(doctype=None):
 
 
 @frappe.whitelist()
-def get_process_methods(category=None):
-    """Get available process methods"""
-    filters = {"is_enabled": 1}
-    if category:
-        filters["category"] = category
-
-    return frappe.get_all(
-        "Process Method",
-        filters=filters,
-        fields=["name", "method_name", "category", "description", "config_schema"],
-        order_by="category, method_name",
-    )
-
-
-@frappe.whitelist()
 def get_operator_config():
     """
     Get fieldtype-to-operators mapping and operator labels for Condition Builder.
@@ -378,14 +363,14 @@ def get_action_context_schema(rule_name, action_id):
     # Get output schemas for predecessors
     for pred_id in predecessors:
         action = action_map.get(pred_id)
-        if not action or not action.process_method:
+        if not action or not action.process_name:
             continue
 
         output_schema = None
         try:
-            method = frappe.get_cached_doc("Process Method", action.process_method)
-            if method.output_schema:
-                output_schema = json.loads(method.output_schema)
+            process_doc = frappe.get_cached_doc("Process", action.process_name)
+            op = process_doc.get_operation(action.operation)
+            # Schema logic for Process Operations could be added here
         except Exception:
             pass
 
