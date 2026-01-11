@@ -34,11 +34,12 @@ class Process(Document):
         process_name: DF.Data
     # end: auto-generated types
 
-
     def validate(self):
         """Ensure module is set (same as Report)."""
         if not self.module:
-            self.module = frappe.db.get_value("DocType", self.default_ref_doctype, "module")
+            self.module = frappe.db.get_value(
+                "DocType", self.default_ref_doctype, "module"
+            )
 
         if not self.is_standard:
             self.is_standard = "No"
@@ -50,8 +51,11 @@ class Process(Document):
         funcs = []
         for op in self.operations:
             if op.func_name in funcs:
-                frappe.throw(_("Operation {0} is defined multiple times").format(op.func_name))
+                frappe.throw(
+                    _("Operation {0} is defined multiple times").format(op.func_name)
+                )
             funcs.append(op.func_name)
+
     def on_update(self):
         """Export files in developer_mode (same as Report)."""
         self.export_doc()
@@ -59,7 +63,6 @@ class Process(Document):
     def after_insert(self):
         """Create boilerplate files in developer_mode."""
         self.export_doc()
-
 
     def export_doc(self):
         if frappe.flags.in_import:
@@ -104,15 +107,11 @@ class Process(Document):
         for op in self.operations:
             if op.func_name == func_name:
                 if not op.enabled:
-                    frappe.throw(
-                        _("Operation {0} is disabled").format(func_name)
-                    )
+                    frappe.throw(_("Operation {0} is disabled").format(func_name))
                 return op
 
         frappe.throw(
-            _("Operation {0} not found in process {1}").format(
-                func_name, self.name
-            )
+            _("Operation {0} not found in process {1}").format(func_name, self.name)
         )
 
 
@@ -152,43 +151,6 @@ def make_process_boilerplate(template, doc):
         target.write(frappe.as_unicode(rendered_content))
 
 
-    def execute(self, context,func=None,config=None):
-        """
-        Execute the process.
-        Entry point equivalent to Report.get_data().
-        """
-        return self.execute_module(context,func,config)
-
-    def execute_module(self, context,func=None,config=None):
-        """
-        Execute file-backed process module.
-        Mirrors Report.execute_module().
-        """
-        method_path = (
-            get_process_module_dotted_path(self.module, self.name) + ".execute"
-        )
-        return frappe.get_attr(method_path)(context, func,config)
-
-
-    def get_operation(self, func_name):
-        """
-        Return enabled operation row by func_name.
-        """
-        for op in self.operations:
-            if op.func_name == func_name:
-                if not op.enabled:
-                    frappe.throw(
-                        _("Operation {0} is disabled").format(func_name)
-                    )
-                return op
-
-        frappe.throw(
-            _("Operation {0} not found in process {1}").format(
-                func_name, self.name
-            )
-        )
-
-
 def get_process_module_dotted_path(module, process_name):
     """
     Mirrors get_report_module_dotted_path() exactly.
@@ -196,7 +158,7 @@ def get_process_module_dotted_path(module, process_name):
     Convention:
     {app}.{module}.process.{process_name}.{process_name}
     """
-    processname=frappe.scrub(process_name)
+    processname = frappe.scrub(process_name)
     return (
         frappe.local.module_app[frappe.scrub(module)]
         + "."
@@ -207,20 +169,29 @@ def get_process_module_dotted_path(module, process_name):
         + processname
     )
 
+
 @frappe.whitelist()
 def get_script(process_name):
     from frappe.model.utils import render_include
 
     process = frappe.get_cached_doc("Process", process_name)
-    module = process.module or frappe.db.get_value("DocType", process.default_doctype, "module")
+    module = process.module or frappe.db.get_value(
+        "DocType", process.default_doctype, "module"
+    )
 
     is_custom_module = frappe.get_cached_value("Module Def", module, "custom")
 
     # custom modules are virtual modules those exists in DB but not in disk.
     module_path = "" if is_custom_module else get_module_path(module)
-    process_folder = module_path and os.path.join(module_path, "process", scrub(process.name))
-    script_path = process_folder and os.path.join(process_folder, scrub(process.name) + ".js")
-    print_path = process_folder and os.path.join(process_folder, scrub(process.name) + ".html")
+    process_folder = module_path and os.path.join(
+        module_path, "process", scrub(process.name)
+    )
+    script_path = process_folder and os.path.join(
+        process_folder, scrub(process.name) + ".js"
+    )
+    print_path = process_folder and os.path.join(
+        process_folder, scrub(process.name) + ".html"
+    )
 
     script = None
     if os.path.exists(script_path):
@@ -261,6 +232,8 @@ def get_process_js_paths():
         )
 
     return result
+
+
 @frappe.whitelist()
 def get_process_list():
     """
@@ -270,7 +243,7 @@ def get_process_list():
     processes = frappe.get_all(
         "Process",
         fields=["name", "process_name", "module"],
-        order_by="process_name asc"
+        order_by="process_name asc",
     )
 
     if not processes:
