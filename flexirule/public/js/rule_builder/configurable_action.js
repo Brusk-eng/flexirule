@@ -867,6 +867,10 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
 		// We assume 'grid-row-removed' event might be emitted or we need to intercept
 		// In Frappe v13/14, best way is often to override grid.grid_remove_row
+
+		// Guard: method might not exist in all grid implementations
+		if (typeof grid.grid_remove_row !== 'function') return;
+
 		const original_remove = grid.grid_remove_row.bind(grid);
 		grid.grid_remove_row = (row) => {
 			const row_name = row.doc.name;
