@@ -293,6 +293,11 @@ const SHARED = {
 function get_dedupe_table_fields() {
 	return [
 		{
+			fieldname: "sb_rule_def",
+			fieldtype: "Section Break",
+			label: __("Rule Definition"),
+		},
+		{
 			fieldname: "fieldname",
 			fieldtype: "DocField",
 			options: "vars.document_type",
@@ -303,15 +308,24 @@ function get_dedupe_table_fields() {
 			get_options: (cfg, ctx, meta) => SHARED.get_field_options(meta),
 		},
 		{
+			fieldname: "cb_rule_def",
+			fieldtype: "Column Break",
+		},
+		{
 			fieldname: "algorithm",
 			fieldtype: "Select",
 			label: __("Algorithm"),
 			options: "Exact\nFuzzy\nPhonetic\nContains\nNumeric Range\nDate Distance",
 			reqd: 1,
 			default: "Fuzzy",
-			columns: 2,
+			columns: 1,
 			in_list_view: 1,
 			onchange: (val, row, ctx) => SHARED.on_algorithm_change(val, ctx),
+		},
+		{
+			fieldname: "sb_params",
+			fieldtype: "Section Break",
+			label: __("Parameters"),
 		},
 		{
 			fieldname: "weight",
@@ -322,14 +336,18 @@ function get_dedupe_table_fields() {
 			in_list_view: 1,
 		},
 		{
+			fieldname: "cb_params",
+			fieldtype: "Column Break",
+		},
+		{
 			fieldname: "threshold",
 			fieldtype: "Float",
 			label: __("Threshold"),
 			default: 0.8,
 			columns: 1,
 			in_list_view: 1,
-			depends_on: "doc.algorithm !== 'Exact'",
-			mandatory_depends_on: "doc.algorithm !== 'Exact'",
+			depends_on: "eval:doc.algorithm !== 'Exact'",
+			mandatory_depends_on: "eval:doc.algorithm !== 'Exact'",
 		},
 		{
 			fieldname: "tolerance",
@@ -338,21 +356,32 @@ function get_dedupe_table_fields() {
 			default: 30,
 			columns: 1,
 			in_list_view: 1,
-			depends_on: "['Numeric Range', 'Date Distance'].includes(doc.algorithm)",
-			mandatory_depends_on: "['Numeric Range', 'Date Distance'].includes(doc.algorithm)",
+			depends_on: "eval:in_list(['Numeric Range', 'Date Distance'], doc.algorithm)",
+			mandatory_depends_on: "eval:in_list(['Numeric Range', 'Date Distance'], doc.algorithm)",
+			description: __("Allowed deviation (±)"),
+		},
+		{
+			fieldname: "sb_options",
+			fieldtype: "Section Break",
+			label: __("Options"),
+			collapsible: 1,
 		},
 		{
 			fieldname: "normalize",
 			fieldtype: "Check",
-			label: __("Normalize"),
+			label: __("Normalize Values"),
 			default: 1,
 			columns: 1,
 			in_list_view: 1,
 		},
 		{
+			fieldname: "cb_options",
+			fieldtype: "Column Break",
+		},
+		{
 			fieldname: "included_in_filters",
 			fieldtype: "Check",
-			label: __("Blocking"),
+			label: __("Blocking Filter"),
 			default: 1,
 			columns: 1,
 			in_list_view: 1,
