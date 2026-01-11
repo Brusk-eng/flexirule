@@ -70,18 +70,7 @@ export_python_type_annotations = True
 # ------------------
 # Allow List for Process Methods (Security)
 # Only modules starting with these prefixes can be used in Process Methods
-flexirule_allowed_modules = [
-    "frappe.utils",
-    "frappe.model",
-    "flexirule.ruleflow.utils.field_resolver",
-    "flexirule.ruleflow.process.validation.validation",
-    "flexirule.ruleflow.process.enrichment.enrichment",
-    "flexirule.ruleflow.process.notification.notification",
-    "flexirule.ruleflow.process.mdm.mdm",
-    "flexirule.ruleflow.process.normalization.normalization",
-    "flexirule.ruleflow.process.deduplication.deduplication",
-    # Add app specific modules here
-]
+
 # Includes in <head>
 # ------------------
 

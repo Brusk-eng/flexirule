@@ -49,6 +49,10 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
 		// Async Sequencing (Concurrency Guard)
 		this.current_update_promise = Promise.resolve();
+
+		// Recursion Guards
+		this._refreshing_ui = false;
+		this._disposed = false;
 	}
 
 	/**
@@ -90,7 +94,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 	 * The Single Mutation Surface.
 	 * All UI changes must pass through here.
 	 */
-	async update_field(fieldname, value, row_context = null) {
+	update_field(fieldname, value, row_context = null) {
 		// Asynchronous Sequencing Guard: ensures updates happen in order
 		this.current_update_promise = this.current_update_promise.then(async () => {
 			// 1. Mutate State
@@ -555,12 +559,19 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
 		this.active_dialog = dialog;
 
-		// Cleanup events on hide
+		// Cleanup events on hide (preserve existing handler)
+		const original_on_hide = dialog.on_hide;
 		dialog.on_hide = () => {
 			Object.values(this.active_grids).forEach((grid) => {
-				$(grid.wrapper).off(".flexirule_config");
+				if (grid && grid.wrapper) {
+					$(grid.wrapper).off(".flexirule_config");
+				}
 			});
+			this.active_grids = {};
 			this.active_dialog = null;
+			if (typeof original_on_hide === "function") {
+				original_on_hide.call(dialog);
+			}
 		};
 
 		// 1. Hydrate Initial State
@@ -768,7 +779,11 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
 				// Namespace event to allow clean removal
 				$(grid.wrapper).on("change.flexirule_config", "input, select, textarea", (e) => {
-					this._handle_grid_input_change(e, grid, table_field);
+					try {
+						this._handle_grid_input_change(e, grid, table_field);
+					} catch (err) {
+						console.error("FlexiRule: Grid input change error", err);
+					}
 				});
 
 				// Hook into Row Add to trigger defaults/dependencies
@@ -796,10 +811,14 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 					});
 
 					// 2. Evaluate Dependencies for the new row
-					this.evaluate_dependencies(this.config, row.doc, table_field.fieldname).then(() => {
-						// 3. UI Sync (Refreshes properties for the new row)
-						this._refresh_dialog_ui(row.doc);
-					});
+					this.evaluate_dependencies(this.config, row.doc, table_field.fieldname)
+						.then(() => {
+							// 3. UI Sync (Refreshes properties for the new row)
+							this._refresh_dialog_ui(row.doc);
+						})
+						.catch((err) => {
+							console.error("FlexiRule: Failed to evaluate dependencies for new row", err);
+						});
 				};
 			});
 	}
@@ -841,6 +860,10 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
 	_refresh_dialog_ui(row_context = null) {
 		if (!this.active_dialog) return;
+
+		// Recursion guard to prevent infinite loops
+		if (this._refreshing_ui) return;
+		this._refreshing_ui = true;
 
 		// 1. Root Fields: Sync Properties (reqd, read_only, hidden) & Value
 		// Frappe Dialog doesn't automatically watch these properties on the DF object
@@ -957,24 +980,30 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 		Object.values(this.active_grids).forEach((grid) => {
 			grid.grid_rows.forEach((row) => {
 				if (!row.doc) return;
-				const row_state = this.dependency_states[row.doc.name];
-				if (!row_state) return;
 
-				// We need to apply row_state to the controls in this specific row
-				// Frappe doesn't make this easy as docfields are shared.
-				// We use the grid's per-row override mechanism if possible,
-				// or manually mutate the control's df for the duration of the refresh.
-
+				const row_state = this.dependency_states[row.doc.name] || {};
 				let row_dirty = false;
 				const child_fields = grid.df.fields || [];
 
 				child_fields.forEach((cf) => {
-					const state = row_state[cf.fieldname];
 					const control = row.columns[cf.fieldname];
 					if (!control) return;
 
+					// 🔒 CRITICAL: Isolate DF FIRST, before ANY property access or modification
+					// Frappe shares the 'df' object across all controls in a grid column.
+					// We MUST clone it before reading/writing any properties to prevent leakage.
+					if (!control.df._flexirule_isolated) {
+						// Clone the df to isolate this control from others
+						control.df = { ...control.df };
+						control.df._flexirule_isolated = true;
+						// Reset dynamic properties to schema defaults for the fresh isolated df
+						// This ensures new rows don't inherit stale state from previous row mutations
+						control.df.read_only = cf.read_only || 0;
+						control.df.hidden = cf.hidden || 0;
+						control.df.reqd = cf.reqd || 0;
+					}
+
 					// 1. Sync Value (Model -> UI)
-					// If the model value changed (e.g. via Profile onchange), update the UI.
 					const model_val = row.doc[cf.fieldname];
 					const ui_val = control.get_value ? control.get_value() : control.value;
 
@@ -993,47 +1022,85 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 						row_dirty = true;
 					}
 
+					// 2. Apply row-specific state from dependency evaluation
+					const state = row_state[cf.fieldname];
 					if (!state) return;
 
-					// 🔒 STEP 1: Isolate DF PER ROW
-					// Frappe shares the 'df' object across all controls in a grid.
-					// We must isolate it to prevent property leakage between rows.
-					if (!control.df._flexirule_isolated) {
-						control.df = { ...control.df };
-						control.df._flexirule_isolated = true;
-					}
-
-					// 🔧 STEP 2: Apply row-specific state
+					// Apply read_only state
 					if (state.read_only !== undefined) {
-						control.set_read_only && control.set_read_only(state.read_only);
-						// Ensure the isolated df is also updated
 						control.df.read_only = state.read_only;
+						// Use Frappe's method to apply visual state
+						if (control.set_read_only) {
+							control.set_read_only(state.read_only);
+						} else if (control.$input) {
+							control.$input.prop("disabled", !!state.read_only);
+						}
 					}
 
+					// Apply hidden state
 					if (state.hidden !== undefined) {
-						control.toggle_display && control.toggle_display(!state.hidden);
 						control.df.hidden = state.hidden;
+						if (control.toggle_display) {
+							control.toggle_display(!state.hidden);
+						}
 					}
 
+					// Apply mandatory state
 					if (state.reqd !== undefined) {
-						control.set_working_mandatory && control.set_working_mandatory(state.reqd);
 						control.df.reqd = state.reqd;
+						if (control.set_working_mandatory) {
+							control.set_working_mandatory(state.reqd);
+						}
 					}
 
-					// Options
+					// Apply dynamic options
 					if (state.options !== undefined && state.options !== null) {
 						if (JSON.stringify(control.df.options) !== JSON.stringify(state.options)) {
 							control.df.options = state.options;
+							// For select-like controls, update the options display
+							if (control.set_options) {
+								control.set_options(state.options);
+							}
 							row_dirty = true;
 						}
 					}
 				});
 
+				// Only refresh if values changed, not for property changes
+				// Property changes are applied directly to avoid losing isolation
 				if (row_dirty) {
+					// Re-apply isolation after refresh since Frappe recreates controls
 					row.refresh();
+					// Re-isolate controls after refresh
+					child_fields.forEach((cf) => {
+						const control = row.columns[cf.fieldname];
+						if (control && control.df) {
+							control.df = { ...control.df };
+							control.df._flexirule_isolated = true;
+							// Re-apply state after refresh
+							const state = row_state[cf.fieldname];
+							if (state) {
+								if (state.read_only !== undefined) {
+									control.df.read_only = state.read_only;
+									control.set_read_only && control.set_read_only(state.read_only);
+								}
+								if (state.hidden !== undefined) {
+									control.df.hidden = state.hidden;
+									control.toggle_display && control.toggle_display(!state.hidden);
+								}
+								if (state.reqd !== undefined) {
+									control.df.reqd = state.reqd;
+									control.set_working_mandatory && control.set_working_mandatory(state.reqd);
+								}
+							}
+						}
+					});
 				}
 			});
 		});
+
+		// Clear recursion guard
+		this._refreshing_ui = false;
 	}
 
 	// ============================================================
@@ -1121,6 +1188,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 					"__islocal",
 					"__checked",
 					"__unsaved",
+					"__table_fieldname",
 					"docstatus",
 					"parent",
 					"parenttype",
@@ -1213,5 +1281,42 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 			}
 			return null;
 		}
+	}
+
+	/**
+	 * Dispose of the runtime instance and cleanup resources.
+	 * Call this when the ConfigurableAction is no longer needed.
+	 */
+	dispose() {
+		if (this._disposed) return;
+		this._disposed = true;
+
+		// Cleanup grid event handlers
+		if (this.active_grids) {
+			Object.values(this.active_grids).forEach((grid) => {
+				if (grid && grid.wrapper) {
+					$(grid.wrapper).off(".flexirule_config");
+				}
+			});
+		}
+
+		// Hide and cleanup dialog
+		if (this.active_dialog) {
+			try {
+				this.active_dialog.hide();
+			} catch (e) {
+				// Dialog may already be hidden
+			}
+		}
+
+		// Clear references
+		this.active_dialog = null;
+		this.active_grids = {};
+		this.dependency_states = {};
+		this.normalized_fields = [];
+		this.field_map = {};
+		this.adapter = null;
+		this.operation_def = null;
+		this.schema = null;
 	}
 };
