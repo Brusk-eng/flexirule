@@ -1,3 +1,1 @@
-__version__ = "1.0.0"
-
-from flexirule.ruleflow.decorators import processmethod
+__version__ = "1.0.0-beta.2"

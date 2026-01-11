@@ -19,8 +19,6 @@
 		"section_break_process",
 		"process_name",
 		"operation",
-		"process_method",
-		"configures",
 		"config",
 		"column_break_2",
 		"on_error",
@@ -126,14 +124,6 @@
 			"label": "Operation",
 			"mandatory_depends_on": "eval:doc.process_name !==''",
 			"options": "process_name"
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Process' && !doc.process_name",
-			"description": "(Legacy) Select the process method to execute",
-			"fieldname": "process_method",
-			"fieldtype": "Link",
-			"label": "Process Method (Legacy)",
-			"options": "Process Method"
 		},
 		{
 			"description": "Configuration for the action (validated against schema for Process types)",
@@ -276,14 +266,6 @@
 			"fieldtype": "Code",
 			"label": "Output Mapping",
 			"options": "JSON"
-		},
-		{
-			"depends_on": "eval:doc.process_method!==\"\"",
-			"fieldname": "configures",
-			"fieldtype": "Button",
-			"in_list_view": 1,
-			"in_preview": 1,
-			"label": "Set Configrations"
 		},
 		{
 			"depends_on": "eval:doc.action_type===\"Condition\"",

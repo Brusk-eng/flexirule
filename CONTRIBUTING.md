@@ -18,7 +18,7 @@ Thank you for your interest in contributing!
 ## What we welcome
 
 -   Improvements to the rule engine.
--   Process Method expansions.
+-   Process expansions.
 -   UI/UX improvements for the Rule Builder.
 -   Documentation and test cases.
 
