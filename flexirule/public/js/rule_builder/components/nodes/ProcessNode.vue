@@ -61,8 +61,8 @@ function toggleConfig() {
 		<!-- Main Content -->
 		<div class="node-body">
 			<div class="node-title">{{ data.action_label || label }}</div>
-			<div class="node-subtitle" v-if="data.operation">
-				{{ data.operation }}
+			<div class="node-subtitle" v-if="data.operation || data.process_method">
+				{{ data.operation || data.process_method }}
 			</div>
 		</div>
 
@@ -85,7 +85,7 @@ function toggleConfig() {
 				<button class="close-btn" @click.stop="showConfig = false">×</button>
 			</div>
 			<div class="popover-body">
-				<pre>{{ data.config || __("No config data") }}</pre>
+				<pre>{{ data.config || data.method_config || __("No config data") }}</pre>
 			</div>
 		</div>
 

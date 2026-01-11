@@ -150,6 +150,37 @@ def make_process_boilerplate(template, doc):
         )
         target.write(frappe.as_unicode(rendered_content))
 
+    def execute(self, context, func=None, config=None):
+        """
+        Execute the process.
+        Entry point equivalent to Report.get_data().
+        """
+        return self.execute_module(context, func, config)
+
+    def execute_module(self, context, func=None, config=None):
+        """
+        Execute file-backed process module.
+        Mirrors Report.execute_module().
+        """
+        method_path = (
+            get_process_module_dotted_path(self.module, self.name) + ".execute"
+        )
+        return frappe.get_attr(method_path)(context, func, config)
+
+    def get_operation(self, func_name):
+        """
+        Return enabled operation row by func_name.
+        """
+        for op in self.operations:
+            if op.func_name == func_name:
+                if not op.enabled:
+                    frappe.throw(_("Operation {0} is disabled").format(func_name))
+                return op
+
+        frappe.throw(
+            _("Operation {0} not found in process {1}").format(func_name, self.name)
+        )
+
 
 def get_process_module_dotted_path(module, process_name):
     """

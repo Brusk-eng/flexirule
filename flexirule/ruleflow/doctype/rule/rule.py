@@ -37,7 +37,23 @@ class Rule(Document):
         skip_for_roles: DF.TableMultiSelect[HasRole]
         trigger_condition: DF.Code | None
         trigger_condition_expression: DF.Code | None
-        trigger_event: DF.Literal["Manual", "Before Naming", "Before Insert", "Before Save", "Validate", "Before Submit", "After Insert", "After Save", "On Submit", "Before Cancel", "On Cancel", "On Trash", "On Update After Submit", "On Change"]
+        trigger_event: DF.Literal[
+            "Manual",
+            "Before Naming",
+            "Before Insert",
+            "Before Save",
+            "Validate",
+            "Before Submit",
+            "After Insert",
+            "After Save",
+            "On Submit",
+            "Before Cancel",
+            "On Cancel",
+            "On Trash",
+            "On Update After Submit",
+            "On Change",
+        ]
+
     # end: auto-generated types
     def validate(self):
         """
@@ -54,33 +70,42 @@ class Rule(Document):
     def ensure_start_node(self):
         """Ensure a Start Node (Entry Action) exists with ID 'root'"""
         # Check if root exists
-        root_action = next((a for a in self.actions if a.action_id == 'root'), None)
+        root_action = next((a for a in self.actions if a.action_id == "root"), None)
 
         if not root_action:
             # Determine next step if there are existing actions
             # We pick the first action that is NOT 'root'
             first_action_id = None
-            existing_actions = [a for a in self.actions if a.action_id != 'root']
+            existing_actions = [a for a in self.actions if a.action_id != "root"]
             if existing_actions:
-                first_action_id = existing_actions[0].action_id or existing_actions[0].name
+                first_action_id = (
+                    existing_actions[0].action_id or existing_actions[0].name
+                )
 
-            self.append('actions', {
-                "action_type": "Entry Action",
-                "action_label": _(self.trigger_event or "Start"),
-                "action_id": "root",
-                "is_enabled": 1,
-                "position_x": 50,
-                "position_y": 250,
-                "next_step_if_true": first_action_id # Link to first existing action
-            })
+            self.append(
+                "actions",
+                {
+                    "action_type": "Entry Action",
+                    "action_label": _(self.trigger_event or "Start"),
+                    "action_id": "root",
+                    "is_enabled": 1,
+                    "position_x": 50,
+                    "position_y": 250,
+                    "next_step_if_true": first_action_id,  # Link to first existing action
+                },
+            )
+
     def compile_conditions(self):
         from flexirule.ruleflow.core.compiler import ConditionCompiler
+
         compiler = ConditionCompiler()
 
         # Compile Trigger
         if self.trigger_condition:
             try:
-                self.trigger_condition_expression = compiler.compile(self.trigger_condition)
+                self.trigger_condition_expression = compiler.compile(
+                    self.trigger_condition
+                )
                 # Validate compiled expression
                 is_valid, error = compiler.validate(self.trigger_condition_expression)
                 if not is_valid:
@@ -95,71 +120,81 @@ class Rule(Document):
             return
 
         from flexirule.ruleflow.core.compiler import ConditionCompiler
+
         compiler = ConditionCompiler()
 
         for action in self.actions:
             # Compile Action Condition
-            if action.action_type == 'Condition' and action.condition_json:
+            if action.action_type == "Condition" and action.condition_json:
                 try:
-                    action.condition_expression = compiler.compile(action.condition_json)
+                    action.condition_expression = compiler.compile(
+                        action.condition_json
+                    )
                     # Validate compiled expression
                     is_valid, error = compiler.validate(action.condition_expression)
                     if not is_valid:
-                        frappe.throw(_("Invalid Condition in Action {0}: {1}").format(action.action_label, error))
+                        frappe.throw(
+                            _("Invalid Condition in Action {0}: {1}").format(
+                                action.action_label, error
+                            )
+                        )
                 except ValueError as e:
-                    frappe.throw(_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e)))
+                    frappe.throw(
+                        _("Error compiling Action {0} Condition: {1}").format(
+                            action.action_label, str(e)
+                        )
+                    )
                 except Exception as e:
-                    frappe.throw(_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e)))
+                    frappe.throw(
+                        _("Error compiling Action {0} Condition: {1}").format(
+                            action.action_label, str(e)
+                        )
+                    )
 
             # 1. Validate JSON fields syntax
             # Use new 'config' field with backward compatibility
-            config_value = getattr(action, 'config', None) or getattr(action, 'method_config', None)
-            self._validate_json_field(config_value, _("Action {0}: Configuration").format(action.action_label))
-            self._validate_json_field(action.input_mapping, _("Action {0}: Input Mapping").format(action.action_label))
-            self._validate_json_field(action.output_mapping, _("Action {0}: Output Mapping").format(action.action_label))
+            config_value = getattr(action, "config", None) or getattr(
+                action, "method_config", None
+            )
+            self._validate_json_field(
+                config_value, _("Action {0}: Configuration").format(action.action_label)
+            )
+            self._validate_json_field(
+                action.input_mapping,
+                _("Action {0}: Input Mapping").format(action.action_label),
+            )
+            self._validate_json_field(
+                action.output_mapping,
+                _("Action {0}: Output Mapping").format(action.action_label),
+            )
 
-            # 2. Check Process Method config against Schema
-            if action.action_type == 'Process' and action.process_method:
+            # 2. Check Process config against Schema
+            if action.action_type == "Process" and action.process_name:
                 self._validate_action_config(action)
 
     def _validate_json_field(self, json_str, label):
         if not json_str:
             return
         import json
+
         try:
             json.loads(json_str)
         except json.JSONDecodeError as e:
             frappe.throw(_("Invalid JSON in {0}: {1}").format(label, str(e)))
 
     def _validate_action_config(self, action):
-        if not frappe.db.exists("Process Method", action.process_method):
-            frappe.throw(_("Process Method not found: {0}").format(action.process_method))
+        if not frappe.db.exists("Process", action.process_name):
+            frappe.throw(_("Process not found: {0}").format(action.process_name))
 
-        method = frappe.get_cached_doc("Process Method", action.process_method)
+        process = frappe.get_cached_doc("Process", action.process_name)
 
-        # Validate Config against config_schema (if defined)
-        # Note: We prioritize config_schema mostly for UI builder,
-        # but input_schema is for strict validation if present.
-        schema = method.input_schema or method.config_schema
-        schema = method.input_schema or method.config_schema
-
-        # Use new 'config' field with backward compatibility for 'method_config'
-        config_value = getattr(action, 'config', None) or getattr(action, 'method_config', None)
-
-        if schema and config_value:
-            # Extract mapped fields to skip required check in static config
-            mapped_fields = []
-            if action.input_mapping:
-                try:
-                    mapping = frappe.parse_json(action.input_mapping)
-                    if isinstance(mapping, dict):
-                        mapped_fields = list(mapping.keys())
-                except:
-                    pass
-
-            # Use new 'config' field with backward compatibility for 'method_config'
-            config_value = getattr(action, 'config', None) or getattr(action, 'method_config', None)
-            validate_config(config_value, schema, mapped_fields=mapped_fields)
+        # If operation is set, we could validate its schema here
+        # For now, we perform basic existence check
+        if action.operation:
+            try:
+                process.get_operation(action.operation)
+            except Exception as e:
+                frappe.throw(str(e))
 
     def validate_no_sub_rule_cycles(self):
         """
@@ -168,8 +203,8 @@ class Rule(Document):
         """
         # Collect sub-rule names referenced by this rule
         sub_rules = set()
-        for action in (self.actions or []):
-            if action.action_type == 'Sub-Rule' and action.rule:
+        for action in self.actions or []:
+            if action.action_type == "Sub-Rule" and action.rule:
                 sub_rules.add(action.rule)
 
         if not sub_rules:
@@ -182,9 +217,9 @@ class Rule(Document):
                 filters={
                     "parent": rule_name,
                     "action_type": "Sub-Rule",
-                    "rule": ["is", "set"]
+                    "rule": ["is", "set"],
                 },
-                pluck="rule"
+                pluck="rule",
             )
 
         def dfs_detect_cycle(current_rule, path, globally_visited):
@@ -193,7 +228,7 @@ class Rule(Document):
                 # Cycle detected - build cycle path from where it starts
                 cycle_start = path.index(current_rule)
                 cycle_path = path[cycle_start:] + [current_rule]
-                return ' → '.join(cycle_path)
+                return " → ".join(cycle_path)
 
             if current_rule in globally_visited:
                 return None  # Already fully explored, no cycle from here
@@ -216,7 +251,9 @@ class Rule(Document):
 
         for sub_rule in sub_rules:
             if sub_rule:
-                cycle = dfs_detect_cycle(sub_rule, initial_path.copy(), globally_visited)
+                cycle = dfs_detect_cycle(
+                    sub_rule, initial_path.copy(), globally_visited
+                )
                 if cycle:
                     frappe.throw(
                         _("Cycle detected in sub-rule graph: {0}").format(cycle)
@@ -228,6 +265,7 @@ class Rule(Document):
         """
         if self.is_active:
             validate_graph_integrity(self)
+
 
 @frappe.whitelist()
 def test_rule(rule_name, doctype=None, docname=None, document_json=None):
@@ -254,23 +292,24 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
     # Capture logs if possible?
     # The requirement was "return execution logs".
     from flexirule.ruleflow.core.engine import RuleEngine
+
     # Check if rule is actually applicable (User Request: filters must apply)
 
     is_eligible, reason = RuleCoordinator.check_eligibility(
-            rule, doc, event_name="Manual Test", skip_event_check=True
+        rule, doc, event_name="Manual Test", skip_event_check=True
     )
 
     if not is_eligible:
-            return {
-                "success": False,
-                "status": _("Skipped"),
-                "message": frappe._("Rule Skipped: {0}").format(reason),
-                "execution_log": {}
-            }
+        return {
+            "success": False,
+            "status": _("Skipped"),
+            "message": frappe._("Rule Skipped: {0}").format(reason),
+            "execution_log": {},
+        }
 
     try:
         # Run in test_mode to prevent rollback of the rule itself during tests
-        engine = RuleEngine(rule, {'test_mode': True})
+        engine = RuleEngine(rule, {"test_mode": True})
         engine.execute(doc)
 
         # Get log from memory (engine.execution_log is list of dicts, not the Doc)
@@ -280,11 +319,13 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
 
         # Fetch the latest log (created by engine even in test mode)
         # Since we are in the same transaction, we should find it.
-        logs = frappe.get_all("Rule Execution Log",
-                             filters={"rule": rule_name, "reference_docname": doc.name},
-                             order_by="creation desc",
-                             limit=1,
-                             fields=["status", "message", "execution_path"])
+        logs = frappe.get_all(
+            "Rule Execution Log",
+            filters={"rule": rule_name, "reference_docname": doc.name},
+            order_by="creation desc",
+            limit=1,
+            fields=["status", "message", "execution_path"],
+        )
 
         log_data = logs[0] if logs else {}
 
@@ -292,11 +333,7 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
             "success": True,
             "status": _(log_data.get("status", "Success")),
             "execution_log": log_data,
-            "message": _("Rule {0} executed.").format(rule_name)
+            "message": _("Rule {0} executed.").format(rule_name),
         }
     except Exception as e:
-        return {
-            "success": False,
-            "status": _("Failed"),
-            "error": str(e)
-        }
+        return {"success": False, "status": _("Failed"), "error": str(e)}

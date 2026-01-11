@@ -24,7 +24,7 @@ def get_excluded_doctypes():
         "File",
         "Rule",
         "Rule Action",
-        "Process Method",
+        "Process",
     ]
 
     return list(set(excluded + default_excluded))

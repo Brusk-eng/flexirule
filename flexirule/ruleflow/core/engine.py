@@ -3,10 +3,10 @@
 
 """
 Enhanced Rule Engine with:
-- Process Method integration
+- Process DocType integration
 - Permission-based security
 - Retry logic and error handling
-- Timeout protection (cross-platform using threading)
+- Timeout protection
 - Cycle detection
 - Comprehensive logging
 """
@@ -671,17 +671,18 @@ class RuleEngine:
 
     def _execute_process(self, action, context):
         """
-        Execute Process Logic (Supports both 'Process' DocType and legacy 'Process Method')
+        Execute Process Logic (Supports 'Process' DocType)
         """
         process_name = getattr(action, "process_name", None)
+        process_method_name = getattr(action, "process_method", None)
         operation = getattr(action, "operation", None)
 
-        if not process_name:
+        if not process_name and not process_method_name:
             self._log(
                 "WARNING",
-                _("Process action {0} has no process_name set").format(
-                    action.action_label
-                ),
+                _(
+                    "Process action {0} has no process_name or process_method set"
+                ).format(action.action_label),
             )
             return None, getattr(action, "next_step_if_true", None)
 
