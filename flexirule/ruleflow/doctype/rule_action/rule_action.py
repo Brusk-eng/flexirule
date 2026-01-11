@@ -37,7 +37,6 @@ class RuleAction(Document):
 		position_x: DF.Int
 		position_y: DF.Int
 		priority: DF.Int
-		process_method: DF.Link | None
 		process_name: DF.Link | None
 		retry_count: DF.Int
 		return_variable: DF.Data | None

@@ -466,9 +466,17 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 			expression = expression.slice(5);
 		}
 		try {
-			return frappe.utils.eval(expression, context);
+			// Robust Context Injection
+			// We manually decompose the context to ensure all helper functions (in_list)
+			// and data (doc, row) are available as top-level variables in the expression scope.
+			const keys = Object.keys(context);
+			const values = Object.values(context);
+			// Wrap in return if it's a simple expression (implicit return)
+			// But mostly users write expressions. We assume expression evaluates to value.
+			const fn = new Function(...keys, `return (${expression});`);
+			return fn(...values);
 		} catch (e) {
-			console.warn(`Dependency Eval Failed: ${expression}`, e);
+			console.warn(`Dependency Eval Failed: "${expression}"`, e);
 			return false;
 		}
 	}
@@ -488,13 +496,29 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 		return schemas;
 	}
 
-	// ============================================================
-	// 4. UI: DIALOG IMPLEMENTATION
-	// ============================================================
+	_get_context(row = null) {
+		const doc = row || this.config;
+		// Combine doc with context variables
+		const ctx = {
+			doc: doc,
+			parent: this.config, // Access to root config
+			vars: this._get_vars_dict(), // Helper to get vars as dict
+			// Polyfills for standard Frappe eval helpers
+			in_list: (list, item) => list && list.includes(item),
+			has_common: (l1, l2) => l1 && l2 && l1.some(i => l2.includes(i)),
 
-	/**
-	 * Builds and shows a standard Frappe Dialog connected to this runtime.
-	 */
+			// The Mutation API
+			update_field: (field, val) => this.update_field(field, val, row),
+		};
+
+		// If using Frappe < v14, we might need to manually merge.
+		// For now, this object is passed to frappe.utils.eval(expr, ctx)
+		return ctx;
+	}
+
+	_get_vars_dict() {
+		return {}; // Placeholder - implement actual var retrieval if needed
+	}
 	async show_dialog(opts = {}) {
 		if (!this.schema) await this.init();
 
@@ -676,6 +700,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 		}
 
 		let grid_valid = true;
+		let errors = [];
 
 		// Iterate Rows
 		grid.grid_rows.forEach((row, row_idx) => {
@@ -702,12 +727,21 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 					row.show_error && row.show_error(`${cf.label || cf.fieldname} is required`);
 					const $cell = row.get_cell ? row.get_cell(cf.fieldname) : null;
 					if ($cell) $cell.addClass("error");
+
+					// Collect explicit error message
+					errors.push(__("Row #{0}: {1} is required", [row.idx || (row_idx + 1), cf.label || cf.fieldname]));
 				}
 			});
 		});
 
 		if (!grid_valid) {
-			// maybe collapse open the grid helper?
+			if (errors.length > 0) {
+				frappe.msgprint({
+					title: __("Validation Error in {0}", [table_field.label]),
+					message: errors.join("<br>"),
+					indicator: "orange"
+				});
+			}
 		}
 		return grid_valid;
 	}
@@ -761,66 +795,72 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 				const grid = grid_obj.grid;
 				this.active_grids[table_field.fieldname] = grid;
 
-				// Hook into Grid Rows
-				// Frappe Grid doesn't have a single "on_cell_change".
-				// We use the standard methodology: monitoring the form actions within the grid.
-				// But actually, we can leverage grid.refresh_row or the field 'onchange' logic inside the grid schema.
+				this._bind_grid_input_change(grid, table_field);
+				this._bind_grid_row_add(grid, table_field);
 
-				// We ALREADY injected onchange hooks into the schema during normalization (if they existed in adapter).
-				// BUT those hooks were "Business Logic" hooks.
-				// We need "Runtime Binding" hooks.
-
-				// Strategy: Mutate the Grid's internal Field Docs to point to our runtime updater
-				// This is tricky because Grid re-renders.
-				// Best approach: Use the global grid event if available or specific field bindings.
-
-				// Frappe Grid uses 'frappe.ui.form.Control' for cells.
-				// We can listen to 'change' on the wrapper, like the user's previous code, which is robust.
-
-				// Namespace event to allow clean removal
-				$(grid.wrapper).on("change.flexirule_config", "input, select, textarea", (e) => {
-					try {
-						this._handle_grid_input_change(e, grid, table_field);
-					} catch (err) {
-						console.error("FlexiRule: Grid input change error", err);
-					}
-				});
-
-				// Hook into Row Add to trigger defaults/dependencies
-				const original_add = grid.on_row_add;
-				grid.on_row_add = (row) => {
-					if (original_add) original_add.call(grid, row);
-
-					// Ensure name for registry if not present (should be handled by hydrate)
-					if (!row.doc.name) {
-						row.doc.name = frappe.utils.get_random(10);
-					}
-
-					// Table Ownership Marker (MANDATORY for Release)
-					row.doc.__table_fieldname = table_field.fieldname;
-
-					const table_schema = this.field_map[table_field.fieldname];
-					const child_fields = table_schema.fields || [];
-
-					// 1. Trigger Runtime Updates for Defaults
-					child_fields.forEach((cf) => {
-						if (row.doc[cf.fieldname] !== undefined && cf._onchange_logic) {
-							// For new rows, we update the model and trigger logic
-							this.update_field(cf.fieldname, row.doc[cf.fieldname], row.doc);
-						}
-					});
-
-					// 2. Evaluate Dependencies for the new row
-					this.evaluate_dependencies(this.config, row.doc, table_field.fieldname)
-						.then(() => {
-							// 3. UI Sync (Refreshes properties for the new row)
-							this._refresh_dialog_ui(row.doc);
-						})
-						.catch((err) => {
-							console.error("FlexiRule: Failed to evaluate dependencies for new row", err);
-						});
-				};
+				// Initial Refresh to catch pre-loaded rows
+				if (grid.grid_rows && grid.grid_rows.length > 0) {
+					// We use a microtask to allow grid to fully settle
+					setTimeout(() => this._refresh_dialog_ui(), 10);
+				}
 			});
+	}
+
+	/**
+	 * Binds input change events on the grid wrapper.
+	 * This captures user interactions with grid cells.
+	 */
+	_bind_grid_input_change(grid, table_field) {
+		// Namespace event to allow clean removal
+		// Use passive listeners where possible? Frappe doesn't support that easily here.
+		$(grid.wrapper).on("change.flexirule_config", "input, select, textarea", (e) => {
+			try {
+				this._handle_grid_input_change(e, grid, table_field);
+			} catch (err) {
+				console.error("FlexiRule: Grid input change error", err);
+			}
+		});
+	}
+
+	/**
+	 * Hooks into the Grid's on_row_add to Initialize data and triggers.
+	 * NOTE: We do NOT handle UI isolation here; that is done in the Refresh loop.
+	 */
+	_bind_grid_row_add(grid, table_field) {
+		const original_add = grid.on_row_add;
+		grid.on_row_add = (row) => {
+			if (original_add) original_add.call(grid, row);
+
+			// Ensure name for registry
+			if (!row.doc.name) {
+				row.doc.name = frappe.utils.get_random(10);
+			}
+
+			// Table Ownership Marker
+			row.doc.__table_fieldname = table_field.fieldname;
+
+			const table_schema = this.field_map[table_field.fieldname];
+			const child_fields = table_schema.fields || [];
+
+			// 1. Trigger Runtime Updates for Defaults
+			// This ensures that default values defined in the schema are propagated
+			// to the internal config model immediately.
+			child_fields.forEach((cf) => {
+				if (row.doc[cf.fieldname] !== undefined && cf._onchange_logic) {
+					this.update_field(cf.fieldname, row.doc[cf.fieldname], row.doc);
+				}
+			});
+
+			// 2. Evaluate Dependencies for the new row
+			this.evaluate_dependencies(this.config, row.doc, table_field.fieldname)
+				.then(() => {
+					// 3. UI Sync
+					this._refresh_dialog_ui(row.doc);
+				})
+				.catch((err) => {
+					console.error("FlexiRule: Failed to evaluate dependencies for new row", err);
+				});
+		};
 	}
 
 	async _handle_grid_input_change(e, grid, table_field) {
@@ -865,242 +905,221 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 		if (this._refreshing_ui) return;
 		this._refreshing_ui = true;
 
-		// 1. Root Fields: Sync Properties (reqd, read_only, hidden) & Value
-		// Frappe Dialog doesn't automatically watch these properties on the DF object
-		// We must manually refresh the field if properties changed.
+		// 1. Root Fields: Sync Properties & Value
 		this.normalized_fields.forEach((f) => {
-			if (f.fieldtype === "Section Break" || f.fieldtype === "Column Break") return;
-
-			// Table Handling (Special Sync for Grids to support programmatic updates like Profile)
-			if (f.fieldtype === "Table") {
-				const grid_obj = this.active_dialog.fields_dict[f.fieldname];
-				if (grid_obj && grid_obj.grid) {
-					const model_val = this.config[f.fieldname] || [];
-					const grid_val = grid_obj.grid.get_data() || []; // UI state
-
-					// Check for divergence (Programmatic update vs UI state)
-					// Simple length check or JSON stringify to detect changes
-					if (JSON.stringify(model_val) !== JSON.stringify(grid_val)) {
-						// Model has changed (e.g. Profile applied new rows)
-						// Sync Model -> Grid
-						grid_obj.grid.df.data = model_val;
-						grid_obj.grid.refresh();
-					}
-
-					// Also refresh property changes if needed (reqd, read_only)
-					["reqd", "read_only", "hidden"].forEach((prop) => {
-						if (grid_obj.df[prop] !== f[prop]) {
-							grid_obj.df[prop] = f[prop];
-							grid_obj.refresh(); // Refresh wrapper
-						}
-					});
-				}
-				return;
-			}
-
-			const field = this.active_dialog.fields_dict[f.fieldname];
-			if (field) {
-				let dirty = false;
-
-				// 1. Sync Value (Model -> UI)
-				// If the model value changed (side-effect), update the UI.
-				// We check strict inequality.
-				const model_val = this.config[f.fieldname];
-				const ui_val = field.get_value();
-
-				// Handle array comparison for MultiSelect/Table? (Table excluded here)
-				// For MultiSelect, generic JSON comparison or simple check.
-				// Frappe's set_value usually handles no-op if same.
-
-				// Simple equality check might fail for arrays/objects, but let's try shallow or strict
-				if (model_val !== ui_val) {
-					// For arrays (MultiSelect), strict equality fails.
-					// We only want to set_value if logic updated it.
-					// To avoid loops (UI -> update_field -> refresh -> set_value -> onchange -> ...),
-					// we need to be careful.
-					// But standard field 'set_value' normally triggers onchange?
-					// Wait, field.set_value() typically triggers onchange.
-					// If we set_value, we might trigger infinite loop if onchange calls update_field.
-
-					// ConfigurableAction.update_field is the SOURCE of truth.
-					// If UI triggered update_field, model matches UI.
-					// If Logic triggered update_field, model != UI.
-					// So validating model_val !== ui_val is correct.
-
-					// Is deep compare needed?
-					let diff = model_val !== ui_val;
-					if (Array.isArray(model_val) && Array.isArray(ui_val)) {
-						diff = JSON.stringify(model_val) !== JSON.stringify(ui_val);
-					}
-
-					if (diff) {
-						try {
-							field.set_value(model_val);
-							// Setting value programmatically might trigger on_change again depending on Frappe version.
-							// To be safe, we rely on the check above to stop cycles.
-						} catch (e) {
-							console.warn("Sync error", e);
-						}
-					}
-				}
-
-				// 2. Sync Properties (reqd, read_only, hidden)
-				// Check for property divergence via registry
-				const runtime_state = (this.dependency_states["root"] || {})[f.fieldname] || {};
-
-				["reqd", "read_only", "hidden"].forEach((prop) => {
-					const target_val = runtime_state[prop] !== undefined ? runtime_state[prop] : f[prop];
-					if (field.df[prop] !== target_val) {
-						field.df[prop] = target_val;
-						// Also apply some properties directly to the control instance
-						// as refresh() behavior varies across controls.
-						if (prop === "read_only" && typeof field.set_read_only === "function") {
-							field.set_read_only();
-						}
-						dirty = true;
-					}
-				});
-
-				// 3. Sync Options (Dynamic)
-				if (runtime_state.options !== undefined && runtime_state.options !== null) {
-					// Compare with current options
-					if (JSON.stringify(field.df.options) !== JSON.stringify(runtime_state.options)) {
-						field.df.options = runtime_state.options;
-						dirty = true;
-					}
-				}
-
-				if (dirty) field.refresh();
-			}
+			this._sync_root_field(f);
 		});
 
-		// 2. Grids: Isolated Row Refresh
-		// We iterate all grids and all rows to ensure visibility/read_only/reqd/options are applied
-		// from the dependency_states registry.
+		// 2. Grids: Isolate & Update Rows
 		Object.values(this.active_grids).forEach((grid) => {
+			if (!grid.df || !grid.df.fields) return;
+			const shared_fields = grid.df.fields;
+
 			grid.grid_rows.forEach((row) => {
 				if (!row.doc) return;
-
-				const row_state = this.dependency_states[row.doc.name] || {};
-				let row_dirty = false;
-				const child_fields = grid.df.fields || [];
-
-				child_fields.forEach((cf) => {
-					const control = row.columns[cf.fieldname];
-					if (!control) return;
-
-					// 🔒 CRITICAL: Isolate DF FIRST, before ANY property access or modification
-					// Frappe shares the 'df' object across all controls in a grid column.
-					// We MUST clone it before reading/writing any properties to prevent leakage.
-					if (!control.df._flexirule_isolated) {
-						// Clone the df to isolate this control from others
-						control.df = { ...control.df };
-						control.df._flexirule_isolated = true;
-						// Reset dynamic properties to schema defaults for the fresh isolated df
-						// This ensures new rows don't inherit stale state from previous row mutations
-						control.df.read_only = cf.read_only || 0;
-						control.df.hidden = cf.hidden || 0;
-						control.df.reqd = cf.reqd || 0;
-					}
-
-					// 1. Sync Value (Model -> UI)
-					const model_val = row.doc[cf.fieldname];
-					const ui_val = control.get_value ? control.get_value() : control.value;
-
-					let diff = model_val !== ui_val;
-					if (Array.isArray(model_val) && Array.isArray(ui_val)) {
-						diff = JSON.stringify(model_val) !== JSON.stringify(ui_val);
-					}
-
-					if (diff) {
-						if (typeof control.set_value === "function") {
-							control.set_value(model_val);
-						} else {
-							control.value = model_val;
-							if (control.refresh) control.refresh();
-						}
-						row_dirty = true;
-					}
-
-					// 2. Apply row-specific state from dependency evaluation
-					const state = row_state[cf.fieldname];
-					if (!state) return;
-
-					// Apply read_only state
-					if (state.read_only !== undefined) {
-						control.df.read_only = state.read_only;
-						// Use Frappe's method to apply visual state
-						if (control.set_read_only) {
-							control.set_read_only(state.read_only);
-						} else if (control.$input) {
-							control.$input.prop("disabled", !!state.read_only);
-						}
-					}
-
-					// Apply hidden state
-					if (state.hidden !== undefined) {
-						control.df.hidden = state.hidden;
-						if (control.toggle_display) {
-							control.toggle_display(!state.hidden);
-						}
-					}
-
-					// Apply mandatory state
-					if (state.reqd !== undefined) {
-						control.df.reqd = state.reqd;
-						if (control.set_working_mandatory) {
-							control.set_working_mandatory(state.reqd);
-						}
-					}
-
-					// Apply dynamic options
-					if (state.options !== undefined && state.options !== null) {
-						if (JSON.stringify(control.df.options) !== JSON.stringify(state.options)) {
-							control.df.options = state.options;
-							// For select-like controls, update the options display
-							if (control.set_options) {
-								control.set_options(state.options);
-							}
-							row_dirty = true;
-						}
-					}
-				});
-
-				// Only refresh if values changed, not for property changes
-				// Property changes are applied directly to avoid losing isolation
-				if (row_dirty) {
-					// Re-apply isolation after refresh since Frappe recreates controls
-					row.refresh();
-					// Re-isolate controls after refresh
-					child_fields.forEach((cf) => {
-						const control = row.columns[cf.fieldname];
-						if (control && control.df) {
-							control.df = { ...control.df };
-							control.df._flexirule_isolated = true;
-							// Re-apply state after refresh
-							const state = row_state[cf.fieldname];
-							if (state) {
-								if (state.read_only !== undefined) {
-									control.df.read_only = state.read_only;
-									control.set_read_only && control.set_read_only(state.read_only);
-								}
-								if (state.hidden !== undefined) {
-									control.df.hidden = state.hidden;
-									control.toggle_display && control.toggle_display(!state.hidden);
-								}
-								if (state.reqd !== undefined) {
-									control.df.reqd = state.reqd;
-									control.set_working_mandatory && control.set_working_mandatory(state.reqd);
-								}
-							}
-						}
-					});
-				}
+				this._sync_grid_row(row, grid, shared_fields);
 			});
 		});
 
-		// Clear recursion guard
 		this._refreshing_ui = false;
+	}
+
+	/**
+	 * Syncs a single root field's value and properties (reqd, read_only, hidden)
+	 * between the config model and the UI control.
+	 */
+	_sync_root_field(f) {
+		if (f.fieldtype === "Section Break" || f.fieldtype === "Column Break") return;
+
+		// Table Handling (Special Sync for Grids)
+		if (f.fieldtype === "Table") {
+			const grid_obj = this.active_dialog.fields_dict[f.fieldname];
+			if (grid_obj && grid_obj.grid) {
+				const model_val = this.config[f.fieldname] || [];
+				const grid_val = grid_obj.grid.get_data() || [];
+
+				// Sync Model -> Grid (Programmatic Updates)
+				if (JSON.stringify(model_val) !== JSON.stringify(grid_val)) {
+					grid_obj.grid.df.data = model_val;
+					grid_obj.grid.refresh();
+				}
+
+				// Sync Properties
+				["reqd", "read_only", "hidden"].forEach((prop) => {
+					if (grid_obj.df[prop] !== f[prop]) {
+						grid_obj.df[prop] = f[prop];
+						grid_obj.refresh();
+					}
+				});
+			}
+			return;
+		}
+
+		const field = this.active_dialog.fields_dict[f.fieldname];
+		if (field) {
+			let dirty = false;
+
+			// Sync Value
+			const model_val = this.config[f.fieldname];
+			const ui_val = field.get_value();
+			if (model_val !== ui_val && JSON.stringify(model_val) !== JSON.stringify(ui_val)) {
+				try {
+					field.set_value(model_val);
+				} catch (e) {
+					console.warn("Sync error", e);
+				}
+			}
+
+			// Sync Properties
+			const runtime_state = (this.dependency_states["root"] || {})[f.fieldname] || {};
+			["reqd", "read_only", "hidden"].forEach((prop) => {
+				const target_val = runtime_state[prop] !== undefined ? runtime_state[prop] : f[prop];
+				if (field.df[prop] !== target_val) {
+					field.df[prop] = target_val;
+					if (prop === "read_only" && typeof field.set_read_only === "function") {
+						field.set_read_only(target_val);
+					}
+					dirty = true;
+				}
+			});
+
+			// Sync Options
+			if (runtime_state.options !== undefined && runtime_state.options !== null) {
+				if (JSON.stringify(field.df.options) !== JSON.stringify(runtime_state.options)) {
+					field.df.options = runtime_state.options;
+					dirty = true;
+				}
+			}
+
+			if (dirty) field.refresh();
+		}
+	}
+
+	/**
+	 * Syncs an individual grid row.
+	 * Enforces field definition isolation and propagates state to cells and modal form.
+	 */
+	_sync_grid_row(row, grid, shared_fields) {
+		// A. ENFORCE ISOLATION
+		// Ensure every row has its OWN field definitions.
+		// If row.docfields is missing or points to shared array, CLONE IT.
+		if (
+			!row.docfields ||
+			row.docfields === shared_fields ||
+			!row._flexirule_isolated
+		) {
+			const source = row.docfields || shared_fields || [];
+			row.docfields = source.map((df) => ({ ...df })); // Deep-ish clone (new objects)
+			row.docfields.forEach(df => df._flexirule_isolated = true);
+			row._flexirule_isolated = true;
+
+			// Force immediate re-render to bind columns to these new DFs
+			// This is cleaner than manual patching here.
+			row.refresh();
+		}
+
+		// Get latest state
+		const row_state = this.dependency_states[row.doc.name] || {};
+		let row_dirty = false;
+		const child_fields = grid.df.fields || [];
+
+		child_fields.forEach((cf) => {
+			// Skip layout fields for value/control sync
+			if (["Section Break", "Column Break"].includes(cf.fieldtype)) return;
+
+			// B. FIND LOCAL DEFINITION
+			// We must modify ONLY the definition belonging to this row.
+			const isolated_df = row.docfields.find((d) => d.fieldname === cf.fieldname);
+			if (!isolated_df) return;
+
+			// C. SYNC VALUES & REFERENCE SAFETY
+			let control = null;
+			try {
+				// GridRow.get_field throws string exception if not found!
+				control = row.get_field(cf.fieldname);
+			} catch (e) {
+				// Fallback to simple column lookup if form field not active
+				control = row.columns ? row.columns[cf.fieldname] : null;
+			}
+
+			if (control) {
+				// JUST-IN-TIME REFERENCE PATCHING
+				// If the control's DF doesn't match our isolated DF, patch it now.
+				// This catches any controls created before isolation or by rogue refresh.
+				if (control.df !== isolated_df) {
+					control.df = isolated_df;
+				}
+
+				// Sync Value
+				const model_val = row.doc[cf.fieldname];
+				const ui_val = control.get_value ? control.get_value() : control.value;
+				if (model_val !== ui_val && JSON.stringify(model_val) !== JSON.stringify(ui_val)) {
+					if (typeof control.set_value === "function") {
+						control.set_value(model_val);
+					} else {
+						control.value = model_val;
+						if (control.refresh) control.refresh();
+					}
+				}
+			}
+
+			// D. APPLY PROPERTIES
+			// Now it's safe to mutate isolated_df properties.
+			const state = row_state[cf.fieldname];
+			if (!state) return;
+
+			let prop_changed = false;
+			// Apply properties
+			const apply_prop = (prop, val) => {
+				if (isolated_df[prop] !== val) {
+					isolated_df[prop] = val;
+					// If we have the control, apply directly too for instant feedback 
+					// (avoiding full row refresh if possible)
+					if (control) {
+						if (control.df !== isolated_df) {
+							control.df = isolated_df; // Patch grid cell ref
+						}
+						if (prop === 'read_only' && control.set_read_only) control.set_read_only(val);
+						if (prop === 'hidden' && control.toggle_display) control.toggle_display(!val);
+						if (prop === 'reqd' && control.set_working_mandatory) control.set_working_mandatory(val);
+					}
+
+					// CRITICAL: Also update the Grid Form (Modal) control if it exists!
+					if (row.grid_form && row.grid_form.fields_dict && row.grid_form.fields_dict[cf.fieldname]) {
+						const form_control = row.grid_form.fields_dict[cf.fieldname];
+						// Ensure it shares the isolated DF
+						if (form_control.df !== isolated_df) form_control.df = isolated_df;
+
+						// Apply Prop
+						if (prop === 'read_only' && form_control.set_read_only) form_control.set_read_only(val);
+						if (prop === 'hidden' && form_control.toggle_display) form_control.toggle_display(!val);
+						if (prop === 'reqd' && form_control.set_working_mandatory) form_control.set_working_mandatory(val);
+					}
+
+					prop_changed = true;
+					row_dirty = true;
+				}
+			};
+
+			if (state.read_only !== undefined) apply_prop("read_only", state.read_only);
+			if (state.hidden !== undefined) apply_prop("hidden", state.hidden);
+			if (state.reqd !== undefined) apply_prop("reqd", state.reqd);
+
+			if (state.options !== undefined && state.options !== null) {
+				if (JSON.stringify(isolated_df.options) !== JSON.stringify(state.options)) {
+					isolated_df.options = state.options;
+					if (control && control.set_options) control.set_options(state.options);
+					row_dirty = true;
+				}
+			}
+		});
+
+		// E. FINAL REFRESH
+		// If properties changed structurally (hidden/reqd), refresh the row entirely
+		// to ensure layout verification and valid state.
+		if (row_dirty) {
+			row.refresh();
+		}
 	}
 
 	// ============================================================
