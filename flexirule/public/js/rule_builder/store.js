@@ -7,7 +7,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 	let nodes = ref([]);
 	let edges = ref([]);
 	let selected_id = ref(null);
-	let process_methods = ref([]);
 	let processes = ref([]); // File-backed processes
 	let available_rules = ref([]);
 	let is_dirty = ref(false);
@@ -168,7 +167,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 			return;
 		}
 
-		await fetch_process_methods();
 		await fetch_processes();
 
 		const visual_data =
@@ -371,7 +369,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 				action_label: action.action_label,
 				process_name: action.process_name,
 				operation: action.operation,
-				process_method: action.process_method,
 				config: configData,
 				condition_expression: action.condition_expression,
 				condition_json: action.condition_json,
@@ -445,38 +442,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 		}
 	}
 
-	async function fetch_process_methods() {
-		try {
-			const methods = await frappe.db.get_list("Process Method", {
-				fields: [
-					"name",
-					"method_name",
-					"category",
-					"config_schema",
-					"description",
-					"method_path",
-				],
-				filters: { is_enabled: 1 },
-				limit: 0,
-			});
-			process_methods.value = methods || [];
-		} catch {
-			process_methods.value = [];
-		}
-	}
-
-	async function get_process_method_schema(method_name) {
-		if (!method_name) return null;
-		const method = process_methods.value.find((m) => m.name === method_name);
-		if (method?.config_schema) {
-			try {
-				return JSON.parse(method.config_schema);
-			} catch {
-				return null;
-			}
-		}
-		return null;
-	}
 
 	// ============================================================
 	// FILE-BACKED PROCESSES
@@ -652,7 +617,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 					is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
 					process_name: node.data?.process_name,
 					operation: node.data?.operation,
-					process_method: node.data?.process_method,
 					config: node.data?.config,
 					condition_expression: node.data?.condition_expression,
 					condition_json: node.data?.condition_json,
@@ -799,7 +763,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 		nodes,
 		edges,
 		selected_id,
-		process_methods,
 		processes,
 		available_rules,
 		is_dirty,
@@ -812,7 +775,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 		fetch,
 		fetch_metadata,
 		get_fields_for_doctype,
-		get_process_method_schema,
 		save_changes,
 		mark_dirty,
 		mark_position_change,
