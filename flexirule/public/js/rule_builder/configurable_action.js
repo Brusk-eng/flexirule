@@ -53,6 +53,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 		// Recursion Guards
 		this._refreshing_ui = false;
 		this._disposed = false;
+		this._updating_fields = {}; // Race condition guard
 	}
 
 	/**
@@ -95,20 +96,34 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 	 * All UI changes must pass through here.
 	 */
 	update_field(fieldname, value, row_context = null) {
+		// Race Condition Guard: Prevent re-entry for the same field while it's updating
+		// We use a composite key for row-level fields
+		const lock_key = row_context ? `${row_context.name}:${fieldname}` : fieldname;
+
+		if (this._updating_fields[lock_key]) {
+			// Already updating this field, skip (or queue if strict coherence needed, but skip is usually safer for UI loops)
+			return Promise.resolve();
+		}
+
 		// Asynchronous Sequencing Guard: ensures updates happen in order
 		this.current_update_promise = this.current_update_promise.then(async () => {
-			// 1. Mutate State
-			if (row_context) {
-				// Row Level Mutation
-				// row_context is the actual row object (doc)
-				row_context[fieldname] = value;
-			} else {
-				// Root Level Mutation
-				this.config[fieldname] = value;
-			}
+			this._updating_fields[lock_key] = true;
+			try {
+				// 1. Mutate State
+				if (row_context) {
+					// Row Level Mutation
+					// row_context is the actual row object (doc)
+					row_context[fieldname] = value;
+				} else {
+					// Root Level Mutation
+					this.config[fieldname] = value;
+				}
 
-			// 2. Trigger Reactive Logic
-			await this._handle_change(fieldname, value, row_context);
+				// 2. Trigger Reactive Logic
+				await this._handle_change(fieldname, value, row_context);
+			} finally {
+				delete this._updating_fields[lock_key];
+			}
 		});
 
 		return this.current_update_promise;
@@ -118,6 +133,9 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 		return { ...this.config };
 	}
 
+	/**
+	 * Construct the standard ctx object for hooks/eval
+	 */
 	/**
 	 * Construct the standard ctx object for hooks/eval
 	 */
@@ -132,6 +150,13 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 			document_type: this.document_type,
 			process_name: this.process_name,
 			operation_name: this.operation_name,
+
+			// Helper Data
+			vars: this._get_vars_dict(),
+
+			// Polyfills for standard Frappe eval helpers
+			in_list: (list, item) => list && list.includes(item),
+			has_common: (l1, l2) => l1 && l2 && l1.some((i) => l2.includes(i)),
 
 			// The Mutation API
 			update_field: (field, val) => this.update_field(field, val, row),
@@ -466,15 +491,8 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 			expression = expression.slice(5);
 		}
 		try {
-			// Robust Context Injection
-			// We manually decompose the context to ensure all helper functions (in_list)
-			// and data (doc, row) are available as top-level variables in the expression scope.
-			const keys = Object.keys(context);
-			const values = Object.values(context);
-			// Wrap in return if it's a simple expression (implicit return)
-			// But mostly users write expressions. We assume expression evaluates to value.
-			const fn = new Function(...keys, `return (${expression});`);
-			return fn(...values);
+			// Security Fix: Use frappe.utils.eval instead of new Function
+			return frappe.utils.eval(expression, context);
 		} catch (e) {
 			console.warn(`Dependency Eval Failed: "${expression}"`, e);
 			return false;
@@ -496,25 +514,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 		return schemas;
 	}
 
-	_get_context(row = null) {
-		const doc = row || this.config;
-		// Combine doc with context variables
-		const ctx = {
-			doc: doc,
-			parent: this.config, // Access to root config
-			vars: this._get_vars_dict(), // Helper to get vars as dict
-			// Polyfills for standard Frappe eval helpers
-			in_list: (list, item) => list && list.includes(item),
-			has_common: (l1, l2) => l1 && l2 && l1.some(i => l2.includes(i)),
-
-			// The Mutation API
-			update_field: (field, val) => this.update_field(field, val, row),
-		};
-
-		// If using Frappe < v14, we might need to manually merge.
-		// For now, this object is passed to frappe.utils.eval(expr, ctx)
-		return ctx;
-	}
+	// _get_context REMOVED (Duplicate)
 
 	_get_vars_dict() {
 		return {}; // Placeholder - implement actual var retrieval if needed
@@ -797,6 +797,7 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 
 				this._bind_grid_input_change(grid, table_field);
 				this._bind_grid_row_add(grid, table_field);
+				this._bind_grid_row_remove(grid, table_field);
 
 				// Initial Refresh to catch pre-loaded rows
 				if (grid.grid_rows && grid.grid_rows.length > 0) {
@@ -845,21 +846,42 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 			// 1. Trigger Runtime Updates for Defaults
 			// This ensures that default values defined in the schema are propagated
 			// to the internal config model immediately.
-			child_fields.forEach((cf) => {
-				if (row.doc[cf.fieldname] !== undefined && cf._onchange_logic) {
-					this.update_field(cf.fieldname, row.doc[cf.fieldname], row.doc);
-				}
-			});
+			// 4. Force Validation & Refresh on Add
+			// New rows need full dependency evaluation
+			// We use a small timeout to let Grid finish its internal row setup
+			setTimeout(async () => {
+				const keys = Object.keys(row.doc);
+				// We can't know which fields are relevant easily, so we eval dependencies for the row
+				await this.evaluate_dependencies(this.config, row.doc, table_field.fieldname);
+				this._refresh_dialog_ui(row.doc);
+			}, 50);
+		};
+	}
 
-			// 2. Evaluate Dependencies for the new row
-			this.evaluate_dependencies(this.config, row.doc, table_field.fieldname)
-				.then(() => {
-					// 3. UI Sync
-					this._refresh_dialog_ui(row.doc);
-				})
-				.catch((err) => {
-					console.error("FlexiRule: Failed to evaluate dependencies for new row", err);
-				});
+	_bind_grid_row_remove(grid, table_field) {
+		// Hook into standard grid remove event if available, or patch
+		// Frappe Grid doesn't have a clean 'on_remove' hook in some versions,
+		// but we can listen to the event if triggered or patch the method.
+		// A safer play in standard UI is to listen to the grid wrapper
+		if (!grid.wrapper) return;
+
+		// We assume 'grid-row-removed' event might be emitted or we need to intercept
+		// In Frappe v13/14, best way is often to override grid.grid_remove_row
+		const original_remove = grid.grid_remove_row.bind(grid);
+		grid.grid_remove_row = (row) => {
+			const row_name = row.doc.name;
+
+			// 1. Cleanup State (Memory Leak Fix)
+			if (row_name && this.dependency_states[row_name]) {
+				delete this.dependency_states[row_name];
+			}
+
+			// 2. Call Original
+			original_remove(row);
+
+			// 3. Trigger Root Refresh (in case of aggregates)
+			// Trigger on parent
+			this._handle_change(table_field.fieldname, this.config[table_field.fieldname], null);
 		};
 	}
 
@@ -1106,7 +1128,13 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 			if (state.reqd !== undefined) apply_prop("reqd", state.reqd);
 
 			if (state.options !== undefined && state.options !== null) {
-				if (JSON.stringify(isolated_df.options) !== JSON.stringify(state.options)) {
+				// Optimization: Use deep equality instead of stringify
+				// frappe.utils.deep_equal is standard, fallback if missing
+				const is_equal = frappe.utils.deep_equal
+					? frappe.utils.deep_equal(isolated_df.options, state.options)
+					: JSON.stringify(isolated_df.options) === JSON.stringify(state.options);
+
+				if (!is_equal) {
 					isolated_df.options = state.options;
 					if (control && control.set_options) control.set_options(state.options);
 					row_dirty = true;

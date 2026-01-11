@@ -21,7 +21,7 @@ const PROFILES = {
 // Start Namespace
 frappe.provide("flexirule.processes");
 
-flexirule.processes["Normalization"] = {
+flexirule.processes.Normalization = {
 	meta: {
 		version: "1.0",
 		title: __("Normalization"),
