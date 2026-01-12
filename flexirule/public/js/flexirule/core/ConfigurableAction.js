@@ -23,7 +23,14 @@ flexirule.integration.create_configurable_action = function (opts) {
  * 3. Passive Fields: fields react to state, never mutate each other directly.
  * 4. Native Frappe Semantics: supports depends_on, mandatory_depends_on, eval scops.
  */
-flexirule.ui.ConfigurableAction = class ConfigurableAction {
+// Maintain global for legacy/sidebar usage
+frappe.provide("flexirule.ui");
+
+/**
+ * ConfigurableAction - Runtime Primitive for Process Configuration
+ * ...
+ */
+export default class ConfigurableAction {
 	constructor(opts) {
 		// Options: process_name, operation_name, node_data, document_type, doc_meta
 		Object.assign(this, opts);
@@ -61,6 +68,14 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 	 * Resolves schema, fetches async options, prepares runtime.
 	 */
 	async init() {
+		// Force clear cache for this doctype to ensure fresh metadata (descriptions)
+		if (this.document_type) {
+			delete flexirule.meta_cache[this.document_type];
+			if (flexirule.meta_cache[`${this.document_type}:doc`]) {
+				delete flexirule.meta_cache[`${this.document_type}:doc`];
+			}
+		}
+
 		await this._load_adapter();
 		this.schema = this._resolve_schema();
 		this.normalized_fields = await this._normalize_schema(this.schema);
@@ -269,10 +284,18 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 			f.columns = f.width;
 		}
 
+
 		// 2. Resolve 'System' Types to Frappe Types
 		f.fieldtype = this._map_fieldtype(f.fieldtype);
 
-		if (f.fieldtype === "Autocomplete" || f.fieldtype === "MultiSelectList") {
+		// AUTO-UPGRADE: Use FlexiAutocomplete if available for standard Autocomplete fields
+		if (f.fieldtype === "Autocomplete") {
+			// We use the custom control if registered to support enhanced rendering (descriptions)
+			if (frappe.ui.form && frappe.ui.form.control_map && frappe.ui.form.control_map["FlexiAutocomplete"]) {
+				f.fieldtype = "FlexiAutocomplete";
+			}
+			f.options = await this._resolve_docfield_options(f.options);
+		} else if (f.fieldtype === "MultiSelectList") {
 			f.options = await this._resolve_docfield_options(f.options);
 		} else if (f.fieldtype === "Table") {
 			// Recursively normalize child fields
@@ -344,6 +367,9 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 		return field.options || "";
 	}
 
+	/**
+	 * Map custom fieldtypes to standard Frappe types
+	 */
 	/**
 	 * Map custom fieldtypes to standard Frappe types
 	 */
@@ -1371,3 +1397,4 @@ flexirule.ui.ConfigurableAction = class ConfigurableAction {
 		this.schema = null;
 	}
 };
+flexirule.ui.ConfigurableAction = ConfigurableAction;

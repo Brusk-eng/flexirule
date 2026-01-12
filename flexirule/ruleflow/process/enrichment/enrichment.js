@@ -5,7 +5,7 @@
 
 frappe.provide("flexirule.processes");
 
-flexirule.processes.Enrichment = {
+flexirule.processes["Enrichment"] = {
     meta: {
         version: "1.0",
         title: __("Enrichment"),
@@ -63,12 +63,13 @@ flexirule.processes.Enrichment = {
                 return [
                     {
                         fieldname: "target_field",
-                        fieldtype: "Select",
+                        fieldtype: "DocField",
                         label: __("Target Field"),
                         options: doc_fields,
                         reqd: 1,
                     },
                     {
+                        //TODO : Better have another no code implementation here
                         fieldname: "formula",
                         fieldtype: "Code",
                         label: __("Formula"),

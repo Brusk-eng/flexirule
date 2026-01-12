@@ -71,6 +71,9 @@ import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
 import ConditionBuilder from "./condition_builder/ConditionBuilder.vue";
 
+// Ensure ConfigurableAction is loaded
+import "../../core/ConfigurableAction.js";
+
 const emit = defineEmits(["close"]);
 const store = useStore();
 
