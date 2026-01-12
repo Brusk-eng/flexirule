@@ -5,7 +5,7 @@
 
 frappe.provide("flexirule.processes");
 
-flexirule.processes.MDM = {
+flexirule.processes["MDM"] = {
 	meta: {
 		version: "1.0",
 		title: __("Master Data"),

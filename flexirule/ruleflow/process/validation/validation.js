@@ -5,7 +5,7 @@
 // Start Namespace
 frappe.provide("flexirule.processes");
 
-flexirule.processes.Validation = {
+flexirule.processes["Validation"] = {
     meta: {
         version: "1.0",
         title: __("Validation"),

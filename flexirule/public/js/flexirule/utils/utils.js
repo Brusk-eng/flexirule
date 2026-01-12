@@ -67,6 +67,8 @@ flexirule.utils.get_doctype_fields = async function (doctype, prefix = "") {
 					fieldname: df.fieldname,
 					doctype: parent_table,
 					fieldtype: df.fieldtype,
+					// Fallback Description: Type -> Options
+					description: df.description || (df.options ? `${df.fieldtype} → ${df.options}` : df.fieldtype)
 				});
 				seen_fields.add(fieldname);
 			};
@@ -235,3 +237,19 @@ flexirule.utils.get_operation_config_fields = async function (process_name, oper
 
 	return [];
 };
+
+/**
+ * Get field property (type and options) for a field in a DocType.
+ * Useful for resolving metadata for mapped fields.
+ * 
+ * @param {string} doctype 
+ * @param {string} fieldname 
+ * @returns {Promise<{fieldtype: string, options: string|null}>}
+ */
+/**
+ * Get field options for a specific row in the configuration grid.
+ * Used by Autocomplete fields via get_query.
+ * 
+ * @param {Object} row_doc - The row document from the grid
+ * @returns {Array} - List of options {label, value, description}
+ */

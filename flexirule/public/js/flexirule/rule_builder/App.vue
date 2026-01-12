@@ -178,8 +178,8 @@ import { VueFlow, Panel, PanelPosition } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { useStore } from "./store";
-import { generateShortId } from "./utils";
-import "./utils/meta.js";
+import { generateShortId } from "../utils/index.js";
+import "../utils/utils.js";
 
 import StartNode from "./components/nodes/StartNode.vue";
 import ProcessNode from "./components/nodes/ProcessNode.vue";

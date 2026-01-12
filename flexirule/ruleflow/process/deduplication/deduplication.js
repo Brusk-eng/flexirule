@@ -6,7 +6,7 @@ frappe.provide("flexirule.processes");
  * Standardizes configuration for deduplication operations.
  * Directly compatible with the ConfigurableAction runtime.
  */
-flexirule.processes.Deduplication = {
+flexirule.processes["Deduplication"] = {
 	meta: {
 		version: "1.0",
 		title: __("Deduplication"),
@@ -265,6 +265,7 @@ const SHARED = {
 			.map((f) => ({
 				label: f.label,
 				value: f.value,
+				description: f.description // Pass description to UI
 			}));
 	},
 

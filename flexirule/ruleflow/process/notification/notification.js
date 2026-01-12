@@ -5,7 +5,7 @@
 
 frappe.provide("flexirule.processes");
 
-flexirule.processes.Notification = {
+flexirule.processes["Notification"] = {
     meta: {
         version: "1.0",
         title: __("Notification"),

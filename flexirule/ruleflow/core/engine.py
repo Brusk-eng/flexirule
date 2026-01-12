@@ -1025,11 +1025,11 @@ class RuleEngine:
                 "test_mode"
             ):
                 frappe.db.rollback()
-                log_doc.insert(ignore_permissions=True)
+                log_doc.insert(ignore_permissions=True, ignore_links=True)
                 frappe.db.commit()
             else:
                 # Success or Test Mode: Just insert (part of current transaction)
-                log_doc.insert(ignore_permissions=True)
+                log_doc.insert(ignore_permissions=True, ignore_links=True)
 
         except Exception as e:
             # Fallback if logging itself fails
