@@ -13,10 +13,24 @@ flexirule.processes["Enrichment"] = {
 
     get_schema(operation_name, ctx) {
         const operation = this.get_operation(operation_name);
-        if (!operation) return [];
-        return typeof operation.get_config_fields === "function"
-            ? operation.get_config_fields(ctx)
-            : [];
+        if (!operation) return null;
+
+        return {
+            title: operation.label || operation_name,
+            size: "large",
+            fields:
+                typeof operation.get_config_fields === "function"
+                    ? operation.get_config_fields(ctx)
+                    : [],
+        };
+    },
+
+    get_output_schema(operation_name, config, context) {
+        const operation = this.get_operation(operation_name);
+        if (operation && typeof operation.get_output_schema === "function") {
+            return operation.get_output_schema(config, context);
+        }
+        return [];
     },
 
     operations: [
@@ -52,6 +66,18 @@ flexirule.processes["Enrichment"] = {
                     },
                 ];
             },
+            get_output_schema: (config, ctx) => {
+                if (config.field) {
+                    return [
+                        {
+                            label: config.field,
+                            value: config.field,
+                            type: "Data", // Could be more specific based on field type
+                        },
+                    ];
+                }
+                return null;
+            },
         },
         {
             func_name: "calculate_value",
@@ -63,7 +89,7 @@ flexirule.processes["Enrichment"] = {
                 return [
                     {
                         fieldname: "target_field",
-                        fieldtype: "DocField",
+                        fieldtype: "Select",
                         label: __("Target Field"),
                         options: doc_fields,
                         reqd: 1,
@@ -78,6 +104,18 @@ flexirule.processes["Enrichment"] = {
                         reqd: 1,
                     },
                 ];
+            },
+            get_output_schema: (config, ctx) => {
+                if (config.target_field) {
+                    return [
+                        {
+                            label: config.target_field,
+                            value: config.target_field,
+                            type: "Data", // Could be more specific based on field type
+                        },
+                    ];
+                }
+                return null;
             },
         },
         {
@@ -108,7 +146,7 @@ flexirule.processes["Enrichment"] = {
                         fields: [
                             {
                                 fieldname: "source_field",
-                                fieldtype: "Data",
+                                fieldtype: "Data",  // This needs to be dynamic based on the selected link field
                                 label: __("Source Field (Linked Doc)"),
                                 reqd: 1,
                                 columns: 6,
@@ -124,6 +162,16 @@ flexirule.processes["Enrichment"] = {
                         ],
                     },
                 ];
+            },
+            get_output_schema: (config, ctx) => {
+                const mappings = config.field_mapping || [];
+                return mappings.map((mapping) => {
+                    return {
+                        label: mapping.target_field,
+                        value: mapping.target_field,
+                        type: "Data", // Could be more specific based on field type
+                    };
+                });
             },
         },
         {
@@ -163,6 +211,21 @@ flexirule.processes["Enrichment"] = {
                     },
                 ];
             },
+            get_output_schema: (config, ctx) => {
+                const fields = Array.isArray(config.field_list)
+                    ? config.field_list
+                    : (typeof config.field_list === 'string'
+                        ? config.field_list.split('\n').filter(f => f.trim())
+                        : []);
+
+                return fields.map((field) => {
+                    return {
+                        label: field,
+                        value: field,
+                        type: "Data", // Could be more specific based on field type
+                    };
+                });
+            },
         },
         {
             func_name: "apply_naming_series",
@@ -180,6 +243,16 @@ flexirule.processes["Enrichment"] = {
                     },
                 ];
             },
+            get_output_schema: (config, ctx) => {
+                // This operation modifies the naming_series field of the document
+                return [
+                    {
+                        label: "naming_series",
+                        value: "naming_series",
+                        type: "Data",
+                    },
+                ];
+            },
         },
     ],
 
@@ -188,7 +261,7 @@ flexirule.processes["Enrichment"] = {
     },
 
     get_doc_fields(context) {
-        const doctype = context.default_ref_doctype;
+        const doctype = context.document_type;
         if (!doctype) return [{ label: __("Select DocType first"), value: "" }];
 
         const fields = frappe
