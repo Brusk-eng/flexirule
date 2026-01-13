@@ -29,6 +29,14 @@ flexirule.processes["Deduplication"] = {
 			: [];
 	},
 
+	get_output_schema(operation_name, config, context) {
+		const operation = this.get_operation(operation_name);
+		if (operation && typeof operation.get_output_schema === "function") {
+			return operation.get_output_schema(config, context);
+		}
+		return [];
+	},
+
 	operations: [
 		{
 			func_name: "find_similar_records",
@@ -93,8 +101,8 @@ flexirule.processes["Deduplication"] = {
 					fieldname: "help_html",
 					fieldtype: "HTML",
 					options: `<div class="text-muted small">
-                        Define how each field should be compared. 
-                        <b>Fuzzy</b> handles typos. <b>Exact</b> requires precise match. 
+                        Define how each field should be compared.
+                        <b>Fuzzy</b> handles typos. <b>Exact</b> requires precise match.
                         <b>Numeric/Date</b> allow ranges.
                     </div>`,
 				},
@@ -106,6 +114,15 @@ flexirule.processes["Deduplication"] = {
 					fields: get_dedupe_table_fields(),
 				},
 			],
+			get_output_schema: (config, ctx) => {
+				return [
+					{
+						label: __("Similar Records"),
+						value: "similar_records",
+						type: "JSON", // Returns an array of similar records
+					},
+				];
+			},
 		},
 		{
 			func_name: "find_duplicates_by_fields",

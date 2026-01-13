@@ -125,6 +125,10 @@ def import_process_from_file(json_path, module_name):
                 "writes_to": op.get("writes_to", "None"),
                 "allows_async": op.get("allows_async", 0),
                 "transactional": op.get("transactional", 0),
+                "reads_vars": op.get("reads_vars"),
+                "writes_vars": op.get("writes_vars"),
+                "config_schema": op.get("config_schema"),
+                "output_schema": op.get("output_schema"),
             }
         )
 
@@ -148,14 +152,27 @@ def import_process_from_file(json_path, module_name):
         for op_data in operations:
             func_name = op_data.get("func_name")
             if func_name in existing_funcs:
-                # Update existing operation's metadata (but preserve user overrides)
+                # Update existing operation's metadata (sync all fields from JSON)
                 existing = existing_funcs[func_name]
-                # Only update if not user-modified (icon/color/label)
-                if not existing.icon and op_data.get("icon"):
-                    existing.icon = op_data.get("icon")
-                    modified = True
-                if not existing.color and op_data.get("color"):
-                    existing.color = op_data.get("color")
+
+                # Update all fields from JSON to keep them in sync
+                fields_to_update = [
+                    "label", "enabled", "visible_in_builder", "icon", "color",
+                    "requires_doc", "can_stop_save", "is_terminal", "writes_to",
+                    "allows_async", "transactional", "reads_vars", "writes_vars",
+                    "config_schema", "output_schema"
+                ]
+
+                op_modified = False
+                for field in fields_to_update:
+                    json_value = op_data.get(field)
+                    current_value = getattr(existing, field, None)
+
+                    if current_value != json_value:
+                        setattr(existing, field, json_value)
+                        op_modified = True
+
+                if op_modified:
                     modified = True
             else:
                 # Add new operation

@@ -4,7 +4,7 @@
  "doctype": "Process",
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2026-01-09 22:46:19.399969",
+ "modified": "2026-01-13 22:30:35.293256",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "Validation",
@@ -103,7 +103,8 @@
    "requires_doc": 0,
    "transactional": 0,
    "visible_in_builder": 1,
-   "writes_to": "Context"
+   "writes_to": "Context",
+   "writes_vars": "[{\"fieldname\":\"role_check_result\",\"fieldtype\":\"Data\",\"label\":\"Role Check Result\"}]"
   },
   {
    "allows_async": 0,
@@ -115,7 +116,8 @@
    "requires_doc": 1,
    "transactional": 0,
    "visible_in_builder": 1,
-   "writes_to": "Context"
+   "writes_to": "Context",
+   "writes_vars": "[{\"fieldname\":\"changed_fields\",\"fieldtype\":\"JSON\",\"label\":\"Changed Fields\"}]"
   }
  ],
  "owner": "Administrator",

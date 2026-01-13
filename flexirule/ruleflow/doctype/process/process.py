@@ -298,6 +298,18 @@ def get_process_list():
             "color",
             "config_json",
             "idx",
+            # Contract fields for validation
+            "writes_to",
+            "writes_vars",
+            "reads_vars",
+            "output_schema",
+            "config_schema",
+            "is_terminal",
+            "can_stop_save",
+            "requires_doc",
+            "transactional",
+            "for_doctype",
+            "doctype_filters",
         ],
         order_by="parent asc, idx asc",
     )
