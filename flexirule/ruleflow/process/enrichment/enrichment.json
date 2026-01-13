@@ -4,7 +4,7 @@
  "doctype": "Process",
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2026-01-13 22:21:39.541149",
+ "modified": "2026-01-13 23:44:44.575594",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "Enrichment",
@@ -19,7 +19,7 @@
    "requires_doc": 1,
    "transactional": 1,
    "visible_in_builder": 1,
-   "writes_to": "None"
+   "writes_to": "Document"
   },
   {
    "allows_async": 0,
@@ -31,7 +31,7 @@
    "requires_doc": 1,
    "transactional": 1,
    "visible_in_builder": 1,
-   "writes_to": "None"
+   "writes_to": "Document"
   },
   {
    "allows_async": 0,
@@ -43,7 +43,7 @@
    "requires_doc": 1,
    "transactional": 1,
    "visible_in_builder": 1,
-   "writes_to": "None"
+   "writes_to": "Document"
   },
   {
    "allows_async": 0,
@@ -55,7 +55,7 @@
    "requires_doc": 1,
    "transactional": 1,
    "visible_in_builder": 1,
-   "writes_to": "None"
+   "writes_to": "Document"
   },
   {
    "allows_async": 0,
@@ -67,7 +67,7 @@
    "requires_doc": 1,
    "transactional": 1,
    "visible_in_builder": 1,
-   "writes_to": "None"
+   "writes_to": "Document"
   }
  ],
  "owner": "Administrator",
