@@ -1,75 +1,75 @@
 {
-    "creation": "2026-01-10 15:25:00.000000",
-    "docstatus": 0,
-    "doctype": "Process",
-    "idx": 0,
-    "is_standard": "Yes",
-    "modified": "2026-01-10 15:25:00.000000",
-    "modified_by": "Administrator",
-    "module": "Ruleflow",
-    "name": "Enrichment",
-    "operations": [
-        {
-            "allows_async": 0,
-            "can_stop_save": 0,
-            "enabled": 1,
-            "func_name": "set_value",
-            "is_terminal": 0,
-            "label": "Set Value",
-            "requires_doc": 1,
-            "transactional": 1,
-            "visible_in_builder": 1,
-            "writes_to": "None"
-        },
-        {
-            "allows_async": 0,
-            "can_stop_save": 0,
-            "enabled": 1,
-            "func_name": "calculate_value",
-            "is_terminal": 0,
-            "label": "Calculate Value",
-            "requires_doc": 1,
-            "transactional": 1,
-            "visible_in_builder": 1,
-            "writes_to": "None"
-        },
-        {
-            "allows_async": 0,
-            "can_stop_save": 0,
-            "enabled": 1,
-            "func_name": "linked_doc_autocomplete",
-            "is_terminal": 0,
-            "label": "Linked Doc Autocomplete",
-            "requires_doc": 1,
-            "transactional": 1,
-            "visible_in_builder": 1,
-            "writes_to": "None"
-        },
-        {
-            "allows_async": 0,
-            "can_stop_save": 0,
-            "enabled": 1,
-            "func_name": "copy_from_template",
-            "is_terminal": 0,
-            "label": "Copy from Template",
-            "requires_doc": 1,
-            "transactional": 1,
-            "visible_in_builder": 1,
-            "writes_to": "None"
-        },
-        {
-            "allows_async": 0,
-            "can_stop_save": 0,
-            "enabled": 1,
-            "func_name": "apply_naming_series",
-            "is_terminal": 0,
-            "label": "Apply Naming Series",
-            "requires_doc": 1,
-            "transactional": 1,
-            "visible_in_builder": 1,
-            "writes_to": "None"
-        }
-    ],
-    "owner": "Administrator",
-    "process_name": "Enrichment"
+ "creation": "2026-01-10 15:22:27.407531",
+ "docstatus": 0,
+ "doctype": "Process",
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2026-01-13 22:21:39.541149",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Enrichment",
+ "operations": [
+  {
+   "allows_async": 0,
+   "can_stop_save": 0,
+   "enabled": 1,
+   "func_name": "set_value",
+   "is_terminal": 0,
+   "label": "Set Value",
+   "requires_doc": 1,
+   "transactional": 1,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 0,
+   "enabled": 1,
+   "func_name": "calculate_value",
+   "is_terminal": 0,
+   "label": "Calculate Value",
+   "requires_doc": 1,
+   "transactional": 1,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 0,
+   "enabled": 1,
+   "func_name": "linked_doc_autocomplete",
+   "is_terminal": 0,
+   "label": "Linked Doc Autocomplete",
+   "requires_doc": 1,
+   "transactional": 1,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 0,
+   "enabled": 1,
+   "func_name": "copy_from_template",
+   "is_terminal": 0,
+   "label": "Copy from Template",
+   "requires_doc": 1,
+   "transactional": 1,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  },
+  {
+   "allows_async": 0,
+   "can_stop_save": 0,
+   "enabled": 1,
+   "func_name": "apply_naming_series",
+   "is_terminal": 0,
+   "label": "Apply Naming Series",
+   "requires_doc": 1,
+   "transactional": 1,
+   "visible_in_builder": 1,
+   "writes_to": "None"
+  }
+ ],
+ "owner": "Administrator",
+ "process_name": "Enrichment"
 }

@@ -172,6 +172,9 @@ class Rule(Document):
             if action.action_type == "Process" and action.process_name:
                 self._validate_action_config(action)
 
+            # 3. Validate action type-specific constraints
+            self._validate_all_action_types(action)
+
     def _validate_json_field(self, json_str, label):
         if not json_str:
             return
@@ -188,13 +191,118 @@ class Rule(Document):
 
         process = frappe.get_cached_doc("Process", action.process_name)
 
-        # If operation is set, we could validate its schema here
-        # For now, we perform basic existence check
+        # If operation is set, validate existence and contracts
         if action.operation:
             try:
-                process.get_operation(action.operation)
+                op = process.get_operation(action.operation)
+
+                # Validate return_variable mandatory for context-writing operations
+                self._validate_return_variable_requirement(action, op)
+
             except Exception as e:
                 frappe.throw(str(e))
+
+    def _validate_return_variable_requirement(self, action, operation):
+        """
+        Enforce return_variable is set when operation writes to context.
+        """
+        if not operation:
+            return
+
+        writes_to = operation.writes_to
+        writes_vars = operation.writes_vars
+        output_schema = operation.output_schema
+
+        requires_return_var = False
+
+        # Check if operation writes to context
+        if writes_to == "Context":
+            requires_return_var = True
+
+        # Check if operation declares writes_vars
+        if writes_vars:
+            try:
+                parsed_vars = (
+                    json.loads(writes_vars)
+                    if isinstance(writes_vars, str)
+                    else writes_vars
+                )
+                if parsed_vars and len(parsed_vars) > 0:
+                    requires_return_var = True
+            except Exception:
+                pass
+
+        # Check if operation has output_schema
+        if output_schema:
+            requires_return_var = True
+
+        if requires_return_var and not action.return_variable:
+            frappe.throw(
+                _(
+                    "Action '{0}' uses operation '{1}' which writes to context. "
+                    "Please specify a Return Variable Name."
+                ).format(action.action_label, action.operation)
+            )
+
+    def _validate_all_action_types(self, action):
+        """
+        Validate constraints specific to each action type.
+        """
+        action_type = action.action_type
+
+        if action_type == "Sub-Rule":
+            if not action.rule:
+                frappe.throw(
+                    _("Action '{0}' is a Sub-Rule but no Rule is selected.").format(
+                        action.action_label
+                    )
+                )
+            # Prevent self-reference
+            if action.rule == self.name:
+                frappe.throw(
+                    _("Action '{0}' cannot reference its own Rule as Sub-Rule.").format(
+                        action.action_label
+                    )
+                )
+
+        elif action_type == "Condition":
+            if not action.condition_json and not action.condition_expression:
+                frappe.throw(
+                    _(
+                        "Action '{0}' is a Condition but no condition is defined."
+                    ).format(action.action_label)
+                )
+
+        elif action_type == "Loop":
+            # Loop actions should have a valid iterator configuration
+            config = self._parse_json_field(action.config)
+            if not config.get("iterator_var") and not config.get("collection"):
+                frappe.msgprint(
+                    _(
+                        "Action '{0}' is a Loop but iterator configuration may be incomplete."
+                    ).format(action.action_label),
+                    alert=True,
+                )
+
+        elif action_type == "Switch":
+            # Switch should have cases defined
+            config = self._parse_json_field(action.config)
+            if not config.get("cases"):
+                frappe.msgprint(
+                    _("Action '{0}' is a Switch but no cases are defined.").format(
+                        action.action_label
+                    ),
+                    alert=True,
+                )
+
+    def _parse_json_field(self, json_str):
+        """Parse JSON field safely, return empty dict on failure."""
+        if not json_str:
+            return {}
+        try:
+            return json.loads(json_str) if isinstance(json_str, str) else json_str
+        except Exception:
+            return {}
 
     def validate_no_sub_rule_cycles(self):
         """

@@ -94,6 +94,18 @@ function evaluate_depends_on(expression) {
 
 // Evaluate mandatory_depends_on
 function is_mandatory(df) {
+	// Special enforcement for return_variable
+	if (df.fieldname === 'return_variable' && operation_metadata.value) {
+		const op = operation_metadata.value;
+		// Mandatory if operation writes to Context or declares output variables
+		if (op.writes_to === 'Context' || 
+			(op.writes_vars && JSON.stringify(op.writes_vars) !== '[]') ||
+			op.output_schema
+		) {
+			return true;
+		}
+	}
+
 	if (df.reqd) return true;
 	if (!df.mandatory_depends_on) return false;
 	return evaluate_depends_on(df.mandatory_depends_on);

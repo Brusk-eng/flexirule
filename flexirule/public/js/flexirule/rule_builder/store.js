@@ -632,6 +632,27 @@ export const useStore = defineStore("rule-builder-store", () => {
 				}
 			}
 
+			// Validate action type-specific constraints (Sub-Rule, Condition, Loop, Switch, return_variable)
+			if (flexirule.validation?.validate_action_types) {
+				const typeResult = flexirule.validation.validate_action_types(
+					actionsForValidation,
+					op_metadata,
+					rule_name.value
+				);
+				if (!typeResult.valid) {
+					const message = typeResult.errors.map((e) => `<li>${e}</li>`).join("");
+					frappe.msgprint({
+						title: __("Action Configuration Error"),
+						message: `<ul class="text-left">${message}</ul>`,
+						indicator: "red",
+					});
+					return;
+				}
+				if (typeResult.warnings.length > 0) {
+					console.warn("Action type warnings:", typeResult.warnings);
+				}
+			}
+
 			// 3. Prepare doc for save
 			const fresh = await frappe.call({
 				method: "frappe.client.get",

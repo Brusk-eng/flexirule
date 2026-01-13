@@ -1303,7 +1303,42 @@ export default class ConfigurableAction {
 			// Clean before saving
 			const clean_config = this._clean_for_storage(this.config);
 			this.node_data.config = JSON.stringify(clean_config);
+
+			// Resolve and save output schema
+			const output_schema = this._resolve_output_schema(clean_config);
+			if (output_schema) {
+				this.node_data.resolved_output_schema = JSON.stringify(output_schema);
+			} else {
+				this.node_data.resolved_output_schema = null;
+			}
 		}
+	}
+
+	/**
+	 * Resolve output schema dynamically from adapter or static definition.
+	 * Returns schema object or null.
+	 */
+	_resolve_output_schema(config) {
+		// Priority 1: Adapter.get_output_schema(config, context)
+		if (this.adapter && typeof this.adapter.get_output_schema === "function") {
+			const schema = this._safe_run("get_output_schema", () =>
+				this.adapter.get_output_schema(config, this._get_context())
+			);
+			if (schema) return schema;
+		}
+
+		// Priority 2: Operation Definition output_schema
+		if (this.operation_def?.output_schema) {
+			try {
+				return typeof this.operation_def.output_schema === "string"
+					? JSON.parse(this.operation_def.output_schema)
+					: this.operation_def.output_schema;
+			} catch (e) {
+				console.warn("Failed to parse static output_schema:", e);
+			}
+		}
+
+		return null;
 	}
 
 	/**

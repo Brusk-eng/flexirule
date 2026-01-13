@@ -25,6 +25,14 @@ flexirule.processes["Validation"] = {
         };
     },
 
+    get_output_schema(operation_name, config, context) {
+        const operation = this.get_operation(operation_name);
+        if (operation && typeof operation.get_output_schema === "function") {
+            return operation.get_output_schema(config, context);
+        }
+        return [];
+    },
+
     get_operation(name) {
         return this.operations.find((op) => op.func_name === name);
     },
@@ -333,6 +341,18 @@ flexirule.processes["Validation"] = {
                     description: __("Optional variable name for the boolean result"),
                 },
             ],
+            get_output_schema: (config, ctx) => {
+                if (config.store_result) {
+                    return [
+                        {
+                            label: config.store_result,
+                            value: config.store_result,
+                            type: "Data",
+                        },
+                    ];
+                }
+                return null;
+            },
         },
         {
             func_name: "on_field_change",
@@ -362,6 +382,18 @@ flexirule.processes["Validation"] = {
                     fieldtype: "Data",
                 },
             ],
+            get_output_schema: (config, ctx) => {
+                if (config.store_result) {
+                    return [
+                        {
+                            label: config.store_result,
+                            value: config.store_result,
+                            type: "JSON", // Changed to JSON since it stores a list of fields
+                        },
+                    ];
+                }
+                return null;
+            },
         },
     ],
 };

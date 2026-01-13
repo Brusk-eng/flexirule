@@ -197,3 +197,90 @@ flexirule.validation.build_operation_metadata = function (processes) {
 
     return metadata;
 };
+
+/**
+ * Validate action type-specific constraints.
+ * 
+ * @param {Array} actions - List of action objects
+ * @param {Object} operation_metadata - Map of operation key -> metadata
+ * @param {String} current_rule_name - Current rule name (for Sub-Rule self-reference check)
+ * @returns {Object} - { valid: boolean, errors: Array<string>, warnings: Array<string> }
+ */
+flexirule.validation.validate_action_types = function (actions, operation_metadata = {}, current_rule_name = null) {
+    const errors = [];
+    const warnings = [];
+
+    for (const action of actions) {
+        // Skip Entry Action
+        if (action.action_type === "Entry Action" || action.action_id === "root") {
+            continue;
+        }
+
+        const action_type = action.action_type;
+        const label = action.action_label || action.action_id;
+
+        // Sub-Rule validation
+        if (action_type === "Sub-Rule") {
+            if (!action.rule) {
+                errors.push(__("Action '{0}' is a Sub-Rule but no Rule is selected.", [label]));
+            }
+            if (action.rule && action.rule === current_rule_name) {
+                errors.push(__("Action '{0}' cannot reference its own Rule as Sub-Rule.", [label]));
+            }
+        }
+
+        // Condition validation
+        if (action_type === "Condition") {
+            if (!action.condition_json && !action.condition_expression) {
+                errors.push(__("Action '{0}' is a Condition but no condition is defined.", [label]));
+            }
+        }
+
+        // Loop validation
+        if (action_type === "Loop") {
+            let config = {};
+            try {
+                config = action.config ? (typeof action.config === "string" ? JSON.parse(action.config) : action.config) : {};
+            } catch (e) { /* ignore */ }
+
+            if (!config.iterator_var && !config.collection) {
+                warnings.push(__("Action '{0}' is a Loop but iterator configuration may be incomplete.", [label]));
+            }
+        }
+
+        // Switch validation
+        if (action_type === "Switch") {
+            let config = {};
+            try {
+                config = action.config ? (typeof action.config === "string" ? JSON.parse(action.config) : action.config) : {};
+            } catch (e) { /* ignore */ }
+
+            if (!config.cases) {
+                warnings.push(__("Action '{0}' is a Switch but no cases are defined.", [label]));
+            }
+        }
+
+        // Process validation: return_variable enforcement
+        if (action_type === "Process" && action.process_name && action.operation) {
+            const op_key = `${action.process_name}:${action.operation}`;
+            const op_meta = operation_metadata[op_key] || {};
+
+            const writes_to_context = op_meta.writes_to === "Context";
+            const has_writes_vars = op_meta.writes_vars && op_meta.writes_vars !== "[]";
+            const has_output_schema = !!op_meta.output_schema;
+
+            if ((writes_to_context || has_writes_vars || has_output_schema) && !action.return_variable) {
+                errors.push(
+                    __("Action '{0}' uses operation '{1}' which writes to context. Please specify a Return Variable Name.",
+                        [label, action.operation])
+                );
+            }
+        }
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors,
+        warnings
+    };
+};

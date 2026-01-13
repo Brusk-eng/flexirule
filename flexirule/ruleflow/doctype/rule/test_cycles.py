@@ -36,7 +36,7 @@ class TestRuleCycles(FrappeTestCase):
         })
         with self.assertRaises(frappe.ValidationError) as cm:
             rule.save()
-        self.assertIn("Cycle detected in sub-rule graph", str(cm.exception))
+        self.assertIn("cannot reference its own Rule as Sub-Rule", str(cm.exception))
 
     def test_indirect_cycle(self):
         # A calls B, B calls A
