@@ -150,6 +150,38 @@ function get_action_node_options() {
 		}));
 }
 
+// Get current operation's metadata for side-effect warnings
+const operation_metadata = computed(() => {
+	if (!props.nodeData?.process_name || !props.nodeData?.operation) {
+		return null;
+	}
+	const process = store.processes.find((p) => p.name === props.nodeData.process_name);
+	if (!process?.operations) return null;
+
+	return process.operations.find((op) => op.func_name === props.nodeData.operation);
+});
+
+// Compute side-effect warning message based on writes_to
+const side_effect_warning = computed(() => {
+	if (!operation_metadata.value) return null;
+
+	const writes_to = operation_metadata.value.writes_to;
+	if (writes_to === "Database") {
+		return {
+			type: "danger",
+			icon: "fa-database",
+			message: __("This operation writes directly to the database. Side-effects cannot be rolled back."),
+		};
+	} else if (writes_to === "Document") {
+		return {
+			type: "warning",
+			icon: "fa-file-text",
+			message: __("This operation modifies the document. Ensure this is intentional."),
+		};
+	}
+	return null;
+});
+
 // Handle button field clicks
 function handle_button_click(df) {
 	if (df.fieldname === "configure_operation" || df.fieldname === "configures") {
@@ -183,6 +215,12 @@ onMounted(async () => {
 
 <template>
 	<div class="action-field-properties">
+		<!-- Side-effect Warning Badge -->
+		<div v-if="side_effect_warning" :class="['side-effect-warning', 'alert-' + side_effect_warning.type]">
+			<i :class="['fa', side_effect_warning.icon]"></i>
+			<span>{{ side_effect_warning.message }}</span>
+		</div>
+
 		<div v-for="df in visible_fields" :key="df.fieldname" class="field-wrapper">
 			<!-- Button fields (configures, set_conditions) -->
 			<template v-if="is_button_field(df)">
@@ -236,6 +274,32 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	/* Removed gap: 12px as controls have their own margins */
+}
+
+.side-effect-warning {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 8px 10px;
+	border-radius: 4px;
+	font-size: 11px;
+	margin-bottom: 12px;
+}
+
+.side-effect-warning.alert-danger {
+	background-color: var(--red-50, #fef2f2);
+	border: 1px solid var(--red-200, #fecaca);
+	color: var(--red-700, #b91c1c);
+}
+
+.side-effect-warning.alert-warning {
+	background-color: var(--yellow-50, #fffbeb);
+	border: 1px solid var(--yellow-200, #fde68a);
+	color: var(--yellow-700, #a16207);
+}
+
+.side-effect-warning i {
+	margin-top: 2px;
 }
 
 .field-wrapper {

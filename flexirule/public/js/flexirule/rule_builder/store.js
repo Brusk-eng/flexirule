@@ -464,7 +464,24 @@ export const useStore = defineStore("rule-builder-store", () => {
 		const process = processes.value.find((p) => p.name === process_name);
 		const db_ops = process?.operations || [];
 
-		return await flexirule.utils.get_process_operations(process_name, db_ops);
+		// Get raw operations
+		const raw_ops = await flexirule.utils.get_process_operations(process_name, db_ops);
+
+		// Apply eligibility filtering based on current rule context
+		const document_type = rule_doc.value?.document_type;
+		const doctype_meta = document_type ? frappe.get_meta(document_type) : null;
+
+		return flexirule.utils.filter_eligible_operations(raw_ops, {
+			document_type,
+			has_doc: true, // Rule Builder always operates in doc context
+			doctype_meta: doctype_meta ? {
+				issingle: doctype_meta.issingle,
+				istable: doctype_meta.istable,
+				is_submittable: doctype_meta.is_submittable,
+				track_changes: doctype_meta.track_changes,
+				// Add more meta properties as needed
+			} : null
+		});
 	}
 
 	async function get_operation_config_fields(process_name, operation_name, frm) {
@@ -560,7 +577,62 @@ export const useStore = defineStore("rule-builder-store", () => {
 				return;
 			}
 
-			// 2. Prepare doc for save
+			// 2. Contract Validation: Variable Dependencies and Flow Constraints
+			// Build operation metadata from loaded processes
+			const op_metadata = flexirule.validation?.build_operation_metadata?.(processes.value) || {};
+
+			// Prepare actions in topological order for validation
+			const sortedNodesForValidation = getTopologicalSort(nodes.value, edges.value);
+			const actionsForValidation = sortedNodesForValidation.map((node) => ({
+				action_id: node.data?.action_id || node.id,
+				action_type: node.type === "start" ? "Entry Action" : (node.data?.action_type || "Process"),
+				action_label: node.data?.action_label || node.label || node.id,
+				process_name: node.data?.process_name,
+				operation: node.data?.operation,
+				is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
+				return_variable: node.data?.return_variable,
+				name: node.data?.name
+			}));
+
+			// Validate variable dependencies
+			if (flexirule.validation?.validate_variable_dependencies) {
+				const varResult = flexirule.validation.validate_variable_dependencies(actionsForValidation, op_metadata);
+				if (!varResult.valid) {
+					const message = varResult.errors.map((e) => `<li>${e}</li>`).join("");
+					frappe.msgprint({
+						title: __("Variable Dependency Error"),
+						message: `<ul class="text-left">${message}</ul>`,
+						indicator: "red",
+					});
+					return;
+				}
+				// Show warnings if any
+				if (varResult.warnings.length > 0) {
+					console.warn("Variable validation warnings:", varResult.warnings);
+				}
+			}
+
+			// Validate flow constraints (is_terminal, writes_to)
+			if (flexirule.validation?.validate_flow_constraints) {
+				const edgesForValidation = edges.value.map((e) => ({ source: e.source, target: e.target }));
+				const flowResult = flexirule.validation.validate_flow_constraints(actionsForValidation, op_metadata, edgesForValidation);
+				if (!flowResult.valid) {
+					const message = flowResult.errors.map((e) => `<li>${e}</li>`).join("");
+					frappe.msgprint({
+						title: __("Flow Constraint Error"),
+						message: `<ul class="text-left">${message}</ul>`,
+						indicator: "red",
+					});
+					return;
+				}
+				// Show warnings for side-effects
+				if (flowResult.warnings.length > 0) {
+					// For now just log, could show as toast or info dialog
+					console.info("Flow warnings (side-effects):", flowResult.warnings);
+				}
+			}
+
+			// 3. Prepare doc for save
 			const fresh = await frappe.call({
 				method: "frappe.client.get",
 				args: { doctype: "Rule", name: rule_name.value },

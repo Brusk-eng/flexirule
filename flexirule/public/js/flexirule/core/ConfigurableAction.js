@@ -773,9 +773,24 @@ export default class ConfigurableAction {
 	}
 
 	/**
-	 * Run custom validation logic
+	 * Run custom validation logic and config_schema validation
 	 */
 	validate() {
+		// 1. Validate against config_schema (if defined)
+		const config_schema = this._get_config_schema();
+		if (config_schema && typeof config_schema === "object" && Object.keys(config_schema).length > 0) {
+			const schemaErrors = this._validate_against_schema(this.config, config_schema);
+			if (schemaErrors.length > 0) {
+				frappe.msgprint({
+					title: __("Configuration Schema Error"),
+					message: `<ul class="text-left">${schemaErrors.map(e => `<li>${e}</li>`).join("")}</ul>`,
+					indicator: "red",
+				});
+				return false;
+			}
+		}
+
+		// 2. Run adapter's custom validate function
 		if (this.operation_def && typeof this.operation_def.validate === "function") {
 			return this._safe_run("validate", () => {
 				const err = this.operation_def.validate(this.config, this._get_context());
@@ -787,6 +802,89 @@ export default class ConfigurableAction {
 			});
 		}
 		return true;
+	}
+
+	/**
+	 * Get config_schema from operation definition or adapter
+	 */
+	_get_config_schema() {
+		// Priority 1: From operation_def (DocType field or adapter-resolved)
+		if (this.operation_def?.config_schema) {
+			try {
+				return typeof this.operation_def.config_schema === "string"
+					? JSON.parse(this.operation_def.config_schema)
+					: this.operation_def.config_schema;
+			} catch (e) {
+				console.warn("Failed to parse config_schema:", e);
+			}
+		}
+
+		// Priority 2: From adapter.get_config_schema if available
+		if (this.adapter && typeof this.adapter.get_config_schema === "function") {
+			return this._safe_run("get_config_schema", () =>
+				this.adapter.get_config_schema(this.operation_name, this._get_context())
+			);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Validate config against JSON schema
+	 * Returns array of error strings
+	 */
+	_validate_against_schema(config, schema) {
+		const errors = [];
+
+		// Simple JSON Schema validation (properties, required, types)
+		if (!schema.properties) return errors;
+
+		// Check required fields
+		if (schema.required && Array.isArray(schema.required)) {
+			for (const fieldname of schema.required) {
+				const val = config[fieldname];
+				if (val === undefined || val === null || val === "") {
+					const prop = schema.properties[fieldname] || {};
+					errors.push(__("{0} is required", [prop.title || fieldname]));
+				}
+			}
+		}
+
+		// Check types for each property
+		for (const [fieldname, propSchema] of Object.entries(schema.properties)) {
+			const val = config[fieldname];
+			if (val === undefined || val === null) continue; // Skip missing optional fields
+
+			// Type validation
+			if (propSchema.type) {
+				const expectedType = propSchema.type;
+				const actualType = Array.isArray(val) ? "array" : typeof val;
+
+				if (expectedType === "integer" && typeof val !== "number") {
+					errors.push(__("{0} must be a number", [propSchema.title || fieldname]));
+				} else if (expectedType === "string" && typeof val !== "string") {
+					errors.push(__("{0} must be a string", [propSchema.title || fieldname]));
+				} else if (expectedType === "array" && !Array.isArray(val)) {
+					errors.push(__("{0} must be an array", [propSchema.title || fieldname]));
+				} else if (expectedType === "object" && (typeof val !== "object" || Array.isArray(val))) {
+					errors.push(__("{0} must be an object", [propSchema.title || fieldname]));
+				}
+			}
+
+			// Enum validation
+			if (propSchema.enum && Array.isArray(propSchema.enum)) {
+				if (!propSchema.enum.includes(val)) {
+					errors.push(__("{0} must be one of: {1}", [propSchema.title || fieldname, propSchema.enum.join(", ")]));
+				}
+			}
+
+			// MinLength validation
+			if (propSchema.minLength && typeof val === "string" && val.length < propSchema.minLength) {
+				errors.push(__("{0} must be at least {1} characters", [propSchema.title || fieldname, propSchema.minLength]));
+			}
+		}
+
+		return errors;
 	}
 
 	_bind_dialog_events(dialog) {

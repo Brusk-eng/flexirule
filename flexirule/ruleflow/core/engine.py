@@ -738,8 +738,25 @@ class RuleEngine:
     def _call_process_with_retry(
         self, process_doc, operation, config, context, retry_count, timeout
     ):
-        """Execute new Process with retry logic"""
+        """Execute new Process with retry logic and runtime contract enforcement"""
         last_error = None
+
+        # Get operation metadata for contract enforcement
+        op_def = None
+        try:
+            op_def = process_doc.get_operation(operation)
+        except Exception:
+            pass  # Operation might not exist in child table
+
+        # 1. Runtime Contract: requires_doc
+        if op_def and op_def.requires_doc:
+            if not context.get("doc"):
+                raise MethodExecutionError(
+                    _(
+                        "Operation {0} requires a document but context.doc is not set"
+                    ).format(operation)
+                )
+
         for attempt in range(retry_count + 1):
             try:
                 if attempt > 0:
@@ -750,9 +767,41 @@ class RuleEngine:
                         ),
                     )
 
-                # Call the Process execute method
-                # Passing context, func (operation name), and config
-                return process_doc.execute(context, func=operation, config=config)
+                # 2. Runtime Contract: transactional (wrap in savepoint)
+                use_savepoint = op_def and op_def.transactional
+                savepoint_name = f"process_{process_doc.name}_{operation}_{attempt}"
+
+                if use_savepoint:
+                    frappe.db.savepoint(savepoint_name)
+
+                try:
+                    # Call the Process execute method
+                    result = process_doc.execute(context, func=operation, config=config)
+
+                    # 3. Runtime Contract: output_schema validation
+                    if op_def and op_def.output_schema:
+                        self._validate_output_against_schema(
+                            result, op_def.output_schema, operation
+                        )
+
+                    if use_savepoint:
+                        frappe.db.release_savepoint(savepoint_name)
+
+                    return result
+
+                except Exception as e:
+                    if use_savepoint:
+                        try:
+                            frappe.db.rollback(save_point=savepoint_name)
+                            self._log(
+                                "INFO",
+                                _("Rolled back to savepoint for {0}:{1}").format(
+                                    process_doc.name, operation
+                                ),
+                            )
+                        except Exception:
+                            pass  # Savepoint might not exist
+                    raise
 
             except Exception as e:
                 last_error = e
@@ -772,6 +821,65 @@ class RuleEngine:
                 process_doc.name, operation, retry_count + 1, str(last_error)
             )
         )
+
+    def _validate_output_against_schema(self, result, output_schema, operation_name):
+        """
+        Validate execution result against output_schema.
+        Logs warning if schema validation fails (doesn't throw to avoid breaking existing rules).
+        """
+        if not output_schema:
+            return
+
+        try:
+            schema = (
+                json.loads(output_schema)
+                if isinstance(output_schema, str)
+                else output_schema
+            )
+
+            if not schema or not schema.get("properties"):
+                return
+
+            # Basic validation: check required fields exist in result
+            if schema.get("required") and isinstance(result, dict):
+                for field in schema["required"]:
+                    if field not in result:
+                        self._log(
+                            "WARNING",
+                            _(
+                                "Operation {0} output missing required field: {1}"
+                            ).format(operation_name, field),
+                        )
+
+            # Type check for top-level result
+            expected_type = schema.get("type")
+            if expected_type:
+                actual_type = type(result).__name__
+                type_map = {
+                    "object": (dict,),
+                    "array": (list, tuple),
+                    "string": (str,),
+                    "number": (int, float),
+                    "integer": (int,),
+                    "boolean": (bool,),
+                    "null": (type(None),),
+                }
+                if expected_type in type_map:
+                    if not isinstance(result, type_map[expected_type]):
+                        self._log(
+                            "WARNING",
+                            _(
+                                "Operation {0} output type mismatch: expected {1}, got {2}"
+                            ).format(operation_name, expected_type, actual_type),
+                        )
+
+        except Exception as e:
+            self._log(
+                "WARNING",
+                _("Failed to validate output_schema for {0}: {1}").format(
+                    operation_name, str(e)
+                ),
+            )
 
     def _execute_switch(self, action, context):
         """Execute Switch logic based on config"""
