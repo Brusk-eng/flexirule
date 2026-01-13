@@ -141,7 +141,6 @@ def get_doctype_fields(doctype, filters=None):
     return result
 
 
-@frappe.whitelist()
 def get_child_table_fields(
     child_doctype, table_fieldname, allowed_types=None, excluded_types=None
 ):

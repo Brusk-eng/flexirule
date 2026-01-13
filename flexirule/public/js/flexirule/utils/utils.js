@@ -219,6 +219,78 @@ flexirule.utils.get_process_operations = async function (process_name, db_operat
 };
 
 /**
+ * Filter operations based on eligibility constraints from Process Operation metadata.
+ * 
+ * Enforces:
+ * - enabled === 1
+ * - visible_in_builder === 1
+ * - for_doctype matches context.document_type (or is empty)
+ * - doctype_filters eval passes
+ * - requires_doc is satisfied based on context.has_doc
+ * 
+ * @param {Array} operations - List of operation objects
+ * @param {Object} context - { document_type, has_doc, doctype_meta }
+ * @returns {Array} - Filtered list of eligible operations
+ */
+flexirule.utils.filter_eligible_operations = function (operations, context = {}) {
+	if (!operations || !Array.isArray(operations)) return [];
+
+	const { document_type, has_doc = true, doctype_meta } = context;
+
+	return operations.filter((op) => {
+		// 1. Check enabled (default true if not specified)
+		if (op.enabled === 0) return false;
+
+		// 2. Check visible_in_builder (default true if not specified)
+		if (op.visible_in_builder === 0) return false;
+
+		// 3. Check for_doctype constraint
+		if (op.for_doctype && document_type && op.for_doctype !== document_type) {
+			return false;
+		}
+
+		// 4. Check doctype_filters (JSON array of Frappe-style filters)
+		if (op.doctype_filters && doctype_meta) {
+			try {
+				const filters = typeof op.doctype_filters === "string"
+					? JSON.parse(op.doctype_filters)
+					: op.doctype_filters;
+
+				if (Array.isArray(filters) && filters.length > 0) {
+					// Each filter is [doctype, field, operator, value]
+					// We check against doctype_meta properties
+					const passes = filters.every((f) => {
+						if (!Array.isArray(f) || f.length < 4) return true;
+						const [, field, operator, value] = f;
+						const meta_value = doctype_meta[field];
+
+						// Simple operator support
+						switch (operator) {
+							case "=": return meta_value == value;
+							case "!=": return meta_value != value;
+							case "in": return Array.isArray(value) && value.includes(meta_value);
+							case "not in": return Array.isArray(value) && !value.includes(meta_value);
+							default: return true;
+						}
+					});
+					if (!passes) return false;
+				}
+			} catch (e) {
+				console.warn(`Failed to parse doctype_filters for ${op.func_name || op.name}:`, e);
+			}
+		}
+
+		// 5. Check requires_doc constraint
+		// If operation requires doc but context has no doc, skip it
+		if (op.requires_doc === 1 && has_doc === false) {
+			return false;
+		}
+
+		return true;
+	});
+};
+
+/**
  * Get config fields for an operation, ensuring the adapter is loaded.
  */
 flexirule.utils.get_operation_config_fields = async function (process_name, operation_name, frm) {
