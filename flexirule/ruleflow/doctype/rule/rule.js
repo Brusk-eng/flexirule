@@ -83,15 +83,55 @@ frappe.ui.form.on("Rule", {
 
 frappe.ui.form.on("Rule Action", {
 	// Child table logic aligned with Frappe standard
-	refresh(frm) {
-		frm.trigger("toggle_fields");
+	refresh(frm, cdt, cdn) {
+		frm.trigger("toggle_fields", cdt, cdn);
+
+		// Add Configure Operation button functionality in the grid
+		const row = frm.get_field("actions").grid.grid_rows_by_docname[cdn];
+		if (row && row.doc.action_type === "Process" && row.doc.process_name && row.doc.operation) {
+			// Add a button to the row if it doesn't exist yet
+			if (!row.configure_operation_btn) {
+				const configureBtn = $(`<button class="btn btn-xs btn-default configure-operation-btn"
+					style="margin-left: 5px;">
+					<i class="fa fa-cog"></i> Configure
+				</button>`);
+
+				configureBtn.on("click", () => {
+					configure_operation_from_form(frm, cdt, cdn);
+				});
+
+				// Add button to the row's action area
+				row.configure_operation_btn = configureBtn;
+				// Find the row's action column and append the button
+				const actionCol = row.row.find('.row-actions');
+				if (actionCol.length) {
+					// Insert before the delete button if it exists
+					const delBtn = actionCol.find('.grid-delete-row');
+					if (delBtn.length) {
+						delBtn.before(configureBtn);
+					} else {
+						actionCol.append(configureBtn);
+					}
+				}
+			}
+
+			// Show the button if it exists
+			if (row.configure_operation_btn) {
+				row.configure_operation_btn.show();
+			}
+		} else if (row && row.configure_operation_btn) {
+			// Hide button if conditions are not met
+			if (row.configure_operation_btn) {
+				row.configure_operation_btn.hide();
+			}
+		}
 	},
 
-	action_type(frm) {
-		frm.trigger("toggle_fields");
+	action_type(frm, cdt, cdn) {
+		frm.trigger("toggle_fields", cdt, cdn);
 	},
 
-	toggle_fields(frm) {
+	toggle_fields(frm, cdt, cdn) {
 		const type = frm.doc.action_type;
 		const fields_to_hide = [
 			"process_method",
@@ -134,7 +174,63 @@ frappe.ui.form.on("Rule Action", {
 			frm.toggle_display(["sub_rule"], true);
 		}
 	},
+
+	// Handle the configure_operation button click in the child table
+	configure_operation(frm, cdt, cdn) {
+		configure_operation_from_form(frm, cdt, cdn);
+	}
 });
+
+// Function to handle the configuration dialog opening
+async function configure_operation_from_form(frm, cdt, cdn) {
+	const row = frm.get_field("actions").grid.grid_rows_by_docname[cdn];
+
+	if (!row.doc.process_name || !row.doc.operation) {
+		frappe.msgprint(__("Please select a Process and Operation first"));
+		return;
+	}
+
+	try {
+		// Ensure ConfigurableAction is available
+		if (typeof flexirule === 'undefined' || typeof flexirule.integration === 'undefined') {
+			await frappe.require(['flexirule.bundle.js']);
+		}
+
+		// Create ConfigurableAction instance
+		const action = flexirule.integration.create_configurable_action({
+			process_name: row.doc.process_name,
+			operation_name: row.doc.operation,
+			node_data: row.doc,
+			document_type: frm.doc.document_type,
+			doc_meta: null, // Will be fetched by ConfigurableAction if needed
+			get_variable_options: async () => {
+				// Return available variables for the rule context
+				return [];
+			},
+		});
+
+		// Initialize and show the dialog
+		await action.init();
+		action.show_dialog({
+			on_save: () => {
+				// Update the row's config field with the new configuration
+				const configStr = JSON.stringify(action.get_config());
+				frappe.model.set_value(cdt, cdn, "config", configStr);
+
+				frappe.show_alert({
+					message: __("Configuration saved"),
+					indicator: "green"
+				});
+			},
+		});
+	} catch (error) {
+		console.error("Error initializing ConfigurableAction:", error);
+		frappe.msgprint({
+			message: __("Error initializing configuration: {0}", [error.message || error]),
+			indicator: "red"
+		});
+	}
+}
 
 function validate_json(frm, fieldname) {
 	const value = frm.doc[fieldname];
