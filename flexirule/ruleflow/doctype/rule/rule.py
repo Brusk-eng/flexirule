@@ -16,10 +16,9 @@ class Rule(Document):
     from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
+        from flexirule.ruleflow.doctype.rule_action.rule_action import RuleAction
         from frappe.core.doctype.has_role.has_role import HasRole
         from frappe.types import DF
-
-        from flexirule.ruleflow.doctype.rule_action.rule_action import RuleAction
 
         actions: DF.Table[RuleAction]
         apply_to_child_tables: DF.Check
@@ -35,6 +34,9 @@ class Rule(Document):
         priority: DF.Int
         rule_name: DF.Data
         skip_for_roles: DF.TableMultiSelect[HasRole]
+        status: DF.Literal[
+            "Draft", "Active", "Disabled", "Invalid", "Error", "Archived"
+        ]
         trigger_condition: DF.Code | None
         trigger_condition_expression: DF.Code | None
         trigger_event: DF.Literal[
@@ -63,6 +65,7 @@ class Rule(Document):
         self.compile_conditions()
         self.validate_actions()
         self.validate_no_sub_rule_cycles()
+        self.status = self.get_computed_status()
 
     def before_insert(self):
         self.ensure_start_node()
@@ -174,6 +177,24 @@ class Rule(Document):
 
             # 3. Validate action type-specific constraints
             self._validate_all_action_types(action)
+
+    def get_computed_status(self):
+        if self.get("is_archived"):
+            return "Archived"
+
+        if not self.is_active:
+            return "Disabled"
+
+        if not self.actions:
+            return "Invalid"
+
+        if self.trigger_condition and not self.trigger_condition_expression:
+            return "Invalid"
+
+        if self.last_error:
+            return "Error"
+
+        return "Active"
 
     def _validate_json_field(self, json_str, label):
         if not json_str:
