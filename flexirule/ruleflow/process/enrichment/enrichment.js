@@ -17,7 +17,7 @@ flexirule.processes["Enrichment"] = {
 
         return {
             title: operation.label || operation_name,
-            size: "large",
+            size: "extra-large",
             fields:
                 typeof operation.get_config_fields === "function"
                     ? operation.get_config_fields(ctx)
