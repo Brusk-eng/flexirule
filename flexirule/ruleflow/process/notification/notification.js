@@ -19,6 +19,14 @@ flexirule.processes["Notification"] = {
             : [];
     },
 
+    get_output_schema(operation_name, config, context) {
+        const operation = this.get_operation(operation_name);
+        if (operation && typeof operation.get_output_schema === "function") {
+            return operation.get_output_schema(config, context);
+        }
+        return [];
+    },
+
     operations: [
         {
             func_name: "send_email",
