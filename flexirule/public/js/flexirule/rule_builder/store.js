@@ -591,6 +591,11 @@ export const useStore = defineStore("rule-builder-store", () => {
 				operation: node.data?.operation,
 				is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
 				return_variable: node.data?.return_variable,
+				condition_json: node.data?.condition_json,
+				condition_expression: node.data?.condition_expression,
+				rule: node.data?.rule,
+				config: node.data?.config,
+				input_variables: node.data?.input_variables,
 				name: node.data?.name
 			}));
 

@@ -389,7 +389,7 @@ hr {
 
 .condition-modal-content {
 	background: white;
-	width: 800px;
+	width: 1200px;
 	max-width: 90vw;
 	max-height: 85vh;
 	border-radius: 6px;
