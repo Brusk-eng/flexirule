@@ -55,7 +55,7 @@ class RuleBuilder {
 		});
 
 		// Dry Run
-		this.page.add_inner_button(__("Test Rule"), () => {
+		this.status_btn = this.page.add_inner_button(__("Test Rule"), () => {
 			this.show_test_dialog();
 		});
 
@@ -71,8 +71,9 @@ class RuleBuilder {
 
 		// Create Vue app
 		let app = createApp(RuleBuilderComponent, { rule: this.rule });
-		registerGlobalComponents(app);
+		SetVueGlobals(app);
 		app.use(pinia);
+		registerGlobalComponents(app);
 
 		// Get store reference
 		this.store = useStore();
