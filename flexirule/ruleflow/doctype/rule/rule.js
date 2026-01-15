@@ -259,7 +259,7 @@ function add_json_helpers(frm) {
 			try {
 				const formatted = JSON.stringify(JSON.parse(frm.doc[fieldname] || "{}"), null, 2);
 				frm.set_value(fieldname, formatted);
-			} catch {}
+			} catch { }
 		});
 
 		field.$wrapper.find(".control-value").append($btn);
