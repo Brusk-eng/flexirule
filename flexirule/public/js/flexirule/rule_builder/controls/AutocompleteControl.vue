@@ -24,16 +24,28 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-	if (frappe_control?.awesomplete) {
-		try {
-			frappe_control.awesomplete.destroy();
-		} catch (e) {}
+	destroy_control();
+});
+
+function destroy_control() {
+	if (frappe_control) {
+		if (frappe_control.$input) {
+			frappe_control.$input.off("awesomplete-selectcomplete");
+		}
+		if (frappe_control.awesomplete) {
+			try {
+				frappe_control.awesomplete.destroy();
+			} catch (e) {}
+		}
 	}
 	frappe_control = null;
-});
+}
 
 async function init_control() {
 	if (!wrapper_ref.value) return;
+
+	// Cleanup previous control if it exists
+	destroy_control();
 
 	// Clear previous content
 	wrapper_ref.value.innerHTML = "";
@@ -43,6 +55,7 @@ async function init_control() {
 		...props.df,
 		fieldtype: "Autocomplete",
 		hidden: 0,
+		read_only: props.read_only,
 		ignore_validation: true,
 		change: () => {
 			if (frappe_control) {
@@ -100,15 +113,11 @@ async function set_options() {
 	} else if (props.options && Array.isArray(props.options)) {
 		opts = props.options;
 	} else if (props.df?.options && typeof props.df.options === "string") {
-		if (props.df.options.includes("\n")) {
-			opts = props.df.options
-				.split("\n")
-				.filter(Boolean)
-				.map((o) => ({
-					value: o.trim(),
-					label: o.trim(),
-				}));
-		}
+		const raw_opts = props.df.options.split("\n").filter(Boolean);
+		opts = raw_opts.map((o) => ({
+			value: o.trim(),
+			label: o.trim(),
+		}));
 	}
 
 	if (opts.length && frappe_control.set_data) {
@@ -140,6 +149,25 @@ watch(
 	() => props.doc,
 	async () => {
 		await set_options();
+	},
+	{ deep: true }
+);
+
+// Watch for read_only changes
+watch(
+	() => props.read_only,
+	(newVal) => {
+		if (frappe_control) {
+			frappe_control.set_read_only(newVal);
+		}
+	}
+);
+
+// Watch for df changes
+watch(
+	() => props.df,
+	async () => {
+		await init_control();
 	},
 	{ deep: true }
 );

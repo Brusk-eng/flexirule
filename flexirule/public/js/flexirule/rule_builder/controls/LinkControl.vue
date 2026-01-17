@@ -1,8 +1,14 @@
 <!-- Used as Link Control -->
 <script setup>
-import { onMounted, ref, useSlots, watch, nextTick } from "vue";
+import { onMounted, onUnmounted, ref, useSlots, watch, nextTick } from "vue";
 
-const props = defineProps(["args", "df", "read_only", "modelValue"]);
+const props = defineProps({
+	df: { type: Object, required: true },
+	modelValue: [String, Number],
+	read_only: { type: Boolean, default: false },
+	args: { type: Object, default: () => ({}) },
+});
+
 const emit = defineEmits(["update:modelValue"]);
 const slots = useSlots();
 
@@ -12,6 +18,10 @@ let link_control = null;
 // Initialize control
 async function init_control() {
 	if (!link.value) return;
+
+	// Cleanup previous control
+	destroy_control();
+
 	link.value.innerHTML = "";
 
 	link_control = frappe.ui.form.make_control({
@@ -19,10 +29,12 @@ async function init_control() {
 		df: {
 			...props.df,
 			hidden: 0,
-			read_only: Boolean(slots.label) || props.read_only,
+			read_only: props.read_only,
 			change: () => {
-				const val = link_control.get_value();
-				emit("update:modelValue", val);
+				if (link_control) {
+					const val = link_control.get_value();
+					emit("update:modelValue", val);
+				}
 			},
 		},
 		value: props.modelValue,
@@ -31,6 +43,21 @@ async function init_control() {
 	});
 
 	// Handle table field logic
+	apply_table_logic();
+}
+
+function destroy_control() {
+	if (link_control) {
+		if (link_control.$wrapper) {
+			link_control.$wrapper.remove();
+		}
+		link_control = null;
+	}
+}
+
+function apply_table_logic() {
+	if (!link_control) return;
+
 	if (props.args?.is_table_field) {
 		if (link_control.df.filters) {
 			link_control.df.filters.istable = 1;
@@ -49,6 +76,10 @@ onMounted(async () => {
 	init_control();
 });
 
+onUnmounted(() => {
+	destroy_control();
+});
+
 // Sync value changes from parent
 watch(
 	() => props.modelValue,
@@ -59,28 +90,40 @@ watch(
 	}
 );
 
+// Watch for read_only changes
+watch(
+	() => props.read_only,
+	(val) => {
+		if (link_control) {
+			link_control.df.read_only = val;
+			link_control.toggle_enable(!val);
+		}
+	}
+);
+
+// Watch for args changes
+watch(
+	() => props.args,
+	() => {
+		apply_table_logic();
+	},
+	{ deep: true }
+);
+
 // Handle DF changes gracefully
 watch(
 	() => props.df,
-	(newDf, oldDf) => {
+	async (newDf, oldDf) => {
 		if (!link_control) return;
 
 		// Re-initialize only if critical properties change
 		if (newDf.fieldname !== oldDf?.fieldname || newDf.fieldtype !== oldDf?.fieldtype) {
-			init_control();
+			await init_control();
 			return;
 		}
 
 		// Update mutable properties
 		let changed = false;
-
-		// Update read_only if changed
-		const newReadOnly = Boolean(slots.label) || props.read_only || newDf.read_only;
-		if (link_control.df.read_only !== newReadOnly) {
-			link_control.df.read_only = newReadOnly;
-			link_control.toggle_enable(!newReadOnly);
-			changed = true;
-		}
 
 		// Update mandatory/reqd
 		if (link_control.df.reqd !== newDf.reqd) {
@@ -92,19 +135,8 @@ watch(
 		// Update filters if changed
 		if (JSON.stringify(link_control.df.filters) !== JSON.stringify(newDf.filters)) {
 			link_control.df.filters = newDf.filters;
-			
-			// Re-apply table logic if needed
-			if (props.args?.is_table_field) {
-				if (link_control.df.filters) {
-					link_control.df.filters.istable = 1;
-				} else {
-					link_control.df.filters = { istable: 1 };
-				}
-			}
+			apply_table_logic();
 			changed = true;
-			
-			// If filters changed, we might want to refresh valid options? 
-			// Usually link field fetches dynamically so it's fine.
 		}
 
 		// If description changed
@@ -113,7 +145,7 @@ watch(
 			link_control.refresh(); // This might redraw
 		}
 	},
-	{ deep: true } // Need deep watch because we receive a new object every time anyway
+	{ deep: true }
 );
 </script>
 
@@ -130,11 +162,29 @@ watch(
 			<slot name="actions" />
 		</div>
 
-		<!-- link input -->
-		<input class="form-control" type="text" readonly />
+		<!-- link input mounting point -->
+		<div ref="link"></div>
 
 		<!-- description -->
-		<div v-if="df.description" class="mt-2 description" v-html="df.description" />
+		<div
+			v-if="df.description"
+			class="mt-2 description"
+			v-html="__(df.description)"
+		/>
 	</div>
 	<div v-else ref="link"></div>
 </template>
+
+<style scoped>
+.field-controls {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 4px;
+}
+
+.description {
+	font-size: 11px;
+	color: var(--text-muted);
+}
+</style>

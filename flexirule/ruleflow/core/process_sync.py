@@ -157,10 +157,21 @@ def import_process_from_file(json_path, module_name):
 
                 # Update all fields from JSON to keep them in sync
                 fields_to_update = [
-                    "label", "enabled", "visible_in_builder", "icon", "color",
-                    "requires_doc", "can_stop_save", "is_terminal", "writes_to",
-                    "allows_async", "transactional", "reads_vars", "writes_vars",
-                    "config_schema", "output_schema"
+                    "label",
+                    "enabled",
+                    "visible_in_builder",
+                    "icon",
+                    "color",
+                    "requires_doc",
+                    "can_stop_save",
+                    "is_terminal",
+                    "writes_to",
+                    "allows_async",
+                    "transactional",
+                    "reads_vars",
+                    "writes_vars",
+                    "config_schema",
+                    "output_schema",
                 ]
 
                 op_modified = False
@@ -216,10 +227,12 @@ def get_process_json_path(process_name, module=None):
     if not app:
         return None
 
-    return (
+    json_path = (
         Path(frappe.get_app_path(app))
         / frappe.scrub(module)
         / "process"
         / frappe.scrub(process_name)
         / f"{frappe.scrub(process_name)}.json"
     )
+
+    return json_path if json_path.exists() else None

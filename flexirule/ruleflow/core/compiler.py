@@ -144,19 +144,36 @@ class ConditionCompiler:
         if not subs:
             return ""
 
-        op = node.get("op", "and").lower()
-        py_op = " and " if op == "and" else " or "
+        default_op = node.get("op", node.get("logical_operator", "and")).lower()
+        if default_op not in ["and", "or"]:
+            default_op = "and"
 
-        compiled_subs = [
-            s for s in (self._compile_node(sub, scopes) for sub in subs) if s
-        ]
-        if not compiled_subs:
+        result_parts = []
+        for i, sub in enumerate(subs):
+            compiled_sub = self._compile_node(sub, scopes)
+            if not compiled_sub:
+                continue
+
+            if not result_parts:
+                # First node, just add it
+                result_parts.append(compiled_sub)
+            else:
+                # Subsequent nodes, get operator from PREVIOUS node for joining
+                # Actually, standard behavior is that the item itself says how it joins with the previous one,
+                # or the previous one says how it joins with the next.
+                # In flexirule, we use condition.get('logical_operator') to join with the NEXT.
+                # So we look at the operator of the previous node.
+                prev_node = subs[i - 1]
+                op = prev_node.get("logical_operator", default_op).lower()
+                if op not in ["and", "or"]:
+                    op = default_op
+
+                result_parts.extend([" ", op, " ", compiled_sub])
+
+        if not result_parts:
             return ""
 
-        if len(compiled_subs) == 1 and not node.get("op"):  # Single node, no op needed
-            return compiled_subs[0]
-
-        return f"({py_op.join(compiled_subs)})"
+        return f"({''.join(result_parts)})"
 
     def _compile_condition(self, node, scopes):
         left = node.get("left")
@@ -188,10 +205,21 @@ class ConditionCompiler:
 
         # Link/Dynamic Link Tuple Handling
         # _compile_operand returns repr(list) for our tuples, so it looks like "['DocType', 'Value']"
-        if rhs_code.startswith("['") and rhs_code.endswith("]"):
-            # It's a literal tuple/list from our schema
-            # Generates: check_link_match(lhs, rhs, op)
-            return f"check_link_match({lhs_code}, {rhs_code}, '{op}')"
+        # We need to distinguish between ['DocType', 'Value'] and ['Val1', 'Val2']
+        if (
+            isinstance(right.get("value"), (list, tuple))
+            and len(right.get("value")) == 2
+            and isinstance(right.get("value")[0], str)
+        ):
+            val = right.get("value")
+            is_link_tuple = False
+            if op in ["==", "!="]:
+                is_link_tuple = True
+            elif op in ["in", "not in", "not_in"] and isinstance(val[1], (list, tuple)):
+                is_link_tuple = True
+
+            if is_link_tuple:
+                return f"check_link_match({lhs_code}, {rhs_code}, '{op}')"
 
         # Contains/Not Contains logic
         if op == "contains":

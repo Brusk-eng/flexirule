@@ -73,16 +73,18 @@ class Rule(Document):
     def ensure_start_node(self):
         """Ensure a Start Node (Entry Action) exists with ID 'root'"""
         # Check if root exists
-        root_action = next((a for a in self.actions if a.action_id == "root"), None)
+        root_action = next(
+            (a for a in self.actions if a.get("action_id") == "root"), None
+        )
 
         if not root_action:
             # Determine next step if there are existing actions
             # We pick the first action that is NOT 'root'
             first_action_id = None
-            existing_actions = [a for a in self.actions if a.action_id != "root"]
+            existing_actions = [a for a in self.actions if a.get("action_id") != "root"]
             if existing_actions:
                 first_action_id = (
-                    existing_actions[0].action_id or existing_actions[0].name
+                    existing_actions[0].get("action_id") or existing_actions[0].name
                 )
 
             self.append(
