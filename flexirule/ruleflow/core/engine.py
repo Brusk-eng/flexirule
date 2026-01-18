@@ -400,6 +400,7 @@ class RuleEngine:
             self.path_trace.append(
                 {
                     "action": current.action_label,
+                    "action_id": current.action_id or current.name,
                     "type": current.action_type,
                     "timestamp": time.time(),
                 }
@@ -439,9 +440,11 @@ class RuleEngine:
 
                 # Enhance path trace with result/inputs for Process
                 if current.action_type == "Process":
-                    # Ideally we want inputs (config) too, but handlers consume it.
-                    # We can reconstruct it or just log result.
-                    self.path_trace[-1]["output"] = str(result)
+                    # Use JSON serialization for output if possible (better for JS UI)
+                    try:
+                        self.path_trace[-1]["output"] = json.dumps(result, default=str)
+                    except:
+                        self.path_trace[-1]["output"] = str(result)
                     try:
                         self.path_trace[-1]["input"] = self._get_action_config(current)
                     except:

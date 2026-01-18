@@ -288,14 +288,11 @@ export default class ConfigurableAction {
 		// 2. Resolve 'System' Types to Frappe Types
 		f.fieldtype = this._map_fieldtype(f.fieldtype);
 
-		// AUTO-UPGRADE: Use FlexiAutocomplete if available for standard Autocomplete fields
-		if (f.fieldtype === "Autocomplete") {
-			// We use the custom control if registered to support enhanced rendering (descriptions)
-			if (frappe.ui.form && frappe.ui.form.control_map && frappe.ui.form.control_map["FlexiAutocomplete"]) {
-				f.fieldtype = "FlexiAutocomplete";
-			}
+		// Use standard Autocomplete
+		if (f.fieldtype === "Autocomplete" || f.fieldtype === "DocField") {
+			f.fieldtype = "Autocomplete";
 			f.options = await this._resolve_docfield_options(f.options);
-		} else if (f.fieldtype === "MultiSelectList") {
+		} else if (f.fieldtype === "MultiSelectList" || f.fieldtype === "MultiDocField") {
 			f.options = await this._resolve_docfield_options(f.options);
 		} else if (f.fieldtype === "Table") {
 			// Recursively normalize child fields

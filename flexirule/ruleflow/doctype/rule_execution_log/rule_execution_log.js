@@ -30,11 +30,13 @@ frappe.ui.form.on("Rule Execution Log", {
 				let next_step = path[idx + 1];
 				let duration_ms = 0;
 
-				// If we have a next step, simpler diff
+				// If we have a next step, diff between steps
 				if (next_step) {
 					duration_ms = (next_step.timestamp - step.timestamp) * 1000;
-				} else {
-					duration_ms = 0;
+				} else if (frm.doc.duration) {
+					// Last step: total duration - time elapsed until last step started
+					let elapsed_until_last = (step.timestamp - path[0].timestamp) * 1000;
+					duration_ms = frm.doc.duration * 1000 - elapsed_until_last;
 				}
 
 				// Format Text
@@ -45,40 +47,56 @@ frappe.ui.form.on("Rule Execution Log", {
 					if (v === undefined || v === null) return "";
 					if (typeof v === "string") {
 						// Try to parse if it looks like JSON
+						// Special handling for Python-style string representations (single quotes)
+						let clean_v = v;
+						if (v.startsWith("[") || v.startsWith("{")) {
+							clean_v = v.replace(/'/g, '"');
+						}
+
 						try {
-							let parsed = JSON.parse(v);
-							return `<pre>${JSON.stringify(parsed, null, 2)}</pre>`;
+							let parsed = JSON.parse(clean_v);
+							return `<pre class="small">${JSON.stringify(parsed, null, 2)}</pre>`;
 						} catch (e) {
-							return frappe.utils.escape_html(v);
+							// Return as-is if it fails to parse
+							return `<div class="text-monospace small" style="white-space: pre-wrap;">${frappe.utils.escape_html(
+								v
+							)}</div>`;
 						}
 					}
-					return `<pre>${JSON.stringify(v, null, 2)}</pre>`;
+					return `<pre class="small">${JSON.stringify(v, null, 2)}</pre>`;
 				};
 
 				let details = "";
 				if (step.input && Object.keys(step.input).length) {
-					details += `<div><span class="text-muted">Input:</span> ${format_v(
+					details += `<div><span class="text-muted small">Input:</span> ${format_v(
 						step.input
 					)}</div>`;
 				}
 				if (step.output) {
-					// If output is string representation of list like "[{'name': ...}]"
-					details += `<div><span class="text-muted">Output:</span> ${format_v(
+					details += `<div><span class="text-muted small">Output:</span> ${format_v(
 						step.output
 					)}</div>`;
 				}
 				if (step.error) {
-					details += `<div class="text-danger"><strong>Error:</strong> ${format_v(
+					details += `<div class="text-danger small"><strong>Error:</strong> ${format_v(
 						step.error
 					)}</div>`;
 				}
 
+				let node_label = step.action || step.node || "Unknown";
+				let node_id = step.action_id ? `(${step.action_id})` : "";
+
 				return `<tr>
                 <td style="vertical-align: top;">
-                    <div class="font-weight-bold">${step.node}</div>
-                    <div class="small text-muted">${step.type}</div>
+                    <div class="font-weight-bold">${node_label}</div>
+                    <div class="small text-muted">${node_id}</div>
+                    <div class="small text-muted italic">${step.type}</div>
                 </td>
-                <td class="text-right" style="vertical-align: top;">${duration_text}</td>
+                <td class="text-right" style="vertical-align: top;">
+                    <span class="badge ${duration_ms > 0 ? "badge-info" : "badge-light"}">
+                        ${duration_text}
+                    </span>
+                </td>
                 <td style="vertical-align: top;">${details}</td>
             </tr>`;
 			})

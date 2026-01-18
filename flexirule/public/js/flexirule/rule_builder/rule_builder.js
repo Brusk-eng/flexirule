@@ -184,5 +184,14 @@ class RuleBuilder {
 }
 
 frappe.provide("frappe.ui");
+
+/**
+ * Helper to set global properties for Vue instances
+ */
+const SetVueGlobals = (app) => {
+	// Register the translation function
+	app.config.globalProperties.__ = window.__ || ((s) => s);
+};
+
 frappe.ui.RuleBuilder = RuleBuilder;
 export default RuleBuilder;
