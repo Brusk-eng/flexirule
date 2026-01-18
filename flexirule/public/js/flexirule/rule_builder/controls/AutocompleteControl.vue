@@ -66,12 +66,8 @@ async function init_control() {
 	};
 
 	// Create the Frappe Autocomplete control
-	// Use FlexiAutocomplete for enhanced description support
-	const ControlClass = flexirule.ControlAutocomplete || frappe.ui.form.ControlAutocomplete;
+	const ControlClass = frappe.ui.form.ControlAutocomplete;
 
-	// Instantiate directly to bypass frappe.ui.form.make_control lookups if we want strict class control,
-	// but mapping in control_map should theoretically handle make_control if we passed "FlexiAutocomplete" type.
-	// However, here we want to force our class even if type is generic.
 	frappe_control = new ControlClass({
 		df: control_df,
 		parent: $(wrapper_ref.value),
