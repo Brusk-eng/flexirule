@@ -1,271 +1,295 @@
+/*******************************************************
+ * Rule (Parent)
+ *******************************************************/
 frappe.ui.form.on("Rule", {
-	refresh(frm) {
-		if (!frm.doc.__islocal) {
-			// primary button
-			frm.page.clear_primary_action();
-			frm.page.set_primary_action(__("Visual Builder"), () => {
-				frappe.set_route("rule-builder", frm.doc.name);
-			});
+	onload(frm) {
+		frm._process_ops_cache = {};
 
-			// custom buttons
-			frm.page.clear_custom_actions();
-			frm.add_custom_button(
-				__("Test Rule"),
-				() => {
-					test_rule(frm);
-				},
-				__("Actions")
-			);
+		const grid = frm.get_field("actions").grid;
+		const op_field = grid.get_field("operation");
 
-			frm.add_custom_button(
-				__("Clear Cache"),
-				() => {
-					clear_rule_cache(frm);
-				},
-				__("Actions")
-			);
+		// Set get_data once on the column field - most robust for Autocomplete
+		op_field.get_data = function () {
+			const row = this.grid_row.doc;
+			if (!row || !row.process_name || row.action_type !== "Process") return [];
 
-			// JSON helpers
-			// Ensure wrapper exists before adding buttons
-			setTimeout(() => add_json_helpers(frm), 500);
-			if (!frm.dashboard) {
-				frm.dashboard = new frappe.ui.form.Dashboard({
-					parent: frm.fields_dict ? frm.fields_dict["name"].$wrapper : frm.wrapper,
-					doctype: frm.doc.doctype,
-				});
+			const cached = frm._process_ops_cache[row.process_name];
+			if (cached) {
+				return cached.map(op => ({ value: op, description: "" }));
 			}
 
-			// dashboard indicators
-			if (frm.dashboard && frm.dashboard.wrapper) {
-				frm.dashboard.wrapper.find(".indicator").remove();
+			// Fallback: fetch and return promise
+			return frappe.call({
+				method: "flexirule.ruleflow.api.get_process_operations",
+				args: { process_name: row.process_name },
+			}).then(r => {
+				const ops = r.message || [];
+				frm._process_ops_cache[row.process_name] = ops;
+				return ops.map(op => ({ value: op, description: "" }));
+			});
+		};
+	},
 
-				if (frm.doc.execution_count) {
-					frm.dashboard.add_indicator(
-						__("Executed {0} times", [frm.doc.execution_count]),
-						"blue"
-					);
-				}
+	refresh(frm) {
+		if (frm.is_new()) return;
 
-				if (frm.doc.last_error) {
-					frm.dashboard.add_indicator(__("Has Errors"), "red");
-				}
+		// Primary action
+		frm.page.clear_primary_action();
+		frm.page.set_primary_action(__("Visual Builder"), () => {
+			frappe.set_route("rule-builder", frm.doc.name);
+		});
+
+		// Actions
+		frm.page.clear_custom_actions();
+		frm.add_custom_button(__("Test Rule"), () => test_rule(frm), __("Actions"));
+		frm.add_custom_button(__("Clear Cache"), () => clear_rule_cache(frm), __("Actions"));
+
+		if (frm.dashboard) {
+			frm.dashboard.clear_headline();
+			if (frm.doc.execution_count) {
+				frm.dashboard.add_indicator(
+					__("Executed {0} times", [frm.doc.execution_count]),
+					"blue"
+				);
+			}
+			if (frm.doc.last_error) {
+				frm.dashboard.add_indicator(__("Has Errors"), "red");
 			}
 		}
+
+		// Initialize operation options for all rows
+		if (frm.doc.actions && frm.doc.actions.length) {
+			frm.doc.actions.forEach(row => {
+				update_operation_options(frm, "Rule Action", row.name);
+			});
+		}
 	},
+
 	before_insert(frm) {
 		if (
 			frm.doc.document_type &&
 			frm.doc.trigger_event &&
-			(!frm.doc.actions || frm.doc.actions.length === 0)
+			(!frm.doc.actions || !frm.doc.actions.length)
 		) {
-			let child = frm.add_child("actions");
-
-			child.action_type = "Entry Action";
-			child.idx = 1;
-			child.action_id = "root";
-
+			const row = frm.add_child("actions", {
+				action_id: "root",
+				action_type: "Entry Action",
+				is_enabled: 1,
+			});
 			frm.refresh_field("actions");
 		}
 	},
-
-	conditions_json(frm) {
-		validate_json(frm, "conditions_json");
-	},
-
-	actions_json(frm) {
-		validate_json(frm, "actions_json");
-	},
-
-	options_json(frm) {
-		validate_json(frm, "options_json");
-	},
 });
 
+/*******************************************************
+ * Rule Action (Child Table)
+ *******************************************************/
 frappe.ui.form.on("Rule Action", {
-	// Child table logic aligned with Frappe standard
+	form_render(frm, cdt, cdn) {
+		toggle_action_fields(frm, cdt, cdn);
+		update_operation_options(frm, cdt, cdn);
+	},
+
 	refresh(frm, cdt, cdn) {
-		frm.trigger("toggle_fields", cdt, cdn);
-
-		// Add Configure Operation button functionality in the grid
-		const row = frm.get_field("actions").grid.grid_rows_by_docname[cdn];
-		if (row && row.doc.action_type === "Process" && row.doc.process_name && row.doc.operation) {
-			// Add a button to the row if it doesn't exist yet
-			if (!row.configure_operation_btn) {
-				const configureBtn = $(`<button class="btn btn-xs btn-default configure-operation-btn"
-					style="margin-left: 5px;">
-					<i class="fa fa-cog"></i> Configure
-				</button>`);
-
-				configureBtn.on("click", () => {
-					configure_operation_from_form(frm, cdt, cdn);
-				});
-
-				// Add button to the row's action area
-				row.configure_operation_btn = configureBtn;
-				// Find the row's action column and append the button
-				const actionCol = row.row.find('.row-actions');
-				if (actionCol.length) {
-					// Insert before the delete button if it exists
-					const delBtn = actionCol.find('.grid-delete-row');
-					if (delBtn.length) {
-						delBtn.before(configureBtn);
-					} else {
-						actionCol.append(configureBtn);
-					}
-				}
-			}
-
-			// Show the button if it exists
-			if (row.configure_operation_btn) {
-				row.configure_operation_btn.show();
-			}
-		} else if (row && row.configure_operation_btn) {
-			// Hide button if conditions are not met
-			if (row.configure_operation_btn) {
-				row.configure_operation_btn.hide();
-			}
-		}
+		toggle_action_fields(frm, cdt, cdn);
+		update_operation_options(frm, cdt, cdn);
 	},
 
 	action_type(frm, cdt, cdn) {
-		frm.trigger("toggle_fields", cdt, cdn);
-	},
-
-	toggle_fields(frm, cdt, cdn) {
-		const type = frm.doc.action_type;
-		const fields_to_hide = [
-			"process_method",
-			"method_config",
-			"timeout",
-			"retry_count",
-			"is_async",
-			"on_error",
-			"condition_expression",
-			"next_step_if_false",
-			"switch_expression",
-			"loop_expression",
-			"wait_duration",
-			"sub_rule",
-		];
-
-		frm.toggle_display(fields_to_hide, false);
-
-		if (type === "Process") {
-			frm.toggle_display(
-				[
-					"process_method",
-					"method_config",
-					"timeout",
-					"retry_count",
-					"is_async",
-					"on_error",
-				],
-				true
-			);
-		} else if (type === "Condition") {
-			frm.toggle_display(["condition_expression", "next_step_if_false"], true);
-		} else if (type === "Switch") {
-			frm.toggle_display(["switch_expression"], true);
-		} else if (type === "Loop") {
-			frm.toggle_display(["loop_expression"], true);
-		} else if (type === "Wait") {
-			frm.toggle_display(["wait_duration"], true);
-		} else if (type === "Sub-Rule") {
-			frm.toggle_display(["sub_rule"], true);
+		const row = locals[cdt][cdn];
+		if (row.action_type !== "Process") {
+			frappe.model.set_value(cdt, cdn, "process_name", null);
+			frappe.model.set_value(cdt, cdn, "operation", null);
+			frappe.model.set_value(cdt, cdn, "config", null);
 		}
+		toggle_action_fields(frm, cdt, cdn);
 	},
 
-	// Handle the configure_operation button click in the child table
+	process_name(frm, cdt, cdn) {
+		// reset operation when process changes
+		frappe.model.set_value(cdt, cdn, "operation", null);
+		frappe.model.set_value(cdt, cdn, "config", null);
+		update_operation_options(frm, cdt, cdn);
+	},
+
+	// Button field from DocType
 	configure_operation(frm, cdt, cdn) {
 		configure_operation_from_form(frm, cdt, cdn);
-	}
+	},
 });
 
-// Function to handle the configuration dialog opening
-async function configure_operation_from_form(frm, cdt, cdn) {
-	const row = frm.get_field("actions").grid.grid_rows_by_docname[cdn];
+/*******************************************************
+ * Field Visibility (Grid-safe)
+ *******************************************************/
+function toggle_action_fields(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+	const grid = frm.get_field("actions").grid;
+	const grid_row = grid.get_row(cdn);
 
-	if (!row.doc.process_name || !row.doc.operation) {
+	if (!grid_row) return;
+
+	const hide_all = [
+		"process_name",
+		"operation",
+		"config",
+		"timeout",
+		"retry_count",
+		"is_async",
+		"on_error",
+		"condition_expression",
+		"condition_json",
+		"next_step_if_false",
+		"rule",
+		"skip_conditions",
+		"skip_permissions",
+		"configure_operation",
+	];
+
+	hide_all.forEach(f => grid_row.toggle_display(f, false));
+
+	switch (row.action_type) {
+		case "Process":
+			[
+				"process_name",
+				"operation",
+				"config",
+				"timeout",
+				"is_async",
+				"on_error",
+				"configure_operation",
+			].forEach(f => grid_row.toggle_display(f, true));
+			break;
+
+		case "Condition":
+			[
+				"condition_expression",
+				"condition_json",
+				"next_step_if_false",
+			].forEach(f => grid_row.toggle_display(f, true));
+			break;
+
+		case "Sub-Rule":
+			[
+				"rule",
+				"skip_conditions",
+				"skip_permissions",
+			].forEach(f => grid_row.toggle_display(f, true));
+			break;
+	}
+}
+
+/*******************************************************
+ * Dynamic Autocomplete Options for `operation`
+ *******************************************************/
+function update_operation_options(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+	if (!row || !row.process_name || row.action_type !== "Process") return;
+
+	const grid = frm.get_field("actions").grid;
+	// Use row.name if available, else cdn. More stable for existing rows.
+	const grid_row = grid.get_row(row.name || cdn);
+
+	if (!grid_row) return;
+
+	const apply_ops = (ops) => {
+		const field = grid_row.get_field("operation");
+		if (field) {
+			field.df.options = ops.join("\n");
+			// Autocomplete might need set_data for immediate effect in some versions
+			if (field.set_data) field.set_data(ops);
+			field.refresh();
+		}
+	};
+
+	// Use cache if available
+	if (frm._process_ops_cache && frm._process_ops_cache[row.process_name]) {
+		apply_ops(frm._process_ops_cache[row.process_name]);
+		return;
+	}
+
+	frappe.call({
+		method: "flexirule.ruleflow.api.get_process_operations",
+		args: {
+			process_name: row.process_name,
+		},
+	}).then(r => {
+		const ops = r.message || [];
+		frm._process_ops_cache = frm._process_ops_cache || {};
+		frm._process_ops_cache[row.process_name] = ops;
+		apply_ops(ops);
+	});
+}
+
+/*******************************************************
+ * Configure Operation Dialog
+ *******************************************************/
+async function configure_operation_from_form(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+
+	if (!row.process_name || !row.operation) {
 		frappe.msgprint(__("Please select a Process and Operation first"));
 		return;
 	}
 
+	// Guard: Prevent double-execution (double dialogs)
+	if (row.__configuring) return;
+	row.__configuring = true;
+
 	try {
-		// Ensure ConfigurableAction is available
-		if (typeof flexirule === 'undefined' || typeof flexirule.integration === 'undefined') {
-			await frappe.require(['flexirule.bundle.js']);
+		if (typeof flexirule === "undefined") {
+			await frappe.require("flexirule.bundle.js");
 		}
 
-		// Create ConfigurableAction instance
 		const action = flexirule.integration.create_configurable_action({
-			process_name: row.doc.process_name,
-			operation_name: row.doc.operation,
-			node_data: row.doc,
+			process_name: row.process_name,
+			operation_name: row.operation,
+			node_data: row,
 			document_type: frm.doc.document_type,
-			doc_meta: null, // Will be fetched by ConfigurableAction if needed
-			get_variable_options: async () => {
-				// Return available variables for the rule context
-				return [];
-			},
+			get_variable_options: async () => [],
 		});
 
-		// Initialize and show the dialog
 		await action.init();
+
 		action.show_dialog({
-			on_save: () => {
-				// Update the row's config field with the new configuration
-				const configStr = JSON.stringify(action.get_config());
-				frappe.model.set_value(cdt, cdn, "config", configStr);
+			on_save() {
+				frappe.model.set_value(
+					cdt,
+					cdn,
+					"config",
+					JSON.stringify(action.get_config(), null, 2)
+				);
 
 				frappe.show_alert({
 					message: __("Configuration saved"),
-					indicator: "green"
+					indicator: "green",
 				});
 			},
 		});
-	} catch (error) {
-		console.error("Error initializing ConfigurableAction:", error);
-		frappe.msgprint({
-			message: __("Error initializing configuration: {0}", [error.message || error]),
-			indicator: "red"
-		});
-	}
-}
 
-function validate_json(frm, fieldname) {
-	const value = frm.doc[fieldname];
-	if (!value) return;
+		// Reset guard when dialog is hidden
+		if (action.active_dialog) {
+			const original_on_hide = action.active_dialog.on_hide;
+			action.active_dialog.on_hide = () => {
+				row.__configuring = false;
+				if (original_on_hide) original_on_hide();
+			};
+		} else {
+			row.__configuring = false;
+		}
 
-	try {
-		JSON.parse(value);
-		frm.set_df_property(fieldname, "description", "✓ Valid JSON");
 	} catch (e) {
-		frm.set_df_property(fieldname, "description", "✗ Invalid JSON: " + e.message);
+		row.__configuring = false;
+		console.error(e);
+		frappe.msgprint({
+			message: __("Failed to configure operation"),
+			indicator: "red",
+		});
 	}
 }
 
-function add_json_helpers(frm) {
-	["conditions_json", "actions_json", "options_json"].forEach((fieldname) => {
-		const field = frm.fields_dict[fieldname];
-		if (!field || !field.$wrapper || field.$wrapper.find(".format-btn").length) return;
-
-		const $btn = $(`
-            <button class="btn btn-xs btn-default format-btn" style="margin-top:5px">
-                <i class="fa fa-align-left"></i> ${__("Format")}
-            </button>
-        `);
-
-		$btn.on("click", () => {
-			try {
-				const formatted = JSON.stringify(JSON.parse(frm.doc[fieldname] || "{}"), null, 2);
-				frm.set_value(fieldname, formatted);
-			} catch { }
-		});
-
-		field.$wrapper.find(".control-value").append($btn);
-	});
-}
-
+/*******************************************************
+ * Utilities
+ *******************************************************/
 function test_rule(frm) {
 	const d = new frappe.ui.Dialog({
 		title: __("Test Rule"),
@@ -273,16 +297,16 @@ function test_rule(frm) {
 			{
 				fieldtype: "Link",
 				fieldname: "doctype",
-				label: __("Document Type"),
 				options: "DocType",
+				label: __("Document Type"),
 				default: frm.doc.document_type,
 				reqd: 1,
 			},
 			{
 				fieldtype: "Dynamic Link",
 				fieldname: "docname",
-				label: __("Document"),
 				options: "doctype",
+				label: __("Document"),
 				reqd: 1,
 			},
 		],
@@ -296,25 +320,16 @@ function test_rule(frm) {
 					docname: values.docname,
 				},
 				callback(r) {
-					if (r.message && r.message.success) {
-						frappe.msgprint({
-							title: __("Test Complete"),
-							message: r.message.message,
-							indicator: "green",
-						});
-					} else {
-						frappe.msgprint({
-							title: __("Test Failed"),
-							message: r.message ? r.message.error : __("Unknown error"),
-							indicator: "red",
-						});
-					}
+					frappe.msgprint({
+						title: r.message?.success ? __("Success") : __("Failed"),
+						message: r.message?.message || r.message?.error,
+						indicator: r.message?.success ? "green" : "red",
+					});
 					d.hide();
 				},
 			});
 		},
 	});
-
 	d.show();
 }
 
@@ -323,10 +338,7 @@ function clear_rule_cache(frm) {
 		method: "flexirule.ruleflow.api.clear_cache",
 		args: { doctype: frm.doc.document_type },
 		callback() {
-			frappe.show_alert({
-				message: __("Cache cleared"),
-				indicator: "green",
-			});
+			frappe.show_alert({ message: __("Cache cleared"), indicator: "green" });
 		},
 	});
 }
