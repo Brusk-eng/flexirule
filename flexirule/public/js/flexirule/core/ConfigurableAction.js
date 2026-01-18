@@ -1,35 +1,13 @@
-// Copyright (c) 2026, FlexiRule and contributors
-// For license information, please see license.txt
-
 frappe.provide("flexirule.ui");
 frappe.provide("flexirule.integration");
 
-/**
- * Factory for creating ConfigurableAction instances.
- * Used by Sidebar.vue to instantiate the runtime for a node.
- */
 flexirule.integration.create_configurable_action = function (opts) {
 	return new flexirule.ui.ConfigurableAction(opts);
 };
 
-// PATCH REMOVED: User requested no global overrides.
 
-/**
- * ConfigurableAction - Runtime Primitive for Process Configuration
- *
- * DESIGN GUARANTEES:
- * 1. Runtime Owns Persistence: schema is immutable, config is the single source of truth.
- * 2. Strict Context: mutations only via ctx.update_field().
- * 3. Passive Fields: fields react to state, never mutate each other directly.
- * 4. Native Frappe Semantics: supports depends_on, mandatory_depends_on, eval scops.
- */
-// Maintain global for legacy/sidebar usage
 frappe.provide("flexirule.ui");
 
-/**
- * ConfigurableAction - Runtime Primitive for Process Configuration
- * ...
- */
 export default class ConfigurableAction {
 	constructor(opts) {
 		// Options: process_name, operation_name, node_data, document_type, doc_meta
@@ -63,10 +41,6 @@ export default class ConfigurableAction {
 		this._updating_fields = {}; // Race condition guard
 	}
 
-	/**
-	 * Initialize the runtime. Must be called before usage.
-	 * Resolves schema, fetches async options, prepares runtime.
-	 */
 	async init() {
 		// Force clear cache for this doctype to ensure fresh metadata (descriptions)
 		if (this.document_type) {
@@ -102,14 +76,8 @@ export default class ConfigurableAction {
 		await evaluate_recursive(this.config);
 	}
 
-	// ============================================================
-	// 1. STATE & CONTEXT API
-	// ============================================================
 
-	/**
-	 * The Single Mutation Surface.
-	 * All UI changes must pass through here.
-	 */
+
 	update_field(fieldname, value, row_context = null) {
 		// Race Condition Guard: Prevent re-entry for the same field while it's updating
 		// We use a composite key for row-level fields
@@ -148,12 +116,6 @@ export default class ConfigurableAction {
 		return { ...this.config };
 	}
 
-	/**
-	 * Construct the standard ctx object for hooks/eval
-	 */
-	/**
-	 * Construct the standard ctx object for hooks/eval
-	 */
 	_get_context(row = null) {
 		return {
 			doc: row || this.config, // If row provided, 'doc' is the row (Frappe standard)
@@ -178,9 +140,7 @@ export default class ConfigurableAction {
 		};
 	}
 
-	// ============================================================
-	// 2. SCHEMA & NORMALIZATION
-	// ============================================================
+
 
 	async _load_adapter() {
 		await flexirule.utils.load_process_adapter(this.process_name);
@@ -249,10 +209,6 @@ export default class ConfigurableAction {
 		return actions;
 	}
 
-	/**
-	 * Compiles the raw schema into a Frappe-compatible field list.
-	 * Handles type conversions (DocField -> Autocomplete) and Option loading.
-	 */
 	async _normalize_schema(raw_fields) {
 		if (!raw_fields) return [];
 		const normalized = [];
@@ -331,9 +287,6 @@ export default class ConfigurableAction {
 		return f;
 	}
 
-	/**
-	 * Resolve options for a field based on context
-	 */
 	async _resolve_options(field, config, context = {}) {
 		// 1. Support function-based options (get_options or options)
 		const getter =
@@ -364,12 +317,6 @@ export default class ConfigurableAction {
 		return field.options || "";
 	}
 
-	/**
-	 * Map custom fieldtypes to standard Frappe types
-	 */
-	/**
-	 * Map custom fieldtypes to standard Frappe types
-	 */
 	_map_fieldtype(fieldtype) {
 		const mapping = {
 			DocField: "Autocomplete",
@@ -391,14 +338,8 @@ export default class ConfigurableAction {
 		traverse(this.normalized_fields);
 	}
 
-	// ============================================================
-	// 3. REACTIVITY & DEPENDENCY ENGINE
-	// ============================================================
 
-	/**
-	 * Central Change Handler
-	 * Fires after a field mutation -> Recalculates -> Refreshes UI
-	 */
+
 	async _handle_change(fieldname, value, row_context) {
 		// 1. Evaluate Dependencies
 		// If root field changed, re-evaluate root AND ALL child rows (because children might depend on root)
@@ -438,12 +379,6 @@ export default class ConfigurableAction {
 		}
 	}
 
-	/**
-	 * Evaluates 'depends_on', 'mandatory_depends_on', 'read_only_depends_on'
-	 * Scope:
-	 *   If row is null: Evaluates top-level fields against config
-	 *   If row exists: Evaluates child-fields of that row against row+config
-	 */
 	async evaluate_dependencies(doc, row = null, table_fieldname = null) {
 		const context_id = row ? row.name : "root";
 		if (!this.dependency_states[context_id]) {
@@ -537,7 +472,7 @@ export default class ConfigurableAction {
 		return schemas;
 	}
 
-	// _get_context REMOVED (Duplicate)
+
 
 	_get_vars_dict() {
 		return {}; // Placeholder - implement actual var retrieval if needed
@@ -647,11 +582,6 @@ export default class ConfigurableAction {
 		return dialog;
 	}
 
-	/**
-	 * Explicitly check if required fields are filled.
-	 * Provides standard UI feedback (Red borders/scrolling).
-	 * NOW SUPPORTS CHILD TABLES.
-	 */
 	_check_mandatory() {
 		if (!this.active_dialog) return true;
 		let is_valid = true;
@@ -769,9 +699,6 @@ export default class ConfigurableAction {
 		return grid_valid;
 	}
 
-	/**
-	 * Run custom validation logic and config_schema validation
-	 */
 	validate() {
 		// 1. Validate against config_schema (if defined)
 		const config_schema = this._get_config_schema();
@@ -801,9 +728,6 @@ export default class ConfigurableAction {
 		return true;
 	}
 
-	/**
-	 * Get config_schema from operation definition or adapter
-	 */
 	_get_config_schema() {
 		// Priority 1: From operation_def (DocType field or adapter-resolved)
 		if (this.operation_def?.config_schema) {
@@ -826,10 +750,6 @@ export default class ConfigurableAction {
 		return null;
 	}
 
-	/**
-	 * Validate config against JSON schema
-	 * Returns array of error strings
-	 */
 	_validate_against_schema(config, schema) {
 		const errors = [];
 
@@ -928,10 +848,6 @@ export default class ConfigurableAction {
 			});
 	}
 
-	/**
-	 * Binds input change events on the grid wrapper.
-	 * This captures user interactions with grid cells.
-	 */
 	_bind_grid_input_change(grid, table_field) {
 		// Namespace event to allow clean removal
 		// Use passive listeners where possible? Frappe doesn't support that easily here.
@@ -944,10 +860,6 @@ export default class ConfigurableAction {
 		});
 	}
 
-	/**
-	 * Hooks into the Grid's on_row_add to Initialize data and triggers.
-	 * NOTE: We do NOT handle UI isolation here; that is done in the Refresh loop.
-	 */
 	_bind_grid_row_add(grid, table_field) {
 		const original_add = grid.on_row_add;
 		grid.on_row_add = (row) => {
@@ -1142,10 +1054,6 @@ export default class ConfigurableAction {
 		}
 	}
 
-	/**
-	 * Syncs an individual grid row.
-	 * Enforces field definition isolation and propagates state to cells and modal form.
-	 */
 	_sync_grid_row(row, grid, shared_fields) {
 		// A. ENFORCE ISOLATION
 		// Ensure every row has its OWN field definitions.
@@ -1275,9 +1183,7 @@ export default class ConfigurableAction {
 		}
 	}
 
-	// ============================================================
-	// 5. INTERNAL HELPERS
-	// ============================================================
+
 
 	_load_config() {
 		const raw = this.node_data?.config || this.node_data?.method_config;
@@ -1311,10 +1217,6 @@ export default class ConfigurableAction {
 		}
 	}
 
-	/**
-	 * Resolve output schema dynamically from adapter or static definition.
-	 * Returns schema object or null.
-	 */
 	_resolve_output_schema(config) {
 		// Priority 1: Adapter.get_output_schema(config, context)
 		if (this.adapter && typeof this.adapter.get_output_schema === "function") {
@@ -1338,10 +1240,6 @@ export default class ConfigurableAction {
 		return null;
 	}
 
-	/**
-	 * Prepares configuration data for the UI.
-	 * Frappe Grids require 'name' and unique keys for rows to function correctly.
-	 */
 	_hydrate_for_ui(data, table_fieldname = null) {
 		if (!data || typeof data !== "object") return;
 
@@ -1374,9 +1272,6 @@ export default class ConfigurableAction {
 		}
 	}
 
-	/**
-	 * Strips UI-only fields from the configuration data.
-	 */
 	_clean_for_storage(data) {
 		if (!data) return data;
 
@@ -1463,9 +1358,6 @@ export default class ConfigurableAction {
 		return await flexirule.utils.get_combined_fields(target, context_vars);
 	}
 
-	/**
-	 * Safe Runner for Adapter Hooks
-	 */
 	_safe_run(hook_name, fn) {
 		try {
 			const res = fn();
@@ -1490,10 +1382,6 @@ export default class ConfigurableAction {
 		}
 	}
 
-	/**
-	 * Dispose of the runtime instance and cleanup resources.
-	 * Call this when the ConfigurableAction is no longer needed.
-	 */
 	dispose() {
 		if (this._disposed) return;
 		this._disposed = true;

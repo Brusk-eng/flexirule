@@ -1,6 +1,6 @@
-/*******************************************************
- * Rule (Parent)
- *******************************************************/
+// Copyright (c) 2026, FlexiRule and contributors
+// For license information, please see license.txt
+
 frappe.ui.form.on("Rule", {
 	onload(frm) {
 		frm._process_ops_cache = {};
@@ -81,9 +81,6 @@ frappe.ui.form.on("Rule", {
 	},
 });
 
-/*******************************************************
- * Rule Action (Child Table)
- *******************************************************/
 frappe.ui.form.on("Rule Action", {
 	form_render(frm, cdt, cdn) {
 		toggle_action_fields(frm, cdt, cdn);
@@ -118,9 +115,6 @@ frappe.ui.form.on("Rule Action", {
 	},
 });
 
-/*******************************************************
- * Field Visibility (Grid-safe)
- *******************************************************/
 function toggle_action_fields(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	const grid = frm.get_field("actions").grid;
@@ -178,9 +172,6 @@ function toggle_action_fields(frm, cdt, cdn) {
 	}
 }
 
-/*******************************************************
- * Dynamic Autocomplete Options for `operation`
- *******************************************************/
 function update_operation_options(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	if (!row || !row.process_name || row.action_type !== "Process") return;
@@ -220,9 +211,6 @@ function update_operation_options(frm, cdt, cdn) {
 	});
 }
 
-/*******************************************************
- * Configure Operation Dialog
- *******************************************************/
 async function configure_operation_from_form(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 
@@ -287,9 +275,6 @@ async function configure_operation_from_form(frm, cdt, cdn) {
 	}
 }
 
-/*******************************************************
- * Utilities
- *******************************************************/
 function test_rule(frm) {
 	const d = new frappe.ui.Dialog({
 		title: __("Test Rule"),
