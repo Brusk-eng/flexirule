@@ -384,3 +384,23 @@ def get_action_context_schema(rule_name, action_id):
         )
 
     return result
+
+
+@frappe.whitelist()
+def get_process_operations(process_name):
+    """
+    Get enabled operations for a specific process.
+    """
+    if not process_name:
+        return []
+
+    return frappe.get_all(
+        "Process Operation",
+        filters={
+            "parenttype": "Process",
+            "parent": process_name,
+            "enabled": 1,
+        },
+        pluck="func_name",
+        order_by="idx asc",
+    )
