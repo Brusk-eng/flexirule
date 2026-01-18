@@ -70,6 +70,7 @@ import { useStore } from "../store";
 import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
 import ConditionBuilder from "./condition_builder/ConditionBuilder.vue";
+import { validateConditions } from "./condition_builder/condition_validator.js";
 
 // Ensure ConfigurableAction is loaded
 import "../../core/ConfigurableAction.js";
@@ -301,6 +302,17 @@ function update_conditions(val) {
 
 function save_conditions() {
 	if (!selectedNode.value?.data) return;
+
+	// Validate conditions before saving
+	const validation = validateConditions(currentConditions.value, true);
+	if (!validation.valid) {
+		frappe.msgprint({
+			message: validation.message,
+			title: __("Validation Error"),
+			indicator: "red",
+		});
+		return;
+	}
 
 	// Strip ephemeral IDs before saving
 	const cleanConditions = dehydrate_conditions(currentConditions.value);
