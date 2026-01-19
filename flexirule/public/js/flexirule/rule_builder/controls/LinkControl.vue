@@ -7,6 +7,8 @@ const props = defineProps({
 	modelValue: [String, Number],
 	read_only: { type: Boolean, default: false },
 	args: { type: Object, default: () => ({}) },
+	hideLabel: { type: Boolean, default: false },
+	hideDescription: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -151,7 +153,7 @@ watch(
 
 <template>
 	<div
-		v-if="slots.label"
+		v-if="slots.label || (df.label && !hideLabel)"
 		class="control frappe-control"
 		:data-fieldtype="df?.fieldtype"
 		:class="{ editable: slots.label }"
@@ -159,6 +161,9 @@ watch(
 		<!-- label -->
 		<div class="field-controls">
 			<slot name="label" />
+			<div v-if="!slots.label && df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
+				{{ __(df.label) }}
+			</div>
 			<slot name="actions" />
 		</div>
 
@@ -167,7 +172,7 @@ watch(
 
 		<!-- description -->
 		<div
-			v-if="df.description"
+			v-if="df.description && !hideDescription"
 			class="mt-2 description"
 			v-html="__(df.description)"
 		/>

@@ -1,5 +1,5 @@
 <!--
-  AutocompleteControl - Simplified autocomplete using Frappe's ControlAutocomplete
+  AutocompleteControl - Robust implementation for Grid integration
 -->
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
@@ -11,12 +11,15 @@ const props = defineProps({
 	options: { type: Array, default: null },
 	get_options: { type: Function, default: null },
 	doc: { type: Object, default: null },
+	hideLabel: { type: Boolean, default: false },
+	hideDescription: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
 
 const wrapper_ref = ref(null);
 let frappe_control = null;
+let is_setting_value = false;
 
 onMounted(async () => {
 	await nextTick();
@@ -31,10 +34,16 @@ function destroy_control() {
 	if (frappe_control) {
 		if (frappe_control.$input) {
 			frappe_control.$input.off("awesomplete-selectcomplete");
+			frappe_control.$input.off("awesomplete-open"); // Remove our handler
 		}
 		if (frappe_control.awesomplete) {
 			try {
+				const ul = frappe_control.awesomplete.ul;
 				frappe_control.awesomplete.destroy();
+				// Ensure UL is removed if it was moved to body
+				if (ul && ul.parentNode === document.body) {
+					document.body.removeChild(ul);
+				}
 			} catch (e) {}
 		}
 	}
@@ -44,13 +53,9 @@ function destroy_control() {
 async function init_control() {
 	if (!wrapper_ref.value) return;
 
-	// Cleanup previous control if it exists
 	destroy_control();
-
-	// Clear previous content
 	wrapper_ref.value.innerHTML = "";
 
-	// Build df
 	const control_df = {
 		...props.df,
 		fieldtype: "Autocomplete",
@@ -58,16 +63,16 @@ async function init_control() {
 		read_only: props.read_only,
 		ignore_validation: true,
 		change: () => {
-			if (frappe_control) {
+			if (frappe_control && !is_setting_value) {
 				const value = frappe_control.get_value();
-				emit("update:modelValue", value);
+				if (value !== props.modelValue) {
+					emit("update:modelValue", value);
+				}
 			}
 		},
 	};
 
-	// Create the Frappe Autocomplete control
 	const ControlClass = frappe.ui.form.ControlAutocomplete;
-
 	frappe_control = new ControlClass({
 		df: control_df,
 		parent: $(wrapper_ref.value),
@@ -76,44 +81,70 @@ async function init_control() {
 	});
 	frappe_control.make();
 
-	// Set initial options
-	await set_options();
+	// Fix clipping issues in Grid/Modal by moving dropdown to body
+	if (frappe_control.awesomplete) {
+		const awesomplete = frappe_control.awesomplete;
+		
+		// Move UL to body
+		if (awesomplete.ul && awesomplete.ul.parentNode !== document.body) {
+			document.body.appendChild(awesomplete.ul);
+			awesomplete.ul.classList.add('flexirule-autocomplete-dropdown');
+		}
 
-	// Set initial value
-	if (props.modelValue) {
-		frappe_control.set_value(props.modelValue);
+		// Cleanup on destroy is simpler if we track it?
+		// Actually awesomplete.destroy() attempts to remove ul from its parent.
+		// Since we moved it, we should ensure it's removed correctly in destroy_control.
+
+		// Position update function
+		const updatePosition = () => {
+			if (!frappe_control || !frappe_control.$input) return;
+			const input = frappe_control.$input[0];
+			const rect = input.getBoundingClientRect();
+			const ul = awesomplete.ul;
+
+			ul.style.position = 'fixed';
+			ul.style.zIndex = '100010'; // Higher than most modals
+			ul.style.top = (rect.bottom + 2) + 'px'; // 2px margin
+			ul.style.left = rect.left + 'px';
+			ul.style.width = rect.width + 'px';
+			ul.style.minWidth = '150px';
+		};
+
+		// Hook into open event to position
+		frappe_control.$input.on('awesomplete-open', updatePosition);
+		
+		// Optionally hook into window scroll/resize to close (simpler than repositioning)
+		// Or reposition?
+		// window.addEventListener('scroll', updatePosition, true); // capture phase for all scrolls
 	}
 
-	// Additional event binding for awesomplete selection
+	await set_options();
+	
+	if (props.modelValue !== undefined && props.modelValue !== null) {
+		is_setting_value = true;
+		frappe_control.set_value(props.modelValue);
+		setTimeout(() => { is_setting_value = false; }, 50);
+	}
+
 	if (frappe_control.$input) {
 		frappe_control.$input.on("awesomplete-selectcomplete", () => {
-			const value = frappe_control.get_value();
-			emit("update:modelValue", value);
+			if (!is_setting_value) {
+				const value = frappe_control.get_value();
+				emit("update:modelValue", value);
+			}
 		});
 	}
 }
 
 async function set_options() {
 	if (!frappe_control) return;
-
 	let opts = [];
-
-	// Priority: get_options function > options prop > df.options
 	if (typeof props.get_options === "function") {
-		try {
-			opts = await props.get_options(props.doc);
-		} catch (e) {
-			console.warn("AutocompleteControl: get_options failed", e);
-			opts = [];
-		}
+		try { opts = await props.get_options(props.doc); } catch (e) { opts = []; }
 	} else if (props.options && Array.isArray(props.options)) {
 		opts = props.options;
 	} else if (props.df?.options && typeof props.df.options === "string") {
-		const raw_opts = props.df.options.split("\n").filter(Boolean);
-		opts = raw_opts.map((o) => ({
-			value: o.trim(),
-			label: o.trim(),
-		}));
+		opts = props.df.options.split("\n").filter(Boolean).map(o => ({ value: o.trim(), label: o.trim() }));
 	}
 
 	if (opts.length && frappe_control.set_data) {
@@ -121,61 +152,29 @@ async function set_options() {
 	}
 }
 
-// Watch for options changes
-watch(
-	() => props.options,
-	async () => {
-		await set_options();
-	},
-	{ deep: true }
-);
-
-// Watch for value changes from parent
-watch(
-	() => props.modelValue,
-	(newVal) => {
-		if (frappe_control && frappe_control.get_value() !== newVal) {
-			frappe_control.set_value(newVal || "");
-		}
+watch(() => props.modelValue, (newVal) => {
+	if (frappe_control && !is_setting_value && frappe_control.get_value() !== newVal) {
+		is_setting_value = true;
+		frappe_control.set_value(newVal || "");
+		setTimeout(() => { is_setting_value = false; }, 50);
 	}
-);
+});
 
-// Watch for doc changes (context for get_options)
-watch(
-	() => props.doc,
-	async () => {
-		await set_options();
-	},
-	{ deep: true }
-);
+watch(() => [props.df?.fieldname, props.df?.fieldtype], async () => {
+	await init_control();
+});
 
-// Watch for read_only changes
-watch(
-	() => props.read_only,
-	(newVal) => {
-		if (frappe_control) {
-			frappe_control.set_read_only(newVal);
-		}
-	}
-);
-
-// Watch for df changes
-watch(
-	() => props.df,
-	async () => {
-		await init_control();
-	},
-	{ deep: true }
-);
+watch(() => props.options, async () => { await set_options(); }, { deep: true });
+watch(() => props.read_only, (newVal) => { if (frappe_control) frappe_control.set_read_only(newVal); });
 </script>
 
 <template>
-	<div class="control frappe-control">
-		<div v-if="df?.label" class="control-label label" :class="{ reqd: df.reqd }">
+	<div class="control frappe-control" :class="{ 'no-label': hideLabel }">
+		<div v-if="df?.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>
 		<div ref="wrapper_ref" class="autocomplete-input-wrapper"></div>
-		<div v-if="df?.description" class="description text-muted">
+		<div v-if="df?.description && !hideDescription" class="description text-muted">
 			{{ __(df.description) }}
 		</div>
 	</div>
@@ -188,35 +187,62 @@ watch(
 	margin-bottom: 4px;
 	color: var(--text-muted);
 }
-
-.control-label.reqd::after {
-	content: " *";
-	color: var(--red-500);
-}
-
 .autocomplete-input-wrapper {
 	position: relative;
 }
-
 .autocomplete-input-wrapper :deep(.form-control) {
 	font-size: 13px;
 	padding: 6px 10px;
 	width: 100%;
 }
-
 .autocomplete-input-wrapper :deep(.awesomplete) {
 	width: 100%;
 	display: block;
 }
-
 .autocomplete-input-wrapper :deep(.awesomplete > ul) {
 	z-index: 1050;
 	max-height: 200px;
 	overflow-y: auto;
 }
-
 .description {
 	font-size: 10px;
 	margin-top: 4px;
+}
+
+/* Global style for teleporter dropdown */
+/* Global style for teleporter dropdown */
+:global(.flexirule-autocomplete-dropdown) {
+	z-index: 100010 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 1px solid var(--border-color, #d1d5db);
+    border-radius: 4px;
+    background: #fff; /* Fix transparent background */
+    max-height: 200px; /* Fix scrolling */
+    overflow-y: auto;
+    padding: 0;
+    margin: 0;
+    list-style: none; /* Fix bullets */
+    position: fixed; /* Enforce fixed */
+}
+
+:global(.flexirule-autocomplete-dropdown li) {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f9fafb;
+    font-size: 13px;
+    color: var(--text-color, #1f2937);
+}
+
+:global(.flexirule-autocomplete-dropdown li:hover),
+:global(.flexirule-autocomplete-dropdown li[aria-selected="true"]) {
+    background-color: var(--gray-100, #f3f4f6);
+    color: var(--text-color, #1f2937);
+}
+
+:global(.flexirule-autocomplete-dropdown mark) {
+    background: transparent;
+    font-weight: bold;
+    color: inherit;
+    padding: 0;
 }
 </style>

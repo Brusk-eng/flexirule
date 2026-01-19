@@ -1,3 +1,6 @@
+
+//This implementation is to run configuration Dialog from Standard frappe form render.
+//Please don't edit for any reason regarding vue based app opended model requirments.
 frappe.provide("flexirule.ui");
 frappe.provide("flexirule.integration");
 
