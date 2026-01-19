@@ -361,7 +361,14 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 			const isRoot = action.action_type === "Entry Action" || action.action_id === "start" || action.action_id === "root";
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;
-			const configData = action.config || action.method_config;
+			// Safe JSON parse helper
+			const safeParse = (val) => {
+				if (!val) return null;
+				if (typeof val === 'object') return val;
+				try { return JSON.parse(val); } catch (e) { return val; }
+			};
+
+			const configData = safeParse(action.config || action.method_config);
 
 			const nodeData = {
 				action_id: nodeId,
@@ -372,7 +379,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				process_method: action.process_method,
 				config: configData,
 				condition_expression: action.condition_expression,
-				condition_json: action.condition_json,
+				condition_json: safeParse(action.condition_json),
 				is_enabled: action.is_enabled,
 				on_error: action.on_error,
 				timeout: action.timeout,
@@ -381,8 +388,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 				return_variable: action.return_variable,
 				is_async: action.is_async,
 				name: action.name,
-				input_mapping: action.input_mapping,
-				output_mapping: action.output_mapping,
+				input_mapping: safeParse(action.input_mapping),
+				output_mapping: safeParse(action.output_mapping),
 				rule: action.rule || (action.action_type === "Sub-Rule" ? getSubRuleName(configData) : null),
 				skip_conditions: action.skip_conditions !== undefined ? action.skip_conditions : 1,
 				skip_permissions: action.skip_permissions || 0,
@@ -717,11 +724,11 @@ export const useStore = defineStore("rule-builder-store", () => {
 					process_name: node.data?.process_name,
 					operation: node.data?.operation,
 					process_method: node.data?.process_method,
-					config: node.data?.config,
+					config: node.data?.config ? JSON.stringify(node.data.config) : null,
 					condition_expression: node.data?.condition_expression,
-					condition_json: node.data?.condition_json,
-					input_mapping: node.data?.input_mapping,
-					output_mapping: node.data?.output_mapping,
+					condition_json: node.data?.condition_json ? JSON.stringify(node.data.condition_json) : null,
+					input_mapping: node.data?.input_mapping ? JSON.stringify(node.data.input_mapping) : null,
+					output_mapping: node.data?.output_mapping ? JSON.stringify(node.data.output_mapping) : null,
 					on_error: node.data?.on_error || "Stop",
 					timeout: node.data?.timeout || 30,
 					priority: node.data?.priority || 0,

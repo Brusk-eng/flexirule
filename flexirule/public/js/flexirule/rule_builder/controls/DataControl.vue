@@ -2,7 +2,13 @@
 <script setup>
 import { ref, useSlots } from "vue";
 
-const props = defineProps(["df", "modelValue", "read_only"]);
+const props = defineProps({
+	df: Object,
+	modelValue: [String, Number],
+	read_only: Boolean,
+	hideLabel: { type: Boolean, default: false },
+	hideDescription: { type: Boolean, default: false },
+});
 defineEmits(["update:modelValue"]);
 let slots = useSlots();
 let time_zone = ref("");
@@ -26,11 +32,11 @@ if (props.df?.fieldtype === "Icon") {
 <template>
 	<div class="control frappe-control" :class="{ editable: slots.label }">
 		<!-- label -->
-		<div v-if="slots.label" class="field-controls">
+		<div v-if="slots.label && !hideLabel" class="field-controls">
 			<slot name="label" />
 			<slot name="actions" />
 		</div>
-		<div v-else-if="df?.label" class="control-label label" :class="{ reqd: df.reqd }">
+		<div v-else-if="df?.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>
 
@@ -60,7 +66,7 @@ if (props.df?.fieldtype === "Icon") {
 		/>
 
 		<!-- description -->
-		<div v-if="df.description" class="mt-2 description" v-html="__(df.description)" />
+		<div v-if="df.description && !hideDescription" class="mt-2 description" v-html="__(df.description)" />
 
 		<!-- timezone for datetime field -->
 		<div

@@ -1,5 +1,11 @@
 <template>
 	<div class="rule-sidebar">
+		<div class="sidebar-v2-preview" v-if="selectedNode && selectedNode.type !== 'start'">
+			<button class="btn btn-xs btn-primary-light w-100" @click="showV2Modal = true">
+				<i class="fa fa-flask"></i> {{ __("Try V2 Configuration (Preview)") }}
+			</button>
+		</div>
+
 		<div class="sidebar-header">
 			<h4>{{ sidebar_title }}</h4>
 			<button class="btn-close" @click="$emit('close')">×</button>
@@ -61,6 +67,14 @@
 				</div>
 			</div>
 		</Teleport>
+
+		<!-- V2 Configuration Modal -->
+		<RuleConfigModal
+			v-if="showV2Modal"
+			v-model="showV2Modal"
+			:node="selectedNode"
+			@save="store.mark_dirty()"
+		/>
 	</div>
 </template>
 
@@ -70,6 +84,7 @@ import { useStore } from "../store";
 import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
 import ConditionBuilder from "./condition_builder/ConditionBuilder.vue";
+import RuleConfigModal from "./rule_config/RuleConfigModal.vue";
 import { validateConditions } from "./condition_builder/condition_validator.js";
 
 // Ensure ConfigurableAction is loaded
@@ -203,6 +218,7 @@ async function open_config_dialog() {
 // CONDITION BUILDER
 // ============================================================
 
+const showV2Modal = ref(false);
 const showConditionModal = ref(false);
 const currentConditions = ref({});
 const showOldDoc = ref(false);
@@ -344,6 +360,25 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	background: #fff;
+}
+
+.sidebar-v2-preview {
+	padding: 10px 15px 5px;
+	border-bottom: 1px solid var(--border-color);
+	background: #f8f9ff;
+}
+
+.btn-primary-light {
+	background: #eef2ff;
+	color: #4f46e5;
+	border: 1px solid #e0e7ff;
+	font-weight: 600;
+	font-size: 11px;
+}
+
+.btn-primary-light:hover {
+	background: #e0e7ff;
+	border-color: #c7d2fe;
 }
 
 .sidebar-header {

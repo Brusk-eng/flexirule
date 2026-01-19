@@ -28,6 +28,10 @@ const EXCLUDED_FIELDS = [
 	"action_id", // Auto-generated
 	"position_x", // Visual metadata
 	"position_y", // Visual metadata
+	"config", // Managed by V2 modal
+	"condition_json", // Managed by V2 modal
+	"input_mapping", // Managed by V2 modal
+	"output_mapping" // Managed by V2 modal
 ];
 
 // Layout fields to skip

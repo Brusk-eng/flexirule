@@ -5,6 +5,8 @@
 			v-if="df?.fieldtype === 'Link'"
 			:df="df"
 			:modelValue="modelValue"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
@@ -16,6 +18,8 @@
 			:options="df?.autocomplete_options"
 			:get_options="df?.get_options"
 			:doc="doc"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
@@ -24,6 +28,8 @@
 			v-else-if="df?.fieldtype === 'Select'"
 			:df="df"
 			:modelValue="modelValue"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
@@ -32,6 +38,7 @@
 			v-else-if="df?.fieldtype === 'Check'"
 			:df="df"
 			:modelValue="Boolean(modelValue)"
+			:hideLabel="hideLabel"
 			@update:modelValue="$emit('update:modelValue', $event ? 1 : 0)"
 		/>
 
@@ -40,7 +47,7 @@
 			v-else-if="['Int', 'Float', 'Currency', 'Percent'].includes(df?.fieldtype)"
 			class="control frappe-control"
 		>
-			<div v-if="df.label" class="control-label label" :class="{ reqd: df.reqd }">
+			<div v-if="df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 				{{ __(df.label) }}
 			</div>
 			<input
@@ -70,7 +77,7 @@
 			v-else-if="['Date', 'Datetime'].includes(df?.fieldtype)"
 			class="control frappe-control"
 		>
-			<div v-if="df.label" class="control-label label" :class="{ reqd: df.reqd }">
+			<div v-if="df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 				{{ __(df.label) }}
 			</div>
 			<input
@@ -89,7 +96,7 @@
 
 		<!-- Time -->
 		<div v-else-if="df?.fieldtype === 'Time'" class="control frappe-control">
-			<div v-if="df.label" class="control-label label" :class="{ reqd: df.reqd }">
+			<div v-if="df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 				{{ __(df.label) }}
 			</div>
 			<input
@@ -122,7 +129,7 @@
 			"
 			class="control frappe-control"
 		>
-			<div v-if="df.label" class="control-label label" :class="{ reqd: df.reqd }">
+			<div v-if="df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 				{{ __(df.label) }}
 			</div>
 			<textarea
@@ -140,12 +147,12 @@
 		</div>
 
 		<!-- Table -->
-		<InlineTableControl
+		<FlexiGrid
 			v-else-if="df?.fieldtype === 'Table'"
 			:df="df"
 			:modelValue="modelValue"
-			:documentType="doc?.document_type"
-			:read_only="read_only"
+			:engine="engine"
+			:read_only="df.read_only"
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
@@ -154,6 +161,8 @@
 			v-else-if="!['Table', 'Signature', 'Button', 'Heading'].includes(df?.fieldtype)"
 			:df="df || { fieldtype: 'Data' }"
 			:modelValue="modelValue"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
@@ -171,12 +180,15 @@ import CheckControl from "./CheckControl.vue";
 import DataControl from "./DataControl.vue";
 import MultiSelectControl from "./MultiSelectControl.vue";
 import AutocompleteControl from "./AutocompleteControl.vue";
-import InlineTableControl from "./InlineTableControl.vue";
+import FlexiGrid from "./FlexiGrid.vue";
 
 const props = defineProps({
 	df: Object,
 	modelValue: [String, Number, Boolean, Array],
 	doc: { type: Object, default: null }, // Context doc for autocomplete
+	engine: { type: Object, default: null }, // Passed down to components like FlexiGrid
+	hideLabel: { type: Boolean, default: false },
+	hideDescription: { type: Boolean, default: false },
 });
 
 defineEmits(["update:modelValue"]);

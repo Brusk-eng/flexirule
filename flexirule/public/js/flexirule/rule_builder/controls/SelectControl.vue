@@ -9,6 +9,8 @@ const props = defineProps({
 	modelValue: [String, Number],
 	read_only: Boolean,
 	no_label: Boolean,
+	hideLabel: { type: Boolean, default: false },
+	hideDescription: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -55,7 +57,7 @@ function on_change(event) {
 
 <template>
 	<div class="control frappe-control">
-		<div v-if="df?.label && !no_label" class="control-label label" :class="{ reqd: df.reqd }">
+		<div v-if="df?.label && !no_label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>
 		<div class="select-wrapper">
@@ -74,7 +76,7 @@ function on_change(event) {
 				<svg class="icon icon-sm"><use href="#icon-select"></use></svg>
 			</div>
 		</div>
-		<div v-if="df?.description" class="description text-muted">
+		<div v-if="df?.description && !hideDescription" class="description text-muted">
 			{{ __(df.description) }}
 		</div>
 	</div>
@@ -104,12 +106,14 @@ function on_change(event) {
 	-moz-appearance: none;
 	padding-right: 28px;
 	font-size: 13px;
+	background: transparent;
+	border: 1px solid transparent;
 }
 
 .select-icon {
 	position: absolute;
 	top: 50%;
-	right: 8px;
+	right: 4px;
 	transform: translateY(-50%);
 	pointer-events: none;
 	color: var(--text-muted);
