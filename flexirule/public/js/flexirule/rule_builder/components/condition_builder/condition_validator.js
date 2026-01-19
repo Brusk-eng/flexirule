@@ -44,6 +44,38 @@ export function validateConditions(node, isRoot = false) {
         if (!result.valid) return result;
     }
 
-    // Simple conditions (with field/op/value) are considered valid for now as they default to valid state on creation
+    // 3. Check for Simple Conditions (Field Comparison)
+    else if (node.left !== undefined) {
+        const fieldRef = node.left.ref || "";
+        if (!fieldRef || fieldRef.endsWith(".")) {
+            return {
+                valid: false,
+                message: __("Please select a valid field for the condition."),
+            };
+        }
+
+        if (!node.op) {
+            return {
+                valid: false,
+                message: __("Please select an operator for the condition."),
+            };
+        }
+
+        // Operators that don't need a value
+        const valueNotRequired = ["is_set", "is_not_set"];
+        if (!valueNotRequired.includes(node.op)) {
+            const hasValue =
+                (node.right && node.right.value !== undefined && node.right.value !== "") ||
+                (node.right && node.right.ref);
+
+            if (!hasValue) {
+                return {
+                    valid: false,
+                    message: __("Please provide a value for field '{0}'.").replace("{0}", fieldRef),
+                };
+            }
+        }
+    }
+
     return { valid: true };
 }

@@ -396,19 +396,19 @@ hr {
 	z-index: 1050;
 	display: flex;
 	justify-content: center;
-	align-items: center;
+	align-items: flex-start;
+	overflow-y: auto;
+	padding: 40px 0;
 }
 
 .condition-modal-content {
 	background: white;
 	width: 1200px;
 	max-width: 90vw;
-	max-height: 85vh;
 	border-radius: 6px;
 	box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
 	display: flex;
 	flex-direction: column;
-	overflow: hidden;
 }
 
 .modal-header {
@@ -421,8 +421,6 @@ hr {
 
 .modal-body {
 	padding: 20px;
-	overflow-y: auto;
-	flex: 1;
 }
 
 .modal-footer {
