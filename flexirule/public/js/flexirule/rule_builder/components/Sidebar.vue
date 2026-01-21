@@ -87,8 +87,8 @@ import ConditionBuilder from "./condition_builder/ConditionBuilder.vue";
 import RuleConfigModal from "./rule_config/RuleConfigModal.vue";
 import { validateConditions } from "./condition_builder/condition_validator.js";
 
-// Ensure ConfigurableAction is loaded
-import "../../core/ConfigurableAction.js";
+// Ensure ProcessConfigurator is loaded
+import "../../core/ProcessConfigurator.js";
 
 const emit = defineEmits(["close"]);
 const store = useStore();

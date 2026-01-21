@@ -55,6 +55,9 @@ import LoopConfig from "./types/LoopConfig.vue";
 import SwitchConfig from "./types/SwitchConfig.vue";
 import SubRuleConfig from "./types/SubRuleConfig.vue";
 import WaitConfig from "./types/WaitConfig.vue";
+import SetValueConfig from "./types/SetValueConfig.vue";
+import RaiseErrorConfig from "./types/RaiseErrorConfig.vue";
+import NotifyConfig from "./types/NotifyConfig.vue";
 
 const configComponents = {
 	'ProcessConfig': ProcessConfig,
@@ -62,7 +65,10 @@ const configComponents = {
 	'LoopConfig': LoopConfig,
 	'SwitchConfig': SwitchConfig,
 	'SubRuleConfig': SubRuleConfig,
-	'WaitConfig': WaitConfig
+	'WaitConfig': WaitConfig,
+	'SetValueConfig': SetValueConfig,
+	'RaiseErrorConfig': RaiseErrorConfig,
+	'NotifyConfig': NotifyConfig
 };
 
 const configComponent = computed(() => {
@@ -76,7 +82,10 @@ const configComponent = computed(() => {
 		'loop': 'LoopConfig',
 		'switch': 'SwitchConfig',
 		'sub-rule': 'SubRuleConfig',
-		'wait': 'WaitConfig'
+		'wait': 'WaitConfig',
+		'set value': 'SetValueConfig',
+		'raise error': 'RaiseErrorConfig',
+		'notify': 'NotifyConfig'
 	};
 
 	const componentName = mapping[type];

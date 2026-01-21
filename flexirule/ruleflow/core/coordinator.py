@@ -6,7 +6,6 @@ RuleCoordinator - Main entry point for rule execution
 Finds applicable rules and dispatches them to appropriate executors
 """
 
-import json
 from typing import Any, Dict, List
 
 import frappe
@@ -16,43 +15,55 @@ from frappe import _
 class RuleCoordinator:
     """Coordinates rule loading, filtering, and execution"""
 
-    @staticmethod
-    def has_active_rules(doctype: str, event_name: str) -> bool:
-        """
-        Check if there are any active rules for this doctype/event.
-        Uses frappe.local.cache for request-level caching.
-        """
-        cache_key = f"flexirule_active:{doctype}:{event_name}"
-        if cache_key in frappe.local.cache:
-            return frappe.local.cache[cache_key]
+    # Cache key for unified rule map (follows Frappe server_script_map pattern)
+    CACHE_KEY = "flexirule_map"
 
-        # Check Redis
-        has_rules = frappe.cache().hget(
-            "flexirule_active_rules", f"{doctype}:{event_name}"
+    @staticmethod
+    def get_rule_map() -> dict:
+        """
+        Get unified rule map from cache or rebuild.
+        Structure: {doctype: {event: [rule_names sorted by priority]}}
+        """
+        # Request-level cache first
+        if hasattr(frappe.local, "flexirule_map"):
+            return frappe.local.flexirule_map
+
+        # Redis cache
+        rule_map = frappe.cache.get_value(RuleCoordinator.CACHE_KEY)
+
+        if rule_map is None:
+            rule_map = RuleCoordinator._build_rule_map()
+            frappe.cache.set_value(RuleCoordinator.CACHE_KEY, rule_map)
+
+        # Store in request-level cache
+        frappe.local.flexirule_map = rule_map
+        return rule_map
+
+    @staticmethod
+    def _build_rule_map() -> dict:
+        """Build complete rule map from database"""
+        rule_map = {}
+
+        # Fetch all active rules with priority ordering
+        active_rules = frappe.get_all(
+            "Rule",
+            filters={"is_active": 1},
+            fields=["name", "document_type", "trigger_event", "priority"],
+            order_by="priority desc",
         )
 
-        # If None, it means cache miss/not initialized.
-        # If 0/False, it means strictly no rules.
+        for rule in active_rules:
+            doctype = rule.document_type
+            event = rule.trigger_event
+            rule_map.setdefault(doctype, {}).setdefault(event, []).append(rule.name)
 
-        if has_rules is None:
-            # Rebuild cache for this doctype?
-            # Or just query DB once.
-            # Let's query DB to be safe and simple for V1.
-            count = frappe.db.count(
-                "Rule",
-                {"document_type": doctype, "trigger_event": event_name, "is_active": 1},
-            )
-            has_rules = count > 0
-            # Update Redis to avoid future DB hits
-            frappe.cache().hset(
-                "flexirule_active_rules",
-                f"{doctype}:{event_name}",
-                1 if has_rules else 0,
-            )
+        return rule_map
 
-        result = bool(has_rules)
-        frappe.local.cache[cache_key] = result
-        return result
+    @staticmethod
+    def has_active_rules(doctype: str, event_name: str) -> bool:
+        """Check if there are any active rules for this doctype/event."""
+        rule_map = RuleCoordinator.get_rule_map()
+        return bool(rule_map.get(doctype, {}).get(event_name))
 
     @staticmethod
     def execute_rules(doc, event_name: str):
@@ -200,63 +211,24 @@ class RuleCoordinator:
     @staticmethod
     def get_applicable_rules(doctype: str, event_name: str, doc=None) -> list:
         """
-        Get active rules for a doctype and event
-        Uses caching for performance
-
-        Args:
-                doctype: DocType name
-                event_name: Trigger event name
-                doc: Optional document for evaluating trigger conditions
-
-        Returns:
-                List of Rule documents
+        Get active rules for a doctype and event.
+        Uses unified cache map for performance.
         """
-        cache_key = f"rules:{doctype}:{event_name}"
+        rule_map = RuleCoordinator.get_rule_map()
+        rule_names = rule_map.get(doctype, {}).get(event_name, [])
 
-        # Try cache first
-        cached = frappe.cache().get_value(cache_key)
+        if not rule_names:
+            return []
+
         rules = []
-
-        if cached:
+        for name in rule_names:
             try:
-                rule_names = json.loads(cached)
-                for name in rule_names:
-                    # Handle stale cache where rule might have been deleted
-                    try:
-                        rules.append(frappe.get_cached_doc("Rule", name))
-                    except (frappe.DoesNotExistError, frappe.ValidationError):
-                        # Force refresh if any doc is missing
-                        frappe.cache().delete_value(cache_key)
-                        return RuleCoordinator.get_applicable_rules(
-                            doctype, event_name, doc
-                        )
-            except Exception:
-                # If any json or other error, ignore cache
-                pass
-        else:
-            # Load from database
-            rule_list = frappe.get_all(
-                "Rule",
-                filters={
-                    "is_active": 1,
-                    "document_type": doctype,
-                    "trigger_event": event_name,
-                },
-                fields=["name"],
-                order_by="priority DESC",
-            )
+                rules.append(frappe.get_cached_doc("Rule", name))
+            except frappe.DoesNotExistError:
+                # Rule was deleted but cache not cleared - rebuild
+                RuleCoordinator.clear_cache()
+                return RuleCoordinator.get_applicable_rules(doctype, event_name, doc)
 
-            rule_names = [r.name for r in rule_list]
-
-            # Cache for 5 minutes
-            frappe.cache().set_value(
-                cache_key, json.dumps(rule_names), expires_in_sec=300
-            )
-
-            rules = [frappe.get_cached_doc("Rule", name) for name in rule_names]
-
-        # Note: Trigger condition filtering is now handled by check_eligibility
-        # using compiled trigger_condition_expression - no runtime JSON parsing
         return rules
 
     @staticmethod
@@ -325,43 +297,21 @@ class RuleCoordinator:
     @staticmethod
     def clear_cache(doctype: str = None):
         """
-        Clear cached rules for a doctype or all doctypes
-
-        Args:
-                doctype: Optional DocType to clear cache for
+        Clear cached rules. Always clears entire map (atomic rebuild).
         """
-        # Clear Redis Hash for active rules check
-        if doctype:
-            # Get all possible events from Rule metadata
-            meta = frappe.get_meta("Rule")
-            events = meta.get_field("trigger_event").options.split("\n")
+        # Clear Redis cache
+        frappe.cache.delete_value(RuleCoordinator.CACHE_KEY)
 
-            for event in events:
-                # Clear Hash Field
-                frappe.cache().hdel("flexirule_active_rules", f"{doctype}:{event}")
+        # Clear request-level cache
+        if hasattr(frappe.local, "flexirule_map"):
+            delattr(frappe.local, "flexirule_map")
 
-                # Clear Old Keys (Legacy support if any)
-                frappe.cache().delete_value(f"rules:{doctype}:{event}")
-
-                # Clear Local Cache
-                key = f"flexirule_active:{doctype}:{event}"
-                if key in frappe.local.cache:
-                    del frappe.local.cache[key]
-        else:
-            # Clear all
-            frappe.cache().delete_key("flexirule_active_rules")
-            frappe.cache().delete_keys("rules:*")
-
-            # Clear local cache
-            to_remove = []
-            for k in frappe.local.cache.keys():
-                if isinstance(k, str) and k.startswith("flexirule_active:"):
-                    to_remove.append(k)
-                elif isinstance(k, bytes) and k.startswith(b"flexirule_active:"):
-                    to_remove.append(k)
-
-            for k in to_remove:
-                del frappe.local.cache[k]
+        # Notify distributed workers (v16 pattern)
+        frappe.publish_realtime(
+            "flexirule_cache_clear",
+            {"doctype": doctype},
+            after_commit=True,
+        )
 
 
 def execute_rules(doc, event_name):

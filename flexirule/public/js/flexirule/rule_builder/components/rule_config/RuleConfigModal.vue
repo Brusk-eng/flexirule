@@ -13,6 +13,9 @@
 							<!-- Experimental toggle moved or kept if needed, assuming user ignored it -->
 						</div>
 						<div class="header-actions">
+							<button class="btn btn-sm btn-default mr-2" v-if="actionType === 'process'" @click="useExperimentalV2 = !useExperimentalV2">
+								<i class="fa fa-flask"></i> {{ useExperimentalV2 ? __("Standard View") : __("V2 Vision") }}
+							</button>
 							<button class="btn btn-sm btn-default" @click="close">
 								{{ __("Cancel") }}
 							</button>
@@ -61,6 +64,7 @@ import ConfigurationPanel from "./ConfigurationPanel.vue";
 import OutputPanel from "./OutputPanel.vue";
 import V2PreviewPanel from "./V2PreviewPanel.vue";
 import { useStore } from "../../store";
+import { validateAgainstContract, getContract } from "../../../core/contracts.js";
 
 const props = defineProps({
 	modelValue: Boolean,
@@ -70,8 +74,11 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "save"]);
 const store = useStore();
 
-const useExperimentalV2 = ref(false);
 const localNode = ref(null); // Draft copy
+// Detect action type for UI hints, fallback to props
+const actionType = computed(() => (localNode.value?.data?.action_type || props.node?.data?.action_type || props.node?.type)?.toLowerCase());
+
+const useExperimentalV2 = ref(false);
 
 // Watch for node changes or modal open to create draft
 watch(() => [props.node, props.modelValue], ([newNode, isOpen]) => {
@@ -107,7 +114,6 @@ function getIcon(type) {
 }
 
 // -- Dynamic Layout Logic --
-const actionType = computed(() => localNode.value?.data?.action_type?.toLowerCase());
 
 const layoutConfig = computed(() => {
 	const type = actionType.value;
@@ -117,8 +123,8 @@ const layoutConfig = computed(() => {
 
 	if (type === 'process') {
 		config = { input: true, config: true, output: true };
-	} else if (type === 'condition') {
-		// Condition nodes now support Input panel for binding variables
+	} else if (['condition', 'set value', 'raise error', 'notify'].includes(type)) {
+		// Enabled Input panel for variable binding/visibility
 		config = { input: true, config: true, output: false };
 	} else if (type === 'loop') {
 		// Loop uses iterator config, output usually handled implicitly or via child nodes.
@@ -144,6 +150,12 @@ function close() {
 
 async function save() {
 	const errors = [];
+
+	// 0. Validate against ACTION_TYPE_CONTRACT
+	const contractResult = validateAgainstContract(localNode.value?.data);
+	if (!contractResult.valid) {
+		errors.push(...contractResult.errors);
+	}
 
 	// 1. Validate Input Panel
 	if (showLeftPanel.value && inputPanelRef.value && typeof inputPanelRef.value.validate === "function") {
