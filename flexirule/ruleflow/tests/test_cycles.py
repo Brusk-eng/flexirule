@@ -11,15 +11,17 @@ class TestRuleCycles(FrappeTestCase):
         frappe.db.delete("Rule Execution Log")
 
     def create_rule(self, name, actions=None, trigger_condition=None):
-        rule = frappe.get_doc({
-            "doctype": "Rule",
-            "rule_name": name,
-            "document_type": "Note",
-            "trigger_event": "Manual",
-            "is_active": 1,
-            "trigger_condition": trigger_condition,
-            "actions": actions or []
-        })
+        rule = frappe.get_doc(
+            {
+                "doctype": "Rule",
+                "rule_name": name,
+                "document_type": "Note",
+                "trigger_event": "Manual",
+                "is_active": 0,
+                "trigger_condition": trigger_condition,
+                "actions": actions or [],
+            }
+        )
         rule.insert()
         return rule
 
@@ -27,13 +29,16 @@ class TestRuleCycles(FrappeTestCase):
         # A calls A
         rule = self.create_rule("Rule A")
         rule.set("actions", [])
-        rule.append("actions", {
-            "action_id": "act_a_call_a",
-            "action_type": "Sub-Rule",
-            "action_label": "Call A",
-            "rule": rule.name,
-            "config": json.dumps({"rule": rule.name})
-        })
+        rule.append(
+            "actions",
+            {
+                "action_id": "act_a_call_a",
+                "action_type": "Sub-Rule",
+                "action_label": "Call A",
+                "rule": rule.name,
+                "config": json.dumps({"rule": rule.name}),
+            },
+        )
         with self.assertRaises(frappe.ValidationError) as cm:
             rule.save()
         self.assertIn("cannot reference its own Rule as Sub-Rule", str(cm.exception))
@@ -45,24 +50,30 @@ class TestRuleCycles(FrappeTestCase):
 
         # A calls B
         rule_a.set("actions", [])
-        rule_a.append("actions", {
-            "action_id": "act_a_call_b",
-            "action_type": "Sub-Rule",
-            "action_label": "Call B",
-            "rule": rule_b.name,
-            "config": json.dumps({"rule": rule_b.name})
-        })
+        rule_a.append(
+            "actions",
+            {
+                "action_id": "act_a_call_b",
+                "action_type": "Sub-Rule",
+                "action_label": "Call B",
+                "rule": rule_b.name,
+                "config": json.dumps({"rule": rule_b.name}),
+            },
+        )
         rule_a.save()
 
         # B calls A -> Cycle
         rule_b.set("actions", [])
-        rule_b.append("actions", {
-            "action_id": "act_b_call_a",
-            "action_type": "Sub-Rule",
-            "action_label": "Call A",
-            "rule": rule_a.name,
-            "config": json.dumps({"rule": rule_a.name})
-        })
+        rule_b.append(
+            "actions",
+            {
+                "action_id": "act_b_call_a",
+                "action_type": "Sub-Rule",
+                "action_label": "Call A",
+                "rule": rule_a.name,
+                "config": json.dumps({"rule": rule_a.name}),
+            },
+        )
         with self.assertRaises(frappe.ValidationError) as cm:
             rule_b.save()
         self.assertIn("Cycle detected in sub-rule graph", str(cm.exception))
@@ -74,36 +85,46 @@ class TestRuleCycles(FrappeTestCase):
         rule_c = self.create_rule("Rule C")
 
         rule_a.set("actions", [])
-        rule_a.append("actions", {
-            "action_id": "act_a_next",
-            "action_label": "Next",
-            "action_type": "Sub-Rule",
-            "rule": rule_b.name,
-            "config": json.dumps({"rule": rule_b.name})
-        })
+        rule_a.append(
+            "actions",
+            {
+                "action_id": "act_a_next",
+                "action_label": "Next",
+                "action_type": "Sub-Rule",
+                "rule": rule_b.name,
+                "config": json.dumps({"rule": rule_b.name}),
+            },
+        )
         rule_a.save()
 
         rule_b.set("actions", [])
-        rule_b.append("actions", {
-            "action_id": "act_b_next",
-            "action_label": "Next",
-            "action_type": "Sub-Rule",
-            "rule": rule_c.name,
-            "config": json.dumps({"rule": rule_c.name})
-        })
+        rule_b.append(
+            "actions",
+            {
+                "action_id": "act_b_next",
+                "action_label": "Next",
+                "action_type": "Sub-Rule",
+                "rule": rule_c.name,
+                "config": json.dumps({"rule": rule_c.name}),
+            },
+        )
         rule_b.save()
 
         rule_c.set("actions", [])
-        rule_c.append("actions", {
-            "action_id": "act_c_next",
-            "action_label": "Next",
-            "action_type": "Sub-Rule",
-            "rule": rule_a.name,
-            "config": json.dumps({"rule": rule_a.name})
-        })
+        rule_c.append(
+            "actions",
+            {
+                "action_id": "act_c_next",
+                "action_label": "Next",
+                "action_type": "Sub-Rule",
+                "rule": rule_a.name,
+                "config": json.dumps({"rule": rule_a.name}),
+            },
+        )
         with self.assertRaises(frappe.ValidationError) as cm:
             rule_c.save()
         self.assertIn("Cycle detected in sub-rule graph", str(cm.exception))
+
     """
     def test_sub_rule_bypass_condition(self):
         # Helper to clear logs before each execution
@@ -123,6 +144,7 @@ class TestRuleCycles(FrappeTestCase):
             "action_type": "Stop",
             "action_label": "Log Stop"
         })
+        sub_rule.is_active = 1
         sub_rule.save()
 
         # Clear cache to ensure fresh execution
@@ -143,6 +165,7 @@ class TestRuleCycles(FrappeTestCase):
                 "skip_conditions": 0  # IMPORTANT: put inside config
             })
         })
+        main_rule_strict.is_active = 1
         main_rule_strict.save()
 
         clear_rule_logs()
@@ -166,6 +189,7 @@ class TestRuleCycles(FrappeTestCase):
                 "skip_conditions": 1  # IMPORTANT: put inside config
             })
         })
+        main_rule_loose.is_active = 1
         main_rule_loose.save()
 
         clear_rule_logs()

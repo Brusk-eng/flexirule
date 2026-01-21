@@ -72,11 +72,16 @@
 							</label>
 							<span class="small text-muted">{{ __("Disabled") }}</span>
 						</div>
+
+						<div v-if="isReadOnly" class="read-only-badge">
+							<i class="fa fa-lock"></i> {{ __("Read Only") }}
+						</div>
 					</Panel>
 				</VueFlow>
 
 				<!-- Floating Draggable Toolbar -->
 				<div
+					v-if="!isReadOnly"
 					ref="toolbarRef"
 					class="floating-toolbar"
 					:class="{ collapsed: isCollapsed }"
@@ -272,6 +277,7 @@ const edges = computed({
 
 const showSidebar = computed(() => store.selected_id !== null);
 const isRTL = computed(() => document.documentElement.dir === "rtl");
+const isReadOnly = computed(() => store.is_read_only);
 
 function closeSidebar() {
 	store.selected_id = null;
@@ -607,6 +613,19 @@ function onEdgeClick({ edge, event }) {
 	background-color: white;
 	transition: 0.4s;
 	border-radius: 50%;
+}
+
+.read-only-badge {
+	background-color: var(--orange-100);
+	color: var(--orange-600);
+	padding: 2px 8px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	border: 1px solid var(--orange-300);
 }
 input:checked + .slider {
 	background-color: var(--primary);

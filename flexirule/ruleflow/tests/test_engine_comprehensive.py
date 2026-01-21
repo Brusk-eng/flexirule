@@ -126,6 +126,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
         # Manually disable all actions including the auto-created root
         for action in rule.actions:
             action.is_enabled = 0
+        rule.flags.ignore_validate = True
         rule.save()
 
         engine = RuleEngine(rule)
@@ -780,6 +781,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 
         rule = self.create_test_rule("Test Timeout", actions=actions)
         rule.max_execution_time = 0.1  # Very short timeout for testing
+        rule.flags.ignore_validate = True
         rule.save(ignore_permissions=True)
 
         engine = RuleEngine(rule)
@@ -825,6 +827,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 
         rule = self.create_test_rule("Test No Timeout In Test Mode", actions=actions)
         rule.max_execution_time = 0.01  # Very short timeout
+        rule.flags.ignore_validate = True
         rule.save(ignore_permissions=True)
 
         engine = RuleEngine(rule)
@@ -859,6 +862,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
             # Create a rule that skips for System Manager role
             rule = self.create_test_rule("Test Skip Roles")
             rule.append("skip_for_roles", {"role": "System Manager"})
+            rule.flags.ignore_validate = True
             rule.save(ignore_permissions=True)
 
             # Set user context

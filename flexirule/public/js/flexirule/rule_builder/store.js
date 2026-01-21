@@ -29,6 +29,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return frappe.get_meta(doctype);
 	});
 
+	const is_read_only = computed(() => {
+		return rule_doc.value?.is_active === 1;
+	});
+
 	async function fetch_metadata(doctype) {
 		if (!doctype || doc_meta.value[doctype]) return;
 		fetch_counter.value++;
@@ -773,6 +777,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 	}
 
 	function delete_node(nodeId) {
+		if (is_read_only.value) {
+			frappe.msgprint(__("Cannot edit active rule. Please switch to Draft mode."));
+			return;
+		}
 		const node = nodes.value.find((el) => el.id === nodeId);
 		if (nodeId === "start" || nodeId === "root" || node?.type === "start" || node?.data?.action_type === "Entry Action") {
 			frappe.msgprint(__("Cannot delete start node"));
@@ -785,6 +793,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 	}
 
 	function delete_edge(edgeId) {
+		if (is_read_only.value) return;
 		const edge = edges.value.find((el) => el.id === edgeId);
 		if (!edge) return;
 
@@ -899,5 +908,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 		can_redo,
 		commit_history,
 		getAvailableVariables,
+		is_read_only,
 	};
 });

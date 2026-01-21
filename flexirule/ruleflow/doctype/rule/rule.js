@@ -41,8 +41,17 @@ frappe.ui.form.on("Rule", {
 
 		// Actions
 		frm.page.clear_custom_actions();
+		frm.add_custom_button(__("Clone Rule"), () => clone_rule(frm), __("Actions"));
 		frm.add_custom_button(__("Test Rule"), () => test_rule(frm), __("Actions"));
 		frm.add_custom_button(__("Clear Cache"), () => clear_rule_cache(frm), __("Actions"));
+
+		// Governance: Active Rule Read-Only hint
+		if (frm.doc.is_active) {
+			frm.dashboard.set_headline_alert(
+				__("Active Rule is locked. Deactivate to edit or Clone to create a new version."),
+				"orange"
+			);
+		}
 
 		if (frm.dashboard) {
 			frm.dashboard.clear_headline();
@@ -316,6 +325,35 @@ function test_rule(frm) {
 		},
 	});
 	d.show();
+}
+
+function clone_rule(frm) {
+	frappe.prompt(
+		{
+			label: __("New Rule Name"),
+			fieldname: "new_name",
+			fieldtype: "Data",
+			default: `${frm.doc.rule_name} (Copy)`,
+			reqd: 1,
+		},
+		(values) => {
+			frappe.call({
+				method: "flexirule.ruleflow.api.clone_rule",
+				args: {
+					rule_name: frm.doc.name,
+					new_name: values.new_name,
+				},
+				freeze: true,
+				callback(r) {
+					if (r.message) {
+						frappe.set_route("Form", "Rule", r.message);
+					}
+				},
+			});
+		},
+		__("Clone Rule"),
+		__("Clone")
+	);
 }
 
 function clear_rule_cache(frm) {
