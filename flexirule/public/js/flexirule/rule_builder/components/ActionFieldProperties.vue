@@ -17,6 +17,7 @@ import ControlFactory from "../controls/ControlFactory.vue";
 
 const props = defineProps({
 	nodeData: Object,
+	readOnly: Boolean,
 });
 
 const emit = defineEmits(["update:field", "open:conditions", "open:config"]);
@@ -117,6 +118,7 @@ function is_mandatory(df) {
 
 // Evaluate read_only_depends_on
 function is_read_only(df) {
+	if (props.readOnly) return true;
 	if (df.read_only) return true;
 	if (!df.read_only_depends_on) return false;
 	return evaluate_depends_on(df.read_only_depends_on);
