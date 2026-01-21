@@ -140,6 +140,26 @@ const operation_metadata = computed(() => {
 	const proc = store.processes.find(p => p.name === props.node.data.process_name);
 	return proc?.operations?.find(op => op.func_name === props.node.data.operation);
 });
+
+function validate() {
+	const errors = [];
+	mappings.value.forEach((m, idx) => {
+		if ((m.source && !m.target) || (!m.source && m.target)) {
+			errors.push(__("Output Mapping #{0} is incomplete", [idx + 1]));
+		}
+	});
+
+	// Optional: Check return variable validity? 
+	// For now, let's keep it loose as Frappe handles variable names mostly, 
+	// unless we want to enforce python identifier rules.
+	
+	if (errors.length) {
+		return { valid: false, errors };
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>
 
 <style scoped>

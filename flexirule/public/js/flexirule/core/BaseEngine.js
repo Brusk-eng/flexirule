@@ -1,8 +1,4 @@
-/**
- * BaseEngine.js
- * Contains shared logic for configuration engines (Normalization, Dependency Evaluation, etc.)
- * Extracted from legacy ConfigurableAction.js to be shared between Vue and Frappe Dialog versions.
- */
+import CoreUtils from "./CoreUtils";
 
 export default class BaseEngine {
     constructor(opts = {}) {
@@ -30,7 +26,7 @@ export default class BaseEngine {
         if (f.in_list_view === undefined) f.in_list_view = 1;
         if (f.width) f.columns = f.width;
 
-        f.fieldtype = this._map_fieldtype(f.fieldtype);
+        f.fieldtype = CoreUtils.map_fieldtype(f.fieldtype);
 
         // Resolve options if they are dynamic
         f.options = await this._resolve_options(f, this.config, this._get_context());
@@ -69,14 +65,6 @@ export default class BaseEngine {
         }
 
         return field.options || "";
-    }
-
-    _map_fieldtype(fieldtype) {
-        const mapping = {
-            DocField: "Autocomplete",
-            MultiDocField: "MultiSelectList",
-        };
-        return mapping[fieldtype] || fieldtype;
     }
 
     _build_field_map(fields) {
@@ -119,13 +107,13 @@ export default class BaseEngine {
             };
 
             if (field.depends_on) {
-                state.hidden = this._eval_condition(field.depends_on, eval_context) ? 0 : 1;
+                state.hidden = CoreUtils.eval_condition(field.depends_on, eval_context) ? 0 : 1;
             }
             if (field.mandatory_depends_on) {
-                state.reqd = this._eval_condition(field.mandatory_depends_on, eval_context) ? 1 : 0;
+                state.reqd = CoreUtils.eval_condition(field.mandatory_depends_on, eval_context) ? 1 : 0;
             }
             if (field.read_only_depends_on) {
-                state.read_only = this._eval_condition(field.read_only_depends_on, eval_context) ? 1 : 0;
+                state.read_only = CoreUtils.eval_condition(field.read_only_depends_on, eval_context) ? 1 : 0;
             }
 
             const has_dynamic_options = field.get_options ||
@@ -140,78 +128,11 @@ export default class BaseEngine {
         }
     }
 
-    _eval_condition(expression, context) {
-        if (!expression) return true;
-        if (expression.startsWith("eval:")) expression = expression.slice(5);
-        try {
-            return frappe.utils.eval(expression, context);
-        } catch (e) {
-            console.warn(`Dependency Eval Failed: "${expression}"`, e);
-            return false;
-        }
-    }
-
-    // Generic Schema Validation
+    // Generic Schema Validation using CoreUtils
     async validate() {
-        const errors = [];
-        const rootState = this.dependency_states["root"] || {};
-
-        // Ensure normalization is done or accessible
-        // Use normalized_fields from instance if set, or need arg?
-        // BaseEngine doesn't strictly own normalized_fields property in constructor, but subclasses set it.
-        // Let's assume this.normalized_fields exists.
+        // Assume this.normalized_fields is populated by subclass logic
         const fields = this.normalized_fields || [];
-
-        for (const field of fields) {
-            if (field.fieldtype === "Table") {
-                await this._validate_table(field, errors);
-                continue;
-            }
-            const state = rootState[field.fieldname] || field;
-            if (state.hidden) continue;
-
-            if (state.reqd) {
-                const value = this.config[field.fieldname];
-                if (value === null || value === undefined || value === "") {
-                    errors.push(`${field.label} is mandatory`);
-                }
-            }
-        }
-
-        return {
-            valid: errors.length === 0,
-            errors: errors
-        };
-    }
-
-    async _validate_table(tableField, errors) {
-        const rootState = this.dependency_states["root"] || {};
-        const tableState = rootState[tableField.fieldname] || tableField;
-
-        if (tableState.hidden) return;
-
-        const rows = this.config[tableField.fieldname] || [];
-        if (tableState.reqd && rows.length === 0) {
-            errors.push(`${tableField.label} requires at least one row`);
-            return;
-        }
-
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const rowState = this.dependency_states[row.name] || {};
-
-            for (const field of tableField.fields) {
-                const fieldState = rowState[field.fieldname] || field;
-                if (fieldState.hidden) continue;
-
-                if (fieldState.reqd) {
-                    const value = row[field.fieldname];
-                    if (value === null || value === undefined || value === "") {
-                        errors.push(`Row ${i + 1}: ${field.label} is mandatory`);
-                    }
-                }
-            }
-        }
+        return CoreUtils.validate_schema(this.config, fields, this.dependency_states);
     }
 
     // Must be implemented by subclasses

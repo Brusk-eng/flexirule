@@ -170,6 +170,22 @@ watch(() => props.node?.id, () => {
 onMounted(() => {
 	refreshVariables();
 });
+
+function validate() {
+	const errors = [];
+	mappings.value.forEach((m, idx) => {
+		if ((m.source && !m.target) || (!m.source && m.target)) {
+			errors.push(__("Input Mapping #{0} is incomplete", [idx + 1]));
+		}
+	});
+	
+	if (errors.length) {
+		return { valid: false, errors };
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>
 
 <style scoped>

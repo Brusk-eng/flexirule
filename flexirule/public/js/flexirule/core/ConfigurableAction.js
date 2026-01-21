@@ -4,6 +4,8 @@
 frappe.provide("flexirule.ui");
 frappe.provide("flexirule.integration");
 
+import CoreUtils from "./CoreUtils";
+
 flexirule.integration.create_configurable_action = function (opts) {
 	return new flexirule.ui.ConfigurableAction(opts);
 };
@@ -245,7 +247,7 @@ export default class ConfigurableAction {
 
 
 		// 2. Resolve 'System' Types to Frappe Types
-		f.fieldtype = this._map_fieldtype(f.fieldtype);
+		f.fieldtype = CoreUtils.map_fieldtype(f.fieldtype);
 
 		// Use standard Autocomplete
 		if (f.fieldtype === "Autocomplete" || f.fieldtype === "DocField") {
@@ -318,14 +320,6 @@ export default class ConfigurableAction {
 		}
 
 		return field.options || "";
-	}
-
-	_map_fieldtype(fieldtype) {
-		const mapping = {
-			DocField: "Autocomplete",
-			MultiDocField: "MultiSelectList",
-		};
-		return mapping[fieldtype] || fieldtype;
 	}
 
 	_build_field_map() {
@@ -413,17 +407,17 @@ export default class ConfigurableAction {
 
 			// 1. Visibility (depends_on)
 			if (field.depends_on) {
-				state.hidden = this._eval_condition(field.depends_on, eval_context) ? 0 : 1;
+				state.hidden = CoreUtils.eval_condition(field.depends_on, eval_context) ? 0 : 1;
 			}
 
 			// 2. Mandatory (mandatory_depends_on)
 			if (field.mandatory_depends_on) {
-				state.reqd = this._eval_condition(field.mandatory_depends_on, eval_context) ? 1 : 0;
+				state.reqd = CoreUtils.eval_condition(field.mandatory_depends_on, eval_context) ? 1 : 0;
 			}
 
 			// 3. Read Only (read_only_depends_on)
 			if (field.read_only_depends_on) {
-				state.read_only = this._eval_condition(field.read_only_depends_on, eval_context)
+				state.read_only = CoreUtils.eval_condition(field.read_only_depends_on, eval_context)
 					? 1
 					: 0;
 			}
@@ -443,20 +437,6 @@ export default class ConfigurableAction {
 			}
 
 			this.dependency_states[context_id][field.fieldname] = state;
-		}
-	}
-
-	_eval_condition(expression, context) {
-		if (!expression) return true;
-		if (expression.startsWith("eval:")) {
-			expression = expression.slice(5);
-		}
-		try {
-			// Security Fix: Use frappe.utils.eval instead of new Function
-			return frappe.utils.eval(expression, context);
-		} catch (e) {
-			console.warn(`Dependency Eval Failed: "${expression}"`, e);
-			return false;
 		}
 	}
 
@@ -703,7 +683,22 @@ export default class ConfigurableAction {
 	}
 
 	validate() {
-		// 1. Validate against config_schema (if defined)
+		// 1. Generic Schema Validation (Unified API)
+		// We use dependency_states for accurate visibility/mandatory logic
+		const coreValidation = CoreUtils.validate_schema(this.config, this.normalized_fields, this.dependency_states);
+
+		if (!coreValidation.valid) {
+			// Maintain legacy behavior: Show error list via msgprint
+			// ConfigurableAction usually shows all errors.
+			frappe.msgprint({
+				title: __("Validation Error"),
+				message: `<ul class="text-left">${coreValidation.errors.map(e => `<li>${e}</li>`).join("")}</ul>`,
+				indicator: "orange"
+			});
+			return false;
+		}
+
+		// 2. Validate against config_schema (if defined)
 		const config_schema = this._get_config_schema();
 		if (config_schema && typeof config_schema === "object" && Object.keys(config_schema).length > 0) {
 			const schemaErrors = this._validate_against_schema(this.config, config_schema);
@@ -717,7 +712,7 @@ export default class ConfigurableAction {
 			}
 		}
 
-		// 2. Run adapter's custom validate function
+		// 3. Run adapter's custom validate function
 		if (this.operation_def && typeof this.operation_def.validate === "function") {
 			return this._safe_run("validate", () => {
 				const err = this.operation_def.validate(this.config, this._get_context());

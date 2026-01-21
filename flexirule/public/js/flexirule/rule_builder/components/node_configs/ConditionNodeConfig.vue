@@ -37,4 +37,13 @@ defineProps({
 });
 
 defineEmits(["open-condition-builder"]);
+
+function validate() {
+	// Condition logic is handled by the builder and saved to 'condition_expression' / 'condition_json'.
+	// We could enforce that at least one condition exists, but optional blank conditions might be valid (always true).
+	// For now, return valid.
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>
