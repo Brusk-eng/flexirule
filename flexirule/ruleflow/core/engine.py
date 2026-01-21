@@ -181,6 +181,16 @@ class SafeFrappeAPI:
         def sql(self, *args, **kwargs):
             raise PermissionError("db.sql is not allowed in rule conditions.")
 
+        # Transaction control restricted (following Frappe restrict_commit_rollback)
+        def commit(self, *args, **kwargs):
+            raise PermissionError("db.commit is not allowed during doc event rules.")
+
+        def rollback(self, *args, **kwargs):
+            raise PermissionError("db.rollback is not allowed during doc event rules.")
+
+        def add_index(self, *args, **kwargs):
+            raise PermissionError("db.add_index is not allowed during doc event rules.")
+
 
 # Singleton instance
 _safe_frappe = SafeFrappeAPI()

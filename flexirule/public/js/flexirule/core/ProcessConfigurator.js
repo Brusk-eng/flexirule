@@ -7,13 +7,13 @@ frappe.provide("flexirule.integration");
 import CoreUtils from "./CoreUtils";
 
 flexirule.integration.create_configurable_action = function (opts) {
-	return new flexirule.ui.ConfigurableAction(opts);
+	return new flexirule.ui.ProcessConfigurator(opts);
 };
 
 
 frappe.provide("flexirule.ui");
 
-export default class ConfigurableAction {
+export default class ProcessConfigurator {
 	constructor(opts) {
 		// Options: process_name, operation_name, node_data, document_type, doc_meta
 		Object.assign(this, opts);
@@ -52,6 +52,16 @@ export default class ConfigurableAction {
 			delete flexirule.meta_cache[this.document_type];
 			if (flexirule.meta_cache[`${this.document_type}:doc`]) {
 				delete flexirule.meta_cache[`${this.document_type}:doc`];
+			}
+		}
+
+
+		// Load doc_meta if missing (Crucial for adapter field resolution)
+		if (this.document_type && !this.doc_meta) {
+			try {
+				this.doc_meta = await flexirule.utils.get_doctype_meta(this.document_type);
+			} catch (e) {
+				console.warn("ProcessConfigurator: Failed to load meta for", this.document_type, e);
 			}
 		}
 
@@ -252,9 +262,17 @@ export default class ConfigurableAction {
 		// Use standard Autocomplete
 		if (f.fieldtype === "Autocomplete" || f.fieldtype === "DocField") {
 			f.fieldtype = "Autocomplete";
-			f.options = await this._resolve_docfield_options(f.options);
+			// Use default resolution ONLY if no custom getter is defined
+			// This prevents overriding adapter-specific options (which might filter fields)
+			const hasCustomGetter = f.get_options || (typeof f.options === "function");
+			if (!hasCustomGetter) {
+				f.options = await this._resolve_docfield_options(f.options);
+			}
 		} else if (f.fieldtype === "MultiSelectList" || f.fieldtype === "MultiDocField") {
-			f.options = await this._resolve_docfield_options(f.options);
+			const hasCustomGetter = f.get_options || (typeof f.options === "function");
+			if (!hasCustomGetter) {
+				f.options = await this._resolve_docfield_options(f.options);
+			}
 		} else if (f.fieldtype === "Table") {
 			// Recursively normalize child fields
 			const children = f.fields || f.table_fields || [];
@@ -1352,8 +1370,12 @@ export default class ConfigurableAction {
 			return context_vars.map((v) => v.value);
 		}
 
-		// Use global utility for combined result
-		return await flexirule.utils.get_combined_fields(target, context_vars);
+		// Use global utility for combined result and sanitize for Dialog Autocomplete
+		const fields = await flexirule.utils.get_combined_fields(target, context_vars);
+		return fields.map(f => ({
+			label: f.fieldtype ? `${f.label} (${f.fieldtype})` : f.label,
+			value: f.value
+		}));
 	}
 
 	_safe_run(hook_name, fn) {
@@ -1413,4 +1435,6 @@ export default class ConfigurableAction {
 		this.schema = null;
 	}
 };
-flexirule.ui.ConfigurableAction = ConfigurableAction;
+flexirule.ui.ProcessConfigurator = ProcessConfigurator;
+// Legacy alias for backwards compatibility
+flexirule.ui.ConfigurableAction = ProcessConfigurator;

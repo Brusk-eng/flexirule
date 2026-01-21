@@ -4,6 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+import json
 
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
 from flexirule.ruleflow.utils.schema_validator import validate_config
@@ -65,6 +66,7 @@ class Rule(Document):
         self.compile_conditions()
         self.validate_actions()
         self.validate_no_sub_rule_cycles()
+        self.validate_variable_availability()
         self.status = self.get_computed_status()
 
     def before_insert(self):
@@ -270,16 +272,41 @@ class Rule(Document):
     def _validate_all_action_types(self, action):
         """
         Validate constraints specific to each action type.
+        Uses ACTION_TYPE_CONTRACT for unified backend/frontend validation.
         """
-        action_type = action.action_type
+        from flexirule.ruleflow.core.contracts import get_contract, get_required_fields
 
-        if action_type == "Sub-Rule":
-            if not action.rule:
+        action_type = action.action_type
+        contract = get_contract(action_type)
+
+        # 1. Contract: Required fields check
+        for field in get_required_fields(action_type):
+            if not getattr(action, field, None):
                 frappe.throw(
-                    _("Action '{0}' is a Sub-Rule but no Rule is selected.").format(
-                        action.action_label
+                    _("Action '{0}' ({1}) requires field '{2}'").format(
+                        action.action_label, action_type, field
                     )
                 )
+
+        # 2. Contract: Terminal action should not have next_step
+        if contract.get("terminal"):
+            if action.next_step_if_true or action.next_step_if_false:
+                frappe.throw(
+                    _("Action '{0}' ({1}) is terminal and should not have next steps").format(
+                        action.action_label, action_type
+                    )
+                )
+
+        # 3. Contract: Check has_next_false for non-branching actions
+        if not contract.get("has_next_false") and action.next_step_if_false:
+            frappe.throw(
+                _("Action '{0}' ({1}) does not support 'next step if false'").format(
+                    action.action_label, action_type
+                )
+            )
+
+        # Type-specific validations
+        if action_type == "Sub-Rule":
             # Prevent self-reference
             if action.rule == self.name:
                 frappe.throw(
@@ -297,7 +324,6 @@ class Rule(Document):
                 )
 
         elif action_type == "Loop":
-            # Loop actions should have a valid iterator configuration
             config = self._parse_json_field(action.config)
             if not config.get("iterator_var") and not config.get("collection"):
                 frappe.msgprint(
@@ -308,7 +334,6 @@ class Rule(Document):
                 )
 
         elif action_type == "Switch":
-            # Switch should have cases defined
             config = self._parse_json_field(action.config)
             if not config.get("cases"):
                 frappe.msgprint(
@@ -317,6 +342,34 @@ class Rule(Document):
                     ),
                     alert=True,
                 )
+
+        elif action_type == "Set Value":
+            # Check if target field is editable given trigger event
+            self._validate_set_value_editable(action)
+
+    def _validate_set_value_editable(self, action):
+        """Check if Set Value target field is editable for current trigger event"""
+        target_field = getattr(action, "target_field", None)
+        if not target_field or not self.document_type:
+            return
+
+        # Only check for after-submit events
+        after_submit_events = ["On Submit", "On Update After Submit"]
+        if self.trigger_event not in after_submit_events:
+            return
+
+        try:
+            meta = frappe.get_meta(self.document_type)
+            df = meta.get_field(target_field)
+            if df and not df.allow_on_submit:
+                frappe.throw(
+                    _("Cannot set field '{0}' after submit. Field does not have 'Allow on Submit' enabled.").format(
+                        target_field
+                    )
+                )
+        except Exception:
+            # Handle any exception that might occur during field validation
+            frappe.throw(_("Error validating field '{0}'.").format(target_field))
 
     def _parse_json_field(self, json_str):
         """Parse JSON field safely, return empty dict on failure."""
@@ -390,6 +443,88 @@ class Rule(Document):
                         _("Cycle detected in sub-rule graph: {0}").format(cycle)
                     )
 
+    def validate_variable_availability(self):
+        """
+        Check if variables used in templates are defined before use.
+        User requested: throw on undefined variables.
+        """
+        if not self.actions:
+            return
+
+        # Track available variables after each action in execution order
+        available_vars = {"doc", "old_doc", "frappe", "utils", "vars"}
+
+        # Build action map for traversal
+        action_map = {a.action_id: a for a in self.actions if a.action_id}
+
+        # Start from root and traverse the graph
+        visited = set()
+        queue = []
+
+        # Find root node
+        for action in self.actions:
+            if action.action_id == "root" or action.action_type == "Entry Action":
+                queue.append(action)
+                break
+
+        if not queue:
+            return  # No root node, skip validation
+
+        while queue:
+            action = queue.pop(0)
+            action_id = action.action_id or action.name
+
+            if action_id in visited:
+                continue
+            visited.add(action_id)
+
+            # Check templates for undefined variables
+            self._check_template_variables(action, available_vars)
+
+            # Add this action's return_variable to available set
+            if action.return_variable:
+                available_vars.add(action.return_variable)
+
+            # Queue next actions
+            if action.next_step_if_true:
+                next_action = action_map.get(action.next_step_if_true)
+                if next_action:
+                    queue.append(next_action)
+            if action.next_step_if_false:
+                next_action = action_map.get(action.next_step_if_false)
+                if next_action:
+                    queue.append(next_action)
+
+    def _check_template_variables(self, action, available_vars):
+        """Check Jinja template for undefined variable references"""
+        import re
+
+        # Templates to check based on action type
+        templates_to_check = []
+        if action.action_type == "Set Value":
+            templates_to_check.append(("value_template", getattr(action, "value_template", "")))
+        elif action.action_type == "Raise Error":
+            templates_to_check.append(("error_template", getattr(action, "error_template", "")))
+        elif action.action_type == "Notify":
+            templates_to_check.append(("notification_template", getattr(action, "notification_template", "")))
+
+        # Extract variable references from Jinja templates (e.g., {{ vars.foo }})
+        var_pattern = re.compile(r"\{\{\s*vars\.(\w+)")
+
+        for field_name, template in templates_to_check:
+            if not template:
+                continue
+
+            matches = var_pattern.findall(template)
+            for var_name in matches:
+                if var_name not in available_vars:
+                    frappe.throw(
+                        _("Action '{0}' uses undefined variable 'vars.{1}'. "
+                          "Ensure a previous action sets return_variable='{1}'.").format(
+                            action.action_label, var_name
+                        )
+                    )
+
     def on_update(self):
         """
         Perform heavier checks on update, especially if Active
@@ -460,11 +595,12 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
 
         log_data = logs[0] if logs else {}
 
-        return {
-            "success": True,
-            "status": _(log_data.get("status", "Success")),
-            "execution_log": log_data,
-            "message": _("Rule {0} executed.").format(rule_name),
-        }
     except Exception as e:
         return {"success": False, "status": _("Failed"), "error": str(e)}
+
+    return {
+        "success": True,
+        "status": _(log_data.get("status", "Success")),
+        "execution_log": log_data,
+        "message": _("Rule {0} executed.").format(rule_name),
+    }

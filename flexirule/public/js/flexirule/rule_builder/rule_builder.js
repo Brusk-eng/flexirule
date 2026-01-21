@@ -5,7 +5,7 @@ import { createPinia } from "pinia";
 import "../utils/utils.js";
 import "../utils/patches.js";
 import "../controls/flexi_autocomplete.js";
-import "../core/ConfigurableAction.js";
+import "../core/ProcessConfigurator.js";
 import { useStore } from "./store";
 import RuleBuilderComponent from "./App.vue";
 import { registerGlobalComponents } from "./globals.js";
