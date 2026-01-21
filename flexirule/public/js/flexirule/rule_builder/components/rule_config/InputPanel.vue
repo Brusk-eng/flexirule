@@ -79,6 +79,8 @@
 							:key="v.value" 
 							class="variable-item"
 							:title="v.label"
+							draggable="true"
+							@dragstart="onDragStart($event, v)"
 						>
 							<span class="variable-label">{{ v.label }}</span>
 							<span class="variable-type">{{ v.type || 'Data' }}</span>
@@ -106,6 +108,15 @@ const store = useStore();
 const variables = ref([]);
 const loading = ref(false);
 const mappings = ref([]);
+
+function onDragStart(event, variable) {
+    if (event.dataTransfer) {
+        // Default to Jinja style for templates as that's the primary use case
+        const text = `{{ ${variable.value} }}`;
+        event.dataTransfer.setData('text/plain', text);
+        event.dataTransfer.effectAllowed = 'copy';
+    }
+}
 
 // Parse mappings from JSON
 watch(() => props.node.data?.input_mapping, (val) => {
@@ -301,6 +312,11 @@ defineExpose({ validate });
 	border: 1px solid var(--border-color);
 	border-radius: 6px;
 	font-size: 11px;
+	cursor: grab;
+}
+
+.variable-item:active {
+	cursor: grabbing;
 }
 
 .variable-label {

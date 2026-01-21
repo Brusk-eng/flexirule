@@ -16,6 +16,7 @@
 			<template v-if="selectedNode.type === 'start'">
 				<StartNodeProperties
 					:nodeData="selectedNode.data"
+					:readOnly="store.is_read_only"
 					@update:field="update_start_field"
 					@open:conditions="showConditionModal = true"
 				/>
@@ -25,6 +26,7 @@
 			<template v-else>
 				<ActionFieldProperties
 					:nodeData="selectedNode.data"
+					:readOnly="store.is_read_only"
 					@update:field="update_action_field"
 					@open:conditions="showConditionModal = true"
 					@open:config="open_config_dialog"
@@ -32,7 +34,7 @@
 
 				<!-- Delete Button -->
 				<hr />
-				<button class="btn btn-sm btn-danger w-100" @click="delete_node">
+				<button class="btn btn-sm btn-danger w-100" @click="delete_node" :disabled="store.is_read_only">
 					<i class="fa fa-trash"></i> {{ __("Delete") }}
 				</button>
 			</template>

@@ -10,6 +10,7 @@ import { useStore } from "../store";
 
 const props = defineProps({
 	nodeData: Object,
+	readOnly: Boolean,
 });
 
 const emit = defineEmits(["update:field", "open:conditions"]);
@@ -45,6 +46,7 @@ const has_conditions = computed(() => {
 				class="form-control"
 				:value="nodeData?.trigger_event"
 				@change="update_field('trigger_event', $event.target.value)"
+				:disabled="readOnly"
 			>
 				<option v-for="opt in trigger_event_options" :key="opt" :value="opt">
 					{{ opt }}
@@ -73,7 +75,7 @@ const has_conditions = computed(() => {
 				{{ __("Define complex logic conditions for when this rule should trigger.") }}
 			</div>
 
-			<button class="btn btn-default btn-sm w-100" @click="emit('open:conditions')">
+			<button class="btn btn-default btn-sm w-100" @click="emit('open:conditions')" :disabled="readOnly">
 				<i class="fa fa-code-fork"></i>
 				{{ __("Open Condition Builder") }}
 			</button>
