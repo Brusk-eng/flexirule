@@ -76,6 +76,7 @@ class TestRulePermissions(FrappeTestCase):
         try:
             # Set the test rule to skip for System Manager role
             self.test_rule.append("skip_for_roles", {"role": "System Manager"})
+            self.test_rule.flags.ignore_validate = True
             self.test_rule.save(ignore_permissions=True)
 
             frappe.set_user(test_user)
@@ -197,6 +198,7 @@ class TestRulePermissions(FrappeTestCase):
             for role in roles_to_add:
                 if frappe.db.exists("Role", role):
                     self.test_rule.append("skip_for_roles", {"role": role})
+            self.test_rule.flags.ignore_validate = True
             self.test_rule.save(ignore_permissions=True)
 
             frappe.set_user(test_user)
@@ -217,6 +219,7 @@ class TestRulePermissions(FrappeTestCase):
 
         # Ensure skip_for_roles is empty
         self.test_rule.skip_for_roles = []
+        self.test_rule.flags.ignore_validate = True
         self.test_rule.save(ignore_permissions=True)
 
         result = check_rule_permission(self.test_rule, throw=False)

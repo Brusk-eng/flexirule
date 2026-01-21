@@ -28,57 +28,68 @@ class TestRuleCoordinator(FrappeTestCase):
         frappe.db.delete("Rule", {"rule_name": ["like", "Test%"]})
         frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test%"]})
 
-    def create_test_rule(self, name, doctype="ToDo", event="Validate", is_active=1, trigger_condition=None):
+    def create_test_rule(
+        self,
+        name,
+        doctype="ToDo",
+        event="Validate",
+        is_active=1,
+        trigger_condition=None,
+    ):
         """Helper to create test rules"""
-        rule_doc = frappe.get_doc({
-            "doctype": "Rule",
-            "rule_name": name,
-            "document_type": doctype,
-            "trigger_event": event,
-            "is_active": is_active,
-            "priority": 10,
-            "trigger_condition": json.dumps(trigger_condition) if trigger_condition else None,
-            "actions": [
-                {
-                    "action_id": "ACT-TEST",
-                    "action_type": "Process",
-                    "action_label": "Test Action",
-                    "is_enabled": 1,
-                    "process_name": "Validation",
-                    "operation": "required_fields",
-                    "config": '{"fields": ["description"]}',
-                    "on_error": "Stop",
-                }
-            ]
-        })
+        rule_doc = frappe.get_doc(
+            {
+                "doctype": "Rule",
+                "rule_name": name,
+                "document_type": doctype,
+                "trigger_event": event,
+                "is_active": is_active,
+                "priority": 10,
+                "trigger_condition": (
+                    json.dumps(trigger_condition) if trigger_condition else None
+                ),
+                "actions": [
+                    {
+                        "action_id": "ACT-TEST",
+                        "action_type": "Process",
+                        "action_label": "Test Action",
+                        "is_enabled": 1,
+                        "process_name": "Validation",
+                        "operation": "required_fields",
+                        "config": '{"fields": ["description"]}',
+                        "on_error": "Stop",
+                    }
+                ],
+            }
+        )
         rule_doc.insert(ignore_permissions=True)
         return rule_doc
 
     def test_has_active_rules_positive(self):
         """Test that has_active_rules returns True for active rules"""
         rule = self.create_test_rule("Test Active Rule", event="Validate")
-        
+
         has_rules = RuleCoordinator.has_active_rules("ToDo", "Validate")
         self.assertTrue(has_rules)
 
     def test_has_active_rules_negative(self):
         """Test that has_active_rules returns False for inactive rules"""
         rule = self.create_test_rule("Test Inactive Rule", is_active=0)
-        
+
         has_rules = RuleCoordinator.has_active_rules("ToDo", "Validate")
         self.assertFalse(has_rules)
 
     def test_has_active_rules_different_event(self):
         """Test that has_active_rules returns False for different event"""
         rule = self.create_test_rule("Test Different Event", event="Before Save")
-        
+
         has_rules = RuleCoordinator.has_active_rules("ToDo", "Validate")
         self.assertFalse(has_rules)
 
     def test_get_applicable_rules(self):
         """Test getting applicable rules"""
         rule = self.create_test_rule("Test Get Rules", event="Validate")
-        
+
         rules = RuleCoordinator.get_applicable_rules("ToDo", "Validate")
         self.assertEqual(len(rules), 1)
         self.assertEqual(rules[0].name, rule.name)
@@ -87,7 +98,7 @@ class TestRuleCoordinator(FrappeTestCase):
         """Test getting multiple applicable rules"""
         rule1 = self.create_test_rule("Test Get Rules 1", event="Validate")
         rule2 = self.create_test_rule("Test Get Rules 2", event="Validate")
-        
+
         rules = RuleCoordinator.get_applicable_rules("ToDo", "Validate")
         self.assertEqual(len(rules), 2)
         rule_names = [r.name for r in rules]
@@ -96,15 +107,17 @@ class TestRuleCoordinator(FrappeTestCase):
 
     def test_get_applicable_rules_inactive(self):
         """Test that inactive rules are not returned"""
-        rule = self.create_test_rule("Test Inactive Rules", event="Validate", is_active=0)
-        
+        rule = self.create_test_rule(
+            "Test Inactive Rules", event="Validate", is_active=0
+        )
+
         rules = RuleCoordinator.get_applicable_rules("ToDo", "Validate")
         self.assertEqual(len(rules), 0)
 
     def test_check_eligibility_active_rule(self):
         """Test eligibility check for active rule"""
         rule = self.create_test_rule("Test Eligibility Active")
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Validate")
         self.assertTrue(is_eligible)
@@ -112,7 +125,7 @@ class TestRuleCoordinator(FrappeTestCase):
     def test_check_eligibility_inactive_rule(self):
         """Test eligibility check for inactive rule"""
         rule = self.create_test_rule("Test Eligibility Inactive", is_active=0)
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Validate")
         self.assertFalse(is_eligible)
@@ -121,7 +134,7 @@ class TestRuleCoordinator(FrappeTestCase):
     def test_check_eligibility_wrong_event(self):
         """Test eligibility check for wrong event"""
         rule = self.create_test_rule("Test Wrong Event", event="Before Save")
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Validate")
         self.assertFalse(is_eligible)
@@ -130,7 +143,7 @@ class TestRuleCoordinator(FrappeTestCase):
     def test_check_eligibility_skip_event_check(self):
         """Test eligibility check with skip_event_check"""
         rule = self.create_test_rule("Test Skip Event", event="Before Save")
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         is_eligible, reason = RuleCoordinator.check_eligibility(
             rule, doc, "Validate", skip_event_check=True
@@ -139,8 +152,12 @@ class TestRuleCoordinator(FrappeTestCase):
 
     def test_check_eligibility_trigger_condition_true(self):
         """Test eligibility check with trigger condition that evaluates to True"""
-        trigger_condition = [{"left": {"ref": "doc.description"}, "op": "!=", "right": {"value": ""}}]
-        rule = self.create_test_rule("Test Cond True", trigger_condition=trigger_condition)
+        trigger_condition = [
+            {"left": {"ref": "doc.description"}, "op": "!=", "right": {"value": ""}}
+        ]
+        rule = self.create_test_rule(
+            "Test Cond True", trigger_condition=trigger_condition
+        )
 
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Validate")
@@ -148,8 +165,16 @@ class TestRuleCoordinator(FrappeTestCase):
 
     def test_check_eligibility_trigger_condition_false(self):
         """Test eligibility check with trigger condition that evaluates to False"""
-        trigger_condition = [{"left": {"ref": "doc.description"}, "op": "==", "right": {"value": "Wrong"}}]
-        rule = self.create_test_rule("Test Cond False", trigger_condition=trigger_condition)
+        trigger_condition = [
+            {
+                "left": {"ref": "doc.description"},
+                "op": "==",
+                "right": {"value": "Wrong"},
+            }
+        ]
+        rule = self.create_test_rule(
+            "Test Cond False", trigger_condition=trigger_condition
+        )
 
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Validate")
@@ -165,14 +190,22 @@ class TestRuleCoordinator(FrappeTestCase):
     def test_execute_rules_with_eligible_rule(self):
         """Test execute_rules with eligible rule"""
         rule = self.create_test_rule("Test Execute Eligible")
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         RuleCoordinator.execute_rules(doc, "Validate")  # Should execute without error
 
     def test_execute_rules_with_ineligible_rule(self):
         """Test execute_rules with ineligible rule"""
-        trigger_condition = [{"left": {"ref": "doc.description"}, "op": "==", "right": {"value": "Wrong"}}]
-        rule = self.create_test_rule("Test Execute Ineligible", trigger_condition=trigger_condition)
+        trigger_condition = [
+            {
+                "left": {"ref": "doc.description"},
+                "op": "==",
+                "right": {"value": "Wrong"},
+            }
+        ]
+        rule = self.create_test_rule(
+            "Test Execute Ineligible", trigger_condition=trigger_condition
+        )
 
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         RuleCoordinator.execute_rules(doc, "Validate")  # Should not execute the rule
@@ -181,8 +214,9 @@ class TestRuleCoordinator(FrappeTestCase):
         """Test execute_single_rule in synchronous mode"""
         rule = self.create_test_rule("Test Execute Sync")
         rule.execution_mode = "Synchronous"
+        rule.flags.ignore_validate = True
         rule.save(ignore_permissions=True)
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         RuleCoordinator.execute_single_rule(doc, rule)  # Should execute without error
 
@@ -190,12 +224,13 @@ class TestRuleCoordinator(FrappeTestCase):
         """Test execute_single_rule in asynchronous mode"""
         rule = self.create_test_rule("Test Execute Async")
         rule.execution_mode = "Asynchronous"
+        rule.flags.ignore_validate = True
         rule.save(ignore_permissions=True)
-        
+
         # Create a saved document for async execution
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
         doc.insert(ignore_permissions=True)
-        
+
         # This should enqueue the rule for background execution
         RuleCoordinator.execute_single_rule(doc, rule)
 
@@ -203,13 +238,13 @@ class TestRuleCoordinator(FrappeTestCase):
         """Test clearing rule cache"""
         # Create a rule to test cache clearing
         rule = self.create_test_rule("Test Clear Cache")
-        
+
         # Access the cache to populate it
         RuleCoordinator.has_active_rules("ToDo", "Validate")
-        
+
         # Clear cache for specific doctype
         RuleCoordinator.clear_cache("ToDo")
-        
+
         # The function should not raise an exception
         has_rules = RuleCoordinator.has_active_rules("ToDo", "Validate")
         self.assertTrue(has_rules)
@@ -218,13 +253,13 @@ class TestRuleCoordinator(FrappeTestCase):
         """Test clearing all rule cache"""
         # Create a rule to test cache clearing
         rule = self.create_test_rule("Test Clear Cache All")
-        
+
         # Access the cache to populate it
         RuleCoordinator.has_active_rules("ToDo", "Validate")
-        
+
         # Clear all cache
         RuleCoordinator.clear_cache()
-        
+
         # The function should not raise an exception
         has_rules = RuleCoordinator.has_active_rules("ToDo", "Validate")
         self.assertTrue(has_rules)
@@ -232,9 +267,9 @@ class TestRuleCoordinator(FrappeTestCase):
     def test_execute_rules_import_flag(self):
         """Test execute_rules respects import flag"""
         rule = self.create_test_rule("Test Import Flag")
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
-        
+
         # Set import flag
         frappe.flags.in_import = True
         try:
@@ -246,9 +281,9 @@ class TestRuleCoordinator(FrappeTestCase):
     def test_execute_rules_migrate_flag(self):
         """Test execute_rules respects migrate flag"""
         rule = self.create_test_rule("Test Migrate Flag")
-        
+
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
-        
+
         # Set migrate flag
         frappe.flags.in_migrate = True
         try:
@@ -260,7 +295,7 @@ class TestRuleCoordinator(FrappeTestCase):
     def test_execute_rules_excluded_doctype(self):
         """Test execute_rules skips excluded doctypes"""
         rule = self.create_test_rule("Test Excluded", doctype="Error Log")
-        
+
         doc = frappe.get_doc({"doctype": "Error Log", "description": "Test"})
         # This should not execute rules as Error Log is in excluded list
         RuleCoordinator.execute_rules(doc, "Validate")
@@ -269,6 +304,7 @@ class TestRuleCoordinator(FrappeTestCase):
         """Test execute_rules with debug mode"""
         rule = self.create_test_rule("Test Debug Mode")
         rule.debug_mode = 1
+        rule.flags.ignore_validate = True
         rule.save(ignore_permissions=True)
 
         doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})

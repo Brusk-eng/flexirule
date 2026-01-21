@@ -401,6 +401,39 @@ def get_process_operations(process_name):
             "parent": process_name,
             "enabled": 1,
         },
-        pluck="func_name",
-        order_by="idx asc",
     )
+
+
+@frappe.whitelist()
+def clone_rule(rule_name, new_name=None):
+    """
+    Clone a rule to create a new version or copy.
+    Resets status to Draft (inactive) and clears execution stats.
+    """
+    try:
+        doc = frappe.get_doc("Rule", rule_name)
+
+        # Use Frappe's copy mechanism
+        new_doc = frappe.copy_doc(doc)
+        new_doc.is_active = 0
+        new_doc.status = "Draft"
+        new_doc.execution_count = 0
+        new_doc.last_executed = None
+        new_doc.last_error = None
+
+        if new_name:
+            new_doc.rule_name = new_name
+
+        # If no new name provided, Frappe often appends a number if naming is set,
+        # but Rule uses "field:rule_name". We might need to ensure uniqueness if logic requires.
+        # However, copy_doc usually clears the name if it's set to autoname.
+        # But here autoname="field:rule_name".
+        if not new_name:
+            new_doc.rule_name = f"{doc.rule_name} (Copy)"
+
+        new_doc.insert()
+        return new_doc.name
+
+    except Exception as e:
+        frappe.log_error("Rule Clone Failed")
+        frappe.throw(_("Failed to clone rule: {0}").format(str(e)))

@@ -67,7 +67,33 @@ class Rule(Document):
         self.validate_actions()
         self.validate_no_sub_rule_cycles()
         self.validate_variable_availability()
+        self.validate_variable_availability()
+        self.validate_active_rule_lock()
         self.status = self.get_computed_status()
+
+    def validate_active_rule_lock(self):
+        """
+        Governance: Prevent editing of Active rules.
+        User must deactivate (Draft) to edit.
+        """
+        if self.is_new() or self.flags.ignore_validate:
+            return
+
+        # Check prior state
+        old_doc = self.get_doc_before_save()
+        if not old_doc:
+            return
+
+        # If rule was active and is still active
+        if old_doc.is_active and self.is_active:
+            # Allow saving ONLY if it's a programmatic update (like stats or error log)
+            # but usually those use ignore_validate=True.
+            # If we are here, it's likely a user edit.
+            frappe.throw(
+                _(
+                    "Cannot edit an Active Rule. Please set to 'Disabled' (Draft) before making changes."
+                )
+            )
 
     def before_insert(self):
         self.ensure_start_node()
@@ -292,9 +318,9 @@ class Rule(Document):
         if contract.get("terminal"):
             if action.next_step_if_true or action.next_step_if_false:
                 frappe.throw(
-                    _("Action '{0}' ({1}) is terminal and should not have next steps").format(
-                        action.action_label, action_type
-                    )
+                    _(
+                        "Action '{0}' ({1}) is terminal and should not have next steps"
+                    ).format(action.action_label, action_type)
                 )
 
         # 3. Contract: Check has_next_false for non-branching actions
@@ -363,9 +389,9 @@ class Rule(Document):
             df = meta.get_field(target_field)
             if df and not df.allow_on_submit:
                 frappe.throw(
-                    _("Cannot set field '{0}' after submit. Field does not have 'Allow on Submit' enabled.").format(
-                        target_field
-                    )
+                    _(
+                        "Cannot set field '{0}' after submit. Field does not have 'Allow on Submit' enabled."
+                    ).format(target_field)
                 )
         except Exception:
             # Handle any exception that might occur during field validation
@@ -502,11 +528,17 @@ class Rule(Document):
         # Templates to check based on action type
         templates_to_check = []
         if action.action_type == "Set Value":
-            templates_to_check.append(("value_template", getattr(action, "value_template", "")))
+            templates_to_check.append(
+                ("value_template", getattr(action, "value_template", ""))
+            )
         elif action.action_type == "Raise Error":
-            templates_to_check.append(("error_template", getattr(action, "error_template", "")))
+            templates_to_check.append(
+                ("error_template", getattr(action, "error_template", ""))
+            )
         elif action.action_type == "Notify":
-            templates_to_check.append(("notification_template", getattr(action, "notification_template", "")))
+            templates_to_check.append(
+                ("notification_template", getattr(action, "notification_template", ""))
+            )
 
         # Extract variable references from Jinja templates (e.g., {{ vars.foo }})
         var_pattern = re.compile(r"\{\{\s*vars\.(\w+)")
@@ -519,10 +551,10 @@ class Rule(Document):
             for var_name in matches:
                 if var_name not in available_vars:
                     frappe.throw(
-                        _("Action '{0}' uses undefined variable 'vars.{1}'. "
-                          "Ensure a previous action sets return_variable='{1}'.").format(
-                            action.action_label, var_name
-                        )
+                        _(
+                            "Action '{0}' uses undefined variable 'vars.{1}'. "
+                            "Ensure a previous action sets return_variable='{1}'."
+                        ).format(action.action_label, var_name)
                     )
 
     def on_update(self):

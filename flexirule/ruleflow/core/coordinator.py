@@ -29,11 +29,22 @@ class RuleCoordinator:
             return frappe.local.flexirule_map
 
         # Redis cache
-        rule_map = frappe.cache.get_value(RuleCoordinator.CACHE_KEY)
+        try:
+            rule_map = frappe.cache.get_value(RuleCoordinator.CACHE_KEY)
+        except Exception:
+            # Circuit Breaker: If Redis is down, fail safe (skip rules) -> Don't crash ERP
+            # Log only once per request to avoid spamming if possible, but standard log_error is fine
+            frappe.log_error("FlexiRule: Cache unreachable, skipping rules.")
+            return {}
 
         if rule_map is None:
-            rule_map = RuleCoordinator._build_rule_map()
-            frappe.cache.set_value(RuleCoordinator.CACHE_KEY, rule_map)
+            try:
+                rule_map = RuleCoordinator._build_rule_map()
+                frappe.cache.set_value(RuleCoordinator.CACHE_KEY, rule_map)
+            except Exception:
+                frappe.log_error("FlexiRule: Cache write failed.")
+                # We can still return the computed map for this request
+                return rule_map or {}
 
         # Store in request-level cache
         frappe.local.flexirule_map = rule_map
