@@ -47,4 +47,14 @@ function getJsonConfig(key, defaultVal = "") {
 		return defaultVal;
 	}
 }
+
+function validate() {
+	const iterator = getJsonConfig('iterator');
+	if (!iterator) {
+		return { valid: false, message: __("Iterator is required") };
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>

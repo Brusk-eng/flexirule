@@ -26,11 +26,11 @@
 					<main class="config-modal-body">
 						<ResizablePanel v-if="localNode && !useExperimentalV2">
 							<!-- Left Panel: Input Selection -->
-							<div class="resizable-panel left-panel">
-								<InputPanel :node="localNode" />
+							<div class="resizable-panel left-panel" v-if="showLeftPanel">
+								<InputPanel :node="localNode" ref="inputPanelRef" />
 							</div>
 
-							<div class="panel-resizer"></div>
+							<div class="panel-resizer" v-if="showLeftPanel"></div>
 
 							<!-- Middle Panel: Dynamic Configuration -->
 							<div class="resizable-panel middle-panel">
@@ -41,7 +41,7 @@
 
 							<!-- Right Panel: Output/Mapping -->
 							<div class="resizable-panel right-panel" v-if="showRightPanel">
-								<OutputPanel :node="localNode" />
+								<OutputPanel :node="localNode" ref="outputPanelRef" />
 							</div>
 						</ResizablePanel>
 
@@ -107,18 +107,35 @@ function getIcon(type) {
 }
 
 // -- Dynamic Layout Logic --
-const actionType = computed(() => localNode.value?.data?.action_type);
+const actionType = computed(() => localNode.value?.data?.action_type?.toLowerCase());
 
-const showLeftPanel = computed(() => {
-	return true; 
-});
-
-const showRightPanel = computed(() => {
+const layoutConfig = computed(() => {
 	const type = actionType.value;
-	return !["Stop", "Wait"].includes(type);
+	
+	// Default: Config Only
+	let config = { input: false, config: true, output: false };
+
+	if (type === 'process') {
+		config = { input: true, config: true, output: true };
+	} else if (type === 'condition') {
+		// Condition nodes now support Input panel for binding variables
+		config = { input: true, config: true, output: false };
+	} else if (type === 'loop') {
+		// Loop uses iterator config, output usually handled implicitly or via child nodes.
+		// If we want explicit output mapping (e.g. aggregation), we enalbe output.
+		// For now, simple Config only as per standard.
+		config = { input: false, config: true, output: false };
+	}
+	
+	return config;
 });
 
+const showLeftPanel = computed(() => layoutConfig.value.input);
+const showRightPanel = computed(() => layoutConfig.value.output);
+
+const inputPanelRef = ref(null);
 const configurationPanelRef = ref(null);
+const outputPanelRef = ref(null);
 
 function close() {
 	// Just close, discarding localNode changes
@@ -126,35 +143,47 @@ function close() {
 }
 
 async function save() {
-	if (configurationPanelRef.value && typeof configurationPanelRef.value.validate === "function") {
-		const result = await configurationPanelRef.value.validate();
-		if (!result.valid) {
-			let message = "";
-			if (result.errors && result.errors.length) {
-				message = result.errors.map(e => `<li>${e}</li>`).join("");
-				message = `<ul class="text-left">${message}</ul>`;
-			} else if (result.message) {
-				message = result.message;
-			} else {
-				message = __("Configuration is invalid");
-			}
-				
-			frappe.msgprint({
-				title: __("Validation Error"),
-				message: message,
-				indicator: "red"
-			});
-			return;
+	const errors = [];
+
+	// 1. Validate Input Panel
+	if (showLeftPanel.value && inputPanelRef.value && typeof inputPanelRef.value.validate === "function") {
+		const res = await inputPanelRef.value.validate();
+		if (!res.valid) {
+			if (res.errors) errors.push(...res.errors);
+			if (res.message) errors.push(res.message);
 		}
+	}
+
+	// 2. Validate Configuration Panel
+	if (configurationPanelRef.value && typeof configurationPanelRef.value.validate === "function") {
+		const res = await configurationPanelRef.value.validate();
+		if (!res.valid) {
+			if (res.errors) errors.push(...res.errors);
+			if (res.message) errors.push(res.message);
+		}
+	}
+
+	// 3. Validate Output Panel
+	if (showRightPanel.value && outputPanelRef.value && typeof outputPanelRef.value.validate === "function") {
+		const res = await outputPanelRef.value.validate();
+		if (!res.valid) {
+			if (res.errors) errors.push(...res.errors);
+			if (res.message) errors.push(res.message);
+		}
+	}
+
+	if (errors.length > 0) {
+		const message = errors.map(e => `<li>${e}</li>`).join("");
+		frappe.msgprint({
+			title: __("Validation Error"),
+			message: `<ul class="text-left" style="list-style-type: disc; padding-left: 20px;">${message}</ul>`,
+			indicator: "red"
+		});
+		return;
 	}
 
 	// Commit changes from localNode to props.node
 	if (props.node && localNode.value) {
-		// We update the Reactive props.node directly? 
-		// Or emits a 'save' event with data? 
-		// Usually mutating prop object is anti-pattern BUT in this app (diagram) it seems common.
-		// However, better is to copy data back field by field or assign data object.
-		
 		// 1. Update data
 		props.node.data = JSON.parse(JSON.stringify(localNode.value.data));
 		// 2. Update label if changed

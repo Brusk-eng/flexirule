@@ -10,47 +10,57 @@
 				<!-- Header -->
 				<div class="grid-header">
 					<div class="header-row">
-						<div class="header-cell static-col first-col sticky-col sticky-left" style="left: 0; width: 40px">#</div>
-						<div 
-							v-for="col in stickyColumns" 
+						<div class="header-cell static-col first-col sticky-col sticky-left" style="left: 0; width: 40px; flex: 0 0 40px;">#</div>
+						<div
+							v-for="col in stickyColumns"
 							:key="col.fieldname"
 							class="header-cell resizable"
 							:class="{ 'sticky-col': col.isSticky }"
-							:style="{ width: getColumnWidth(col.fieldname), left: col.left }"
+							:style="{
+								width: getColumnWidth(col.fieldname),
+								minWidth: getColumnWidth(col.fieldname),
+								flex: col.isSticky ? `0 0 ${getColumnWidth(col.fieldname)}` : '0 0 auto',
+								left: col.isSticky ? col.left : 'auto'
+							}"
 							:title="__(col.description || '')"
 						>
 							<div class="header-text">
 								{{ __(col.label) }}
 								<i v-if="col.description" class="fa fa-info-circle text-muted ml-1 info-icon" :title="__(col.description)"></i>
 							</div>
-							<div 
-								class="resize-handle" 
+							<div
+								class="resize-handle"
 								@mousedown="startResize($event, col.fieldname)"
 							></div>
 						</div>
-						<div v-if="!read_only" class="header-cell static-col last-col sticky-col sticky-right" style="right: 0; width: 40px"></div>
+						<div v-if="!read_only" class="header-cell static-col last-col sticky-col sticky-right" style="right: 0; width: 40px; flex: 0 0 40px;"></div>
 					</div>
 				</div>
 
 				<!-- Body -->
 				<div class="grid-body">
-					<div 
-						v-for="(row, idx) in localRows" 
-						:key="row.name || idx" 
+					<div
+						v-for="(row, idx) in localRows"
+						:key="row.name || idx"
 						class="grid-row"
 					>
-						<div class="grid-cell static-col text-center first-col sticky-col sticky-left" style="left: 0; width: 40px">
+						<div class="grid-cell static-col text-center first-col sticky-col sticky-left" style="left: 0; width: 40px; flex: 0 0 40px;">
 							<span class="row-index text-muted">{{ idx + 1 }}</span>
 						</div>
 
-						<div 
-							v-for="col in stickyColumns" 
+						<div
+							v-for="col in stickyColumns"
 							:key="col.fieldname"
 							class="grid-cell field-cell"
 							:class="getCellClasses(row, col)"
-							:style="{ width: getColumnWidth(col.fieldname), left: col.left }"
+							:style="{
+								width: getColumnWidth(col.fieldname),
+								minWidth: getColumnWidth(col.fieldname),
+								flex: col.isSticky ? `0 0 ${getColumnWidth(col.fieldname)}` : '0 0 auto',
+								left: col.isSticky ? col.left : 'auto'
+							}"
 						>
-							<ControlFactory 
+							<ControlFactory
 								v-if="!isCellHidden(row, col.fieldname)"
 								:df="getEffectiveDf(row, col)"
 								:modelValue="row[col.fieldname]"
@@ -63,9 +73,9 @@
 							<div v-else class="cell-placeholder"></div>
 						</div>
 
-						<div v-if="!read_only" class="grid-cell static-col text-center last-col sticky-col sticky-right" style="right: 0; width: 40px">
-							<button 
-								class="btn-remove" 
+						<div v-if="!read_only" class="grid-cell static-col text-center last-col sticky-col sticky-right" style="right: 0; width: 40px; flex: 0 0 40px;">
+							<button
+								class="btn-remove"
 								@click="removeRow(idx)"
 								:title="__('Remove Row')"
 							>
@@ -161,17 +171,18 @@ const visibleColumns = computed(() => {
 });
 
 /**
- * Sticky Column Logic
+ * Sticky Column Logic - FIXED
+ * Calculate cumulative left positions for sticky columns, accounting for the index column
  */
 const stickyColumns = computed(() => {
-    let currentLeft = 40; 
+    let currentLeft = 40; // Start after the index column (40px)
     return visibleColumns.value.map(col => {
         const isSticky = col.sticky === 1;
-        const left = isSticky ? currentLeft + 'px' : 'auto';
+        const leftPosition = isSticky ? currentLeft + 'px' : 'auto';
         if (isSticky) {
             currentLeft += parseInt(getColumnWidth(col.fieldname));
         }
-        return { ...col, isSticky, left };
+        return { ...col, isSticky, left: leftPosition };
     });
 });
 
@@ -240,7 +251,7 @@ function stopResize() {
 }
 
 const tableStyle = computed(() => {
-	let totalWidth = 80; 
+	let totalWidth = 80; // Account for both index (40px) and delete button (40px) columns
 	visibleColumns.value.forEach(c => {
 		totalWidth += parseInt(getColumnWidth(c.fieldname));
 	});
@@ -385,13 +396,14 @@ onMounted(async () => {
 .header-cell, .grid-cell {
 	padding: 0 12px;
 	display: flex;
-	align-items: center; 
+	align-items: center; /* Changed back to center for better vertical alignment */
 	font-size: 13px;
 	flex: 0 0 auto;
 	border-right: 1px solid var(--border-color, #f0f0f0);
 	position: relative;
 	height: 100%; /* Fill fixed row height */
 	box-sizing: border-box;
+	min-width: 0; /* Allows flex items to shrink below content size */
 }
 .header-cell {
 	font-weight: 700;
@@ -404,7 +416,7 @@ onMounted(async () => {
 }
 .sticky-col {
 	position: sticky !important;
-	z-index: 40;
+	z-index: 50; /* Consistent z-index for both header and body */
 }
 .sticky-left {
     left: 0;
@@ -416,7 +428,7 @@ onMounted(async () => {
     border-left: 1px solid var(--border-color, #f0f0f0);
 }
 .header-cell.sticky-col {
-	z-index: 60 !important;
+	z-index: 55 !important; /* Header should be slightly above body sticky cols */
 }
 .header-cell:last-child, .grid-cell:last-child {
 	border-right: none;
@@ -462,21 +474,65 @@ onMounted(async () => {
 .grid-cell :deep(.form-group) {
 	margin-bottom: 0 !important;
 	width: 100%;
+	height: 100% !important; /* Fill the cell vertically */
+	display: flex;
+	flex-direction: column;
+	justify-content: center; /* Vertically center content */
 }
 .grid-cell :deep(.form-control) {
-	height: 38px !important;
-	padding: 6px 4px !important;
+	height: calc(100% - 4px) !important; /* Account for borders/padding */
+	padding: 2px 6px !important; /* Reduced padding for better fit */
 	font-size: 13px !important;
 	border: 1px solid transparent !important;
 	background: transparent !important;
 	box-shadow: none !important;
 	transition: all 0.2s;
+	width: 100%;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center; /* Vertically align content */
 }
 .grid-cell:hover :deep(.form-control),
 .grid-cell :deep(.form-control:focus) {
 	border-color: var(--border-color, #d1d8dd) !important;
 	background: #fff !important;
 	border-radius: 4px;
+}
+/* Adjust specific control types for better alignment */
+.grid-cell :deep(input[type="text"]),
+.grid-cell :deep(input[type="number"]),
+.grid-cell :deep(input[type="date"]),
+.grid-cell :deep(input[type="time"]),
+.grid-cell :deep(input[type="datetime-local"]) {
+	height: calc(100% - 4px) !important;
+	padding: 2px 6px !important;
+	display: flex;
+	align-items: center;
+}
+
+/* Adjust textarea controls */
+.grid-cell :deep(textarea.form-control) {
+	resize: vertical;
+	min-height: calc(100% - 4px) !important;
+	height: auto !important;
+	padding: 4px 6px !important;
+}
+
+/* Adjust select controls specifically */
+.grid-cell :deep(select.form-control) {
+	padding: 2px 20px 2px 6px !important; /* Account for dropdown arrow */
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+}
+
+/* Adjust checkbox controls */
+.grid-cell :deep(.checkbox) {
+	margin: 0 !important;
+	display: flex;
+	align-items: center;
+	height: 100%;
+	width: 100%;
 }
 .grid-cell.is-required::before {
 	content: "";

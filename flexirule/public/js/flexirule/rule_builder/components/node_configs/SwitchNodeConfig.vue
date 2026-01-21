@@ -99,4 +99,14 @@ function removeSwitchCase(val) {
 	delete currentCases[val];
 	emit("update-json-config", "cases", currentCases);
 }
+
+function validate() {
+	const expression = getJsonConfig('expression');
+	if (!expression) {
+		return { valid: false, message: __("Switch Expression is required") };
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>

@@ -119,49 +119,7 @@
 			/>
 		</div>
 
-		<!-- Output Mapping Section -->
-		<div class="form-group" v-if="!nodeData?.is_async">
-			<div class="d-flex justify-content-between align-items-center mb-2">
-				<label class="mb-0" style="font-weight: 600">{{ __("Output Assignments") }}</label>
-			</div>
-
-			<div v-if="outputFields.length">
-				<div v-for="field in outputFields" :key="field.key" class="mb-2">
-					<small class="text-muted d-block">{{ field.label }} ({{ field.type }})</small>
-					<div class="input-group input-group-sm">
-						<span class="input-group-text" style="font-size: 11px; background: #f0f0f0"
-							>vars.</span
-						>
-						<input
-							type="text"
-							class="form-control"
-							:value="getOutputMapping(field.key)"
-							@input="updateOutputMapping(field.key, $event.target.value)"
-							:placeholder="field.key === '__self__' ? 'result_var' : field.key"
-						/>
-					</div>
-				</div>
-			</div>
-			<div v-else class="text-muted small">
-				<div class="mb-1">{{ __("Map result to variable:") }}</div>
-				<div class="input-group input-group-sm">
-					<span class="input-group-text" style="font-size: 11px; background: #f0f0f0"
-						>vars.</span
-					>
-					<input
-						type="text"
-						class="form-control"
-						:value="getOutputMapping('__self__')"
-						@input="updateOutputMapping('__self__', $event.target.value)"
-						placeholder="result_var"
-					/>
-				</div>
-			</div>
-		</div>
-		<div v-else class="alert alert-warning p-2 small mt-2">
-			<i class="fa fa-info-circle"></i>
-			{{ __("Async actions cannot return values to the context.") }}
-		</div>
+		<!-- Output Mapping Moved to OutputPanel -->
 
 		<div class="form-group">
 			<label
@@ -218,29 +176,6 @@ const filteredMethods = computed(() => {
 	);
 });
 
-const outputFields = computed(() => {
-	if (!props.selectedMethod?.output_schema) return [];
-	try {
-		const schema = JSON.parse(props.selectedMethod.output_schema);
-		if (Array.isArray(schema)) {
-			return schema.map((f) => ({
-				key: f.fieldname,
-				label: f.label || f.fieldname,
-				type: f.fieldtype,
-			}));
-		} else if (schema.properties) {
-			return Object.entries(schema.properties).map(([k, v]) => ({
-				key: k,
-				label: v.title || k,
-				type: v.type,
-			}));
-		}
-		return [];
-	} catch (e) {
-		return [];
-	}
-});
-
 watch(
 	() => props.nodeData?.process_method,
 	(newVal) => {
@@ -275,34 +210,18 @@ function showMethodDescription() {
 	}
 }
 
-function getOutputMapping(key) {
-	const mappingStr = props.nodeData?.output_mapping;
-	if (!mappingStr) return "";
-	try {
-		const mapping = JSON.parse(mappingStr);
-		let val = mapping[key] || "";
-		if (val.startsWith("vars.")) return val.substring(5);
-		return val;
-	} catch (e) {
-		return "";
+// Validation hook for the parent
+function validate() {
+	// User feedback: process_method is legacy. We should check for operation.
+	// Since ProcessNodeConfig might be in flux, checking both or just operation is safer.
+	// We'll check operation (or process_method as fallback if transition isn't complete)
+	if (!props.nodeData?.operation && !props.nodeData?.process_method) {
+		return { valid: false, message: __("Operation is required") };
 	}
+	return { valid: true };
 }
 
-function updateOutputMapping(key, varName) {
-	const mappingStr = props.nodeData?.output_mapping || "{}";
-	let mapping = {};
-	try {
-		mapping = JSON.parse(mappingStr);
-	} catch (e) {}
-
-	if (!varName) {
-		delete mapping[key];
-	} else {
-		mapping[key] = `vars.${varName}`;
-	}
-
-	emit("update-field", "output_mapping", JSON.stringify(mapping));
-}
+defineExpose({ validate });
 </script>
 
 <style scoped>

@@ -39,6 +39,9 @@ from flexirule.ruleflow.utils.schema_validator import (
     get_custom_validator,
 )
 
+# Configuration constants
+MAX_SUB_RULE_DEPTH = 2  # Maximum nesting depth for sub-rule calls
+
 
 class TimeoutException(Exception):
     """Internal timeout exception"""
@@ -424,6 +427,9 @@ class RuleEngine:
                     "Stop": self._execute_stop,
                     "Wait": self._execute_wait,
                     "Loop": self._execute_loop,
+                    "Set Value": self._execute_set_value,
+                    "Raise Error": self._execute_raise_error,
+                    "Notify": self._execute_notify,
                 }
 
                 handler = handler_map.get(current.action_type)
@@ -689,6 +695,87 @@ class RuleEngine:
         """Execute Stop action"""
         self._log("INFO", _("Stop action encountered"))
         return None, None
+
+    def _execute_set_value(self, action, context):
+        """Execute Set Value action - updates a field using Jinja template"""
+        target_field = getattr(action, "target_field", None)
+        value_template = getattr(action, "value_template", "") or ""
+
+        if not target_field:
+            self._log("WARNING", _("Set Value action missing target_field"))
+            return None, getattr(action, "next_step_if_true", None)
+
+        # Render Jinja template
+        template_context = {
+            "doc": context.get("doc"),
+            "vars": context.get("vars", {}),
+            "frappe": frappe,
+            "utils": frappe.utils,
+        }
+        rendered_value = frappe.render_template(value_template, template_context)
+
+        # Set the value on the document
+        doc = context.get("doc")
+        if doc and hasattr(doc, "set"):
+            doc.set(target_field, rendered_value)
+            self._log("INFO", _("Set {0} = {1}").format(target_field, rendered_value))
+        else:
+            self._log("WARNING", _("Cannot set field - no document in context"))
+
+        return rendered_value, getattr(action, "next_step_if_true", None)
+
+    def _execute_raise_error(self, action, context):
+        """Execute Raise Error action - throws ValidationError with Jinja message"""
+        error_template = getattr(action, "error_template", "") or "Validation Error"
+
+        # Render Jinja template
+        template_context = {
+            "doc": context.get("doc"),
+            "vars": context.get("vars", {}),
+            "frappe": frappe,
+            "utils": frappe.utils,
+        }
+        message = frappe.render_template(error_template, template_context)
+
+        self._log("INFO", _("Raising error: {0}").format(message))
+        frappe.throw(message)
+
+    def _execute_notify(self, action, context):
+        """Execute Notify action - shows notification using Jinja template"""
+        notification_template = getattr(action, "notification_template", "") or ""
+        notification_type = getattr(action, "notification_type", "Toast") or "Toast"
+
+        # Render Jinja template
+        template_context = {
+            "doc": context.get("doc"),
+            "vars": context.get("vars", {}),
+            "frappe": frappe,
+            "utils": frappe.utils,
+        }
+        message = frappe.render_template(notification_template, template_context)
+
+        if notification_type == "Toast":
+            frappe.msgprint(message, alert=True)
+        elif notification_type == "System":
+            frappe.publish_realtime(
+                "msgprint",
+                {"message": message, "alert": True},
+                user=frappe.session.user,
+            )
+        elif notification_type == "Email":
+            # Queue email notification
+            doc = context.get("doc")
+            if doc:
+                frappe.sendmail(
+                    recipients=[frappe.session.user],
+                    subject=_("Rule Notification: {0}").format(self.rule.name),
+                    message=message,
+                    reference_doctype=doc.doctype,
+                    reference_name=doc.name,
+                )
+
+        self._log("INFO", _("Sent {0} notification").format(notification_type))
+        return None, getattr(action, "next_step_if_true", None)
 
     def _execute_process(self, action, context):
         """
@@ -1037,10 +1124,10 @@ class RuleEngine:
             sub_context["meta"]["parent_rule"] = self.rule.name
             sub_context["meta"]["execution_stack"] = execution_stack + [self.rule.name]
             current_depth = sub_context["meta"].get("call_depth", 0)
-            if current_depth > 5:
-                raise MethodExecutionError(
-                    _("Max sub-rule recursion depth (5) exceeded in {0}").format(
-                        sub_rule_name
+            if current_depth >= MAX_SUB_RULE_DEPTH:
+                raise CycleDetectedError(
+                    _("Max sub-rule recursion depth ({0}) exceeded in {1}").format(
+                        MAX_SUB_RULE_DEPTH, sub_rule_name
                     )
                 )
             sub_context["meta"]["call_depth"] = current_depth + 1
