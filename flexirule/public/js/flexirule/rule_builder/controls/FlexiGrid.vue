@@ -10,7 +10,15 @@
 				<!-- Header -->
 				<div class="grid-header">
 					<div class="header-row">
-						<div class="header-cell static-col first-col sticky-col sticky-left" style="left: 0; width: 40px; flex: 0 0 40px;">#</div>
+						<div class="header-cell static-col first-col sticky-col sticky-left" style="left: 0; width: 40px; flex: 0 0 40px;">
+							<input
+								type="checkbox"
+								:checked="isAllSelected"
+								:indeterminate="isAnySelected && !isAllSelected"
+								@change="toggleAll"
+							/>
+						</div>
+						<div class="header-cell static-col sticky-col sticky-left" style="left: 40px; width: 40px; flex: 0 0 40px;">#</div>
 						<div
 							v-for="col in stickyColumns"
 							:key="col.fieldname"
@@ -33,7 +41,6 @@
 								@mousedown="startResize($event, col.fieldname)"
 							></div>
 						</div>
-						<div v-if="!read_only" class="header-cell static-col last-col sticky-col sticky-right" style="right: 0; width: 40px; flex: 0 0 40px;"></div>
 					</div>
 				</div>
 
@@ -45,6 +52,13 @@
 						class="grid-row"
 					>
 						<div class="grid-cell static-col text-center first-col sticky-col sticky-left" style="left: 0; width: 40px; flex: 0 0 40px;">
+							<input
+								type="checkbox"
+								:checked="selectedRows.has(row.name)"
+								@change="toggleRow(row.name)"
+							/>
+						</div>
+						<div class="grid-cell static-col text-center sticky-col sticky-left" style="left: 40px; width: 40px; flex: 0 0 40px;">
 							<span class="row-index text-muted">{{ idx + 1 }}</span>
 						</div>
 
@@ -72,16 +86,6 @@
 							/>
 							<div v-else class="cell-placeholder"></div>
 						</div>
-
-						<div v-if="!read_only" class="grid-cell static-col text-center last-col sticky-col sticky-right" style="right: 0; width: 40px; flex: 0 0 40px;">
-							<button
-								class="btn-remove"
-								@click="removeRow(idx)"
-								:title="__('Remove Row')"
-							>
-								<i class="fa fa-times"></i>
-							</button>
-						</div>
 					</div>
 
 					<!-- Empty State -->
@@ -95,6 +99,13 @@
 		<div v-if="!read_only" class="grid-footer">
 			<button class="btn btn-xs btn-default btn-add" @click="addRow">
 				<i class="fa fa-plus"></i> {{ __("Add Row") }}
+			</button>
+			<button 
+				v-if="selectedRows.size > 0"
+				class="btn btn-xs btn-danger btn-delete-selected ml-2" 
+				@click="removeSelectedRows"
+			>
+				<i class="fa fa-trash"></i> {{ __("Delete {0} Rows", [selectedRows.size]) }}
 			</button>
 		</div>
 
@@ -119,6 +130,7 @@ const emit = defineEmits(["update:modelValue"]);
 
 // Internal state for rows
 const localRows = ref([]);
+const selectedRows = ref(new Set());
 let is_updating_local = false;
 
 /**
@@ -175,7 +187,7 @@ const visibleColumns = computed(() => {
  * Calculate cumulative left positions for sticky columns, accounting for the index column
  */
 const stickyColumns = computed(() => {
-    let currentLeft = 40; // Start after the index column (40px)
+    let currentLeft = 80; // Start after selection and index columns (40px + 40px)
     return visibleColumns.value.map(col => {
         const isSticky = col.sticky === 1;
         const leftPosition = isSticky ? currentLeft + 'px' : 'auto';
@@ -250,8 +262,16 @@ function stopResize() {
 	document.removeEventListener('mouseup', stopResize);
 }
 
+const isAllSelected = computed(() => {
+	return localRows.value.length > 0 && selectedRows.value.size === localRows.value.length;
+});
+
+const isAnySelected = computed(() => {
+	return selectedRows.value.size > 0;
+});
+
 const tableStyle = computed(() => {
-	let totalWidth = 80; // Account for both index (40px) and delete button (40px) columns
+	let totalWidth = 80; // Account for selection (40px) and index (40px) columns
 	visibleColumns.value.forEach(c => {
 		totalWidth += parseInt(getColumnWidth(c.fieldname));
 	});
@@ -277,11 +297,48 @@ async function addRow() {
 
 function removeRow(idx) {
 	const row = localRows.value[idx];
-	if (row?.name && props.engine.dependency_states[row.name]) {
-		delete props.engine.dependency_states[row.name];
+	if (row?.name) {
+		if (props.engine.dependency_states[row.name]) {
+			delete props.engine.dependency_states[row.name];
+		}
+		selectedRows.value.delete(row.name);
 	}
 	localRows.value.splice(idx, 1);
 	emitUpdate();
+}
+
+function removeSelectedRows() {
+	frappe.confirm(
+		__("Are you sure you want to delete {0} selected rows?", [selectedRows.value.size]),
+		() => {
+			const rowsToDelete = [...selectedRows.value];
+			rowsToDelete.forEach(name => {
+				const idx = localRows.value.findIndex(r => r.name === name);
+				if (idx !== -1) {
+					removeRow(idx);
+				}
+			});
+			selectedRows.value.clear();
+		}
+	);
+}
+
+function toggleRow(name) {
+	if (selectedRows.value.has(name)) {
+		selectedRows.value.delete(name);
+	} else {
+		selectedRows.value.add(name);
+	}
+}
+
+function toggleAll() {
+	if (isAllSelected.value) {
+		selectedRows.value.clear();
+	} else {
+		localRows.value.forEach(row => {
+			selectedRows.value.add(row.name);
+		});
+	}
 }
 
 function updateCell(idx, fieldname, value) {
@@ -577,6 +634,15 @@ onMounted(async () => {
 .grid-footer {
 	padding: 12px 0;
 	display: flex;
+	align-items: center;
+}
+.btn-delete-selected {
+	font-weight: 600;
+	border-radius: 8px;
+	padding: 6px 16px;
+}
+.ml-2 {
+	margin-left: 8px;
 }
 .btn-add {
 	padding: 6px 16px;

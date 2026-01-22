@@ -17,13 +17,13 @@ const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
 
 // Create a reactive copy of the model
-const rootGroup = reactive({ ...props.modelValue });
+const rootGroup = reactive(JSON.parse(JSON.stringify(props.modelValue)));
 
 // Sync with parent when rootGroup changes
 watch(
 	rootGroup,
 	(newVal) => {
-		emit("update:modelValue", { ...newVal });
+		emit("update:modelValue", JSON.parse(JSON.stringify(newVal)));
 	},
 	{ deep: true }
 );
@@ -32,8 +32,14 @@ watch(
 watch(
 	() => props.modelValue,
 	(newVal) => {
-		if (newVal && JSON.stringify(newVal) !== JSON.stringify(rootGroup)) {
-			Object.assign(rootGroup, newVal);
+		if (newVal) {
+			// Compare JSON strings to detect logical changes
+			const currentJSON = JSON.stringify(rootGroup);
+			const newJSON = JSON.stringify(newVal);
+			
+			if (newJSON !== currentJSON) {
+				Object.assign(rootGroup, JSON.parse(newJSON));
+			}
 		}
 	},
 	{ deep: true }
