@@ -138,6 +138,8 @@
 				:value="modelValue"
 				:disabled="df.read_only"
 				@input="$emit('update:modelValue', $event.target.value)"
+				@dragover.prevent
+				@drop="onDrop"
 			></textarea>
 			<div
 				v-if="df.description"
@@ -174,6 +176,7 @@
 </template>
 
 <script setup>
+import { nextTick } from "vue";
 import LinkControl from "./LinkControl.vue";
 import SelectControl from "./SelectControl.vue";
 import CheckControl from "./CheckControl.vue";
@@ -191,5 +194,25 @@ const props = defineProps({
 	hideDescription: { type: Boolean, default: false },
 });
 
-defineEmits(["update:modelValue"]);
+const emit = defineEmits(["update:modelValue"]);
+
+function onDrop(event) {
+	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
+	if (variable) {
+		event.preventDefault();
+		const text = `{{ ${variable} }}`;
+		const input = event.target;
+		const start = input.selectionStart;
+		const end = input.selectionEnd;
+		const val = props.modelValue || "";
+		const newVal = val.substring(0, start) + text + val.substring(end);
+		emit("update:modelValue", newVal);
+		
+		// Set cursor after the inserted variable
+		nextTick(() => {
+			input.focus();
+			input.setSelectionRange(start + text.length, start + text.length);
+		});
+	}
+}
 </script>

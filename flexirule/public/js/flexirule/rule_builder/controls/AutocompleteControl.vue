@@ -166,6 +166,17 @@ watch(() => [props.df?.fieldname, props.df?.fieldtype], async () => {
 
 watch(() => props.options, async () => { await set_options(); }, { deep: true });
 watch(() => props.read_only, (newVal) => { if (frappe_control) frappe_control.set_read_only(newVal); });
+
+function onDrop(event) {
+	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
+	if (variable) {
+		event.preventDefault();
+		if (frappe_control) {
+			// In Autocomplete, we usually replace the whole value with the variable name (no brackets)
+			emit("update:modelValue", variable);
+		}
+	}
+}
 </script>
 
 <template>
@@ -173,7 +184,12 @@ watch(() => props.read_only, (newVal) => { if (frappe_control) frappe_control.se
 		<div v-if="df?.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>
-		<div ref="wrapper_ref" class="autocomplete-input-wrapper"></div>
+		<div 
+			ref="wrapper_ref" 
+			class="autocomplete-input-wrapper"
+			@dragover.prevent
+			@drop="onDrop"
+		></div>
 		<div v-if="df?.description && !hideDescription" class="description text-muted">
 			{{ __(df.description) }}
 		</div>

@@ -149,6 +149,17 @@ watch(
 	},
 	{ deep: true }
 );
+
+function onDrop(event) {
+	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
+	if (variable) {
+		event.preventDefault();
+		if (link_control) {
+			// In Link(Autocomplete), we replace the whole value with the variable name
+			emit("update:modelValue", variable);
+		}
+	}
+}
 </script>
 
 <template>
@@ -168,7 +179,11 @@ watch(
 		</div>
 
 		<!-- link input mounting point -->
-		<div ref="link"></div>
+		<div 
+			ref="link"
+			@dragover.prevent
+			@drop="onDrop"
+		></div>
 
 		<!-- description -->
 		<div
@@ -177,7 +192,12 @@ watch(
 			v-html="__(df.description)"
 		/>
 	</div>
-	<div v-else ref="link"></div>
+	<div 
+		v-else 
+		ref="link"
+		@dragover.prevent
+		@drop="onDrop"
+	></div>
 </template>
 
 <style scoped>

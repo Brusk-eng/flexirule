@@ -19,36 +19,96 @@ class RuleCoordinator:
     CACHE_KEY = "flexirule_map"
 
     @staticmethod
+    def execute_rule(rule: Any, context: Dict = None, dry_run: bool = False) -> Dict:
+        """
+        Pure execution API for a single rule.
+        Can be used for replay, dry-runs, and deterministic testing.
+
+        Args:
+            rule: Rule name or Rule document
+            context: Execution context (doc, vars, etc.)
+            dry_run: If True, wraps execution in a transaction that is rolled back.
+
+        Returns:
+            Final execution context
+        """
+        if isinstance(rule, str):
+            rule = frappe.get_doc("Rule", rule)
+
+        context = context or {}
+        doc = context.get("doc")
+
+        if not doc:
+            frappe.throw(_("Document is required for rule execution"))
+
+        # Convert to Document object if it's a dict/string (for API calls)
+        if isinstance(doc, dict) and doc.get("doctype") and doc.get("name"):
+            doc = frappe.get_doc(doc.get("doctype"), doc.get("name"))
+            context["doc"] = doc
+        elif isinstance(doc, str):
+            # If doc is just name, try to use rule's document_type
+            if rule.document_type:
+                doc = frappe.get_doc(rule.document_type, doc)
+                context["doc"] = doc
+            else:
+                frappe.throw(
+                    _("Cannot resolve document from name without document type")
+                )
+
+        from flexirule.ruleflow.core.engine import RuleEngine
+
+        def _run():
+            engine = RuleEngine(rule, execution_context=context)
+            # Ensure engine knows about dry_run (it can use it for logging/behavior)
+            engine.context["dry_run"] = dry_run
+            return engine.execute(doc)
+
+        if dry_run:
+            savepoint_name = "flexirule_dry_run"
+            try:
+                frappe.db.savepoint(savepoint_name)
+                result = _run()
+                return result
+            finally:
+                frappe.db.rollback(save_point=savepoint_name)
+        else:
+            return _run()
+
+    @staticmethod
     def get_rule_map() -> dict:
         """
         Get unified rule map from cache or rebuild.
         Structure: {doctype: {event: [rule_names sorted by priority]}}
         """
-        # Request-level cache first
-        if hasattr(frappe.local, "flexirule_map"):
-            return frappe.local.flexirule_map
 
-        # Redis cache
-        try:
-            rule_map = frappe.cache.get_value(RuleCoordinator.CACHE_KEY)
-        except Exception:
-            # Circuit Breaker: If Redis is down, fail safe (skip rules) -> Don't crash ERP
-            # Log only once per request to avoid spamming if possible, but standard log_error is fine
-            frappe.log_error("FlexiRule: Cache unreachable, skipping rules.")
-            return {}
-
-        if rule_map is None:
+        def generator():
+            # Redis cache lookup
             try:
-                rule_map = RuleCoordinator._build_rule_map()
-                frappe.cache.set_value(RuleCoordinator.CACHE_KEY, rule_map)
+                rule_map = frappe.cache.get_value(RuleCoordinator.CACHE_KEY)
             except Exception:
-                frappe.log_error("FlexiRule: Cache write failed.")
-                # We can still return the computed map for this request
-                return rule_map or {}
+                frappe.log_error("FlexiRule: Cache unreachable, skipping rules.")
+                return {}
 
-        # Store in request-level cache
-        frappe.local.flexirule_map = rule_map
-        return rule_map
+            if rule_map is None:
+                try:
+                    rule_map = RuleCoordinator._build_rule_map()
+                    frappe.cache.set_value(RuleCoordinator.CACHE_KEY, rule_map)
+                except Exception:
+                    frappe.log_error("FlexiRule: Cache write failed.")
+                    return rule_map or {}
+
+            return rule_map
+
+        # Use the SAME local cache key as hooks.py for unified access
+        # Note: hooks.py calls it via frappe.local_cache("flexirule_map", "unified", generator)
+        # So we should match that or adapt RuleCoordinator to retrieve the "unified" key if it exists.
+        if (
+            hasattr(frappe.local, "flexirule_map")
+            and "unified" in frappe.local.flexirule_map
+        ):
+            return frappe.local.flexirule_map["unified"]
+
+        return frappe.local_cache("flexirule_map", "unified", generator)
 
     @staticmethod
     def _build_rule_map() -> dict:
@@ -77,19 +137,15 @@ class RuleCoordinator:
         return bool(rule_map.get(doctype, {}).get(event_name))
 
     @staticmethod
-    def execute_rules(doc, event_name: str):
+    def execute_rules_from_event(doc: Any, event_name: str):
         """
-        Main entry point called from doc_events hooks
+        Find and execute rules triggered by a specific document event.
+        Logic decoupled from Frappe hook flags.
 
         Args:
-                doc: Frappe document
-                event_name: Event that triggered execution (before_save, validate, etc.)
+            doc: Frappe document
+            event_name: Event name (Before Save, Validate, etc.)
         """
-        # TODO : after allowing in_import We must have optimized way to get rules with allowed in_import
-        # Skip during import/migration
-        if frappe.flags.in_import or frappe.flags.in_migrate:
-            return
-
         # Quick check if any rules exist for this doctype/event
         if not RuleCoordinator.has_active_rules(doc.doctype, event_name):
             return
@@ -101,7 +157,6 @@ class RuleCoordinator:
             return
 
         # Strict Eligibility Check (V1 Contract)
-
         from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
         # Fetch old_doc for change detection
@@ -133,7 +188,7 @@ class RuleCoordinator:
                 error_msg = str(e)
                 if len(error_msg) > 139:
                     error_msg = error_msg[:139]
-                # TODO: this may delete the cached
+
                 rule_doc.last_error = error_msg
                 rule_doc.flags.ignore_validate = True
                 rule_doc.flags.ignore_permissions = True
@@ -150,6 +205,22 @@ class RuleCoordinator:
                 # Re-raise blocking exceptions (Stop the save)
                 if isinstance(e, frappe.ValidationError):
                     raise e
+
+    @staticmethod
+    def execute_rules(doc, event_name: str):
+        """
+        Main entry point called from doc_events hooks
+
+        Args:
+                doc: Frappe document
+                event_name: Event that triggered execution (before_save, validate, etc.)
+        """
+        # TODO : after allowing in_import We must have optimized way to get rules with allowed in_import
+        # Skip during import/migration
+        if frappe.flags.in_import or frappe.flags.in_migrate:
+            return
+
+        return RuleCoordinator.execute_rules_from_event(doc, event_name)
 
     @staticmethod
     def check_eligibility(
@@ -277,6 +348,9 @@ class RuleCoordinator:
         # Execute using new Engine
         # Pass old_doc in context
         execution_context = {"old_doc": old_doc}
+        if frappe.flags.in_test:
+            execution_context["test_mode"] = True
+
         engine = RuleEngine(rule_doc, execution_context=execution_context)
         engine.execute(doc)
 
@@ -316,6 +390,10 @@ class RuleCoordinator:
         # Clear request-level cache
         if hasattr(frappe.local, "flexirule_map"):
             delattr(frappe.local, "flexirule_map")
+
+        # Clear frappe.local_cache
+        if hasattr(frappe.local, "cache") and "flexirule_map" in frappe.local.cache:
+            frappe.local.cache.pop("flexirule_map")
 
         # Notify distributed workers (v16 pattern)
         frappe.publish_realtime(

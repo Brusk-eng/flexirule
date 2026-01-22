@@ -1,6 +1,6 @@
 <!-- Used as Autocomplete, Barcode, Color, Currency, Data, Date, Duration, Link, Dynamic Link, Float, Int, Password, Percent, Time, Read Only, HTML Control -->
 <script setup>
-import { ref, useSlots } from "vue";
+import { ref, useSlots, nextTick } from "vue";
 
 const props = defineProps({
 	df: Object,
@@ -26,6 +26,26 @@ if (props.df?.fieldtype === "Color") {
 }
 if (props.df?.fieldtype === "Icon") {
 	placeholder.value = __("Choose an icon");
+}
+
+function onDrop(event) {
+	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
+	if (variable) {
+		event.preventDefault();
+		const text = `{{ ${variable} }}`;
+		const input = event.target;
+		const start = input.selectionStart;
+		const end = input.selectionEnd;
+		const val = props.modelValue || "";
+		const newVal = val.substring(0, start) + text + val.substring(end);
+		emit("update:modelValue", newVal);
+		
+		// Set cursor after the inserted variable
+		nextTick(() => {
+			input.focus();
+			input.setSelectionRange(start + text.length, start + text.length);
+		});
+	}
 }
 </script>
 
@@ -56,6 +76,8 @@ if (props.df?.fieldtype === "Icon") {
 			:value="modelValue"
 			:disabled="read_only || df.read_only"
 			@input="(event) => $emit('update:modelValue', event.target.value)"
+			@dragover.prevent
+			@drop="onDrop"
 		/>
 		<input
 			v-if="slots.label && df.fieldtype === 'Barcode'"

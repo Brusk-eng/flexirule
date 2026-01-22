@@ -55,7 +55,7 @@ class RuleBuilder {
 		});
 
 		// Dry Run
-		this.status_btn = this.page.add_inner_button(__("Test Rule"), () => {
+		this.test_btn = this.page.add_inner_button(__("Test Rule"), () => {
 			this.show_test_dialog();
 		});
 
@@ -154,23 +154,28 @@ class RuleBuilder {
 			primary_action_label: __("Test"),
 			primary_action: (values) => {
 				frappe.call({
-					method: "flexirule.ruleflow.api.test_rule",
+					method: "flexirule.ruleflow.api.execute_rule",
 					args: {
 						rule_name: this.rule,
-						doctype: values.doctype,
-						docname: values.docname,
+						context: {
+							doc: {
+								doctype: values.doctype,
+								name: values.docname,
+							}
+						},
+						dry_run: true
 					},
 					callback: (r) => {
 						if (r.message?.success) {
 							frappe.msgprint({
 								title: __("Success"),
-								message: r.message.message,
+								message: __("Rule execution completed successfully (Dry Run)"),
 								indicator: "green",
 							});
 						} else {
 							frappe.msgprint({
 								title: __("Error"),
-								message: r.message?.error || __("Test failed"),
+								message: r.message?.error || __("Execution failed"),
 								indicator: "red",
 							});
 						}

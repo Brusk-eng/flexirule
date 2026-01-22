@@ -68,14 +68,27 @@
 						<i class="fa fa-refresh"></i>
 					</button>
 				</div>
-				
+				<div class="variable-search mb-2">
+					<div class="input-group input-group-sm">
+						<div class="input-group-prepend">
+							<span class="input-group-text"><i class="fa fa-search"></i></span>
+						</div>
+						<input 
+							type="text" 
+							class="form-control" 
+							v-model="searchQuery" 
+							:placeholder="__('Search variables...')"
+						/>
+					</div>
+				</div>
+
 				<div class="variable-list">
 					<div v-if="loading" class="text-center p-3">
 						<div class="spinner-border spinner-border-sm text-muted text-center"></div>
 					</div>
 					<template v-else>
 						<div 
-							v-for="v in variables" 
+							v-for="v in filteredVariables" 
 							:key="v.value" 
 							class="variable-item"
 							:title="v.label"
@@ -85,8 +98,8 @@
 							<span class="variable-label">{{ v.label }}</span>
 							<span class="variable-type">{{ v.type || 'Data' }}</span>
 						</div>
-						<div v-if="variables.length === 0" class="empty-state">
-							{{ __("No scope variables available") }}
+						<div v-if="filteredVariables.length === 0" class="empty-state">
+							{{ searchQuery ? __("No matching variables") : __("No scope variables available") }}
 						</div>
 					</template>
 				</div>
@@ -96,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../store";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 
@@ -108,12 +121,23 @@ const store = useStore();
 const variables = ref([]);
 const loading = ref(false);
 const mappings = ref([]);
+const searchQuery = ref("");
+
+const filteredVariables = computed(() => {
+	if (!searchQuery.value) return variables.value;
+	const q = searchQuery.value.toLowerCase();
+	return variables.value.filter(v => 
+		v.label.toLowerCase().includes(q) || 
+		v.value.toLowerCase().includes(q)
+	);
+});
 
 function onDragStart(event, variable) {
     if (event.dataTransfer) {
-        // Default to Jinja style for templates as that's the primary use case
+        // Provide both structured data and fallback text
         const text = `{{ ${variable.value} }}`;
         event.dataTransfer.setData('text/plain', text);
+        event.dataTransfer.setData('application/x-flexirule-variable', variable.value);
         event.dataTransfer.effectAllowed = 'copy';
     }
 }
@@ -335,6 +359,22 @@ defineExpose({ validate });
 	border-radius: 3px;
 	color: var(--text-muted);
 	margin-left: 8px;
+}
+
+.variable-search :deep(.input-group-text) {
+	background: transparent;
+	border-right: none;
+	color: var(--text-muted);
+}
+
+.variable-search :deep(.form-control) {
+	border-left: none;
+	padding-left: 0;
+}
+
+.variable-search :deep(.form-control:focus) {
+	box-shadow: none;
+	border-color: var(--border-color);
 }
 
 .mapping-list {
