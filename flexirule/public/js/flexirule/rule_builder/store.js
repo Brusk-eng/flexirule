@@ -562,6 +562,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 				// Skip Start node validation against Rule Action (it uses Rule fields)
 				if (node.type === "start") return;
 
+				// Prevent saving if node is not yet configured (Selector type)
+				if (node.type === "selector") {
+					errors.push(`${label}: ${__("Please configure this action type before saving")}`);
+					return;
+				}
+
 				const doc = node.data;
 				const label = node.data.action_label || node.label || node.id;
 

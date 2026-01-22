@@ -36,6 +36,9 @@
 					<template #node-stop="nodeProps">
 						<StopNode v-bind="nodeProps" />
 					</template>
+					<template #node-selector="nodeProps">
+						<ActionSelectorNode v-bind="nodeProps" />
+					</template>
 
 					<Background :gap="15" />
 					<Panel :position="PanelPosition.BottomLeft" class="controls-panel">
@@ -101,66 +104,11 @@
 						<button
 							class="btn btn-xs btn-default"
 							:draggable="true"
-							@dragstart="onDragStart($event, 'process')"
-							@click="addNode('process')"
-							:title="__('Add Process')"
+							@dragstart="onDragStart($event, 'selector')"
+							@click="addNode('selector')"
+							:title="__('Add Action')"
 						>
-							<i class="fa fa-cog"></i> {{ __("Process") }}
-						</button>
-						<button
-							class="btn btn-xs btn-default"
-							:draggable="true"
-							@dragstart="onDragStart($event, 'condition')"
-							@click="addNode('condition')"
-							:title="__('Add Condition')"
-						>
-							<i class="fa fa-code-fork"></i> {{ __("Condition") }}
-						</button>
-						<button
-							class="btn btn-xs btn-default"
-							:draggable="true"
-							@dragstart="onDragStart($event, 'loop')"
-							@click="addNode('loop')"
-							:title="__('Add Loop')"
-						>
-							<i class="fa fa-refresh"></i> {{ __("Loop") }}
-						</button>
-						<button
-							class="btn btn-xs btn-default"
-							:draggable="true"
-							@dragstart="onDragStart($event, 'switch')"
-							@click="addNode('switch')"
-							:title="__('Add Switch')"
-						>
-							<i class="fa fa-code-fork" style="transform: rotate(90deg)"></i>
-							{{ __("Switch") }}
-						</button>
-						<button
-							class="btn btn-xs btn-default"
-							:draggable="true"
-							@dragstart="onDragStart($event, 'wait')"
-							@click="addNode('wait')"
-							:title="__('Add Wait')"
-						>
-							<i class="fa fa-clock-o"></i> {{ __("Wait") }}
-						</button>
-						<button
-							class="btn btn-xs btn-default"
-							:draggable="true"
-							@dragstart="onDragStart($event, 'sub-rule')"
-							@click="addNode('sub-rule')"
-							:title="__('Add Sub-Rule')"
-						>
-							<i class="fa fa-cube"></i> {{ __("Sub-Rule") }}
-						</button>
-						<button
-							class="btn btn-xs btn-default"
-							:draggable="true"
-							@dragstart="onDragStart($event, 'stop')"
-							@click="addNode('stop')"
-							:title="__('Add Stop')"
-						>
-							<i class="fa fa-stop-circle"></i> {{ __("Stop") }}
+							<i class="fa fa-plus-circle"></i> {{ __("Add Action") }}
 						</button>
 					</div>
 				</div>
@@ -191,6 +139,7 @@ import ProcessNode from "./components/nodes/ProcessNode.vue";
 import ConditionNode from "./components/nodes/ConditionNode.vue";
 import LoopNode from "./components/nodes/LoopNode.vue";
 import StopNode from "./components/nodes/StopNode.vue";
+import ActionSelectorNode from "./components/nodes/ActionSelectorNode.vue";
 import Sidebar from "./components/Sidebar.vue";
 
 const props = defineProps({ rule: String });
@@ -350,9 +299,13 @@ function addNode(type, position) {
 			label = __("Stop");
 			actionType = "Stop";
 			break;
+		case "selector":
+			label = __("New Action");
+			actionType = "Selector";
+			break;
 		default:
 			label = __("New Action");
-			actionType = "Process";
+			actionType = "Selector";
 	}
 
 	const newNode = {

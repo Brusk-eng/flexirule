@@ -223,6 +223,36 @@ def test_rule(rule_name, doctype, docname):
 
 
 @frappe.whitelist()
+def execute_rule(rule_name, context=None, dry_run=True):
+    """
+    Pure execution API for a rule.
+    """
+    from flexirule.ruleflow.core.coordinator import RuleCoordinator
+
+    if isinstance(context, str):
+        context = json.loads(context)
+
+    dry_run = frappe.parse_json(dry_run)
+
+    try:
+        result = RuleCoordinator.execute_rule(rule_name, context, dry_run=dry_run)
+
+        # Clean context for JSON serialization
+        if isinstance(result, dict):
+            result.pop("frappe", None)
+            result.pop("doc", None)
+            result.pop("old_doc", None)
+
+        return {
+            "success": True,
+            "context": result,
+            "execution_log": getattr(frappe.local, "execution_log", []),
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
 def clear_cache(doctype=None):
     """Clear rule cache"""
     try:

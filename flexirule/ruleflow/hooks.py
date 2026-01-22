@@ -32,19 +32,9 @@ def get_excluded_doctypes():
 
 def execute_rules(doc, method=None):
     """
-    Hook wrapper to execute rules for a document.
-    This is a MODULE-LEVEL function that can be called from hooks.py
+    Standard Frappe doc_event hook entry point.
+    Maps Frappe methods to FlexiRule events.
     """
-    # TODO : Must have a check fieldtype to allow run Rule in_import and default to disallow.
-    # TODO :
-    if frappe.flags.in_import or frappe.flags.in_migrate:
-        return
-
-    if doc.doctype in get_excluded_doctypes():
-        return
-
-    from flexirule.ruleflow.core.coordinator import RuleCoordinator
-
     event_map = {
         "before_naming": "Before Naming",
         "before_insert": "Before Insert",
@@ -62,8 +52,45 @@ def execute_rules(doc, method=None):
     }
 
     trigger_event = event_map.get(method)
-    if trigger_event:
-        RuleCoordinator.execute_rules(doc, trigger_event)
+    if not trigger_event:
+        return
+
+    return execute_rules_from_event(doc, trigger_event)
+
+
+def execute_rules_from_event(doc, event):
+    """
+    Pure hook logic decoupled from Frappe method names.
+    """
+    if frappe.flags.in_import or frappe.flags.in_migrate:
+        return
+
+    if doc.doctype in get_excluded_doctypes():
+        return
+
+    # Early exit check: Only import coordinator if rules exist for this doctype/event
+    rule_map = get_flexirule_map()
+    if not rule_map.get(doc.doctype, {}).get(event):
+        return
+
+    from flexirule.ruleflow.core.coordinator import RuleCoordinator
+
+    RuleCoordinator.execute_rules_from_event(doc, event)
+
+
+def get_flexirule_map():
+    """
+    Helper function to get the unified rule map with local caching.
+    Uses generator pattern to minimize database lookups.
+    """
+
+    def generator():
+        # Fallback to coordinator if needed, but try to resolve from cache first
+        from flexirule.ruleflow.core.coordinator import RuleCoordinator
+
+        return RuleCoordinator.get_rule_map()
+
+    return frappe.local_cache("flexirule_map", "unified", generator)
 
 
 def clear_rule_cache(doc=None, method=None):

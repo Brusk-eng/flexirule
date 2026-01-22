@@ -215,7 +215,11 @@ class RuleEngine:
             rule_doc = frappe.get_doc("Rule", rule_doc)
         self.rule = rule_doc
         self.actions = [a for a in rule_doc.actions if a.is_enabled]
+
         self.context = execution_context or {}
+        if frappe.flags.in_test and "test_mode" not in self.context:
+            self.context["test_mode"] = True
+
         self.execution_log = []
         self.cache = {}
 
@@ -277,6 +281,9 @@ class RuleEngine:
 
             # Log start
             self._log("INFO", f"Starting rule execution: {self.rule.name}")
+
+            # Expose execution log to frappe.local for API response
+            frappe.local.execution_log = self.execution_log
 
             # Execute with timeout if configured
             timeout = self.rule.max_execution_time or 30
@@ -1169,6 +1176,9 @@ class RuleEngine:
 
     def _update_rule_stats(self, success=True, error=None):
         """Update rule execution statistics (non-blocking, no commit)"""
+        if self.context.get("dry_run"):
+            return
+
         try:
             # Update in DB without triggering validations
             # Note: No explicit commit - let the calling transaction handle it
@@ -1247,7 +1257,12 @@ class RuleEngine:
             # PERSISTENCE LOGIC
             # If failed, we MUST rollback partial changes to clean up,
             # then insert and commit the log so it survives the final rollback by the framework.
-            if status in ("Failed", "Error") and not (active_context or {}).get(
+            if self.context.get("dry_run"):
+                # In dry_run mode, we don't commit anything, allowing the outer transaction to rollback.
+                # However, we might want to still log if it failed?
+                # For now, let's just avoid any commits.
+                pass
+            elif status in ("Failed", "Error") and not (active_context or {}).get(
                 "test_mode"
             ):
                 frappe.db.rollback()

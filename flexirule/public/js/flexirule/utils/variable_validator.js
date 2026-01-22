@@ -7,6 +7,15 @@
 
 frappe.provide("flexirule.validation");
 
+// Ensure translation function is available
+const __ = window.__ || ((s, args) => {
+    if (!args) return s;
+    if (Array.isArray(args)) {
+        args.forEach((a, i) => { s = s.replace(`{${i}}`, a); });
+    }
+    return s;
+});
+
 /**
  * Validate variable dependencies across a list of actions in topological order.
  * 
