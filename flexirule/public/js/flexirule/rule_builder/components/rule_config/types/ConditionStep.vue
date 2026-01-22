@@ -91,6 +91,14 @@ watch(() => props.node.data?.condition_json, (val) => {
 	if (val) {
 		try {
 			const parsed = typeof val === 'string' ? JSON.parse(val) : val;
+			
+			// GUARD: Avoid re-hydrating if the logical content is the same as our current local state.
+			// This prevents infinite loop: local change -> save to node -> watcher triggers -> re-hydrate -> restart cycle.
+			const currentClean = dehydrate(localConditions.value);
+			if (JSON.stringify(parsed) === JSON.stringify(currentClean)) {
+				return;
+			}
+
 			localConditions.value = hydrate(parsed);
 		} catch (e) {
 			localConditions.value = { op: "and", conditions: [] };
