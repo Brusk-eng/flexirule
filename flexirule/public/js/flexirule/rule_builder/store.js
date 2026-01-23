@@ -665,8 +665,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				}
 				// Show warnings for side-effects
 				if (flowResult.warnings.length > 0) {
-					// For now just log, could show as toast or info dialog
-					console.info("Flow warnings (side-effects):", flowResult.warnings);
+					// For now just skip logging, could show as toast or info dialog
 				}
 			}
 

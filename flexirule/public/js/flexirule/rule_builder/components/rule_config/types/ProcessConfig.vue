@@ -36,20 +36,18 @@ const error = ref(null);
 let initCounter = 0;
 
 async function initEngine() {
-	if (!props.node.data?.process_name || !props.node.data?.operation) {
-		console.warn("ProcessConfig: Process name or operation missing", props.node.data);
+	if (!props.node?.data?.process_name || !props.node?.data?.operation) {
+		console.warn("ProcessConfig: Process name or operation missing", props.node?.data);
 		return;
 	}
 
-	// 1. Reset state
 	error.value = null;
 	const currentInitId = ++initCounter;
 	
-	// Dispose old engine if exists
 	if (engine.value && typeof engine.value.dispose === 'function') {
 		engine.value.dispose();
 	}
-	engine.value = null; // Forces loading spinner
+	engine.value = null; 
 	
 	try {
 		let configValue = props.node.data.config || {};
@@ -74,15 +72,9 @@ async function initEngine() {
 		
 		await newEngine.init();
 
-		// Check race condition
-		if (currentInitId !== initCounter) {
-			console.log(`ProcessConfig: Ignoring stale init (id: ${currentInitId}, current: ${initCounter})`);
-			return;
-		}
+		if (currentInitId !== initCounter) return;
 
 		engine.value = newEngine;
-		
-		// Sync back to node data
 		props.node.data.config = config;
 	} catch (err) {
 		if (currentInitId === initCounter) {
@@ -101,7 +93,7 @@ watch(() => [props.node.data?.process_name, props.node.data?.operation], () => {
 });
 
 async function validate() {
-	if (!engine.value) return { valid: true }; // No engine, nothing to validate
+	if (!engine.value) return { valid: true };
 	return await engine.value.validate();
 }
 

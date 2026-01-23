@@ -158,6 +158,16 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
+		<!-- MultiCheck -->
+		<MultiCheckControl
+			v-else-if="df?.fieldtype === 'MultiCheck'"
+			:df="df"
+			:modelValue="modelValue"
+			:read_only="df.read_only"
+			:hideLabel="hideLabel"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
+
 		<!-- Default (Data, Duration, Valid types defaulting to text) -->
 		<DataControl
 			v-else-if="!['Table', 'Signature', 'Button', 'Heading'].includes(df?.fieldtype)"
@@ -182,6 +192,7 @@ import SelectControl from "./SelectControl.vue";
 import CheckControl from "./CheckControl.vue";
 import DataControl from "./DataControl.vue";
 import MultiSelectControl from "./MultiSelectControl.vue";
+import MultiCheckControl from "./MultiCheckControl.vue";
 import AutocompleteControl from "./AutocompleteControl.vue";
 import FlexiGrid from "./FlexiGrid.vue";
 

@@ -165,7 +165,7 @@ watch(() => [props.df?.fieldname, props.df?.fieldtype], async () => {
 });
 
 watch(() => props.options, async () => { await set_options(); }, { deep: true });
-watch(() => props.read_only, (newVal) => { if (frappe_control) frappe_control.set_read_only(newVal); });
+watch(() => props.read_only, (newVal) => { if (frappe_control) frappe_control.toggle_enable(!newVal); });
 
 function onDrop(event) {
 	const variable = event.dataTransfer.getData("application/x-flexirule-variable");

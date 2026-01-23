@@ -1,54 +1,52 @@
 <template>
 	<Teleport to="body">
 		<transition name="fade">
-			<div v-if="modelValue" class="config-modal-overlay" @click.self="close">
+			<div v-if="modelValue" class="config-modal-overlay" @click.self="cancel">
 				<div class="config-modal-container">
 					<header class="config-modal-header">
 						<div class="header-left">
-							<!-- Replaced badge with simple title or icon if needed -->
-                            <div class="header-icon mr-2" v-if="localNode">
-                                <i :class="localNode.data?.icon || getIcon(localNode.type)"></i>
-                            </div>
+							<div class="header-icon mr-2" v-if="draftNode">
+								<i :class="draftNode.data?.icon || getIcon(draftNode.type)"></i>
+							</div>
 							<h3>{{ title }}</h3>
-							<!-- Experimental toggle moved or kept if needed, assuming user ignored it -->
 						</div>
 						<div class="header-actions">
 							<button class="btn btn-sm btn-default mr-2" v-if="actionType === 'process'" @click="useExperimentalV2 = !useExperimentalV2">
 								<i class="fa fa-flask"></i> {{ store.is_read_only && !useExperimentalV2 ? __("Explain") : useExperimentalV2 ? __("Standard View") : __("V2 Vision") }}
 							</button>
-							<button class="btn btn-sm btn-default" @click="close">
+							<button class="btn btn-sm btn-default" @click="cancel">
 								{{ store.is_read_only ? __("Close") : __("Cancel") }}
 							</button>
 							<button v-if="!store.is_read_only" class="btn btn-sm btn-primary ml-2" @click="save">
 								{{ __("Save Changes") }}
 							</button>
-							<button class="btn-close-modal ml-3" @click="close">×</button>
+							<button class="btn-close-modal ml-3" @click="cancel">×</button>
 						</div>
 					</header>
 
 					<main class="config-modal-body">
-						<ResizablePanel v-if="localNode && !useExperimentalV2">
+						<ResizablePanel v-if="draftNode && !useExperimentalV2">
 							<!-- Left Panel: Input Selection -->
 							<div class="resizable-panel left-panel" v-if="showLeftPanel">
-								<InputPanel :node="localNode" :readOnly="store.is_read_only" ref="inputPanelRef" />
+								<InputPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.input" />
 							</div>
 
 							<div class="panel-resizer" v-if="showLeftPanel"></div>
 
 							<!-- Middle Panel: Dynamic Configuration -->
 							<div class="resizable-panel middle-panel">
-								<ConfigurationPanel :node="localNode" :readOnly="store.is_read_only" ref="configurationPanelRef" />
+								<ConfigurationPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.config" />
 							</div>
 
 							<div class="panel-resizer" v-if="showRightPanel"></div>
 
 							<!-- Right Panel: Output/Mapping -->
 							<div class="resizable-panel right-panel" v-if="showRightPanel">
-								<OutputPanel :node="localNode" :readOnly="store.is_read_only" ref="outputPanelRef" />
+								<OutputPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.output" />
 							</div>
 						</ResizablePanel>
 
-						<V2PreviewPanel v-else-if="localNode && useExperimentalV2" :node="localNode" />
+						<V2PreviewPanel v-else-if="draftNode && useExperimentalV2" :node="draftNode" />
 					</main>
 				</div>
 			</div>
@@ -57,14 +55,14 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, nextTick } from "vue";
+import { computed, ref } from "vue";
 import ResizablePanel from "./ResizablePanel.vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
 import OutputPanel from "./OutputPanel.vue";
 import V2PreviewPanel from "./V2PreviewPanel.vue";
 import { useStore } from "../../store";
-import { validateAgainstContract, getContract } from "../../../core/contracts.js";
+import { useRuleConfig } from "../../composables/useRuleConfig";
 
 const props = defineProps({
 	modelValue: Boolean,
@@ -74,28 +72,21 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "save"]);
 const store = useStore();
 
-const localNode = ref(null); // Draft copy
-// Detect action type for UI hints, fallback to props
-const actionType = computed(() => (localNode.value?.data?.action_type || props.node?.data?.action_type || props.node?.type)?.toLowerCase());
+const { 
+	draftNode, 
+	panelRefs, 
+	save, 
+	cancel 
+} = useRuleConfig(props, emit);
+
+// Detect action type for UI hints
+const actionType = computed(() => (draftNode.value?.data?.action_type || draftNode.value?.type)?.toLowerCase());
 
 const useExperimentalV2 = ref(false);
 
-// Watch for node changes or modal open to create draft
-watch(() => [props.node, props.modelValue], ([newNode, isOpen]) => {
-	if (isOpen && newNode) {
-		// Deep clone logic. Using JSON parse/stringify is safe enough for this data structure usually,
-		// but we need to ensure we don't lose reactive references if child panels expect them?
-		// Actually, child panels likely expect a standard object. 
-		// Node structure: { id, type, label, data: {...}, ... }
-		// We want to edit 'data' primarily.
-		localNode.value = JSON.parse(JSON.stringify(newNode));
-	}
-}, { immediate: true });
-
-
 const title = computed(() => {
-	if (!localNode.value) return __("Rule Configuration");
-	return localNode.value.data?.action_label || localNode.value.label || __("Rule Configuration");
+	if (!draftNode.value) return __("Rule Configuration");
+	return draftNode.value.data?.action_label || draftNode.value.label || __("Rule Configuration");
 });
 
 function getIcon(type) {
@@ -114,23 +105,14 @@ function getIcon(type) {
 }
 
 // -- Dynamic Layout Logic --
-
 const layoutConfig = computed(() => {
 	const type = actionType.value;
-	
-	// Default: Config Only
 	let config = { input: false, config: true, output: false };
 
 	if (type === 'process') {
 		config = { input: true, config: true, output: true };
 	} else if (['condition', 'set value', 'raise error', 'notify'].includes(type)) {
-		// Enabled Input panel for variable binding/visibility
 		config = { input: true, config: true, output: false };
-	} else if (type === 'loop') {
-		// Loop uses iterator config, output usually handled implicitly or via child nodes.
-		// If we want explicit output mapping (e.g. aggregation), we enalbe output.
-		// For now, simple Config only as per standard.
-		config = { input: false, config: true, output: false };
 	}
 	
 	return config;
@@ -138,76 +120,6 @@ const layoutConfig = computed(() => {
 
 const showLeftPanel = computed(() => layoutConfig.value.input);
 const showRightPanel = computed(() => layoutConfig.value.output);
-
-const inputPanelRef = ref(null);
-const configurationPanelRef = ref(null);
-const outputPanelRef = ref(null);
-
-function close() {
-	// Just close, discarding localNode changes
-	emit("update:modelValue", false);
-}
-
-async function save() {
-	const errors = [];
-
-	// 0. Validate against ACTION_TYPE_CONTRACT
-	const contractResult = validateAgainstContract(localNode.value?.data);
-	if (!contractResult.valid) {
-		errors.push(...contractResult.errors);
-	}
-
-	// 1. Validate Input Panel
-	if (showLeftPanel.value && inputPanelRef.value && typeof inputPanelRef.value.validate === "function") {
-		const res = await inputPanelRef.value.validate();
-		if (!res.valid) {
-			if (res.errors) errors.push(...res.errors);
-			if (res.message) errors.push(res.message);
-		}
-	}
-
-	// 2. Validate Configuration Panel
-	if (configurationPanelRef.value && typeof configurationPanelRef.value.validate === "function") {
-		const res = await configurationPanelRef.value.validate();
-		if (!res.valid) {
-			if (res.errors) errors.push(...res.errors);
-			if (res.message) errors.push(res.message);
-		}
-	}
-
-	// 3. Validate Output Panel
-	if (showRightPanel.value && outputPanelRef.value && typeof outputPanelRef.value.validate === "function") {
-		const res = await outputPanelRef.value.validate();
-		if (!res.valid) {
-			if (res.errors) errors.push(...res.errors);
-			if (res.message) errors.push(res.message);
-		}
-	}
-
-	if (errors.length > 0) {
-		const message = errors.map(e => `<li>${e}</li>`).join("");
-		frappe.msgprint({
-			title: __("Validation Error"),
-			message: `<ul class="text-left" style="list-style-type: disc; padding-left: 20px;">${message}</ul>`,
-			indicator: "red"
-		});
-		return;
-	}
-
-	// Commit changes from localNode to props.node
-	if (props.node && localNode.value) {
-		// 1. Update data
-		props.node.data = JSON.parse(JSON.stringify(localNode.value.data));
-		// 2. Update label if changed
-		props.node.label = localNode.value.label;
-		
-		// 3. Mark dirty in store
-		store.mark_dirty();
-	}
-
-	emit("save");
-	close();
-}
 </script>
 
 <style scoped>
