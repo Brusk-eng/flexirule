@@ -205,10 +205,15 @@ class Rule(Document):
         self.ensure_start_node()
 
     def ensure_start_node(self):
-        """Ensure a Start Node (Entry Action) exists with ID 'root'"""
-        # Check if root exists
+        """Ensure a Start Node (Entry Action) exists"""
+        # Check if an Entry Action already exists (by type or by the standard 'root' ID)
         root_action = next(
-            (a for a in self.actions if a.get("action_id") == "root"), None
+            (
+                a
+                for a in self.actions
+                if a.action_type == "Entry Action" or a.get("action_id") == "root"
+            ),
+            None,
         )
 
         if not root_action:
