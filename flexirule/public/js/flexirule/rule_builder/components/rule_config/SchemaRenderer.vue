@@ -31,6 +31,7 @@ import ControlFactory from "../../controls/ControlFactory.vue";
 const props = defineProps({
 	fields: { type: Array, default: () => [] },
 	engine: { type: Object, required: true },
+	readOnly: { type: Boolean, default: false },
 	row: { type: Object, default: null } // If rendering for a child table row
 });
 
@@ -40,12 +41,17 @@ const visibleFields = computed(() => {
 
 function fieldState(field) {
 	const contextId = props.row ? props.row.name : "root";
-	return props.engine.dependency_states[contextId]?.[field.fieldname] || {
+	const state = props.engine.dependency_states[contextId]?.[field.fieldname] || {
 		reqd: field.reqd,
 		read_only: field.read_only,
 		hidden: field.hidden,
 		options: field.options
 	};
+
+	if (props.readOnly) {
+		state.read_only = true;
+	}
+	return state;
 }
 
 function getNormalizedDf(field) {

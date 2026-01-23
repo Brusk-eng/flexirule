@@ -45,12 +45,16 @@ frappe.ui.form.on("Rule", {
 		frm.add_custom_button(__("Test Rule"), () => test_rule(frm), __("Actions"));
 		frm.add_custom_button(__("Clear Cache"), () => clear_rule_cache(frm), __("Actions"));
 
-		// Governance: Active Rule Read-Only hint
+		// Governance: Active Rule Read-Only lock
 		if (frm.doc.is_active) {
+			frm.set_read_only(true);
+			frm.set_df_property("is_active", "read_only", 0);
 			frm.dashboard.set_headline_alert(
-				__("Active Rule is locked. Deactivate to edit or Clone to create a new version."),
+				__("This rule is active and locked for editing. Please deactivate it to enable editing for any field."),
 				"orange"
 			);
+		} else {
+			frm.set_read_only(false);
 		}
 
 		if (frm.dashboard) {
@@ -303,6 +307,13 @@ function test_rule(frm) {
 				label: __("Document"),
 				reqd: 1,
 			},
+			{
+				fieldtype: "Check",
+				fieldname: "save_log",
+				label: __("Create Execution Log"),
+				description: __("Persist a log record even for this test run"),
+				default: 1,
+			},
 		],
 		primary_action_label: __("Test"),
 		primary_action(values) {
@@ -312,6 +323,7 @@ function test_rule(frm) {
 					rule_name: frm.doc.name,
 					doctype: values.doctype,
 					docname: values.docname,
+					save_log: values.save_log,
 				},
 				callback(r) {
 					frappe.msgprint({

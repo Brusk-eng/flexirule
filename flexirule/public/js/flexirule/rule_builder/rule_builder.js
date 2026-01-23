@@ -20,8 +20,8 @@ class RuleBuilder {
 	}
 
 	init() {
-		this.setup_page();
 		this.setup_app();
+		this.setup_page();
 	}
 
 	setup_page() {
@@ -54,10 +54,17 @@ class RuleBuilder {
 			this.toggle_rule_active();
 		});
 
-		// Dry Run
+		// Test
 		this.test_btn = this.page.add_inner_button(__("Test Rule"), () => {
 			this.show_test_dialog();
 		});
+
+		// Clear visualization if any
+		this.clear_test_btn = this.page.add_inner_button(__("Clear Test Path"), () => {
+			this.store.clear_test_result();
+			this.update_test_ui([]);
+		});
+		this.clear_test_btn.hide();
 
 		// Menu items
 		this.page.add_menu_item(__("Go to Rule"), () => {
@@ -76,13 +83,17 @@ class RuleBuilder {
 		registerGlobalComponents(app);
 
 		// Get store reference
-		this.store = useStore();
+		this.store = useStore(pinia);
 		this.store.rule_name = this.rule;
 
-		// Watch for dirty state
+		// Initial sync
+		this.update_test_ui(this.store.test_execution_path);
+
+		// Watch for state changes
 		this.store.$subscribe((mutation, state) => {
 			this.update_save_button(state.is_dirty);
 			this.update_status_button(state.rule_doc?.is_active);
+			this.update_test_ui(state.test_execution_path);
 		});
 
 		// Initial status update after fetch
@@ -131,6 +142,17 @@ class RuleBuilder {
 		}
 	}
 
+	update_test_ui(test_path) {
+		const show = !!(test_path && test_path.length > 0);
+		if (this.clear_test_btn) {
+			if (show) {
+				this.clear_test_btn.show().removeClass("hide");
+			} else {
+				this.clear_test_btn.hide().addClass("hide");
+			}
+		}
+	}
+
 	show_test_dialog() {
 		let d = new frappe.ui.Dialog({
 			title: __("Test Rule"),
@@ -150,32 +172,44 @@ class RuleBuilder {
 					options: "doctype",
 					reqd: 1,
 				},
+				{
+					fieldtype: "Check",
+					fieldname: "save_log",
+					label: __("Create Execution Log"),
+					description: __("Persist a log record even for this test run"),
+					default: 1,
+				},
 			],
 			primary_action_label: __("Test"),
 			primary_action: (values) => {
 				frappe.call({
-					method: "flexirule.ruleflow.api.execute_rule",
+					method: "flexirule.ruleflow.api.test_rule",
 					args: {
 						rule_name: this.rule,
-						context: {
-							doc: {
-								doctype: values.doctype,
-								name: values.docname,
-							}
-						},
-						dry_run: true
+						doctype: values.doctype,
+						docname: values.docname,
+						save_log: values.save_log,
 					},
 					callback: (r) => {
 						if (r.message?.success) {
+							// Highlight path in builder
+							if (r.message.execution_path) {
+								this.store.set_test_result(
+									r.message.execution_path,
+									r.message.context_snapshot
+								);
+								this.update_test_ui(r.message.execution_path);
+							}
+
 							frappe.msgprint({
 								title: __("Success"),
-								message: __("Rule execution completed successfully (Dry Run)"),
+								message: r.message?.message || __("Rule test completed successfully"),
 								indicator: "green",
 							});
 						} else {
 							frappe.msgprint({
 								title: __("Error"),
-								message: r.message?.error || __("Execution failed"),
+								message: r.message?.error || __("Test failed"),
 								indicator: "red",
 							});
 						}

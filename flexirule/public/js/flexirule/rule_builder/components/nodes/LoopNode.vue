@@ -10,6 +10,14 @@ const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
 });
 
+const testResults = computed(() => {
+	const path = store.test_execution_path || [];
+	return path.filter(entry => entry.action_id === props.id);
+});
+
+const visitCount = computed(() => testResults.value.length);
+const firstVisit = computed(() => testResults.value[0]);
+
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 }
@@ -18,8 +26,16 @@ function deleteNode() {
 <template>
 	<div 
 		class="loop-node-card" 
-		:class="{ selected: selected, disabled: isEffectiveDisabled }"
+		:class="{ 
+			selected: selected, 
+			disabled: isEffectiveDisabled,
+			'test-executed': visitCount > 0
+		}"
 	>
+		<!-- Execution Badge -->
+		<div v-if="visitCount > 0" class="execution-badge" :title="__('Visit Count')">
+			{{ visitCount > 1 ? visitCount + 'x' : store.test_execution_path.indexOf(firstVisit) + 1 }}
+		</div>
 		<Handle type="target" :position="Position.Left" class="handle-target" />
 
 		<div class="node-header">
@@ -68,6 +84,29 @@ function deleteNode() {
 .loop-node-card.selected {
 	box-shadow: 0 0 0 2px #fab005;
 	border-color: #fab005;
+}
+
+.loop-node-card.test-executed {
+	box-shadow: 0 0 0 3px #198754;
+	border-color: #198754;
+}
+
+.execution-badge {
+	position: absolute;
+	top: -8px;
+	left: -8px;
+	background: #198754;
+	color: #fff;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	font-weight: 700;
+	z-index: 10;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .node-header {

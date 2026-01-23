@@ -32,7 +32,8 @@ const EXCLUDED_FIELDS = [
 	"config", // Managed by V2 modal
 	"condition_json", // Managed by V2 modal
 	"input_mapping", // Managed by V2 modal
-	"output_mapping" // Managed by V2 modal
+	"output_mapping", // Managed by V2 modal
+	"process_method" // Obsolete
 ];
 
 // Layout fields to skip

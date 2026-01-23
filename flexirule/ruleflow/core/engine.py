@@ -461,6 +461,12 @@ class RuleEngine:
                     # Handlers now return (result, next_id)
                     result, next_id = handler(current, context)
 
+                # Store result in path trace
+                try:
+                    self.path_trace[-1]["result"] = result
+                except:
+                    pass
+
                 # Enhance path trace with result/inputs for Process
                 if current.action_type == "Process":
                     # Use JSON serialization for output if possible (better for JS UI)
@@ -799,15 +805,14 @@ class RuleEngine:
         Execute Process Logic (Supports 'Process' DocType)
         """
         process_name = getattr(action, "process_name", None)
-        process_method_name = getattr(action, "process_method", None)
         operation = getattr(action, "operation", None)
 
-        if not process_name and not process_method_name:
+        if not process_name:
             self._log(
                 "WARNING",
-                _(
-                    "Process action {0} has no process_name or process_method set"
-                ).format(action.action_label),
+                _("Process action {0} has no process_name set").format(
+                    action.action_label
+                ),
             )
             return None, getattr(action, "next_step_if_true", None)
 
@@ -1262,9 +1267,15 @@ class RuleEngine:
                 # However, we might want to still log if it failed?
                 # For now, let's just avoid any commits.
                 pass
-            elif status in ("Failed", "Error") and not (active_context or {}).get(
-                "test_mode"
-            ):
+            elif active_context.get("save_log"):
+                # Forced persistence (used for Testing with logs)
+                # Rollback changes to the document, then save the log and commit.
+                frappe.db.rollback()
+                log_doc.insert(ignore_permissions=True, ignore_links=True)
+                frappe.db.commit()
+                # Re-fetch the doc in the new transaction if needed?
+                # Usually unnecessary as the execution is over.
+            elif status in ("Failed", "Error") and not active_context.get("test_mode"):
                 frappe.db.rollback()
                 log_doc.insert(ignore_permissions=True, ignore_links=True)
                 frappe.db.commit()

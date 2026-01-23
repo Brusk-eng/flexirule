@@ -50,8 +50,8 @@
 					</div>
 					<div class="modal-body">
 						<div class="mb-3 d-flex justify-content-end">
-							<label class="d-flex align-items-center gap-2" style="cursor: pointer">
-								<input type="checkbox" v-model="showOldDoc" />
+							<label class="d-flex align-items-center gap-2" :style="{ cursor: store.is_read_only ? 'default' : 'pointer' }">
+								<input type="checkbox" v-model="showOldDoc" :disabled="store.is_read_only" />
 								<span class="small">{{ __("Show Old Document Fields") }}</span>
 							</label>
 						</div>

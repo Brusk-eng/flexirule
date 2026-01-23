@@ -6,6 +6,7 @@
 				v-if="configComponent"
 				ref="configRef"
 				:node="node"
+				:readOnly="readOnly"
 				@update:field="updateField"
 			/>
 			<div v-else class="empty-config p-5 text-center">
@@ -25,6 +26,7 @@ import { useStore } from "../../store";
 
 const props = defineProps({
 	node: Object,
+	readOnly: Boolean,
 });
 
 const store = useStore();
@@ -37,7 +39,7 @@ watch(() => props.node, (newNode) => {
 }, { immediate: true });
 
 function updateLabel() {
-	if (!props.node) return;
+	if (!props.node || props.readOnly) return;
 	props.node.data.action_label = actionLabel.value;
 	props.node.label = actionLabel.value;
 	store.mark_dirty();

@@ -10,6 +10,11 @@ const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
 });
 
+const testResult = computed(() => {
+	const path = store.test_execution_path || [];
+	return path.find(entry => entry.action_id === props.id);
+});
+
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 }
@@ -18,8 +23,18 @@ function deleteNode() {
 <template>
 	<div 
 		class="condition-node-card" 
-		:class="{ selected: selected, disabled: isEffectiveDisabled }"
+		:class="{ 
+			selected: selected, 
+			disabled: isEffectiveDisabled,
+			'test-executed': !!testResult,
+			'outcome-true': testResult && testResult.result === true,
+			'outcome-false': testResult && testResult.result === false
+		}"
 	>
+		<!-- Execution Badge -->
+		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
+			{{ store.test_execution_path.indexOf(testResult) + 1 }}
+		</div>
 		<!-- Input Handle -->
 		<Handle type="target" :position="Position.Left" class="handle-target" />
 
@@ -70,6 +85,37 @@ function deleteNode() {
 .condition-node-card.selected {
 	box-shadow: 0 0 0 2px #fd7e14;
 	border-color: #fd7e14;
+}
+
+.condition-node-card.test-executed {
+	box-shadow: 0 0 0 3px #198754;
+	border-color: #198754;
+}
+
+.condition-node-card.outcome-true {
+	background-color: #f6ffed;
+}
+
+.condition-node-card.outcome-false {
+	background-color: #fff1f0;
+}
+
+.execution-badge {
+	position: absolute;
+	top: -8px;
+	left: -8px;
+	background: #198754;
+	color: #fff;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	font-weight: 700;
+	z-index: 10;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 /* Header */

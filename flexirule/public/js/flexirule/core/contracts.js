@@ -18,6 +18,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: false,
         icon: "fa fa-play",
         color: "#22c55e",
+        description: "The starting point of your rule flow. Defines when the rule is triggered.",
     },
     "Condition": {
         required_fields: ["condition_json"],
@@ -26,6 +27,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: false,
         icon: "fa fa-code-fork",
         color: "#3b82f6",
+        description: "Branch your flow based on a logical condition. If true, following the 'True' path; otherwise, follow 'False'.",
     },
     "Process": {
         required_fields: ["process_name", "operation"],
@@ -35,6 +37,7 @@ export const ACTION_TYPE_CONTRACT = {
         dynamic_fields: true, // Fields come from operation schema
         icon: "fa fa-cog",
         color: "#8b5cf6",
+        description: "Execute a specific business process or operation. Operations can interact with the database, current document, or external systems.",
     },
     "Loop": {
         required_fields: ["config"],
@@ -43,6 +46,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: false,
         icon: "fa fa-refresh",
         color: "#f59e0b",
+        description: "Iterate over a list of items and execute actions for each item.",
     },
     "Stop": {
         required_fields: [],
@@ -51,6 +55,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: true,
         icon: "fa fa-stop",
         color: "#ef4444",
+        description: "Terminates the rule execution immediately.",
     },
     "Switch": {
         required_fields: ["config"],
@@ -59,6 +64,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: false,
         icon: "fa fa-random",
         color: "#06b6d4",
+        description: "Direct the flow to different paths based on the value of a specific field or expression.",
     },
     "Wait": {
         required_fields: [],
@@ -67,6 +73,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: false,
         icon: "fa fa-clock-o",
         color: "#64748b",
+        description: "Introduce a delay or wait for a specific event before proceeding.",
     },
     "Sub-Rule": {
         required_fields: ["rule"],
@@ -75,6 +82,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: false,
         icon: "fa fa-cube",
         color: "#ec4899",
+        description: "Invoke another rule as a reusable component within this flow.",
     },
     "Set Value": {
         required_fields: ["target_field", "value_template"],
@@ -83,6 +91,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: false,
         icon: "fa fa-edit",
         color: "#14b8a6",
+        description: "Update a field in the current document with a calculated value.",
         validation: {
             check_target_field_editable: true,
         },
@@ -94,6 +103,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: true,
         icon: "fa fa-exclamation-triangle",
         color: "#dc2626",
+        description: "Stop execution and display an error message to the user.",
     },
     "Notify": {
         required_fields: ["notification_template"],
@@ -102,6 +112,7 @@ export const ACTION_TYPE_CONTRACT = {
         terminal: false,
         icon: "fa fa-bell",
         color: "#0ea5e9",
+        description: "Send a notification (toast, system message, or email) to the user.",
     },
 };
 

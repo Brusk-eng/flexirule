@@ -15,9 +15,11 @@
 							fieldname: 'return_variable',
 							fieldtype: 'Data',
 							label: __('Result Variable Name'),
-							description: __('Name of the variable to store the action output')
+							description: __('Name of the variable to store the action output'),
+							read_only: readOnly
 						}"
 						:modelValue="node.data?.return_variable"
+						:read_only="readOnly"
 						@update:modelValue="updateField('return_variable', $event)"
 					/>
 				</div>
@@ -27,7 +29,7 @@
 			<div class="panel-section">
 				<div class="section-header">
 					<h5 class="section-title">{{ __("Variable Assignments") }}</h5>
-					<button class="btn btn-xs btn-link" @click="addMapping">
+					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addMapping">
 						<i class="fa fa-plus"></i> {{ __("Add") }}
 					</button>
 				</div>
@@ -43,18 +45,20 @@
 								class="form-control input-xs" 
 								v-model="m.source" 
 								:placeholder="__('Result Key')"
+								:disabled="readOnly"
 								@change="saveMappings"
 							/>
 							<i class="fa fa-arrow-right text-muted mx-1"></i>
 							<AutocompleteControl
-								:df="{ fieldtype: 'Autocomplete', label: '' }"
+								:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
 								:modelValue="m.target"
 								:get_options="getVariableOptions"
 								:placeholder="__('Context Variable')"
+								:read_only="readOnly"
 								@update:modelValue="m.target = $event; saveMappings();"
 							/>
 						</div>
-						<button class="btn btn-xs btn-link text-danger" @click="removeMapping(idx)">
+						<button v-if="!readOnly" class="btn btn-xs btn-link text-danger" @click="removeMapping(idx)">
 							<i class="fa fa-trash"></i>
 						</button>
 					</div>
@@ -80,6 +84,7 @@ import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 
 const props = defineProps({
 	node: Object,
+	readOnly: Boolean,
 });
 
 const store = useStore();

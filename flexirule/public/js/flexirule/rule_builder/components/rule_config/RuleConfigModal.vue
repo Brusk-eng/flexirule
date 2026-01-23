@@ -14,12 +14,12 @@
 						</div>
 						<div class="header-actions">
 							<button class="btn btn-sm btn-default mr-2" v-if="actionType === 'process'" @click="useExperimentalV2 = !useExperimentalV2">
-								<i class="fa fa-flask"></i> {{ useExperimentalV2 ? __("Standard View") : __("V2 Vision") }}
+								<i class="fa fa-flask"></i> {{ store.is_read_only && !useExperimentalV2 ? __("Explain") : useExperimentalV2 ? __("Standard View") : __("V2 Vision") }}
 							</button>
 							<button class="btn btn-sm btn-default" @click="close">
-								{{ __("Cancel") }}
+								{{ store.is_read_only ? __("Close") : __("Cancel") }}
 							</button>
-							<button class="btn btn-sm btn-primary ml-2" @click="save">
+							<button v-if="!store.is_read_only" class="btn btn-sm btn-primary ml-2" @click="save">
 								{{ __("Save Changes") }}
 							</button>
 							<button class="btn-close-modal ml-3" @click="close">×</button>
@@ -30,25 +30,25 @@
 						<ResizablePanel v-if="localNode && !useExperimentalV2">
 							<!-- Left Panel: Input Selection -->
 							<div class="resizable-panel left-panel" v-if="showLeftPanel">
-								<InputPanel :node="localNode" ref="inputPanelRef" />
+								<InputPanel :node="localNode" :readOnly="store.is_read_only" ref="inputPanelRef" />
 							</div>
 
 							<div class="panel-resizer" v-if="showLeftPanel"></div>
 
 							<!-- Middle Panel: Dynamic Configuration -->
 							<div class="resizable-panel middle-panel">
-								<ConfigurationPanel :node="localNode" ref="configurationPanelRef" />
+								<ConfigurationPanel :node="localNode" :readOnly="store.is_read_only" ref="configurationPanelRef" />
 							</div>
 
 							<div class="panel-resizer" v-if="showRightPanel"></div>
 
 							<!-- Right Panel: Output/Mapping -->
 							<div class="resizable-panel right-panel" v-if="showRightPanel">
-								<OutputPanel :node="localNode" ref="outputPanelRef" />
+								<OutputPanel :node="localNode" :readOnly="store.is_read_only" ref="outputPanelRef" />
 							</div>
 						</ResizablePanel>
 
-						<V2PreviewPanel v-else-if="localNode && useExperimentalV2" />
+						<V2PreviewPanel v-else-if="localNode && useExperimentalV2" :node="localNode" />
 					</main>
 				</div>
 			</div>

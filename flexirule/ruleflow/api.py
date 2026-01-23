@@ -181,7 +181,7 @@ def should_include_field(df, allowed_types=None, excluded_types=None):
 
 
 @frappe.whitelist()
-def test_rule(rule_name, doctype, docname):
+def test_rule(rule_name, doctype, docname, save_log=False):
     """
     Test a rule against a specific document.
 
@@ -204,18 +204,25 @@ def test_rule(rule_name, doctype, docname):
                 "execution_log": {},
             }
 
-        engine = RuleEngine(rule_doc, {"test_mode": True})
-        result = engine.execute(doc)
+        engine = RuleEngine(
+            rule_doc, {"test_mode": True, "save_log": frappe.parse_json(save_log)}
+        )
+        engine.execute(doc)
 
         # Include info about skipped trigger filters for transparency
         info_msg = _("Rule '{0}' executed successfully").format(rule_doc.rule_name)
         if rule_doc.trigger_condition_expression:
             info_msg += _(" (trigger filters were bypassed for manual test)")
 
+        # Capture path trace from engine
+        path_trace = getattr(engine, "path_trace", [])
+
         return {
             "success": True,
             "message": info_msg,
             "execution_log": engine.execution_log,
+            "execution_path": path_trace,
+            "context_snapshot": {},  # Could add more detail if needed
         }
 
     except Exception as e:

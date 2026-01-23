@@ -16,6 +16,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 	let fetch_counter = ref(0);
 	let meta_loading = computed(() => fetch_counter.value > 0);
 
+	let test_execution_path = ref([]);
+	let test_context = ref({});
+
 	const doc_fields = computed(() => {
 		const doctype = rule_doc.value?.document_type;
 		if (!doctype || !doc_meta.value[doctype]) return [];
@@ -181,6 +184,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 		if (visual_data && visual_data.length > 0) {
 			nodes.value = visual_data.filter((el) => el.position);
 			edges.value = visual_data.filter((el) => el.source);
+
+			// Recovery: Ensure start node exists
+			const hasStart = nodes.value.some(n => n.id === 'start' || n.id === 'root' || n.type === 'start');
+			if (!hasStart) {
+				console.warn("RuleBuilder: Start node missing in visual_data. Reconstructing from actions.");
+				sync_actions_to_graph();
+			}
 		} else if (rule_doc.value.actions && rule_doc.value.actions.length > 0) {
 			sync_actions_to_graph();
 		} else {
@@ -355,15 +365,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		rule_doc.value.actions.forEach((action, index) => {
 			const nodeId = action.action_id || `action-${index}`;
-			let type = (action.action_type || "Process").toLowerCase();
+			const actionTypeRaw = (action.action_type || "Process").trim();
+			let type = actionTypeRaw.toLowerCase();
 
-			if (action.action_type === "Entry Action") {
+			const isRoot = actionTypeRaw === "Entry Action" || nodeId === "start" || nodeId === "root";
+
+			if (isRoot) {
 				type = "start";
-			} else if (action.action_type === "Sub-Rule" || action.action_type === "Sub-rule") {
+			} else if (type === "sub-rule") {
 				type = "sub-rule";
 			}
 
-			const isRoot = action.action_type === "Entry Action" || action.action_id === "start" || action.action_id === "root";
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;
 			// Safe JSON parse helper
 			const safeParse = (val) => {
@@ -380,7 +392,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 				action_label: action.action_label,
 				process_name: action.process_name,
 				operation: action.operation,
-				process_method: action.process_method,
 				config: configData,
 				target_field: action.target_field,
 				value_template: action.value_template,
@@ -738,7 +749,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 					is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
 					process_name: node.data?.process_name,
 					operation: node.data?.operation,
-					process_method: node.data?.process_method,
 					config: (node.data?.config && typeof node.data.config !== 'string') ? JSON.stringify(node.data.config) : node.data?.config,
 					target_field: node.data?.target_field,
 					value_template: node.data?.value_template,
@@ -889,6 +899,16 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return await flexirule.utils.get_combined_fields(doctype, context_vars, "doc");
 	}
 
+	function set_test_result(path, context) {
+		test_execution_path.value = path || [];
+		test_context.value = context || {};
+	}
+
+	function clear_test_result() {
+		test_execution_path.value = [];
+		test_context.value = {};
+	}
+
 	return {
 		rule_name,
 		rule_doc,
@@ -904,6 +924,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 		doc_meta,
 		raw_meta,
 		meta_loading,
+		test_execution_path,
+		test_context,
 		fetch,
 		fetch_metadata,
 		get_fields_for_doctype,
@@ -925,5 +947,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		commit_history,
 		getAvailableVariables,
 		is_read_only,
+		set_test_result,
+		clear_test_result,
 	};
 });

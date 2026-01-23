@@ -29,6 +29,11 @@ const nodeMeta = computed(() => {
 	return { color: "#0d6efd", icon: "fa-cog", typeLabel: __("PROCESS") };
 });
 
+const testResult = computed(() => {
+	const path = store.test_execution_path || [];
+	return path.find(entry => entry.action_id === props.id);
+});
+
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 }
@@ -41,9 +46,17 @@ function toggleConfig() {
 <template>
 	<div
 		class="process-node-card"
-		:class="{ selected: selected, disabled: isEffectiveDisabled }"
+		:class="{ 
+			selected: selected, 
+			disabled: isEffectiveDisabled,
+			'test-executed': !!testResult
+		}"
 		:style="{ '--accent-color': nodeMeta.color }"
 	>
+		<!-- Execution Badge -->
+		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
+			{{ store.test_execution_path.indexOf(testResult) + 1 }}
+		</div>
 		<Handle type="target" :position="Position.Left" class="handle-target" />
 
 		<!-- Header with Type and Icon -->
@@ -61,8 +74,8 @@ function toggleConfig() {
 		<!-- Main Content -->
 		<div class="node-body">
 			<div class="node-title">{{ data.action_label || label }}</div>
-			<div class="node-subtitle" v-if="data.operation || data.process_method">
-				{{ data.operation || data.process_method }}
+			<div class="node-subtitle" v-if="data.operation">
+				{{ data.operation }}
 			</div>
 		</div>
 
@@ -114,6 +127,29 @@ function toggleConfig() {
 .process-node-card.selected {
 	box-shadow: 0 0 0 2px var(--accent-color);
 	border-color: var(--accent-color);
+}
+
+.process-node-card.test-executed {
+	box-shadow: 0 0 0 3px #198754;
+	border-color: #198754;
+}
+
+.execution-badge {
+	position: absolute;
+	top: -8px;
+	left: -8px;
+	background: #198754;
+	color: #fff;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	font-weight: 700;
+	z-index: 10;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 /* Header */

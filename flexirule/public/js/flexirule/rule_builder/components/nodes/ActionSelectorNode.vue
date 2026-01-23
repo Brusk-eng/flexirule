@@ -6,27 +6,38 @@ import { useStore } from "../../store";
 const props = defineProps(["data", "label", "id", "selected"]);
 const store = useStore();
 
-const selectedType = ref("process");
+const selectedType = ref("Process");
 const customLabel = ref("");
 
 const actionTypes = computed(() => {
-	const types = [
-		{ label: __("Process"), value: "process", actionType: "Process", icon: "fa-cog" },
-		{ label: __("Condition"), value: "condition", actionType: "Condition", icon: "fa-code-fork" },
-		{ label: __("Loop"), value: "loop", actionType: "Loop", icon: "fa-refresh" },
-		{ label: __("Switch"), value: "switch", actionType: "Switch", icon: "fa-code-fork" },
-		{ label: __("Wait"), value: "wait", actionType: "Wait", icon: "fa-clock-o" },
-		{ label: __("Sub-Rule"), value: "sub-rule", actionType: "Sub-Rule", icon: "fa-cube" },
-		{ label: __("Stop"), value: "stop", actionType: "Stop", icon: "fa-stop-circle" },
-	];
+	const meta = frappe.get_meta("Rule Action");
+	if (!meta || !meta.fields) return [];
 
-	// Only show Start if it doesn't exist
-	const hasStart = store.nodes.some(n => n.type === 'start' || n.id === 'start');
-	if (!hasStart) {
-		types.unshift({ label: __("Start"), value: "start", actionType: "Entry Action", icon: "fa-play-circle" });
-	}
+	const typeField = meta.fields.find(f => f.fieldname === 'action_type');
+	if (!typeField || !typeField.options) return [];
 
-	return types;
+	// Map of action types to icons
+	const iconMap = {
+		"Process": "fa-cog",
+		"Condition": "fa-code-fork",
+		"Loop": "fa-refresh",
+		"Switch": "fa-code-fork",
+		"Wait": "fa-clock-o",
+		"Sub-Rule": "fa-cube",
+		"Stop": "fa-stop-circle",
+		"Set Value": "fa-edit",
+		"Raise Error": "fa-exclamation-triangle",
+		"Notify": "fa-bell"
+	};
+
+	return typeField.options.split("\n")
+		.filter(t => t && t !== "Entry Action" && t !== "Start")
+		.map(t => ({
+			label: __(t),
+			value: t, // Keep exact value for action_type
+			actionType: t,
+			icon: iconMap[t] || "fa-cog"
+		}));
 });
 
 function onCreate() {
@@ -38,7 +49,7 @@ function onCreate() {
 	const label = customLabel.value.trim() || typeConfig.label;
 	
 	// Upgrade the node
-	store.nodes[nodeIndex].type = selectedType.value;
+	store.nodes[nodeIndex].type = typeConfig.actionType.toLowerCase();
 	store.nodes[nodeIndex].label = label;
 	store.nodes[nodeIndex].data = {
 		...store.nodes[nodeIndex].data,

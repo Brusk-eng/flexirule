@@ -67,9 +67,115 @@ class Rule(Document):
         self.validate_actions()
         self.validate_no_sub_rule_cycles()
         self.validate_variable_availability()
-        self.validate_variable_availability()
         self.validate_active_rule_lock()
+
+        # New strict validations
+        self.validate_strict_requirements()
+
         self.status = self.get_computed_status()
+
+    def validate_strict_requirements(self):
+        """
+        Perform strict checks when rule is active.
+        """
+        if not self.is_active:
+            return
+
+        # 1. Enforce Reachability (No orphans)
+        from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
+
+        validate_graph_integrity(self)
+
+        # 2. Enforce exactly one Entry Action
+        entry_nodes = [a for a in self.actions if a.action_type == "Entry Action"]
+        if len(entry_nodes) != 1:
+            frappe.throw(
+                _("Active Rule must have exactly one Entry Action (Start) node.")
+            )
+
+        # 3. Enforce Trigger Alignment (Doc-editing actions vs Trigger Event)
+        self.validate_trigger_alignment()
+
+    def validate_trigger_alignment(
+        self, rule_doc=None, visited_rules=None, is_after_event_context=None
+    ):
+        """
+        Ensure document-editing actions are only present in 'Before' triggers.
+        Recursively checks sub-rules.
+
+        Manual triggers are allowed to define doc-editing actions (for use as sub-rules),
+        but their usage is restricted based on the calling rule's trigger.
+        """
+        if visited_rules is None:
+            visited_rules = set()
+
+        doc_to_check = rule_doc or self
+
+        if doc_to_check.name in visited_rules:
+            return
+        visited_rules.add(doc_to_check.name)
+
+        # Define 'Before' events that allow document modification
+        before_events = [
+            "Before Naming",
+            "Before Insert",
+            "Before Save",
+            "Validate",
+            "Before Submit",
+        ]
+
+        # Local context: Manual rules are not considered 'after events' when defined.
+        # They only become 'after events' if called from an after-event parent.
+        is_manual = doc_to_check.trigger_event == "Manual"
+        local_is_after_event = (
+            doc_to_check.trigger_event not in before_events and not is_manual
+        )
+
+        # Effective context: inherited from parent or determined locally for root rule
+        effective_after_event = (
+            is_after_event_context
+            if is_after_event_context is not None
+            else local_is_after_event
+        )
+
+        for action in doc_to_check.actions:
+            # Check Set Value
+            if action.action_type == "Set Value" and effective_after_event:
+                frappe.throw(
+                    _(
+                        "Action '{0}' (Set Value) in Rule '{1}' is not allowed in current execution context. "
+                        "Document modification is restricted after the document is saved. "
+                        "Parent/Trigger: {2}"
+                    ).format(action.action_label, doc_to_check.name, self.trigger_event)
+                )
+
+            # Check Process operations that write to Document
+            if action.action_type == "Process" and effective_after_event:
+                if action.process_name and action.operation:
+                    try:
+                        process = frappe.get_cached_doc("Process", action.process_name)
+                        op = process.get_operation(action.operation)
+                        if op and op.writes_to == "Document":
+                            frappe.throw(
+                                _(
+                                    "Action '{0}' in Rule '{1}' uses operation '{2}' which modifies the document. "
+                                    "This is restricted in current execution context (Parent/Trigger: {3})."
+                                ).format(
+                                    action.action_label,
+                                    doc_to_check.name,
+                                    action.operation,
+                                    self.trigger_event,
+                                )
+                            )
+                    except Exception:
+                        pass  # Handled by other validations
+
+            # Recursive check for Sub-Rules
+            if action.action_type == "Sub-Rule" and action.rule:
+                sub_rule = frappe.get_doc("Rule", action.rule)
+                self.validate_trigger_alignment(
+                    sub_rule, visited_rules, effective_after_event
+                )
 
     def validate_active_rule_lock(self):
         """
@@ -622,10 +728,23 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
             filters={"rule": rule_name, "reference_docname": doc.name},
             order_by="creation desc",
             limit=1,
-            fields=["status", "message", "execution_path"],
+            fields=["status", "message", "execution_path", "context_snapshot"],
         )
 
         log_data = logs[0] if logs else {}
+
+        # Parse JSON fields
+        if log_data.get("execution_path"):
+            try:
+                log_data["execution_path"] = json.loads(log_data["execution_path"])
+            except:
+                pass
+
+        if log_data.get("context_snapshot"):
+            try:
+                log_data["context_snapshot"] = json.loads(log_data["context_snapshot"])
+            except:
+                pass
 
     except Exception as e:
         return {"success": False, "status": _("Failed"), "error": str(e)}
@@ -634,5 +753,7 @@ def test_rule(rule_name, doctype=None, docname=None, document_json=None):
         "success": True,
         "status": _(log_data.get("status", "Success")),
         "execution_log": log_data,
+        "execution_path": log_data.get("execution_path", []),
+        "context_snapshot": log_data.get("context_snapshot", {}),
         "message": _("Rule {0} executed.").format(rule_name),
     }
