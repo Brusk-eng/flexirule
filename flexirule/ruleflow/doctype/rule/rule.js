@@ -1,6 +1,3 @@
-// Copyright (c) 2026, FlexiRule and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on("Rule", {
 	onload(frm) {
 		frm._process_ops_cache = {};
@@ -8,7 +5,6 @@ frappe.ui.form.on("Rule", {
 		const grid = frm.get_field("actions").grid;
 		const op_field = grid.get_field("operation");
 
-		// Set get_data once on the column field - most robust for Autocomplete
 		op_field.get_data = function () {
 			const row = this.grid_row.doc;
 			if (!row || !row.process_name || row.action_type !== "Process") return [];
@@ -18,7 +14,6 @@ frappe.ui.form.on("Rule", {
 				return cached.map(op => ({ value: op, description: "" }));
 			}
 
-			// Fallback: fetch and return promise
 			return frappe.call({
 				method: "flexirule.ruleflow.api.get_process_operations",
 				args: { process_name: row.process_name },
@@ -30,48 +25,38 @@ frappe.ui.form.on("Rule", {
 		};
 	},
 
+	is_active(frm) {
+		if (frm.doc.is_active === 0 && frm._was_active) {
+			frm.set_value("is_active", 1);
+			show_deactivation_dialog(frm);
+			return;
+		}
+
+		apply_active_lock(frm);
+		frm.refresh_fields();
+		frm._was_active = frm.doc.is_active;
+	},
+
 	refresh(frm) {
 		if (frm.is_new()) return;
 
-		// Primary action
+		frm._was_active = frm.doc.is_active;
+
 		frm.page.clear_primary_action();
 		frm.page.set_primary_action(__("Visual Builder"), () => {
 			frappe.set_route("rule-builder", frm.doc.name);
 		});
 
-		// Actions
 		frm.page.clear_custom_actions();
 		frm.add_custom_button(__("Clone Rule"), () => clone_rule(frm), __("Actions"));
 		frm.add_custom_button(__("Test Rule"), () => test_rule(frm), __("Actions"));
 		frm.add_custom_button(__("Clear Cache"), () => clear_rule_cache(frm), __("Actions"));
 
-		// Governance: Active Rule Read-Only lock
-		if (frm.doc.is_active) {
-			frm.set_read_only(true);
-			frm.set_df_property("is_active", "read_only", 0);
-			frm.dashboard.set_headline_alert(
-				__("This rule is active and locked for editing. Please deactivate it to enable editing for any field."),
-				"orange"
-			);
-		} else {
-			frm.set_read_only(false);
-		}
+		apply_active_lock(frm);
 
-		if (frm.dashboard) {
-			frm.dashboard.clear_headline();
-			if (frm.doc.execution_count) {
-				frm.dashboard.add_indicator(
-					__("Executed {0} times", [frm.doc.execution_count]),
-					"blue"
-				);
-			}
-			if (frm.doc.last_error) {
-				frm.dashboard.add_indicator(__("Has Errors"), "red");
-			}
-		}
+		update_dashboard_indicators(frm);
 
-		// Initialize operation options for all rows
-		if (frm.doc.actions && frm.doc.actions.length) {
+		if (frm.doc.actions?.length) {
 			frm.doc.actions.forEach(row => {
 				update_operation_options(frm, "Rule Action", row.name);
 			});
@@ -84,7 +69,7 @@ frappe.ui.form.on("Rule", {
 			frm.doc.trigger_event &&
 			(!frm.doc.actions || !frm.doc.actions.length)
 		) {
-			const row = frm.add_child("actions", {
+			frm.add_child("actions", {
 				action_id: "root",
 				action_type: "Entry Action",
 				is_enabled: 1,
@@ -107,32 +92,141 @@ frappe.ui.form.on("Rule Action", {
 
 	action_type(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
+
 		if (row.action_type !== "Process") {
 			frappe.model.set_value(cdt, cdn, "process_name", null);
 			frappe.model.set_value(cdt, cdn, "operation", null);
 			frappe.model.set_value(cdt, cdn, "config", null);
 		}
+
 		toggle_action_fields(frm, cdt, cdn);
 	},
 
 	process_name(frm, cdt, cdn) {
-		// reset operation when process changes
 		frappe.model.set_value(cdt, cdn, "operation", null);
 		frappe.model.set_value(cdt, cdn, "config", null);
 		update_operation_options(frm, cdt, cdn);
 	},
 
-	// Button field from DocType
 	configure_operation(frm, cdt, cdn) {
 		configure_operation_from_form(frm, cdt, cdn);
 	},
 });
 
+function apply_active_lock(frm) {
+	const is_active = !!frm.doc.is_active;
+
+	frm.fields.forEach(field => {
+		if (!field.df || field.df.fieldname === "is_active") return;
+		frm.set_df_property(field.df.fieldname, "read_only", is_active ? 1 : 0);
+	});
+
+	frm.set_df_property("is_active", "read_only", 0);
+
+	Object.values(frm.fields_dict).forEach(f => {
+		if (!f.grid) return;
+		f.grid.cannot_add_rows = is_active;
+		f.grid.cannot_delete_rows = is_active;
+		f.grid.only_sortable = is_active;
+		f.grid.wrapper
+			.find(".grid-row, .grid-add-row")
+			.toggleClass("disabled", is_active);
+	});
+
+	if (is_active) {
+		frm.dashboard.set_headline_alert(
+			__("This rule is active and locked. Deactivate it to edit."),
+			"orange"
+		);
+	} else {
+		frm.dashboard.clear_headline();
+	}
+}
+
+function show_deactivation_dialog(frm) {
+	const d = new frappe.ui.Dialog({
+		title: __("Deactivate Rule"),
+		fields: [
+			{
+				fieldtype: "HTML",
+				fieldname: "info",
+				options: `<p>This rule is active. How would you like to proceed?</p>`,
+			},
+		],
+		primary_action_label: __("Edit Current Rule"),
+		primary_action() {
+			frm.set_value("is_active", 0);
+			apply_active_lock(frm);
+			frm.refresh_fields();
+			d.hide();
+		},
+		secondary_action_label: __("Create Copy & Edit"),
+		secondary_action() {
+			d.hide();
+			create_copy_and_edit(frm);
+		},
+	});
+
+	d.show();
+}
+
+function create_copy_and_edit(frm) {
+	frappe.call({
+		method: "flexirule.ruleflow.api.clone_rule",
+		args: {
+			rule_name: frm.doc.name,
+			new_name: `${frm.doc.rule_name} (Draft)`,
+		},
+		freeze: true,
+		callback(r) {
+			if (r.message) {
+				frappe.set_route("Form", "Rule", r.message);
+			}
+		},
+	});
+}
+function update_dashboard_indicators(frm) {
+	if (!frm.dashboard) return;
+
+	frm.dashboard.clear_headline();
+
+	if (frm.dashboard.indicator_area) {
+		frm.dashboard.indicator_area.empty();
+	}
+
+	if (!frm._dashboard_rendered) {
+		frm._dashboard_rendered = {};
+	}
+
+	const indicators = [];
+
+	if (frm.doc.execution_count) {
+		indicators.push({
+			label: __("Executed {0} times", [frm.doc.execution_count]),
+			color: "blue",
+			key: "execution_count"
+		});
+	}
+
+	if (frm.doc.last_error) {
+		indicators.push({
+			label: __("Has Errors"),
+			color: "red",
+			key: "last_error"
+		});
+	}
+
+	indicators.forEach(ind => {
+		if (!frm._dashboard_rendered[ind.key]) {
+			frm.dashboard.add_indicator(ind.label, ind.color);
+			frm._dashboard_rendered[ind.key] = true;
+		}
+	});
+}
+
 function toggle_action_fields(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
-	const grid = frm.get_field("actions").grid;
-	const grid_row = grid.get_row(cdn);
-
+	const grid_row = frm.get_field("actions").grid.get_row(cdn);
 	if (!grid_row) return;
 
 	const hide_all = [
@@ -154,226 +248,61 @@ function toggle_action_fields(frm, cdt, cdn) {
 
 	hide_all.forEach(f => grid_row.toggle_display(f, false));
 
-	switch (row.action_type) {
-		case "Process":
-			[
-				"process_name",
-				"operation",
-				"config",
-				"timeout",
-				"is_async",
-				"on_error",
-				"configure_operation",
-			].forEach(f => grid_row.toggle_display(f, true));
-			break;
+	if (row.action_type === "Process") {
+		[
+			"process_name",
+			"operation",
+			"config",
+			"timeout",
+			"is_async",
+			"on_error",
+			"configure_operation",
+		].forEach(f => grid_row.toggle_display(f, true));
+	}
 
-		case "Condition":
-			[
-				"condition_expression",
-				"condition_json",
-				"next_step_if_false",
-			].forEach(f => grid_row.toggle_display(f, true));
-			break;
+	if (row.action_type === "Condition") {
+		[
+			"condition_expression",
+			"condition_json",
+			"next_step_if_false",
+		].forEach(f => grid_row.toggle_display(f, true));
+	}
 
-		case "Sub-Rule":
-			[
-				"rule",
-				"skip_conditions",
-				"skip_permissions",
-			].forEach(f => grid_row.toggle_display(f, true));
-			break;
+	if (row.action_type === "Sub-Rule") {
+		[
+			"rule",
+			"skip_conditions",
+			"skip_permissions",
+		].forEach(f => grid_row.toggle_display(f, true));
 	}
 }
 
 function update_operation_options(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
-	if (!row || !row.process_name || row.action_type !== "Process") return;
+	if (!row || row.action_type !== "Process" || !row.process_name) return;
 
-	const grid = frm.get_field("actions").grid;
-	// Use row.name if available, else cdn. More stable for existing rows.
-	const grid_row = grid.get_row(row.name || cdn);
-
+	const grid_row = frm.get_field("actions").grid.get_row(row.name || cdn);
 	if (!grid_row) return;
 
-	const apply_ops = (ops) => {
+	const apply_ops = ops => {
 		const field = grid_row.get_field("operation");
-		if (field) {
-			field.df.options = ops.join("\n");
-			// Autocomplete might need set_data for immediate effect in some versions
-			if (field.set_data) field.set_data(ops);
-			field.refresh();
-		}
+		if (!field) return;
+		field.df.options = ops.join("\n");
+		field.set_data?.(ops);
+		field.refresh();
 	};
 
-	// Use cache if available
-	if (frm._process_ops_cache && frm._process_ops_cache[row.process_name]) {
+	if (frm._process_ops_cache[row.process_name]) {
 		apply_ops(frm._process_ops_cache[row.process_name]);
 		return;
 	}
 
 	frappe.call({
 		method: "flexirule.ruleflow.api.get_process_operations",
-		args: {
-			process_name: row.process_name,
-		},
+		args: { process_name: row.process_name },
 	}).then(r => {
 		const ops = r.message || [];
-		frm._process_ops_cache = frm._process_ops_cache || {};
 		frm._process_ops_cache[row.process_name] = ops;
 		apply_ops(ops);
-	});
-}
-
-async function configure_operation_from_form(frm, cdt, cdn) {
-	const row = locals[cdt][cdn];
-
-	if (!row.process_name || !row.operation) {
-		frappe.msgprint(__("Please select a Process and Operation first"));
-		return;
-	}
-
-	// Guard: Prevent double-execution (double dialogs)
-	if (row.__configuring) return;
-	row.__configuring = true;
-
-	try {
-		if (typeof flexirule === "undefined") {
-			await frappe.require("flexirule.bundle.js");
-		}
-
-		const action = flexirule.integration.create_configurable_action({
-			process_name: row.process_name,
-			operation_name: row.operation,
-			node_data: row,
-			document_type: frm.doc.document_type,
-			get_variable_options: async () => [],
-		});
-
-		await action.init();
-
-		action.show_dialog({
-			on_save() {
-				frappe.model.set_value(
-					cdt,
-					cdn,
-					"config",
-					JSON.stringify(action.get_config(), null, 2)
-				);
-
-				frappe.show_alert({
-					message: __("Configuration saved"),
-					indicator: "green",
-				});
-			},
-		});
-
-		// Reset guard when dialog is hidden
-		if (action.active_dialog) {
-			const original_on_hide = action.active_dialog.on_hide;
-			action.active_dialog.on_hide = () => {
-				row.__configuring = false;
-				if (original_on_hide) original_on_hide();
-			};
-		} else {
-			row.__configuring = false;
-		}
-
-	} catch (e) {
-		row.__configuring = false;
-		console.error(e);
-		frappe.msgprint({
-			message: __("Failed to configure operation"),
-			indicator: "red",
-		});
-	}
-}
-
-function test_rule(frm) {
-	const d = new frappe.ui.Dialog({
-		title: __("Test Rule"),
-		fields: [
-			{
-				fieldtype: "Link",
-				fieldname: "doctype",
-				options: "DocType",
-				label: __("Document Type"),
-				default: frm.doc.document_type,
-				reqd: 1,
-			},
-			{
-				fieldtype: "Dynamic Link",
-				fieldname: "docname",
-				options: "doctype",
-				label: __("Document"),
-				reqd: 1,
-			},
-			{
-				fieldtype: "Check",
-				fieldname: "save_log",
-				label: __("Create Execution Log"),
-				description: __("Persist a log record even for this test run"),
-				default: 1,
-			},
-		],
-		primary_action_label: __("Test"),
-		primary_action(values) {
-			frappe.call({
-				method: "flexirule.ruleflow.api.test_rule",
-				args: {
-					rule_name: frm.doc.name,
-					doctype: values.doctype,
-					docname: values.docname,
-					save_log: values.save_log,
-				},
-				callback(r) {
-					frappe.msgprint({
-						title: r.message?.success ? __("Success") : __("Failed"),
-						message: r.message?.message || r.message?.error,
-						indicator: r.message?.success ? "green" : "red",
-					});
-					d.hide();
-				},
-			});
-		},
-	});
-	d.show();
-}
-
-function clone_rule(frm) {
-	frappe.prompt(
-		{
-			label: __("New Rule Name"),
-			fieldname: "new_name",
-			fieldtype: "Data",
-			default: `${frm.doc.rule_name} (Copy)`,
-			reqd: 1,
-		},
-		(values) => {
-			frappe.call({
-				method: "flexirule.ruleflow.api.clone_rule",
-				args: {
-					rule_name: frm.doc.name,
-					new_name: values.new_name,
-				},
-				freeze: true,
-				callback(r) {
-					if (r.message) {
-						frappe.set_route("Form", "Rule", r.message);
-					}
-				},
-			});
-		},
-		__("Clone Rule"),
-		__("Clone")
-	);
-}
-
-function clear_rule_cache(frm) {
-	frappe.call({
-		method: "flexirule.ruleflow.api.clear_cache",
-		args: { doctype: frm.doc.document_type },
-		callback() {
-			frappe.show_alert({ message: __("Cache cleared"), indicator: "green" });
-		},
 	});
 }

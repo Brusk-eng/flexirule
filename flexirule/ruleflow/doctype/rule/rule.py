@@ -22,41 +22,23 @@ class Rule(Document):
         from frappe.types import DF
 
         actions: DF.Table[RuleAction]
-        apply_to_child_tables: DF.Check
         debug_mode: DF.Check
         description: DF.Text | None
         document_type: DF.Link
         execution_count: DF.Int
         execution_mode: DF.Literal["Synchronous", "Asynchronous"]
         is_active: DF.Check
+        is_sub_rule: DF.Check
         last_error: DF.Text | None
         last_executed: DF.Datetime | None
         max_execution_time: DF.Int
         priority: DF.Int
         rule_name: DF.Data
         skip_for_roles: DF.TableMultiSelect[HasRole]
-        status: DF.Literal[
-            "Draft", "Active", "Disabled", "Invalid", "Error", "Archived"
-        ]
+        status: DF.Literal["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]
         trigger_condition: DF.Code | None
         trigger_condition_expression: DF.Code | None
-        trigger_event: DF.Literal[
-            "Manual",
-            "Before Naming",
-            "Before Insert",
-            "Before Save",
-            "Validate",
-            "Before Submit",
-            "After Insert",
-            "After Save",
-            "On Submit",
-            "Before Cancel",
-            "On Cancel",
-            "On Trash",
-            "On Update After Submit",
-            "On Change",
-        ]
-
+        trigger_event: DF.Literal["Manual", "Before Naming", "Before Insert", "Before Save", "Validate", "Before Submit", "After Insert", "After Save", "On Submit", "Before Cancel", "On Cancel", "On Trash", "On Update After Submit", "On Change"]
     # end: auto-generated types
     def validate(self):
         """

@@ -18,16 +18,19 @@ class RuleAction(Document):
 
 		action_id: DF.Data
 		action_label: DF.Data
-		action_type: DF.Literal["Entry Action", "Condition", "Process", "Loop", "Stop", "Switch", "Wait", "Sub-Rule"]
+		action_type: DF.Literal["Entry Action", "Condition", "Process", "Loop", "Stop", "Switch", "Wait", "Sub-Rule", "Set Value", "Raise Error", "Notify"]
 		condition_expression: DF.Code | None
 		condition_json: DF.Code | None
 		config: DF.Code | None
 		description: DF.Text | None
+		error_template: DF.Code | None
 		input_mapping: DF.Code | None
 		is_async: DF.Check
 		is_enabled: DF.Check
 		next_step_if_false: DF.Data | None
 		next_step_if_true: DF.Autocomplete | None
+		notification_template: DF.Code | None
+		notification_type: DF.Literal["Toast", "System", "Email"]
 		on_error: DF.Literal["Stop", "Continue", "Retry", "Rollback", "Escalate"]
 		operation: DF.Autocomplete | None
 		output_mapping: DF.Code | None
@@ -44,7 +47,9 @@ class RuleAction(Document):
 		rule: DF.Link | None
 		skip_conditions: DF.Check
 		skip_permissions: DF.Check
+		target_field: DF.Data | None
 		timeout: DF.Int
+		value_template: DF.Code | None
 	# end: auto-generated types
 	"""
 	Rule Action child table - individual action nodes in a rule flow
