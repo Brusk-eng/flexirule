@@ -75,7 +75,7 @@ const has_conditions = computed(() => {
 				{{ __("Define complex logic conditions for when this rule should trigger.") }}
 			</div>
 
-			<button class="btn btn-default btn-sm w-100" @click="emit('open:conditions')" :disabled="readOnly">
+			<button class="btn btn-default btn-sm w-100" @click="emit('open:conditions')">
 				<i class="fa fa-code-fork"></i>
 				{{ __("Open Condition Builder") }}
 			</button>

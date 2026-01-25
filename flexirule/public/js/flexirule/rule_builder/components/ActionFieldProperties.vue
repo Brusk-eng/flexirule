@@ -246,7 +246,6 @@ onMounted(async () => {
 				<button
 					class="btn btn-default btn-sm w-100"
 					@click="handle_button_click(df)"
-					:disabled="is_read_only(df)"
 				>
 					<i v-if="df.fieldname === 'configure_operation' || df.fieldname === 'configures'" class="fa fa-cog"></i>
 					<i v-else-if="df.fieldname === 'set_conditions'" class="fa fa-code-fork"></i>

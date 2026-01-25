@@ -11,6 +11,7 @@ import MappingWrapper from "../MappingWrapper.vue";
 const props = defineProps({
 	node: { type: Object, required: true },
 	docFields: { type: Array, default: () => [] },
+	readOnly: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["remove"]);
@@ -167,9 +168,10 @@ function clearMapping() {
 		<!-- Field -->
 		<div class="condition-cell field-cell">
 			<FieldPickerControl
-				:df="{ label: __('Field') }"
+				:df="{ label: __('Field'), read_only: readOnly }"
 				v-model="node.left.ref"
 				:fields="docFields"
+				:disabled="readOnly"
 			/>
 			<small v-if="selectedField" class="text-muted field-hint">{{
 				selectedField.fieldtype
@@ -179,7 +181,7 @@ function clearMapping() {
 		<!-- Operator -->
 		<div class="condition-cell operator-cell">
 			<label class="small text-muted mb-1 d-block">{{ __("Operator") }}</label>
-			<select v-model="node.op" class="form-control form-control-sm">
+			<select v-model="node.op" class="form-control form-control-sm" :disabled="readOnly">
 				<option v-for="op in operators" :key="op.value" :value="op.value">
 					{{ op.label }}
 				</option>
@@ -195,6 +197,7 @@ function clearMapping() {
 						fieldtype: 'Link',
 						options: 'DocType',
 						placeholder: __('Select DocType'),
+						read_only: readOnly,
 					}"
 					v-model="dynamicLinkDocType"
 				/>
@@ -204,16 +207,17 @@ function clearMapping() {
 				:label="__('Value')"
 				:mappingValue="node.right.ref"
 				:docFields="docFields"
+				:readOnly="readOnly"
 				@update:mappingValue="setMapping"
 				@clearStatic="clearMapping"
 			>
-				<ControlFactory :df="valueFieldSchema" v-model="wrappedValue" />
+				<ControlFactory :df="valueFieldSchema" v-model="wrappedValue" :read_only="readOnly" />
 			</MappingWrapper>
 		</div>
 		<div v-else class="condition-cell value-cell"></div>
 
 		<!-- Remove -->
-		<div class="condition-cell action-cell">
+		<div class="condition-cell action-cell" v-if="!readOnly">
 			<button
 				class="btn btn-xs btn-link text-danger"
 				@click="emit('remove')"

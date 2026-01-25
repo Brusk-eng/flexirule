@@ -14,6 +14,7 @@
 					:snap-grid="[15, 15]"
 					fit-view-on-init
 					@node-click="onNodeClick"
+					@node-dblclick="onNodeDblClick"
 					@pane-click="onPaneClick"
 					@connect="onConnect"
 					@nodes-change="onNodesChange"
@@ -348,6 +349,12 @@ function autoConnectStartNode() {
 
 function onNodeClick(event) {
 	store.selected_id = event.node.id;
+}
+function onNodeDblClick(event) {
+	store.selected_id = event.node.id;
+	if (event.node.type !== "start") {
+		store.show_config_modal = true;
+	}
 }
 function onPaneClick() {
 	store.selected_id = null;

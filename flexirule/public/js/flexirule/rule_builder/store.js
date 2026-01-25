@@ -7,6 +7,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 	let nodes = ref([]);
 	let edges = ref([]);
 	let selected_id = ref(null);
+	let show_config_modal = ref(false);
+	let config_modal_mode = ref("setup"); // "setup" or "logic"
 	let processes = ref([]); // File-backed processes
 	let available_rules = ref([]);
 	let is_dirty = ref(false);
@@ -908,12 +910,37 @@ export const useStore = defineStore("rule-builder-store", () => {
 		test_context.value = {};
 	}
 
+	function next_config_node() {
+		if (!selected_id.value) return;
+		const currentIndex = nodes.value.findIndex(n => n.id === selected_id.value);
+		if (currentIndex === -1) return;
+
+		let nextIndex = (currentIndex + 1) % nodes.value.length;
+		// Skip start node if in setup mode and it's index 0? actually start has trigger config.
+		// If it's a selector node, we might want to skip it too? 
+		// For now, just cycle.
+		selected_id.value = nodes.value[nextIndex].id;
+	}
+
+	function prev_config_node() {
+		if (!selected_id.value) return;
+		const currentIndex = nodes.value.findIndex(n => n.id === selected_id.value);
+		if (currentIndex === -1) return;
+
+		let prevIndex = (currentIndex - 1 + nodes.value.length) % nodes.value.length;
+		selected_id.value = nodes.value[prevIndex].id;
+	}
+
 	return {
 		rule_name,
 		rule_doc,
 		nodes,
 		edges,
 		selected_id,
+		show_config_modal,
+		config_modal_mode,
+		next_config_node,
+		prev_config_node,
 		processes,
 		available_rules,
 		is_dirty,

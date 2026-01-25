@@ -10,6 +10,7 @@ import ConditionNode from "./ConditionNode.vue";
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({ op: "and", conditions: [] }) },
 	docFields: { type: Array, default: () => [] },
+	readOnly: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -119,6 +120,7 @@ provide(
 );
 provide("operatorConfig", operatorConfig);
 provide("store", store);
+provide("readOnly", computed(() => props.readOnly));
 </script>
 
 <template>
@@ -129,6 +131,7 @@ provide("store", store);
 					class="btn btn-xs"
 					:class="rootGroup.op === 'and' ? 'btn-primary' : 'btn-outline-secondary'"
 					@click="rootGroup.op = 'and'"
+					:disabled="readOnly"
 				>
 					{{ __("AND") }}
 				</button>
@@ -136,11 +139,12 @@ provide("store", store);
 					class="btn btn-xs"
 					:class="rootGroup.op === 'or' ? 'btn-primary' : 'btn-outline-secondary'"
 					@click="rootGroup.op = 'or'"
+					:disabled="readOnly"
 				>
 					{{ __("OR") }}
 				</button>
 			</div>
-			<div class="d-flex gap-2">
+			<div class="d-flex gap-2" v-if="!readOnly">
 				<button class="btn btn-xs btn-default" @click="addCondition(rootGroup)">
 					<i class="fa fa-plus"></i> {{ __("Condition") }}
 				</button>
@@ -166,6 +170,7 @@ provide("store", store);
 				:index="idx"
 				:parentGroup="rootGroup"
 				:docFields="docFields"
+				:readOnly="readOnly"
 			/>
 		</div>
 	</div>

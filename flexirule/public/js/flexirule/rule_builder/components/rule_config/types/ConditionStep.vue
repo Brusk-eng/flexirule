@@ -86,14 +86,15 @@ function dehydrate(tree) {
 	return clean;
 }
 
+// field name for conditions based on node type
+const conditionField = computed(() => props.node?.type === 'start' ? 'trigger_condition' : 'condition_json');
+
 // Initial hydration
-watch(() => props.node.data?.condition_json, (val) => {
+watch(() => props.node.data?.[conditionField.value], (val) => {
 	if (val) {
 		try {
 			const parsed = typeof val === 'string' ? JSON.parse(val) : val;
 			
-			// GUARD: Avoid re-hydrating if the logical content is the same as our current local state.
-			// This prevents infinite loop: local change -> save to node -> watcher triggers -> re-hydrate -> restart cycle.
 			const currentClean = dehydrate(localConditions.value);
 			if (JSON.stringify(parsed) === JSON.stringify(currentClean)) {
 				return;
@@ -101,10 +102,10 @@ watch(() => props.node.data?.condition_json, (val) => {
 
 			localConditions.value = hydrate(parsed);
 		} catch (e) {
-			localConditions.value = { op: "and", conditions: [] };
+			localConditions.value = { id: frappe.utils.get_random(12), op: "and", conditions: [] };
 		}
 	} else {
-		localConditions.value = { op: "and", conditions: [] };
+		localConditions.value = { id: frappe.utils.get_random(12), op: "and", conditions: [] };
 	}
 }, { immediate: true });
 
@@ -119,8 +120,8 @@ function save() {
 	// Strip IDs
 	const clean = dehydrate(localConditions.value);
 	
-	props.node.data.condition_json = clean;
-	store.mark_dirty();
+	props.node.data[conditionField.value] = clean;
+	// DO NOT mark dirty here. useRuleConfig will handle it on modal Save.
 }
 
 /**

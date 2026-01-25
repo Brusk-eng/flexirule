@@ -18,7 +18,8 @@ export function useRuleConfig(props, emit) {
     const panelRefs = {
         input: ref(null),
         config: ref(null),
-        output: ref(null)
+        output: ref(null),
+        logic: ref(null)
     };
 
     /**

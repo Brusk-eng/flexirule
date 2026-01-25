@@ -8,6 +8,7 @@ import ConditionNode from "./ConditionNode.vue";
 const props = defineProps({
 	node: { type: Object, required: true },
 	docFields: { type: Array, default: () => [] },
+	readOnly: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["remove"]);
@@ -74,7 +75,7 @@ onMounted(fetchChildMeta);
 			<!-- Logic -->
 			<div style="width: 100px">
 				<label class="small text-muted mb-1 d-block">{{ __("Match") }}</label>
-				<select v-model="node.op" class="form-control form-control-sm">
+				<select v-model="node.op" class="form-control form-control-sm" :disabled="readOnly">
 					<option value="any">{{ __("Any") }}</option>
 					<option value="all">{{ __("All") }}</option>
 					<option value="none">{{ __("None") }}</option>
@@ -88,6 +89,7 @@ onMounted(fetchChildMeta);
 					v-model="node.collection"
 					class="form-control form-control-sm"
 					@change="fetchChildMeta"
+					:disabled="readOnly"
 				>
 					<option value="">{{ __("Select table...") }}</option>
 					<option v-for="f in tableFields" :key="f.value" :value="f.value">
@@ -105,11 +107,12 @@ onMounted(fetchChildMeta);
 					class="form-control form-control-sm"
 					placeholder="row"
 					@input="fetchChildMeta"
+					:disabled="readOnly"
 				/>
 			</div>
 
 			<!-- Actions -->
-			<div class="d-flex gap-1 align-items-end">
+			<div class="d-flex gap-1 align-items-end" v-if="!readOnly">
 				<button
 					class="btn btn-xs btn-default"
 					@click="addCondition(node.where, node.alias || 'row')"
@@ -145,6 +148,7 @@ onMounted(fetchChildMeta);
 					:index="idx"
 					:parentGroup="node.where"
 					:docFields="childDocFields"
+					:readOnly="readOnly"
 				/>
 			</div>
 		</div>

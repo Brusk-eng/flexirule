@@ -12,6 +12,7 @@ const props = defineProps({
 	index: { type: Number, required: true },
 	parentGroup: { type: Object, required: true },
 	docFields: { type: Array, default: () => [] },
+	readOnly: { type: Boolean, default: false },
 });
 
 const { removeNode } = inject("conditionActions");
@@ -23,13 +24,14 @@ function handleRemove() {
 
 <template>
 	<!-- Leaf Condition: has left operand -->
-	<SimpleCondition v-if="node.left" :node="node" :docFields="docFields" @remove="handleRemove" />
+	<SimpleCondition v-if="node.left" :node="node" :docFields="docFields" :readOnly="readOnly" @remove="handleRemove" />
 
 	<!-- Nested Group: has conditions array, no where -->
 	<ConditionGroupUI
 		v-else-if="node.conditions && !node.where"
 		:group="node"
 		:docFields="docFields"
+		:readOnly="readOnly"
 		@remove="handleRemove"
 	/>
 
@@ -38,6 +40,7 @@ function handleRemove() {
 		v-else-if="node.where"
 		:node="node"
 		:docFields="docFields"
+		:readOnly="readOnly"
 		@remove="handleRemove"
 	/>
 

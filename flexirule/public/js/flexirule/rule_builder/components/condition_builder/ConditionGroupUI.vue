@@ -8,6 +8,7 @@ import ConditionNode from "./ConditionNode.vue";
 const props = defineProps({
 	group: { type: Object, required: true },
 	docFields: { type: Array, default: () => [] },
+	readOnly: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["remove"]);
@@ -24,6 +25,7 @@ const { addCondition, addGroup, addCollection, removeNode } = inject("conditionA
 					class="btn btn-xs"
 					:class="group.op === 'and' ? 'btn-primary' : 'btn-outline-secondary'"
 					@click="group.op = 'and'"
+					:disabled="readOnly"
 				>
 					{{ __("AND") }}
 				</button>
@@ -31,11 +33,12 @@ const { addCondition, addGroup, addCollection, removeNode } = inject("conditionA
 					class="btn btn-xs"
 					:class="group.op === 'or' ? 'btn-primary' : 'btn-outline-secondary'"
 					@click="group.op = 'or'"
+					:disabled="readOnly"
 				>
 					{{ __("OR") }}
 				</button>
 			</div>
-			<div class="d-flex gap-2">
+			<div class="d-flex gap-2" v-if="!readOnly">
 				<button class="btn btn-xs btn-default" @click="addCondition(group)">
 					<i class="fa fa-plus"></i>
 				</button>
@@ -62,6 +65,7 @@ const { addCondition, addGroup, addCollection, removeNode } = inject("conditionA
 					:index="idx"
 					:parentGroup="group"
 					:docFields="docFields"
+					:readOnly="readOnly"
 				/>
 			</div>
 		</div>

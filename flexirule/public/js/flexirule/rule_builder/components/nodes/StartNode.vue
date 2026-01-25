@@ -41,37 +41,37 @@ const testResult = computed(() => {
 <style scoped>
 .start-node-d {
 	position: relative;
-	min-width: 180px;
+	min-width: 140px;
 }
 
 .node-body {
-	background: #157347; /* Professional Green */
+	background: #10b981; /* Vibrant Green */
 	color: white;
 	display: flex;
 	align-items: center;
-	padding: 10px 20px 10px 12px;
-	border-radius: 4px 50px 50px 4px; /* Reflected D-Shape */
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+	padding: 8px 16px 8px 10px;
+	border-radius: 4px 40px 40px 4px; /* Reflected D-Shape */
+	box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
 	transition: all 0.2s ease;
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .node-body:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-	background: #198754;
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+	background: #059669; /* Darker Green for hover */
 }
 
 .icon-section {
-	width: 32px;
-	height: 32px;
-	background: rgba(255, 255, 255, 0.15);
+	width: 28px;
+	height: 28px;
+	background: rgba(255, 255, 255, 0.2);
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 12px;
-	margin-right: 12px;
+	font-size: 10px;
+	margin-right: 10px;
 	flex-shrink: 0;
 }
 
@@ -82,16 +82,16 @@ const testResult = computed(() => {
 }
 
 .type-label {
-	font-size: 9px;
+	font-size: 8px;
 	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	opacity: 0.8;
-	margin-bottom: 2px;
+	opacity: 0.9;
+	margin-bottom: 1px;
 }
 
 .main-label {
-	font-size: 13px;
+	font-size: 12px;
 	font-weight: 600;
 	white-space: nowrap;
 	overflow: hidden;
@@ -100,33 +100,33 @@ const testResult = computed(() => {
 
 .handle-source {
 	background: white !important;
-	border: 3px solid #157347 !important;
-	width: 14px !important;
-	height: 14px !important;
-	right: -7px !important;
+	border: 3px solid #10b981 !important;
+	width: 12px !important;
+	height: 12px !important;
+	right: -6px !important;
 }
 
 .start-node-d.test-executed .node-body {
-	box-shadow: 0 0 0 3px #198754;
-	background: #198754;
+	box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.4);
+	background: #10b981;
 }
 
 .execution-badge {
 	position: absolute;
-	top: -8px;
-	left: -8px;
+	top: -6px;
+	left: -6px;
 	background: #fff;
-	color: #198754;
-	width: 20px;
-	height: 20px;
+	color: #10b981;
+	width: 18px;
+	height: 18px;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 10px;
+	font-size: 9px;
 	font-weight: 700;
 	z-index: 10;
 	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-	border: 2px solid #198754;
+	border: 2px solid #10b981;
 }
 </style>

@@ -11,9 +11,27 @@
 							<h3>{{ title }}</h3>
 						</div>
 						<div class="header-actions">
-							<button class="btn btn-sm btn-default mr-2" v-if="actionType === 'process'" @click="useExperimentalV2 = !useExperimentalV2">
-								<i class="fa fa-flask"></i> {{ store.is_read_only && !useExperimentalV2 ? __("Explain") : useExperimentalV2 ? __("Standard View") : __("V2 Vision") }}
-							</button>
+							<!-- Navigation Controls -->
+							<div class="modal-navigation mr-4">
+								<button 
+									class="nav-btn" 
+									@click="store.prev_config_node()"
+									:title="__('Previous Node')"
+								>
+									<i class="fa fa-chevron-left"></i>
+								</button>
+								<div class="nav-status">
+									{{ currentNodeIndex + 1 }} / {{ totalNodes }}
+								</div>
+								<button 
+									class="nav-btn" 
+									@click="store.next_config_node()"
+									:title="__('Next Node')"
+								>
+									<i class="fa fa-chevron-right"></i>
+								</button>
+							</div>
+
 							<button class="btn btn-sm btn-default" @click="cancel">
 								{{ store.is_read_only ? __("Close") : __("Cancel") }}
 							</button>
@@ -25,28 +43,56 @@
 					</header>
 
 					<main class="config-modal-body">
-						<ResizablePanel v-if="draftNode && !useExperimentalV2">
-							<!-- Left Panel: Input Selection -->
-							<div class="resizable-panel left-panel" v-if="showLeftPanel">
-								<InputPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.input" />
+						<!-- Content based on Mode -->
+						<template v-if="store.config_modal_mode === 'logic'">
+							<div class="conditions-view p-4">
+								<ConditionStep 
+									:node="draftNode" 
+									:read-only="store.is_read_only" 
+									:ref="panelRefs.logic"
+								/>
+							</div>
+						</template>
+
+						<template v-else>
+							<!-- Start Node Setup -->
+							<div v-if="draftNode?.type === 'start'" class="start-node-setup p-5">
+								<div class="setup-container">
+									<header class="section-header mb-4">
+										<h4>{{ __("Trigger Configuration") }}</h4>
+										<p class="text-muted">{{ __("Configure how and when this rule is triggered.") }}</p>
+									</header>
+									<StartNodeProperties 
+										:nodeData="draftNode.data"
+										:readOnly="store.is_read_only"
+										@update:field="(f, v) => draftNode.data[f] = v"
+										@open:conditions="store.config_modal_mode = 'logic'"
+									/>
+								</div>
 							</div>
 
-							<div class="panel-resizer" v-if="showLeftPanel"></div>
+							<!-- Standard Action Setup -->
+							<ResizablePanel v-else-if="draftNode">
+								<!-- Left Panel: Input Selection -->
+								<div class="resizable-panel left-panel" v-if="showLeftPanel">
+									<InputPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.input" />
+								</div>
 
-							<!-- Middle Panel: Dynamic Configuration -->
-							<div class="resizable-panel middle-panel">
-								<ConfigurationPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.config" />
-							</div>
+								<div class="panel-resizer" v-if="showLeftPanel"></div>
 
-							<div class="panel-resizer" v-if="showRightPanel"></div>
+								<!-- Middle Panel: Dynamic Configuration -->
+								<div class="resizable-panel middle-panel">
+									<ConfigurationPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.config" />
+								</div>
 
-							<!-- Right Panel: Output/Mapping -->
-							<div class="resizable-panel right-panel" v-if="showRightPanel">
-								<OutputPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.output" />
-							</div>
-						</ResizablePanel>
+								<div class="panel-resizer" v-if="showRightPanel"></div>
 
-						<V2PreviewPanel v-else-if="draftNode && useExperimentalV2" :node="draftNode" />
+								<!-- Right Panel: Output/Mapping -->
+								<div class="resizable-panel right-panel" v-if="showRightPanel">
+									<OutputPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.output" />
+								</div>
+							</ResizablePanel>
+						</template>
 					</main>
 				</div>
 			</div>
@@ -60,7 +106,8 @@ import ResizablePanel from "./ResizablePanel.vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
 import OutputPanel from "./OutputPanel.vue";
-import V2PreviewPanel from "./V2PreviewPanel.vue";
+import ConditionStep from "./types/ConditionStep.vue";
+import StartNodeProperties from "../StartNodeProperties.vue";
 import { useStore } from "../../store";
 import { useRuleConfig } from "../../composables/useRuleConfig";
 
@@ -79,14 +126,19 @@ const {
 	cancel 
 } = useRuleConfig(props, emit);
 
-// Detect action type for UI hints
 const actionType = computed(() => (draftNode.value?.data?.action_type || draftNode.value?.type)?.toLowerCase());
 
-const useExperimentalV2 = ref(false);
+const totalNodes = computed(() => store.nodes.length);
+const currentNodeIndex = computed(() => {
+	if (!store.selected_id) return -1;
+	return store.nodes.findIndex(n => n.id === store.selected_id);
+});
 
 const title = computed(() => {
 	if (!draftNode.value) return __("Rule Configuration");
-	return draftNode.value.data?.action_label || draftNode.value.label || __("Rule Configuration");
+	let baseTitle = draftNode.value.data?.action_label || draftNode.value.label || __("Rule Configuration");
+	let suffix = store.config_modal_mode === 'logic' ? ` [${__("Logic")}]` : "";
+	return baseTitle + suffix;
 });
 
 function getIcon(type) {
@@ -125,20 +177,73 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 <style scoped>
 /* ... (Existing styles kept) ... */
 
-/* Dynamic sizing overrides if needed, but flex:1 on middle-panel usually handles it. 
-   We just need to ensure initial width or flex-grow is aggressive. */
-.middle-panel {
-	flex: 2; /* Increased flex grow to favored size */
-	min-width: 400px;
-    border-right: 1px solid var(--border-color, #e2e8f0); /* Visual separation if right panel hidden */
+/* Navigation */
+.modal-navigation {
+	display: flex;
+	align-items: center;
+	background: #f1f5f9;
+	padding: 4px;
+	border-radius: 8px;
+	gap: 8px;
 }
 
-/* Hide border if right panel is missing */
-.middle-panel:last-child {
-    border-right: none;
+.nav-btn {
+	width: 28px;
+	height: 28px;
+	border-radius: 6px;
+	border: none;
+	background: transparent;
+	color: #64748b;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s;
 }
 
-/* ... */
+.nav-btn:hover {
+	background: #fff;
+	color: var(--primary);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.nav-status {
+	font-size: 11px;
+	font-weight: 700;
+	color: #64748b;
+	min-width: 40px;
+	text-align: center;
+}
+
+.conditions-view {
+	height: 100%;
+	overflow-y: auto;
+	background: #f8fafc;
+}
+
+.start-node-setup {
+	height: 100%;
+	overflow-y: auto;
+	background: #f8fafc;
+	display: flex;
+	justify-content: center;
+}
+
+.setup-container {
+	width: 100%;
+	max-width: 600px;
+	background: #fff;
+	padding: 32px;
+	border-radius: 12px;
+	border: 1px solid var(--border-color);
+	height: fit-content;
+	margin-top: 40px;
+}
+
+.section-header h4 {
+	font-weight: 700;
+	margin-bottom: 4px;
+}
 </style>
 
 <style scoped>
