@@ -223,7 +223,67 @@ function update_dashboard_indicators(frm) {
 		}
 	});
 }
+function test_rule(frm) {
+	let d = new frappe.ui.Dialog({
+		title: __("Test Rule"),
+		fields: [
+			{
+				fieldtype: "Link",
+				fieldname: "doctype",
+				label: __("Document Type"),
+				options: "DocType",
+				default: frm.doc.document_type,
+				reqd: 1,
+			},
+			{
+				fieldtype: "Dynamic Link",
+				fieldname: "docname",
+				label: __("Document"),
+				options: "doctype",
+				reqd: 1,
+			},
+			{
+				fieldtype: "Check",
+				fieldname: "save_log",
+				label: __("Create Execution Log"),
+				description: __("Persist a log record even for this test run"),
+				default: 1,
+			},
+		],
+		primary_action_label: __("Test"),
+		primary_action: (values) => {
+			frappe.call({
+				method: "flexirule.ruleflow.api.test_rule",
+				args: {
+					rule_name: frm.doc.name,
+					doctype: values.doctype,
+					docname: values.docname,
+					save_log: values.save_log,
+				},
+				callback: (r) => {
+					if (r.message?.success) {
+						// Highlight path in builder
 
+
+						frappe.msgprint({
+							title: __("Success"),
+							message: r.message?.message || __("Rule test completed successfully"),
+							indicator: "green",
+						});
+					} else {
+						frappe.msgprint({
+							title: __("Error"),
+							message: r.message?.error || __("Test failed"),
+							indicator: "red",
+						});
+					}
+					d.hide();
+				},
+			});
+		},
+	});
+	d.show();
+}
 function toggle_action_fields(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	const grid_row = frm.get_field("actions").grid.get_row(cdn);
@@ -305,4 +365,94 @@ function update_operation_options(frm, cdt, cdn) {
 		frm._process_ops_cache[row.process_name] = ops;
 		apply_ops(ops);
 	});
+}
+
+function clone_rule(frm) {
+	frappe.prompt(
+		[
+			{
+				label: __("New Rule Name"),
+				fieldname: "new_name",
+				fieldtype: "Data",
+				default: `${frm.doc.rule_name} (Copy)`,
+				reqd: 1,
+			},
+		],
+		(values) => {
+			frappe.call({
+				method: "flexirule.ruleflow.api.clone_rule",
+				args: {
+					rule_name: frm.doc.name,
+					new_name: values.new_name,
+				},
+				freeze: true,
+				callback: (r) => {
+					if (r.message) {
+						frappe.set_route("Form", "Rule", r.message);
+					}
+				},
+			});
+		},
+		__("Clone Rule"),
+		__("Clone")
+	);
+}
+
+function clear_rule_cache(frm) {
+	frappe.call({
+		method: "flexirule.ruleflow.api.clear_cache",
+		args: { doctype: frm.doc.document_type },
+		callback: () => {
+			frappe.show_alert({ message: __("Rule cache cleared"), indicator: "green" });
+		},
+	});
+}
+
+function configure_operation_from_form(frm, cdt, cdn) {
+	if (frm._config_dialog_active) return;
+
+	const row = locals[cdt][cdn];
+	if (!row.process_name || !row.operation) {
+		frappe.msgprint(__("Please select a Process and Operation first"));
+		return;
+	}
+
+	// Ensure config is parsed if it's a string
+	let config = row.config;
+	if (typeof config === "string" && config.trim()) {
+		try {
+			config = JSON.parse(config);
+		} catch (e) {
+			config = {};
+		}
+	}
+
+	frm._config_dialog_active = true;
+
+	const action = flexirule.integration.create_configurable_action({
+		process_name: row.process_name,
+		operation_name: row.operation,
+		node_data: row,
+		document_type: frm.doc.document_type,
+	});
+
+	const dialog = action.show_dialog({
+		on_save: () => {
+			frm.dirty();
+			frm.refresh_field("actions");
+			frappe.show_alert({ message: __("Configuration saved"), indicator: "green" });
+		},
+	});
+
+	if (dialog) {
+		const original_on_hide = dialog.on_hide;
+		dialog.on_hide = () => {
+			frm._config_dialog_active = false;
+			if (typeof original_on_hide === "function") {
+				original_on_hide.call(dialog);
+			}
+		};
+	} else {
+		frm._config_dialog_active = false;
+	}
 }
