@@ -165,7 +165,16 @@ watch(() => [props.df?.fieldname, props.df?.fieldtype], async () => {
 });
 
 watch(() => props.options, async () => { await set_options(); }, { deep: true });
-watch(() => props.read_only, (newVal) => { if (frappe_control) frappe_control.toggle_enable(!newVal); });
+watch(() => props.read_only, (newVal) => { 
+	if (frappe_control) {
+		if (typeof frappe_control.set_enabled === "function") {
+			frappe_control.set_enabled(!newVal);
+		} else {
+			frappe_control.df.read_only = newVal ? 1 : 0;
+			frappe_control.refresh();
+		}
+	}
+});
 
 function onDrop(event) {
 	const variable = event.dataTransfer.getData("application/x-flexirule-variable");

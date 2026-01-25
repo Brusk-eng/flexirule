@@ -203,17 +203,44 @@ watch(
 )
 
 function updateCell(idx, field, value) {
-  localRows.value[idx][field] = value
+  const row = localRows.value[idx]
+  row[field] = value
   emit("update:modelValue", localRows.value)
+
+  // If engine is available, trigger logical change handling
+  if (props.engine && props.engine.handleFieldChange) {
+    row.__table_fieldname = props.df.fieldname
+    props.engine.handleFieldChange(field, value, row)
+  }
 }
 
 /* ---------------- Helpers ---------------- */
 
-function addRow() {
-  localRows.value.push({
-    name: frappe.utils.get_random(10)
+async function addRow() {
+  const newRow = {
+    name: frappe.utils.get_random(10),
+    __table_fieldname: props.df.fieldname
+  }
+  
+  // Apply Defaults
+  columns.value.forEach(col => {
+    if (col.default !== undefined) {
+      newRow[col.fieldname] = col.default
+    }
   })
+
+  localRows.value.push(newRow)
   emit("update:modelValue", localRows.value)
+
+  // Trigger initial evaluation for this row
+  if (props.engine && props.engine.evaluate_dependencies) {
+    await props.engine.evaluate_dependencies(
+      props.engine.config, 
+      newRow, 
+      props.df.fieldname, 
+      props.df.fields
+    )
+  }
 }
 
 function toggleRow(name) {
@@ -245,6 +272,7 @@ function getEffectiveDf(row, col) {
   const state = getCellState(row, col.fieldname)
   return {
     ...col,
+    options: state.options ?? col.options,
     reqd: state.reqd ?? col.reqd,
     read_only: state.read_only || props.read_only
   }

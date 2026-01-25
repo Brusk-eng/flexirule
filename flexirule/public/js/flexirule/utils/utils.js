@@ -319,9 +319,16 @@ flexirule.utils.get_operation_config_fields = async function (process_name, oper
  * @returns {Promise<{fieldtype: string, options: string|null}>}
  */
 /**
- * Get field options for a specific row in the configuration grid.
- * Used by Autocomplete fields via get_query.
+ * Get DocType metadata, ensuring it's loaded into the model.
  * 
- * @param {Object} row_doc - The row document from the grid
- * @returns {Array} - List of options {label, value, description}
+ * @param {string} doctype 
+ * @returns {Promise<Object>}
  */
+flexirule.utils.get_doctype_meta = function (doctype) {
+	if (!doctype) return Promise.resolve(null);
+	return new Promise((resolve) => {
+		frappe.model.with_doctype(doctype, () => {
+			resolve(frappe.get_meta(doctype));
+		});
+	});
+};

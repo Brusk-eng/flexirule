@@ -98,7 +98,11 @@ watch(
 	(val) => {
 		if (link_control) {
 			link_control.df.read_only = val;
-			link_control.toggle_enable(!val);
+			if (typeof link_control.set_enabled === "function") {
+				link_control.set_enabled(!val);
+			} else {
+				link_control.refresh();
+			}
 		}
 	}
 );

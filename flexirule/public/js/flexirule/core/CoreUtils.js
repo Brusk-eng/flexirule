@@ -4,6 +4,15 @@
  * Unifies validation, normalization, and condition evaluation.
  */
 
+// Ensure translation function is available
+const __ = window.__ || ((s, args) => {
+    if (!args) return s;
+    if (Array.isArray(args)) {
+        args.forEach((a, i) => { s = s.replace(`{${i}}`, a); });
+    }
+    return s;
+});
+
 export default {
     /**
      * Map internal system fieldtypes to Frappe standard fieldtypes.
@@ -25,7 +34,11 @@ export default {
         if (!expression) return true;
         if (expression.startsWith("eval:")) expression = expression.slice(5);
         try {
-            return frappe.utils.eval(expression, context);
+            if (typeof frappe !== "undefined" && frappe.utils && frappe.utils.eval) {
+                return frappe.utils.eval(expression, context);
+            }
+            // Fallback for simple evaluation if frappe is missing (e.g. testing)
+            return true;
         } catch (e) {
             console.warn(`Dependency Eval Failed: "${expression}"`, e);
             return false;
@@ -34,23 +47,15 @@ export default {
 
     /**
      * Validates a configuration object against a normalized schema.
-     * Returns standardized error object { valid: boolean, errors: string[] }
-     * @param {object} config - The data object to validate
-     * @param {Array} normalized_fields - Flattened array of field definitions
-     * @param {object} dependency_states - (Optional) Current visibility/mandatory state of fields
      */
     validate_schema(config, normalized_fields, dependency_states = {}) {
         const errors = [];
         const rootState = dependency_states["root"] || {};
 
         for (const field of normalized_fields) {
-            // Skip special types not relevant for data validation
             if (["Section Break", "Column Break", "HTML", "Button"].includes(field.fieldtype)) continue;
 
-            // Handle Child Tables
             if (field.fieldtype === "Table") {
-                // Tables handle their own internal validation usually, 
-                // but we check if the table *itself* is mandatory (at least one row)
                 const tableState = rootState[field.fieldname] || field;
                 if (tableState.hidden) continue;
 
@@ -58,13 +63,10 @@ export default {
                 if (tableState.reqd && rows.length === 0) {
                     errors.push(__("{0} requires at least one row", [field.label || field.fieldname]));
                 }
-
-                // Deep validation of rows
                 this._validate_table_rows(rows, field, dependency_states, errors);
                 continue;
             }
 
-            // Handle Standard Fields
             const state = rootState[field.fieldname] || field;
             if (state.hidden) continue;
 
@@ -77,10 +79,7 @@ export default {
             }
         }
 
-        return {
-            valid: errors.length === 0,
-            errors: errors
-        };
+        return { valid: errors.length === 0, errors: errors };
     },
 
     _validate_table_rows(rows, table_field, dependency_states, errors) {
@@ -88,7 +87,7 @@ export default {
         const child_fields = table_field.fields || [];
 
         rows.forEach((row, idx) => {
-            const row_name = row.name; // assuming dependency_states uses row name
+            const row_name = row.name;
             const rowHelper = (row_name && dependency_states[row_name]) ? dependency_states[row_name] : {};
 
             child_fields.forEach(cf => {
@@ -106,5 +105,52 @@ export default {
                 }
             });
         });
+    },
+
+    /**
+     * Lightweight JSON Schema Validator.
+     */
+    validate_json_schema(data, schema, path = "") {
+        const errors = [];
+        if (!schema) return errors;
+
+        const type = Array.isArray(data) ? "array" : typeof data;
+        const expectedType = schema.type;
+
+        if (expectedType && type !== expectedType) {
+            if (!(expectedType === "integer" && Number.isInteger(data))) {
+                errors.push(__("{0}: expected type {1}, got {2}", [path || "root", expectedType, type]));
+                return errors;
+            }
+        }
+
+        if (schema.enum && !schema.enum.includes(data)) {
+            errors.push(__("{0}: must be one of {1}", [path || "root", schema.enum.join(", ")]));
+        }
+
+        if (type === "object" && schema.properties) {
+            if (schema.required) {
+                schema.required.forEach(prop => {
+                    if (data[prop] === undefined || data[prop] === null || data[prop] === "") {
+                        errors.push(__("{0}: {1} is required", [path || "root", prop]));
+                    }
+                });
+            }
+            Object.keys(schema.properties).forEach(prop => {
+                if (data[prop] !== undefined) {
+                    const sub = this.validate_json_schema(data[prop], schema.properties[prop], path ? `${path}.${prop}` : prop);
+                    errors.push(...sub);
+                }
+            });
+        }
+
+        if (type === "array" && schema.items && data.length > 0) {
+            data.forEach((item, idx) => {
+                const sub = this.validate_json_schema(item, schema.items, `${path}[${idx}]`);
+                errors.push(...sub);
+            });
+        }
+
+        return errors;
     }
 };

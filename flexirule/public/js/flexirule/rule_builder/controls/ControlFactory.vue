@@ -10,12 +10,11 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
-		<!-- Autocomplete -->
 		<AutocompleteControl
 			v-else-if="df?.fieldtype === 'Autocomplete'"
 			:df="df"
 			:modelValue="modelValue"
-			:options="df?.autocomplete_options"
+			:options="df?.options || df?.autocomplete_options"
 			:get_options="df?.get_options"
 			:doc="doc"
 			:hideLabel="hideLabel"
