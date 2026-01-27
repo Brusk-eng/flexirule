@@ -3,8 +3,7 @@
  * InlineTableControl - Repeatable rows with columns
  * Supports per-field hooks: get_options, onchange
  */
-import { ref, computed, watch, inject, onMounted } from "vue";
-import FieldPickerControl from "./FieldPickerControl.vue";
+
 
 const props = defineProps({
 	df: Object,

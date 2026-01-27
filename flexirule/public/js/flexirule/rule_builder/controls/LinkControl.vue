@@ -1,6 +1,5 @@
-<!-- Used as Link Control -->
 <script setup>
-import { onMounted, onUnmounted, ref, useSlots, watch, nextTick } from "vue";
+import { useStore } from "../store";
 
 const props = defineProps({
 	df: { type: Object, required: true },

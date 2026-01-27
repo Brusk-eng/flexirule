@@ -2,7 +2,6 @@
 /**
  * PercentSliderControl - Slider input for 0-100 values
  */
-import { computed } from "vue";
 
 const props = defineProps({
 	df: Object,

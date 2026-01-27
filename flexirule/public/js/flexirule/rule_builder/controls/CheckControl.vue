@@ -1,5 +1,4 @@
 <script setup>
-import { useSlots, ref } from "vue";
 
 const props = defineProps(["df", "modelValue", "read_only", "hideLabel"]);
 defineEmits(["update:modelValue"]);

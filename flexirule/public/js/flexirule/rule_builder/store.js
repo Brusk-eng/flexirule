@@ -1,5 +1,4 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
 
 export const useStore = defineStore("rule-builder-store", () => {
 	let rule_name = ref(null);
@@ -178,10 +177,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		await fetch_processes();
 
-		const visual_data =
-			rule_doc.value.visual_data && typeof rule_doc.value.visual_data === "string"
-				? JSON.parse(rule_doc.value.visual_data)
-				: null;
+		const visual_data = flexirule.utils.safe_json_parse(rule_doc.value.visual_data, null);
 
 		if (visual_data && visual_data.length > 0) {
 			nodes.value = visual_data.filter((el) => el.position);
@@ -380,11 +376,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;
 			// Safe JSON parse helper
-			const safeParse = (val) => {
-				if (!val) return null;
-				if (typeof val === 'object') return val;
-				try { return JSON.parse(val); } catch (e) { return val; }
-			};
+			const safeParse = (val) => flexirule.utils.safe_json_parse(val);
 
 			const configData = safeParse(action.config || action.method_config);
 
@@ -782,9 +774,11 @@ export const useStore = defineStore("rule-builder-store", () => {
 			await fetch();
 			clear_dirty();
 		} catch (e) {
+			console.error("FlexiRule: Save failed", e);
+			const errorMsg = e.message || (typeof e === 'string' ? e : __("Unknown error occurred during save"));
 			frappe.msgprint({
-				title: __("Error"),
-				message: e.message || __("Save failed"),
+				title: __("Critical Error"),
+				message: errorMsg,
 				indicator: "red",
 			});
 		} finally {
@@ -827,10 +821,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 		// Clear the next_step reference in the source node's data
 		const sourceNode = nodes.value.find((el) => el.id === edge.source);
 		if (sourceNode && sourceNode.data) {
-			if (edge.sourceHandle === "false") {
-				sourceNode.data.next_step_if_false = null;
-			} else {
-				sourceNode.data.next_step_if_true = null;
+			const handle = edge.sourceHandle || "default";
+			if (handle === "false") {
+				if (sourceNode.data.next_step_if_false === edge.target) {
+					sourceNode.data.next_step_if_false = null;
+				}
+			} else if (handle === "true" || handle === "default") {
+				if (sourceNode.data.next_step_if_true === edge.target) {
+					sourceNode.data.next_step_if_true = null;
+				}
 			}
 		}
 
@@ -912,13 +911,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	function next_config_node() {
 		if (!selected_id.value) return;
+		// Sort nodes by topological or visual order if possible, but store.nodes is array.
+		// Let's us basic index for now.
 		const currentIndex = nodes.value.findIndex(n => n.id === selected_id.value);
 		if (currentIndex === -1) return;
 
 		let nextIndex = (currentIndex + 1) % nodes.value.length;
-		// Skip start node if in setup mode and it's index 0? actually start has trigger config.
-		// If it's a selector node, we might want to skip it too? 
-		// For now, just cycle.
 		selected_id.value = nodes.value[nextIndex].id;
 	}
 

@@ -40,6 +40,21 @@
 					<template #node-selector="nodeProps">
 						<ActionSelectorNode v-bind="nodeProps" />
 					</template>
+					<template #node-raise-error="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
+					<template #node-set-value="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
+					<template #node-notify="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
+					<template #node-wait="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
+					<template #node-sub-rule="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
 
 					<Background :gap="15" />
 					<Panel :position="PanelPosition.BottomLeft" class="controls-panel">
@@ -123,15 +138,21 @@
 				<Sidebar @close="closeSidebar" />
 			</div>
 		</div>
+		<RuleConfigModal
+			v-if="store.show_config_modal"
+			v-model="store.show_config_modal"
+			:node="store.nodes.find(n => n.id === store.selected_id)"
+			@save="store.mark_dirty()"
+		/>
 	</div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
 import { VueFlow, Panel, PanelPosition } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { useStore } from "./store";
+
 import { generateShortId } from "../utils/index.js";
 import "../utils/utils.js";
 
@@ -141,7 +162,9 @@ import ConditionNode from "./components/nodes/ConditionNode.vue";
 import LoopNode from "./components/nodes/LoopNode.vue";
 import StopNode from "./components/nodes/StopNode.vue";
 import ActionSelectorNode from "./components/nodes/ActionSelectorNode.vue";
+
 import Sidebar from "./components/Sidebar.vue";
+import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
 
 const props = defineProps({ rule: String });
 const store = useStore();
@@ -271,7 +294,7 @@ function addNode(type, position) {
 	let label = "";
 	let actionType = "";
 
-	switch (type) {
+	switch (type.toLowerCase()) {
 		case "process":
 			label = __("New Process");
 			actionType = "Process";
@@ -361,11 +384,24 @@ function onPaneClick() {
 }
 
 function onConnect(params) {
+	const sourceHandle = params.sourceHandle || "default";
+	const id = `e-${params.source}-${params.target}-${sourceHandle}`;
+	
+	// Check for existing connection to avoid duplicates
+	const exists = (store.edges || []).some(
+		(e) => e.source === params.source && e.target === params.target && (e.sourceHandle || "default") === sourceHandle
+	);
+	
+	if (exists) {
+		// console.warn("Connection already exists", id);
+		return;
+	}
+
 	const newEdge = {
-		id: `e-${params.source}-${params.target}-${params.sourceHandle || "default"}`,
+		id,
 		source: params.source,
 		target: params.target,
-		sourceHandle: params.sourceHandle || "default",
+		sourceHandle,
 		animated: store.nodes.find((el) => el.id === params.source)?.type === "start",
 	};
 	store.edges.push(newEdge);

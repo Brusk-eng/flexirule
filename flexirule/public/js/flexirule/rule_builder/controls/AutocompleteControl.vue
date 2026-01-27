@@ -2,7 +2,6 @@
   AutocompleteControl - Robust implementation for Grid integration
 -->
 <script setup>
-import { ref, watch, onMounted, onUnmounted, nextTick } from "vue";
 
 const props = defineProps({
 	df: Object,

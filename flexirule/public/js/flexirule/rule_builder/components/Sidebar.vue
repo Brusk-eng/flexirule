@@ -19,6 +19,13 @@
 
 			<!-- Action Nodes: DocField-driven rendering -->
 			<template v-else>
+				<!-- Quick Action Button -->
+				<div class="sidebar-v2-preview mb-3" v-if="isConfigurable">
+					<button class="btn btn-sm btn-primary-light w-100" @click="open_config_dialog">
+						<i class="fa fa-cog"></i> {{ __("Configure Action") }}
+					</button>
+				</div>
+
 				<ActionFieldProperties
 					:nodeData="selectedNode.data"
 					:readOnly="store.is_read_only"
@@ -36,22 +43,15 @@
 		</div>
 
 
-		<!-- V2 Configuration Modal -->
-		<RuleConfigModal
-			v-if="store.show_config_modal"
-			v-model="store.show_config_modal"
-			:node="selectedNode"
-			@save="store.mark_dirty()"
-		/>
+
 	</div>
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from "vue";
 import { useStore } from "../store";
 import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
-import RuleConfigModal from "./rule_config/RuleConfigModal.vue";
+
 
 // Ensure ProcessConfigurator is loaded
 import "../../core/ProcessConfigurator.js";
@@ -70,6 +70,13 @@ const selectedNode = computed(() => {
 const sidebar_title = computed(() => {
 	if (!selectedNode.value) return __("Properties");
 	return selectedNode.value.data?.action_label || selectedNode.value.label || __("Properties");
+});
+
+// Check if node is configurable via modal
+const isConfigurable = computed(() => {
+	const type = selectedNode.value?.data?.action_type || selectedNode.value?.type;
+	if (!type) return false;
+	return ['Process', 'Condition', 'Set Value', 'Raise Error', 'Notify', 'Loop', 'Wait', 'Sub-Rule'].includes(type);
 });
 
 
@@ -146,7 +153,8 @@ function delete_node() {
 
 
 async function open_config_dialog() {
-	if (selectedNode.value?.type !== "start" && (!selectedNode.value?.data?.process_name || !selectedNode.value?.data?.operation)) {
+	const type = selectedNode.value?.data?.action_type || selectedNode.value?.type;
+	if (type === "Process" && (!selectedNode.value?.data?.process_name || !selectedNode.value?.data?.operation)) {
 		frappe.msgprint(__("Please select a Process and Operation first"));
 		return;
 	}

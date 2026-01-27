@@ -110,7 +110,6 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed, watch } from "vue"
 import ControlFactory from "./ControlFactory.vue"
 
 const props = defineProps({

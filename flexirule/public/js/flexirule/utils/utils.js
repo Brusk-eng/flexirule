@@ -332,3 +332,21 @@ flexirule.utils.get_doctype_meta = function (doctype) {
 		});
 	});
 };
+
+/**
+ * Safely parse JSON string with error logging.
+ * Returns default value on failure.
+ * 
+ * @param {string} json_str 
+ * @param {any} default_val 
+ * @returns {any}
+ */
+flexirule.utils.safe_json_parse = function (json_str, default_val = null) {
+	if (!json_str) return default_val;
+	try {
+		return JSON.parse(json_str);
+	} catch (e) {
+		console.warn("JSON Parse Error:", e, "Input:", json_str);
+		return default_val;
+	}
+};

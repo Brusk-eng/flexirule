@@ -2,7 +2,6 @@
 /**
  * ConditionGroupUI - Nested group editor with AND/OR toggle
  */
-import { inject } from "vue";
 import ConditionNode from "./ConditionNode.vue";
 
 const props = defineProps({

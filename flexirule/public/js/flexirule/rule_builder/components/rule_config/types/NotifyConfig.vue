@@ -63,8 +63,6 @@
 
 <script setup>
 import { computed } from "vue";
-import CodeControl from "../../../controls/CodeControl.vue";
-import DataControl from "../../../controls/DataControl.vue";
 
 const props = defineProps({
 	node: Object,

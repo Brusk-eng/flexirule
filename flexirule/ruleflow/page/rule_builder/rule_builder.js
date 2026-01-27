@@ -22,11 +22,13 @@ function load_rule_builder(wrapper) {
 	$parent.empty();
 
 	if (route.length > 1) {
-		// RuleBuilder is already available from flexirule.bundle.js (loaded via app_include_js)
-		frappe.rule_builder = new frappe.ui.RuleBuilder({
-			wrapper: $parent,
-			page: wrapper.page,
-			rule: route[1],
+		// Load the RuleBuilder bundle on demand
+		frappe.require("rule_builder.bundle.js", () => {
+			frappe.rule_builder = new frappe.ui.RuleBuilder({
+				wrapper: $parent,
+				page: wrapper.page,
+				rule: route[1],
+			});
 		});
 	} else {
 		// No rule specified - show dialog to select

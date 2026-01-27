@@ -3,7 +3,6 @@
  * MultiSelectControl - Wrapper for Frappe's MultiSelect control
  * Supports both static options (Select) and dynamic links (Link)
  */
-import { onMounted, ref, watch, onBeforeUnmount } from "vue";
 
 const props = defineProps({
 	df: Object,

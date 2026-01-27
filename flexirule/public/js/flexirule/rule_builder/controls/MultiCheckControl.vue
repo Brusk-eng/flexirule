@@ -4,7 +4,6 @@
  * Provides a list of checkboxes for multiple selection.
  * Options should be an array of {label, value} or {label, value, checked}.
  */
-import { onMounted, ref, watch, computed, onBeforeUnmount } from "vue";
 
 const props = defineProps({
 	df: Object,

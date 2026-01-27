@@ -3,9 +3,8 @@
  * SimpleCondition - Leaf condition editor (left op right)
  * Uses backend-driven operator configuration
  */
-import { computed, inject, ref, watch } from "vue";
+import { useStore } from "../../store";
 import ControlFactory from "../../controls/ControlFactory.vue";
-import FieldPickerControl from "../../controls/FieldPickerControl.vue";
 import MappingWrapper from "../MappingWrapper.vue";
 
 const props = defineProps({

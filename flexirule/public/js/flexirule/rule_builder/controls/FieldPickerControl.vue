@@ -4,7 +4,6 @@
  * Shows fields from the target doctype with search
  * Supports pre-fetched fields from store via 'fields' prop
  */
-import { ref, computed, watch, onMounted } from "vue";
 
 const props = defineProps({
 	df: Object,

@@ -3,8 +3,8 @@
  * ConditionBuilder - Main container for condition editing
  * Owns the root condition group state and provides methods via inject
  */
-import { provide, reactive, ref, computed, watch, onMounted } from "vue";
 import { useStore } from "../../store";
+
 import ConditionNode from "./ConditionNode.vue";
 
 const props = defineProps({

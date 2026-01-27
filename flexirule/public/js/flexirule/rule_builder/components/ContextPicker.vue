@@ -17,7 +17,6 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
 import { useStore } from "../store";
 
 const props = defineProps({

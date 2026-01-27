@@ -10,9 +10,10 @@
 							</div>
 							<h3>{{ title }}</h3>
 						</div>
-						<div class="header-actions">
-							<!-- Navigation Controls -->
-							<div class="modal-navigation mr-4">
+						
+						<!-- Centered Navigation -->
+						<div class="header-center">
+							<div class="modal-navigation">
 								<button 
 									class="nav-btn" 
 									@click="store.prev_config_node()"
@@ -31,14 +32,10 @@
 									<i class="fa fa-chevron-right"></i>
 								</button>
 							</div>
+						</div>
 
-							<button class="btn btn-sm btn-default" @click="cancel">
-								{{ store.is_read_only ? __("Close") : __("Cancel") }}
-							</button>
-							<button v-if="!store.is_read_only" class="btn btn-sm btn-primary ml-2" @click="save">
-								{{ __("Save Changes") }}
-							</button>
-							<button class="btn-close-modal ml-3" @click="cancel">×</button>
+						<div class="header-right">
+							<button class="btn-close-modal" @click="cancel">×</button>
 						</div>
 					</header>
 
@@ -94,6 +91,20 @@
 							</ResizablePanel>
 						</template>
 					</main>
+
+					<footer class="config-modal-footer">
+						<div class="footer-left">
+							<!-- Optional: Status info or reset -->
+						</div>
+						<div class="footer-right">
+							<button class="btn btn-default" @click="cancel">
+								{{ store.is_read_only ? __("Close") : __("Cancel") }}
+							</button>
+							<button v-if="!store.is_read_only" class="btn btn-primary ml-2" @click="save">
+								{{ __("Save Changes") }}
+							</button>
+						</div>
+					</footer>
 				</div>
 			</div>
 		</transition>
@@ -101,7 +112,6 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
 import ResizablePanel from "./ResizablePanel.vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
@@ -237,7 +247,7 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 	border-radius: 12px;
 	border: 1px solid var(--border-color);
 	height: fit-content;
-	margin-top: 40px;
+	margin: 20px;
 }
 
 .section-header h4 {
@@ -259,7 +269,7 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	padding: 40px;
+	padding: 24px;
 }
 
 .config-modal-container {
@@ -281,7 +291,19 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 	justify-content: space-between;
 	padding: 0 24px;
 	border-bottom: 1px solid var(--border-color);
+	border-bottom: 1px solid var(--border-color);
 	background: #fcfcfc;
+}
+
+.header-center {
+	flex: 1;
+	display: flex;
+	justify-content: center;
+}
+
+.header-right {
+	display: flex;
+	align-items: center;
 }
 
 .header-left {
@@ -373,30 +395,42 @@ input:checked + .slider-v2:before {
 	height: 100%;
 	overflow-y: auto;
 	background: #fff;
-    transition: all 0.3s ease;
+	transition: all 0.3s ease;
+}
+
+.config-modal-footer {
+	height: 60px;
+	border-top: 1px solid var(--border-color);
+	background: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 24px;
+}
+
+.footer-right {
+	display: flex;
+	align-items: center;
 }
 
 /* Default 2-panel or 3-panel logic handled via flex */
 .left-panel {
-    /* Default behavior: Fixed or Flex? */
-    /* User wants 3-panel logic specifically. */
-    flex: 0 0 20%; /* 20% by default in 3-panel mode */
+    flex: 0 0 20%;
     min-width: 250px;
 	border-right: 1px solid var(--border-color);
-	background: #f9f9f9;
+	background: #fcfcfc;
 }
 
 .middle-panel {
-    flex: 0 0 60%; /* 60% fixed ratio when 3 panels */
+    flex: 1;
 	min-width: 400px;
-    border-right: 1px solid var(--border-color, #e2e8f0);
 }
 
 .right-panel {
-    flex: 0 0 20%; /* Remaining 20% */
-	min-width: 250px;
+    flex: 0 0 20%;
+    min-width: 250px;
 	border-left: 1px solid var(--border-color);
-	background: #f9f9f9;
+	background: #fcfcfc;
 }
 
 /* Adjustments if Right Panel is HIDDEN (2-panel mode) */
@@ -438,17 +472,42 @@ input:checked + .slider-v2:before {
 	opacity: 0;
 }
 
+@media (max-width: 1200px) {
+    .left-panel, .right-panel {
+        flex: 0 0 25%;
+    }
+}
+
 @media (max-width: 992px) {
 	.config-modal-overlay {
-		padding: 0;
+		padding: 12px;
 	}
 	
+    .left-panel, .right-panel {
+        display: none !important; /* Hide side panels on smaller screens to prioritize config */
+    }
+    
+    .middle-panel {
+        flex: 1;
+        min-width: 0;
+    }
+
 	.config-modal-container {
-		border-radius: 0;
+		max-width: 100%;
 	}
-	
-	.left-panel, .right-panel {
-		width: 100% !important;
-	}
+}
+
+@media (max-width: 768px) {
+    .config-modal-header {
+        padding: 0 12px;
+    }
+    
+    .header-left h3 {
+        font-size: 14px;
+    }
+    
+    .modal-navigation {
+        gap: 4px;
+    }
 }
 </style>

@@ -2,7 +2,6 @@
 /**
  * CollectionUI - Child table iterator editor
  */
-import { ref, computed, watch, inject, onMounted } from "vue";
 import ConditionNode from "./ConditionNode.vue";
 
 const props = defineProps({

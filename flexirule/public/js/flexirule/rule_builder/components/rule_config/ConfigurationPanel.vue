@@ -20,7 +20,6 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
 import ProcessConfig from "./types/ProcessConfig.vue";
 import ConditionConfig from "./types/ConditionConfig.vue";
 import LoopConfig from "./types/LoopConfig.vue";

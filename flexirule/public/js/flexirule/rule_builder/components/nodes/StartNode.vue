@@ -1,5 +1,4 @@
 <script setup>
-import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 
@@ -17,6 +16,12 @@ const testResult = computed(() => {
 	const path = store.test_execution_path || [];
 	return path.find(entry => entry.action_id === props.id || entry.action_id === 'root' || entry.action_id === 'start');
 });
+
+function openConfig() {
+	store.selected_id = props.id || 'start'; // Start node might be 'start' or have ID
+	store.show_config_modal = true;
+	store.config_modal_mode = "setup";
+}
 </script>
 
 <template>
@@ -25,7 +30,7 @@ const testResult = computed(() => {
 		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
 			{{ store.test_execution_path.indexOf(testResult) + 1 }}
 		</div>
-		<div class="node-body">
+		<div class="node-body" @dblclick.stop="openConfig">
 			<div class="icon-section">
 				<i class="fa fa-play"></i>
 			</div>
@@ -33,6 +38,10 @@ const testResult = computed(() => {
 				<div class="type-label">{{ __("TRIGGER") }}</div>
 				<div class="main-label">{{ displayLabel }}</div>
 			</div>
+			
+			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
+				<i class="fa fa-pencil"></i>
+			</button>
 		</div>
 		<Handle type="source" :position="Position.Right" id="default" class="handle-source" />
 	</div>
@@ -128,5 +137,19 @@ const testResult = computed(() => {
 	z-index: 10;
 	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 	border: 2px solid #10b981;
+}
+
+.action-btn {
+	background: none;
+	border: none;
+	color: rgba(255, 255, 255, 0.6);
+	cursor: pointer;
+	padding: 4px;
+	font-size: 12px;
+	margin-left: auto;
+}
+
+.action-btn:hover {
+	color: white;
 }
 </style>

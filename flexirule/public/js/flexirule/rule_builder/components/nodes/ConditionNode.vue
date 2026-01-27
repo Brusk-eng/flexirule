@@ -1,5 +1,4 @@
 <script setup>
-import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 
@@ -17,6 +16,12 @@ const testResult = computed(() => {
 
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
+}
+
+function openConfig() {
+	store.selected_id = props.id;
+	store.show_config_modal = true;
+	store.config_modal_mode = "setup";
 }
 </script>
 
@@ -42,12 +47,15 @@ function deleteNode() {
 		<div class="node-header">
 			<i class="fa fa-question-circle"></i>
 			<span class="type-text">{{ __("CONDITION") }}</span>
+			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
+				<i class="fa fa-pencil"></i>
+			</button>
 			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
 				<i class="fa fa-trash"></i>
 			</button>
 		</div>
 
-		<div class="node-body">
+		<div class="node-body" @dblclick.stop="openConfig">
 			<div class="condition-text">{{ label }}</div>
 		</div>
 

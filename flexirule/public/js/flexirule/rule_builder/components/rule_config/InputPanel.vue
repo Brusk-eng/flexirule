@@ -111,9 +111,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../store";
-import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 
 const props = defineProps({
 	node: Object,

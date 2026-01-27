@@ -1,5 +1,4 @@
 <script setup>
-import { ref, computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 
@@ -77,7 +76,7 @@ function deleteNode() {
 			</button>
 		</div>
 
-		<div class="node-body">
+		<div class="node-body" @dblclick.stop="store.selected_id = props.id">
 			<div class="form-group">
 				<label class="small text-muted">{{ __("Action Type") }}</label>
 				<select v-model="selectedType" class="form-control input-xs">

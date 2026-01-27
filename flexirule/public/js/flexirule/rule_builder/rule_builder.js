@@ -8,7 +8,7 @@ import "../controls/flexi_autocomplete.js";
 import "../core/ProcessConfigurator.js";
 import { useStore } from "./store";
 import RuleBuilderComponent from "./App.vue";
-import { registerGlobalComponents } from "./globals.js";
+import { registerGlobalComponents, registerVueGlobals } from "./globals.js";
 
 class RuleBuilder {
 	constructor({ wrapper, page, rule }) {
@@ -78,7 +78,7 @@ class RuleBuilder {
 
 		// Create Vue app
 		let app = createApp(RuleBuilderComponent, { rule: this.rule });
-		SetVueGlobals(app);
+		registerVueGlobals(app);
 		app.use(pinia);
 		registerGlobalComponents(app);
 
@@ -222,15 +222,9 @@ class RuleBuilder {
 	}
 }
 
-frappe.provide("frappe.ui");
-
 /**
- * Helper to set global properties for Vue instances
+ * Entry point for Rule Builder
  */
-const SetVueGlobals = (app) => {
-	// Register the translation function
-	app.config.globalProperties.__ = window.__ || ((s) => s);
-};
-
 frappe.ui.RuleBuilder = RuleBuilder;
 export default RuleBuilder;
+

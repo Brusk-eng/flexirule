@@ -2,7 +2,6 @@
   SelectControl - Simple native select for reliability
 -->
 <script setup>
-import { computed } from "vue";
 
 const props = defineProps({
 	df: Object,

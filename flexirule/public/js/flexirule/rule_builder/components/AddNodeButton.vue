@@ -12,7 +12,6 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
 import { onClickOutside } from "@vueuse/core";
 
 const emit = defineEmits(["add-node"]);

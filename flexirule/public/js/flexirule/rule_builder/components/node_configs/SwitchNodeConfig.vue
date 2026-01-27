@@ -57,7 +57,6 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
 
 const props = defineProps({
 	nodeData: Object,
@@ -77,13 +76,8 @@ const cases = computed(() => {
 function getJsonConfig(key, defaultVal = "") {
 	// Support both new 'config' and legacy 'method_config'
 	const configStr = props.nodeData?.config || props.nodeData?.method_config;
-	if (!configStr) return defaultVal;
-	try {
-		const config = JSON.parse(configStr);
-		return config[key] !== undefined ? config[key] : defaultVal;
-	} catch (e) {
-		return defaultVal;
-	}
+	const config = flexirule.utils.safe_json_parse(configStr, {});
+	return config[key] !== undefined ? config[key] : defaultVal;
 }
 
 function addSwitchCase() {

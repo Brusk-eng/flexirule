@@ -47,8 +47,6 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
-import CodeControl from "../../../controls/CodeControl.vue";
 import { useStore } from "../../../store";
 
 const props = defineProps({

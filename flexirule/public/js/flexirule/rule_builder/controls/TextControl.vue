@@ -1,6 +1,5 @@
 <!-- Used as Text, Small Text & Long Text Control -->
 <script setup>
-import { useSlots, computed } from "vue";
 
 const props = defineProps(["df", "modelValue", "read_only"]);
 let emit = defineEmits(["update:modelValue"]);

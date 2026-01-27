@@ -1,6 +1,5 @@
 <!-- Used as Code, HTML Editor, Markdown Editor & JSON Control -->
 <script setup>
-import { computed, onMounted, ref, useSlots, watch } from "vue";
 
 const props = defineProps(["df", "read_only", "modelValue"]);
 let emit = defineEmits(["update:modelValue"]);

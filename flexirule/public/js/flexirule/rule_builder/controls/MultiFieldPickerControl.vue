@@ -3,7 +3,6 @@
  * MultiFieldPickerControl - Select multiple DocType fields
  * Returns array of field names
  */
-import { ref, computed, watch, onMounted } from "vue";
 
 const props = defineProps({
 	df: Object,

@@ -1,12 +1,11 @@
 <script setup>
-import { ref, computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 
 const props = defineProps(["data", "label", "id", "selected"]);
 const store = useStore();
 
-const showConfig = ref(false);
+
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -26,6 +25,15 @@ const nodeMeta = computed(() => {
 	if (type.includes("stop") || type.includes("cancel")) {
 		return { color: "#dc3545", icon: "fa-stop-circle", typeLabel: __("STOP") };
 	}
+	if (type.includes("raise error")) {
+		return { color: "#dc3545", icon: "fa-exclamation-triangle", typeLabel: __("RAISE ERROR") };
+	}
+	if (type.includes("set value")) {
+		return { color: "#198754", icon: "fa-edit", typeLabel: __("SET VALUE") };
+	}
+	if (type.includes("notify")) {
+		return { color: "#ffc107", icon: "fa-bell", typeLabel: __("NOTIFY") };
+	}
 	return { color: "#0d6efd", icon: "fa-cog", typeLabel: __("PROCESS") };
 });
 
@@ -38,8 +46,10 @@ function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 }
 
-function toggleConfig() {
-	showConfig.value = !showConfig.value;
+function openConfig() {
+	store.selected_id = props.id;
+	store.show_config_modal = true;
+	store.config_modal_mode = "setup";
 }
 </script>
 
@@ -64,15 +74,16 @@ function toggleConfig() {
 			<i class="fa" :class="nodeMeta.icon"></i>
 			<span class="type-text">{{ nodeMeta.typeLabel }}</span>
 			
-			<div class="header-actions">
-				<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
-					<i class="fa fa-trash"></i>
-				</button>
-			</div>
+			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
+				<i class="fa fa-pencil"></i>
+			</button>
+			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
+				<i class="fa fa-trash"></i>
+			</button>
 		</div>
 
 		<!-- Main Content -->
-		<div class="node-body">
+		<div class="node-body" @dblclick.stop="openConfig">
 			<div class="node-title">{{ data.action_label || label }}</div>
 			<div class="node-subtitle" v-if="data.operation">
 				{{ data.operation }}
@@ -84,21 +95,10 @@ function toggleConfig() {
 			<div 
 				class="config-status" 
 				:class="{ configured: data.config }"
-				@click.stop="toggleConfig"
+				@click.stop="openConfig"
 			>
 				<i class="fa" :class="data.config ? 'fa-check-circle' : 'fa-circle-o'"></i>
 				<span>{{ data.config ? __("Configured") : __("Not Configured") }}</span>
-			</div>
-		</div>
-
-		<!-- Config Popover (Simplified) -->
-		<div v-if="showConfig" class="popover-card config-popover">
-			<div class="popover-header">
-				<span>{{ __("JSON Preview") }}</span>
-				<button class="close-btn" @click.stop="showConfig = false">×</button>
-			</div>
-			<div class="popover-body">
-				<pre>{{ data.config || data.method_config || __("No config data") }}</pre>
 			</div>
 		</div>
 
@@ -249,50 +249,5 @@ function toggleConfig() {
 	border: 2px solid var(--accent-color) !important;
 }
 
-/* Popover */
-.popover-card {
-	position: absolute;
-	top: 100%;
-	left: 0;
-	width: 260px;
-	background: #fff;
-	border: 1px solid #d1d8dd;
-	border-radius: 8px;
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
-	z-index: 1000;
-	margin-top: 10px;
-}
 
-.popover-header {
-	padding: 8px 12px;
-	background: #f8f9fa;
-	border-bottom: 1px solid #eee;
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	font-weight: 600;
-	font-size: 11px;
-}
-
-.close-btn {
-	background: none;
-	border: none;
-	font-size: 16px;
-	cursor: pointer;
-	line-height: 1;
-}
-
-.popover-body {
-	padding: 10px;
-	max-height: 200px;
-	overflow-y: auto;
-}
-
-.popover-body pre {
-	margin: 0;
-	font-size: 10px;
-	background: #f8f9fa;
-	padding: 8px;
-	border-radius: 4px;
-}
 </style>

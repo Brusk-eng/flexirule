@@ -80,7 +80,6 @@
 import { ref, computed, watch } from "vue";
 import { useStore } from "../../store";
 import ControlFactory from "../../controls/ControlFactory.vue";
-import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 
 const props = defineProps({
 	node: Object,

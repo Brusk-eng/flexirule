@@ -2,7 +2,6 @@
 /**
  * ConditionNode - Routes to correct component based on node type
  */
-import { inject } from "vue";
 import SimpleCondition from "./SimpleCondition.vue";
 import ConditionGroupUI from "./ConditionGroupUI.vue";
 import CollectionUI from "./CollectionUI.vue";

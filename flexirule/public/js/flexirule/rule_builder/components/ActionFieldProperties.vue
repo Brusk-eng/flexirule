@@ -10,9 +10,7 @@
   Follows Frappe Form Builder patterns.
 -->
 <script setup>
-import { computed, ref, watch, onMounted } from "vue";
 import { useStore } from "../store";
-import AutocompleteControl from "../controls/AutocompleteControl.vue";
 import ControlFactory from "../controls/ControlFactory.vue";
 
 const props = defineProps({

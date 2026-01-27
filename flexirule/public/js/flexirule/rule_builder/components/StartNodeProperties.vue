@@ -5,7 +5,7 @@
   not Rule Action fields.
 -->
 <script setup>
-import { computed, ref } from "vue";
+
 import { useStore } from "../store";
 
 const props = defineProps({
