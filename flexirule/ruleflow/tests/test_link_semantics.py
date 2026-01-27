@@ -24,11 +24,7 @@ class TestLinkSemantics(FrappeTestCase):
 		compiler = ConditionCompiler()
 
 		# Case: Link Equality
-		cond = {
-			"left": {"ref": "doc.link_field"},
-			"op": "==",
-			"right": {"value": ["DoctypeA", "ValueA"]}
-		}
+		cond = {"left": {"ref": "doc.link_field"}, "op": "==", "right": {"value": ["DoctypeA", "ValueA"]}}
 		code = compiler.compile(cond)
 		self.assertIn("check_link_match", code)
 		self.assertIn("['DoctypeA', 'ValueA']", code)
@@ -41,7 +37,7 @@ class TestLinkSemantics(FrappeTestCase):
 		cond = {
 			"left": {"ref": "doc.link_field"},
 			"op": "==",
-			"right": {"value": ["AnyDocType", "TargetValue"]}
+			"right": {"value": ["AnyDocType", "TargetValue"]},
 		}
 
 		evaluator = ConditionEvaluator(frappe.as_json([cond]))
@@ -58,7 +54,7 @@ class TestLinkSemantics(FrappeTestCase):
 		cond = {
 			"left": {"ref": "doc.status"},
 			"op": "in",
-			"right": {"value": ["StatusDoc", ["Draft", "Open"]]}
+			"right": {"value": ["StatusDoc", ["Draft", "Open"]]},
 		}
 
 		evaluator = ConditionEvaluator(frappe.as_json([cond]))

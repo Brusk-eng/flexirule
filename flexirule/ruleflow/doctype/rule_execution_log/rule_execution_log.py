@@ -26,7 +26,6 @@ class RuleExecutionLog(Document):
 		status: DF.Literal["Success", "Failed", "Stopped"]
 	# end: auto-generated types
 
-
 	@staticmethod
 	def clear_old_logs(days=30):
 		from frappe.query_builder import Interval
@@ -38,4 +37,3 @@ class RuleExecutionLog(Document):
 	def before_insert(self):
 		if not self.executed_by:
 			self.executed_by = frappe.session.user
-

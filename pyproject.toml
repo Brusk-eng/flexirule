@@ -22,7 +22,7 @@ build-backend = "flit_core.buildapi"
 # package_name = "~=1.1.0"
 
 [tool.ruff]
-line-length = 88
+line-length = 110
 target-version = "py310"
 
 [tool.ruff.lint]
@@ -49,9 +49,10 @@ ignore = [
     "F405", # can't detect undefined names from * import
     "F722", # syntax error in forward type annotation
     "W191", # indentation contains tabs
-    "RUF001", 
-    "RUF002", 
-    "RUF003"
+    "RUF001", # string contains ambiguous unicode character
+    "UP030", # Use implicit references for positional format fields (translations)
+    "UP031", # Use format specifiers instead of percent format
+    "UP032", # Use f-string instead of `format` call (translations)
 ]
 typing-modules = ["frappe.types.DF"]
 

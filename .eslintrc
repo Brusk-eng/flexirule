@@ -10,11 +10,7 @@
 		"sourceType": "module",
 		"requireConfigFile": false
 	},
-	"extends": [
-		"eslint:recommended",
-		"plugin:vue/vue3-recommended",
-		"prettier"
-	],
+	"extends": "eslint:recommended",
 	"rules": {
 		"indent": "off",
 		"brace-style": "off",
@@ -48,6 +44,18 @@
 		"frappe": true,
 		"Vue": true,
 		"SetVueGlobals": true,
+		"ref": true,
+		"reactive": true,
+		"computed": true,
+		"onMounted": true,
+		"onUnmounted": true,
+		"onBeforeUnmount": true,
+		"watch": true,
+		"nextTick": true,
+		"defineProps": true,
+		"defineEmits": true,
+		"useSlots": true,
+		"useAttrs": true,
 		"__": true,
 		"repl": true,
 		"Class": true,

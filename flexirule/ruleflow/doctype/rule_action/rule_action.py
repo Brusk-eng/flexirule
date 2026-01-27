@@ -18,7 +18,19 @@ class RuleAction(Document):
 
 		action_id: DF.Data
 		action_label: DF.Data
-		action_type: DF.Literal["Entry Action", "Condition", "Process", "Loop", "Stop", "Switch", "Wait", "Sub-Rule", "Set Value", "Raise Error", "Notify"]
+		action_type: DF.Literal[
+			"Entry Action",
+			"Condition",
+			"Process",
+			"Loop",
+			"Stop",
+			"Switch",
+			"Wait",
+			"Sub-Rule",
+			"Set Value",
+			"Raise Error",
+			"Notify",
+		]
 		condition_expression: DF.Code | None
 		condition_json: DF.Code | None
 		config: DF.Code | None

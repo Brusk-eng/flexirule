@@ -8,7 +8,7 @@ Applies transformation pipelines to standardize data
 
 import json
 import re
-from typing import Any, Dict, List
+from typing import Any, ClassVar
 
 import frappe
 
@@ -20,35 +20,37 @@ class NormalizationPipeline:
 	"""
 
 	# Built-in transformations
-	TRANSFORMATIONS = {
-		'trim': lambda x: x.strip() if isinstance(x, str) else x,
-		'lowercase': lambda x: x.lower() if isinstance(x, str) else x,
-		'uppercase': lambda x: x.upper() if isinstance(x, str) else x,
-		'remove_spaces': lambda x: x.replace(' ', '') if isinstance(x, str) else x,
-		'remove_punctuation': lambda x: re.sub(r'[^\w\s]', '', x) if isinstance(x, str) else x,
-		'remove_extra_spaces': lambda x: re.sub(r'\s+', ' ', x).strip() if isinstance(x, str) else x,
-		'remove_numbers': lambda x: re.sub(r'\d+', '', x) if isinstance(x, str) else x,
-		'remove_special_chars': lambda x: re.sub(r'[^a-zA-Z0-9\s]', '', x) if isinstance(x, str) else x,
-		'slug': lambda x: re.sub(r'[^\w\s-]', '', x).strip().lower().replace(' ', '-') if isinstance(x, str) else x,
+	TRANSFORMATIONS: ClassVar[dict[str, Any]] = {
+		"trim": lambda x: x.strip() if isinstance(x, str) else x,
+		"lowercase": lambda x: x.lower() if isinstance(x, str) else x,
+		"uppercase": lambda x: x.upper() if isinstance(x, str) else x,
+		"remove_spaces": lambda x: x.replace(" ", "") if isinstance(x, str) else x,
+		"remove_punctuation": lambda x: (re.sub(r"[^\w\s]", "", x) if isinstance(x, str) else x),
+		"remove_extra_spaces": lambda x: (re.sub(r"\s+", " ", x).strip() if isinstance(x, str) else x),
+		"remove_numbers": lambda x: re.sub(r"\d+", "", x) if isinstance(x, str) else x,
+		"remove_special_chars": lambda x: (re.sub(r"[^a-zA-Z0-9\s]", "", x) if isinstance(x, str) else x),
+		"slug": lambda x: (
+			re.sub(r"[^\w\s-]", "", x).strip().lower().replace(" ", "-") if isinstance(x, str) else x
+		),
 	}
 
-	def __init__(self, profile_name: str = None):
+	def __init__(self, profile_name: str | None = None):
 		"""
 		Initialize with a normalization profile
-		
+
 		Args:
-			profile_name: Name of Normalization Profile document
+		        profile_name: Name of Normalization Profile document
 		"""
 		self.profile = None
 		if profile_name:
-			self.profile = frappe.get_doc('Normalization Profile', profile_name)
+			self.profile = frappe.get_doc("Normalization Profile", profile_name)
 
 	def normalize_document(self, doc):
 		"""
 		Apply normalization to all configured fields in a document
-		
+
 		Args:
-			doc: Frappe document to normalize
+		        doc: Frappe document to normalize
 		"""
 		if not self.profile or not self.profile.normalize_fields_json:
 			return
@@ -56,8 +58,8 @@ class NormalizationPipeline:
 		field_configs = json.loads(self.profile.normalize_fields_json)
 
 		for config in field_configs:
-			fieldname = config.get('fieldname')
-			transformations = config.get('transformations', [])
+			fieldname = config.get("fieldname")
+			transformations = config.get("transformations", [])
 
 			if not fieldname or not transformations:
 				continue
@@ -76,13 +78,13 @@ class NormalizationPipeline:
 	def apply_transformations(self, value: Any, transformations: list[str]) -> Any:
 		"""
 		Apply a list of transformations to a value
-		
+
 		Args:
-			value: Value to transform
-			transformations: List of transformation names
-			
+		        value: Value to transform
+		        transformations: List of transformation names
+
 		Returns:
-			Transformed value
+		        Transformed value
 		"""
 		result = value
 
@@ -94,25 +96,25 @@ class NormalizationPipeline:
 				except Exception as e:
 					frappe.log_error(
 						title=f"Normalization Error: {transform_name}",
-						message=f"Value: {value}\\nError: {e!s}"
+						message=f"Value: {value}\\nError: {e!s}",
 					)
 
 		return result
 
 	@staticmethod
-	def normalize_text(text: str, operations: list[str] = None) -> str:
+	def normalize_text(text: str, operations: list[str] | None = None) -> str:
 		"""
 		Standalone normalization function
-		
+
 		Args:
-			text: Text to normalize
-			operations: List of operations to apply
-			
+		        text: Text to normalize
+		        operations: List of operations to apply
+
 		Returns:
-			Normalized text
+		        Normalized text
 		"""
 		if not operations:
-			operations = ['trim', 'lowercase', 'remove_extra_spaces']
+			operations = ["trim", "lowercase", "remove_extra_spaces"]
 
 		pipeline = NormalizationPipeline()
 		return pipeline.apply_transformations(text, operations)
@@ -121,10 +123,10 @@ class NormalizationPipeline:
 	def add_custom_transformation(name: str, func):
 		"""
 		Register a custom transformation function
-		
+
 		Args:
-			name: Transformation name
-			func: Function that takes a value and returns transformed value
+		        name: Transformation name
+		        func: Function that takes a value and returns transformed value
 		"""
 		NormalizationPipeline.TRANSFORMATIONS[name] = func
 
@@ -134,13 +136,13 @@ class NormalizationPipeline:
 def test_normalization(text, transformations):
 	"""
 	Test normalization transformations
-	
+
 	Args:
-		text: Text to normalize
-		transformations: JSON array of transformation names
-		
+	        text: Text to normalize
+	        transformations: JSON array of transformation names
+
 	Returns:
-		Normalized text
+	        Normalized text
 	"""
 	if isinstance(transformations, str):
 		transformations = json.loads(transformations)

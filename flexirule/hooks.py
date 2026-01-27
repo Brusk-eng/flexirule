@@ -1,9 +1,7 @@
 app_name = "flexirule"
 app_title = "FlexiRule"
 app_publisher = "Abdo Ruzaqi"
-app_description = (
-    "a true Advanced Rule and Orchestration Engine for the Frappe Framework"
-)
+app_description = "a true Advanced Rule and Orchestration Engine for the Frappe Framework"
 app_email = "ruzaqi@gmail.com"
 app_license = "agpl-3.0"
 
@@ -16,26 +14,26 @@ app_include_js = ["flexirule.bundle.js"]
 # Document Events - ALL paths must be to MODULE-LEVEL functions
 # NEVER use class method paths like "module.ClassName.method"
 doc_events = {
-    "*": {
-        "before_naming": "flexirule.ruleflow.hooks.execute_rules",
-        "before_insert": "flexirule.ruleflow.hooks.execute_rules",
-        "before_save": "flexirule.ruleflow.hooks.execute_rules",
-        "validate": "flexirule.ruleflow.hooks.execute_rules",
-        "after_insert": "flexirule.ruleflow.hooks.execute_rules",
-        "after_save": "flexirule.ruleflow.hooks.execute_rules",
-        "before_submit": "flexirule.ruleflow.hooks.execute_rules",
-        "on_submit": "flexirule.ruleflow.hooks.execute_rules",
-        "on_update_after_submit": "flexirule.ruleflow.hooks.execute_rules",
-        "on_change": "flexirule.ruleflow.hooks.execute_rules",
-        "before_cancel": "flexirule.ruleflow.hooks.execute_rules",
-        "on_cancel": "flexirule.ruleflow.hooks.execute_rules",
-        "on_trash": "flexirule.ruleflow.hooks.execute_rules",
-    },
-    "Rule": {
-        "after_insert": "flexirule.ruleflow.hooks.clear_rule_cache",
-        "after_save": "flexirule.ruleflow.hooks.clear_rule_cache",
-        "on_trash": "flexirule.ruleflow.hooks.clear_rule_cache",
-    },
+	"*": {
+		"before_naming": "flexirule.ruleflow.hooks.execute_rules",
+		"before_insert": "flexirule.ruleflow.hooks.execute_rules",
+		"before_save": "flexirule.ruleflow.hooks.execute_rules",
+		"validate": "flexirule.ruleflow.hooks.execute_rules",
+		"after_insert": "flexirule.ruleflow.hooks.execute_rules",
+		"after_save": "flexirule.ruleflow.hooks.execute_rules",
+		"before_submit": "flexirule.ruleflow.hooks.execute_rules",
+		"on_submit": "flexirule.ruleflow.hooks.execute_rules",
+		"on_update_after_submit": "flexirule.ruleflow.hooks.execute_rules",
+		"on_change": "flexirule.ruleflow.hooks.execute_rules",
+		"before_cancel": "flexirule.ruleflow.hooks.execute_rules",
+		"on_cancel": "flexirule.ruleflow.hooks.execute_rules",
+		"on_trash": "flexirule.ruleflow.hooks.execute_rules",
+	},
+	"Rule": {
+		"after_insert": "flexirule.ruleflow.hooks.clear_rule_cache",
+		"after_save": "flexirule.ruleflow.hooks.clear_rule_cache",
+		"on_trash": "flexirule.ruleflow.hooks.clear_rule_cache",
+	},
 }
 
 doctype_js = {"Rule": "ruleflow/doctype/rule/rule.js"}
@@ -43,15 +41,15 @@ doctype_js = {"Rule": "ruleflow/doctype/rule/rule.js"}
 fixtures = []
 
 flexirule_excluded_doctypes = [
-    "Error Log",
-    "Activity Log",
-    "Access Log",
-    "Email Queue",
-    "Scheduled Job Log",
-    "Version",
-    "Comment",
-    "Communication",
-    "File",
+	"Error Log",
+	"Activity Log",
+	"Access Log",
+	"Email Queue",
+	"Scheduled Job Log",
+	"Version",
+	"Comment",
+	"Communication",
+	"File",
 ]
 
 export_python_type_annotations = True
@@ -135,7 +133,7 @@ export_python_type_annotations = True
 # before_install = "flexirule.install.before_install"
 # after_install = "flexirule.install.after_install"
 after_migrate = [
-    "flexirule.ruleflow.core.process_sync.sync_all_processes",
+	"flexirule.ruleflow.core.process_sync.sync_all_processes",
 ]
 
 # Uninstallation
@@ -202,8 +200,8 @@ after_migrate = [
 # ---------------
 
 scheduler_events = {
-    "all": ["flexirule.ruleflow.scheduler.check_scheduled_rules"],
-    "daily": ["flexirule.tasks.clear_old_logs"],
+	"all": ["flexirule.ruleflow.scheduler.check_scheduled_rules"],
+	"daily": ["flexirule.tasks.clear_old_logs"],
 }
 
 # Testing

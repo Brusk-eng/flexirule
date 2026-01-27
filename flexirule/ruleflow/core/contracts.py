@@ -18,96 +18,96 @@ This module defines the contract for action types that is shared between:
 # - validation: Additional validation rules
 
 ACTION_TYPE_CONTRACT = {
-    "Entry Action": {
-        "required_fields": [],
-        "has_next_true": True,
-        "has_next_false": False,
-        "terminal": False,
-    },
-    "Condition": {
-        "required_fields": ["condition_json"],
-        "has_next_true": True,
-        "has_next_false": True,
-        "terminal": False,
-    },
-    "Process": {
-        "required_fields": ["process_name", "operation"],
-        "has_next_true": True,
-        "has_next_false": False,
-        "terminal": False,
-    },
-    "Loop": {
-        "required_fields": ["config"],  # config must have iterator
-        "has_next_true": True,  # Loop body
-        "has_next_false": True,  # Loop exit
-        "terminal": False,
-    },
-    "Stop": {
-        "required_fields": [],
-        "has_next_true": False,
-        "has_next_false": False,
-        "terminal": True,
-    },
-    "Switch": {
-        "required_fields": ["config"],  # config must have cases
-        "has_next_true": False,  # Uses cases instead
-        "has_next_false": True,  # Default case
-        "terminal": False,
-    },
-    "Wait": {
-        "required_fields": [],  # config.duration optional
-        "has_next_true": True,
-        "has_next_false": False,
-        "terminal": False,
-    },
-    "Sub-Rule": {
-        "required_fields": ["rule"],
-        "has_next_true": True,
-        "has_next_false": False,
-        "terminal": False,
-    },
-    "Set Value": {
-        "required_fields": ["target_field", "value_template"],
-        "has_next_true": True,
-        "has_next_false": False,
-        "terminal": False,
-        "validation": {
-            "check_target_field_editable": True,
-        },
-    },
-    "Raise Error": {
-        "required_fields": ["error_template"],
-        "has_next_true": False,
-        "has_next_false": False,
-        "terminal": True,
-    },
-    "Notify": {
-        "required_fields": ["notification_template"],
-        "has_next_true": True,
-        "has_next_false": False,
-        "terminal": False,
-    },
+	"Entry Action": {
+		"required_fields": [],
+		"has_next_true": True,
+		"has_next_false": False,
+		"terminal": False,
+	},
+	"Condition": {
+		"required_fields": ["condition_json"],
+		"has_next_true": True,
+		"has_next_false": True,
+		"terminal": False,
+	},
+	"Process": {
+		"required_fields": ["process_name", "operation"],
+		"has_next_true": True,
+		"has_next_false": False,
+		"terminal": False,
+	},
+	"Loop": {
+		"required_fields": ["config"],  # config must have iterator
+		"has_next_true": True,  # Loop body
+		"has_next_false": True,  # Loop exit
+		"terminal": False,
+	},
+	"Stop": {
+		"required_fields": [],
+		"has_next_true": False,
+		"has_next_false": False,
+		"terminal": True,
+	},
+	"Switch": {
+		"required_fields": ["config"],  # config must have cases
+		"has_next_true": False,  # Uses cases instead
+		"has_next_false": True,  # Default case
+		"terminal": False,
+	},
+	"Wait": {
+		"required_fields": [],  # config.duration optional
+		"has_next_true": True,
+		"has_next_false": False,
+		"terminal": False,
+	},
+	"Sub-Rule": {
+		"required_fields": ["rule"],
+		"has_next_true": True,
+		"has_next_false": False,
+		"terminal": False,
+	},
+	"Set Value": {
+		"required_fields": ["target_field", "value_template"],
+		"has_next_true": True,
+		"has_next_false": False,
+		"terminal": False,
+		"validation": {
+			"check_target_field_editable": True,
+		},
+	},
+	"Raise Error": {
+		"required_fields": ["error_template"],
+		"has_next_true": False,
+		"has_next_false": False,
+		"terminal": True,
+	},
+	"Notify": {
+		"required_fields": ["notification_template"],
+		"has_next_true": True,
+		"has_next_false": False,
+		"terminal": False,
+	},
 }
 
 
 def get_contract(action_type: str) -> dict:
-    """Get contract for an action type, with defaults for unknown types"""
-    return ACTION_TYPE_CONTRACT.get(
-        action_type,
-        {
-            "required_fields": [],
-            "has_next_true": True,
-            "has_next_false": False,
-            "terminal": False,
-        },
-    )
+	"""Get contract for an action type, with defaults for unknown types"""
+	return ACTION_TYPE_CONTRACT.get(
+		action_type,
+		{
+			"required_fields": [],
+			"has_next_true": True,
+			"has_next_false": False,
+			"terminal": False,
+		},
+	)
 
 
 def is_terminal_action(action_type: str) -> bool:
-    """Check if action type terminates the flow"""
-    return get_contract(action_type).get("terminal", False)
+	"""Check if action type terminates the flow"""
+	return get_contract(action_type).get("terminal", False)
 
 
 def get_required_fields(action_type: str) -> list:
-    """Get required fields for an action type"""
-    return get_contract(action_type).get("required_fields", [])
+	"""Get required fields for an action type"""
+	return get_contract(action_type).get("required_fields", [])
