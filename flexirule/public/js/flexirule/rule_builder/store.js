@@ -911,8 +911,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	function next_config_node() {
 		if (!selected_id.value) return;
-		// Sort nodes by topological or visual order if possible, but store.nodes is array.
-		// Let's us basic index for now.
 		const currentIndex = nodes.value.findIndex(n => n.id === selected_id.value);
 		if (currentIndex === -1) return;
 
