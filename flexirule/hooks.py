@@ -201,7 +201,10 @@ after_migrate = [
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"daily": ["flexirule.tasks.clear_old_logs"]}
+scheduler_events = {
+    "all": ["flexirule.ruleflow.scheduler.check_scheduled_rules"],
+    "daily": ["flexirule.tasks.clear_old_logs"],
+}
 
 # Testing
 # -------

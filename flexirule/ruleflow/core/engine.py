@@ -435,21 +435,10 @@ class RuleEngine:
             )
 
             try:
-                # Standardized Handlers (Dispatcher)
-                handler_map = {
-                    "Condition": self._execute_condition,
-                    "Switch": self._execute_switch,
-                    "Process": self._execute_process,
-                    "Sub-Rule": self._execute_sub_rule,
-                    "Stop": self._execute_stop,
-                    "Wait": self._execute_wait,
-                    "Loop": self._execute_loop,
-                    "Set Value": self._execute_set_value,
-                    "Raise Error": self._execute_raise_error,
-                    "Notify": self._execute_notify,
-                }
+                # Use Strategy Pattern with Handler Registry
+                from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 
-                handler = handler_map.get(current.action_type)
+                handler = HandlerRegistry.get(current.action_type)
                 if not handler:
                     self._log(
                         "WARNING",
@@ -458,8 +447,8 @@ class RuleEngine:
                     result = None
                     next_id = current.next_step_if_true
                 else:
-                    # Handlers now return (result, next_id)
-                    result, next_id = handler(current, context)
+                    # Execute handler - returns (result, next_id)
+                    result, next_id = handler.execute(current, context, self)
 
                 # Store result in path trace
                 try:
@@ -1256,6 +1245,11 @@ class RuleEngine:
                     "execution_path": json.dumps(self.path_trace, default=str),
                     "context_snapshot": json.dumps(context_snapshot, default=str),
                     "error_trace": error_trace,
+                    # Batch / Scheduler fields from context
+                    "scheduler": active_context.get("scheduler"),
+                    "batch_id": active_context.get("batch_id"),
+                    "batch_index": active_context.get("batch_index"),
+                    "batch_total": active_context.get("batch_total"),
                 }
             )
 

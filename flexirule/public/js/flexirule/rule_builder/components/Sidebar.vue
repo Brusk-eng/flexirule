@@ -72,9 +72,6 @@ const sidebar_title = computed(() => {
 	return selectedNode.value.data?.action_label || selectedNode.value.label || __("Properties");
 });
 
-// ============================================================
-// FIELD UPDATE HANDLERS
-// ============================================================
 
 function update_start_field(fieldname, value) {
 	if (!selectedNode.value?.data) return;
@@ -147,9 +144,6 @@ function delete_node() {
 	}
 }
 
-// ============================================================
-// CONFIG DIALOG
-// ============================================================
 
 async function open_config_dialog() {
 	if (selectedNode.value?.type !== "start" && (!selectedNode.value?.data?.process_name || !selectedNode.value?.data?.operation)) {
@@ -165,9 +159,6 @@ async function open_condition_dialog() {
 	store.show_config_modal = true;
 }
 
-// ============================================================
-// METADATA
-// ============================================================
 
 // Load Rule Action metadata on mount
 onMounted(async () => {

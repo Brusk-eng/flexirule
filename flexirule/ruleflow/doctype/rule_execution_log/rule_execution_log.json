@@ -11,6 +11,10 @@
 		"reference_doctype",
 		"reference_docname",
 		"executed_by",
+		"scheduler",
+		"batch_id",
+		"batch_index",
+		"batch_total",
 		"section_break_ksdx",
 		"executions_path_html",
 		"contexts_html",
@@ -67,6 +71,32 @@
 			"fieldtype": "Link",
 			"label": "Executed By",
 			"options": "User",
+			"read_only": 1
+		},
+		{
+			"fieldname": "scheduler",
+			"fieldtype": "Link",
+			"label": "Scheduler",
+			"options": "Rule Scheduler",
+			"read_only": 1
+		},
+		{
+			"fieldname": "batch_id",
+			"fieldtype": "Data",
+			"label": "Batch ID",
+			"read_only": 1,
+			"in_standard_filter": 1
+		},
+		{
+			"fieldname": "batch_index",
+			"fieldtype": "Int",
+			"label": "Batch Index",
+			"read_only": 1
+		},
+		{
+			"fieldname": "batch_total",
+			"fieldtype": "Int",
+			"label": "Batch Total",
 			"read_only": 1
 		},
 		{

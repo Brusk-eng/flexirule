@@ -93,9 +93,7 @@ export function useSchemaEngine(options = {}) {
         return field.options || "";
     }
 
-    /**
-     * Evaluate dependencies for a specific context (root or table row).
-     */
+    // Evaluate dependencies for a specific context (root or table row).
     async function evaluateDependencies(targetDoc, row = null, tableFieldname = null) {
         const contextId = row ? (row.name || row.__uuid || "row") : "root";
         if (!dependencyStates[contextId]) {
