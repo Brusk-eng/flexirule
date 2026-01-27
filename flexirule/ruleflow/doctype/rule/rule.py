@@ -35,16 +35,35 @@ class Rule(Document):
         priority: DF.Int
         rule_name: DF.Data
         skip_for_roles: DF.TableMultiSelect[HasRole]
-        status: DF.Literal["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]
+        status: DF.Literal[
+            "Draft", "Active", "Disabled", "Invalid", "Error", "Archived"
+        ]
         trigger_condition: DF.Code | None
         trigger_condition_expression: DF.Code | None
-        trigger_event: DF.Literal["Manual", "Before Naming", "Before Insert", "Before Save", "Validate", "Before Submit", "After Insert", "After Save", "On Submit", "Before Cancel", "On Cancel", "On Trash", "On Update After Submit", "On Change"]
+        trigger_event: DF.Literal[
+            "Manual",
+            "Before Naming",
+            "Before Insert",
+            "Before Save",
+            "Validate",
+            "Before Submit",
+            "After Insert",
+            "After Save",
+            "On Submit",
+            "Before Cancel",
+            "On Cancel",
+            "On Trash",
+            "On Update After Submit",
+            "On Change",
+        ]
+
     # end: auto-generated types
     def validate(self):
         """
         Validate Rule Configuration
         """
         self.ensure_start_node()
+        self.reorder_actions()
         self.compile_conditions()
         self.validate_actions()
         self.validate_no_sub_rule_cycles()
@@ -220,6 +239,28 @@ class Rule(Document):
                     "next_step_if_true": first_action_id,  # Link to first existing action
                 },
             )
+
+    def reorder_actions(self):
+        """Ensure Entry Action is the first action (idx=1)"""
+        if not self.actions:
+            return
+
+        # Find entry action index
+        # Priority: action_id='root' OR action_type='Entry Action'
+        entry_index = -1
+        for i, action in enumerate(self.actions):
+            if action.action_id == "root" or action.action_type == "Entry Action":
+                entry_index = i
+                break
+
+        if entry_index > 0:
+            # Move to top
+            entry_action = self.actions.pop(entry_index)
+            self.actions.insert(0, entry_action)
+
+        # Re-assign idx
+        for i, action in enumerate(self.actions):
+            action.idx = i + 1
 
     def compile_conditions(self):
         from flexirule.ruleflow.core.compiler import ConditionCompiler
