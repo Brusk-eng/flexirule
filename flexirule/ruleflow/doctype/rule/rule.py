@@ -324,12 +324,9 @@ class Rule(Document):
                     )
 
             # 1. Validate JSON fields syntax
-            # Use new 'config' field with backward compatibility
-            config_value = getattr(action, "config", None) or getattr(
-                action, "method_config", None
-            )
             self._validate_json_field(
-                config_value, _("Action {0}: Configuration").format(action.action_label)
+                action.config,
+                _("Action {0}: Configuration").format(action.action_label),
             )
             self._validate_json_field(
                 action.input_mapping,

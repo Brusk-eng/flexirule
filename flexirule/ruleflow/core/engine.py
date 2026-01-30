@@ -237,11 +237,8 @@ class RuleEngine:
 
     @staticmethod
     def _get_action_config(action):
-        """Get config JSON with backward compatibility for method_config"""
-        # Prefer new 'config' field, fallback to legacy 'method_config'
-        config_str = getattr(action, "config", None) or getattr(
-            action, "method_config", None
-        )
+        """Get config JSON from action"""
+        config_str = getattr(action, "config", None)
         if not config_str:
             return {}
         try:
@@ -597,26 +594,8 @@ class RuleEngine:
             or self.action_map_by_label.get(action_id)
         )
 
-    def _execute_condition(self, action, context):
-        """Execute a condition node"""
-        # Conditions MUST be pre-compiled during Rule.validate()
-        # If condition_expression is missing but condition_json exists, the rule was not properly saved
-        if not action.condition_expression:
-            if action.condition_json:
-                raise ValueError(
-                    _(
-                        "Action '{0}' has condition_json but no compiled condition_expression. "
-                        "Please re-save the Rule to compile conditions."
-                    ).format(action.action_label)
-                )
-            result = True  # Empty condition passes
-        else:
-            result = self._evaluate_python_condition(
-                action.condition_expression, context
-            )
-
-        next_id = action.next_step_if_true if result else action.next_step_if_false
-        return result, next_id
+    # Legacy _execute_* methods removed - now using Handler Strategy Pattern
+    # See flexirule/ruleflow/core/action_handlers/ for implementations
 
     def _evaluate_python_condition(self, expression, context):
         """Evaluate Python expression safely"""

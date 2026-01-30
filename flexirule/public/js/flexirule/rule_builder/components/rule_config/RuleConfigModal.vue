@@ -291,7 +291,6 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 	justify-content: space-between;
 	padding: 0 24px;
 	border-bottom: 1px solid var(--border-color);
-	border-bottom: 1px solid var(--border-color);
 	background: #fcfcfc;
 }
 
