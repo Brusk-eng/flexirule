@@ -497,14 +497,58 @@ class RuleEngine:
                         )
                         current = self._get_action_by_id(current.next_step_if_true)
                         continue
+                    elif current.on_error == "Retry":
+                        # Fix 4: Implement Retry with exponential backoff
+                        retry_count = getattr(current, "retry_count", 3) or 3
+                        retry_key = f"_retry_{current.action_id or current.name}"
+                        current_attempt = context.get("vars", {}).get(retry_key, 0)
+
+                        if current_attempt < retry_count:
+                            # Increment retry counter
+                            context.setdefault("vars", {})[retry_key] = (
+                                current_attempt + 1
+                            )
+                            wait_time = 2**current_attempt  # Exponential backoff
+                            self._log(
+                                "WARNING",
+                                _(
+                                    "Error in action {0}, retrying ({1}/{2}) after {3}s: {4}"
+                                ).format(
+                                    current.action_label,
+                                    current_attempt + 1,
+                                    retry_count,
+                                    wait_time,
+                                    str(e),
+                                ),
+                            )
+                            time.sleep(wait_time)
+                            continue  # Retry same action
+                        else:
+                            self._log(
+                                "ERROR",
+                                _(
+                                    "Error in action {0}, max retries ({1}) exceeded: {2}"
+                                ).format(current.action_label, retry_count, str(e)),
+                            )
+                            raise
                     elif current.on_error == "Rollback":
+                        # Fix 5: Use savepoint instead of full rollback
+                        savepoint_name = (
+                            f"flexirule_action_{current.action_id or current.name}"
+                        )
                         self._log(
                             "ERROR",
-                            _("Error in action {0}, rolling back: {1}").format(
-                                current.action_label, str(e)
-                            ),
+                            _(
+                                "Error in action {0}, rolling back to savepoint: {1}"
+                            ).format(current.action_label, str(e)),
                         )
-                        frappe.db.rollback()
+                        try:
+                            frappe.db.rollback(save_point=savepoint_name)
+                        except Exception:
+                            # Savepoint might not exist, log and continue to raise
+                            self._log(
+                                "WARNING", _("Savepoint rollback failed, raising error")
+                            )
                         raise
                     elif current.on_error == "Escalate":
                         self._log(

@@ -259,8 +259,13 @@ class ConditionEvaluator:
                 elif value_type == "literal":
                     return value
                 elif value_type == "method":
-                    args = value_def.get("args", {})
-                    return frappe.call(value, **args)
+                    # SECURITY: Removed frappe.call to prevent arbitrary method execution
+                    # during condition evaluation. This could cause side effects.
+                    frappe.log_error(
+                        title="FlexiRule Deprecation Warning",
+                        message=f"'method' value type is no longer supported in conditions. Value: {value}",
+                    )
+                    return None
             else:
                 # New {value: x}
                 return value_def["value"]
