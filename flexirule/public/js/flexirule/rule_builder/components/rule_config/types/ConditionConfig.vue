@@ -22,6 +22,6 @@ function validate() {
 }
 
 defineExpose({
-	validate
+	validate,
 });
 </script>

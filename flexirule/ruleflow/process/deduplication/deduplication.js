@@ -282,7 +282,7 @@ const SHARED = {
 			.map((f) => ({
 				label: f.label,
 				value: f.value,
-				description: f.description // Pass description to UI
+				description: f.description, // Pass description to UI
 			}));
 	},
 

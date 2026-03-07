@@ -11,7 +11,8 @@
 			<div v-if="engine.normalized_fields.length === 0" class="p-5 text-center text-muted">
 				<p>{{ __("No configuration fields found for this operation.") }}</p>
 				<div class="small mt-2 p-2 border rounded bg-light text-left">
-					<code>Process: {{ node.data?.process_name }}</code><br>
+					<code>Process: {{ node.data?.process_name }}</code
+					><br />
 					<code>Operation: {{ node.data?.operation }}</code>
 				</div>
 			</div>
@@ -43,33 +44,33 @@ async function initEngine() {
 
 	error.value = null;
 	const currentInitId = ++initCounter;
-	
-	if (engine.value && typeof engine.value.dispose === 'function') {
+
+	if (engine.value && typeof engine.value.dispose === "function") {
 		engine.value.dispose();
 	}
-	engine.value = null; 
-	
+	engine.value = null;
+
 	try {
 		let configValue = props.node.data.config || {};
-		if (typeof configValue === 'string') {
+		if (typeof configValue === "string") {
 			try {
 				configValue = JSON.parse(configValue);
 			} catch (e) {
 				configValue = {};
 			}
 		}
-		
+
 		const config = reactive(configValue);
-		
+
 		const newEngine = new ProcessEngine({
 			process_name: props.node.data.process_name,
 			operation_name: props.node.data.operation,
 			config: config,
 			document_type: store.rule_doc?.document_type,
 			doc_meta: store.raw_meta,
-			available_variables: await store.getAvailableVariables(props.node.id)
+			available_variables: await store.getAvailableVariables(props.node.id),
 		});
-		
+
 		await newEngine.init();
 
 		if (currentInitId !== initCounter) return;
@@ -88,9 +89,12 @@ onMounted(() => {
 	initEngine();
 });
 
-watch(() => [props.node.data?.process_name, props.node.data?.operation], () => {
-	initEngine();
-});
+watch(
+	() => [props.node.data?.process_name, props.node.data?.operation],
+	() => {
+		initEngine();
+	}
+);
 
 async function validate() {
 	if (!engine.value) return { valid: true };
@@ -98,7 +102,7 @@ async function validate() {
 }
 
 defineExpose({
-	validate
+	validate,
 });
 </script>
 

@@ -1,11 +1,10 @@
 <!--
   StartNodeProperties - Properties panel for Start node
-  
+
   This component handles the special Start node which uses Rule DocType fields,
   not Rule Action fields.
 -->
 <script setup>
-
 import { useStore } from "../store";
 
 const props = defineProps({

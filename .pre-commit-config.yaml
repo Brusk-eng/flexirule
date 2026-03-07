@@ -46,8 +46,15 @@ repos:
     rev: v8.44.0
     hooks:
       - id: eslint
-        types_or: [javascript]
+        types_or: [javascript, vue]
         args: ['--quiet']
+        additional_dependencies:
+          - "eslint@8.44.0"
+          - "vue-eslint-parser@9.3.1"
+          - "eslint-plugin-vue@9.15.1"
+          - "@babel/core@7.22.5"
+          - "@babel/eslint-parser@7.22.5"
+          - "eslint-config-prettier@8.8.0"
         # Ignore any files that might contain jinja / bundles
         exclude: |
             (?x)^(

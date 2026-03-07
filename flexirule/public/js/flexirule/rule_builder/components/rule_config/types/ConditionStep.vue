@@ -87,27 +87,37 @@ function dehydrate(tree) {
 }
 
 // field name for conditions based on node type
-const conditionField = computed(() => props.node?.type === 'start' ? 'trigger_condition' : 'condition_json');
+const conditionField = computed(() =>
+	props.node?.type === "start" ? "trigger_condition" : "condition_json"
+);
 
 // Initial hydration
-watch(() => props.node.data?.[conditionField.value], (val) => {
-	if (val) {
-		try {
-			const parsed = typeof val === 'string' ? JSON.parse(val) : val;
-			
-			const currentClean = dehydrate(localConditions.value);
-			if (JSON.stringify(parsed) === JSON.stringify(currentClean)) {
-				return;
-			}
+watch(
+	() => props.node.data?.[conditionField.value],
+	(val) => {
+		if (val) {
+			try {
+				const parsed = typeof val === "string" ? JSON.parse(val) : val;
 
-			localConditions.value = hydrate(parsed);
-		} catch (e) {
+				const currentClean = dehydrate(localConditions.value);
+				if (JSON.stringify(parsed) === JSON.stringify(currentClean)) {
+					return;
+				}
+
+				localConditions.value = hydrate(parsed);
+			} catch (e) {
+				localConditions.value = {
+					id: frappe.utils.get_random(12),
+					op: "and",
+					conditions: [],
+				};
+			}
+		} else {
 			localConditions.value = { id: frappe.utils.get_random(12), op: "and", conditions: [] };
 		}
-	} else {
-		localConditions.value = { id: frappe.utils.get_random(12), op: "and", conditions: [] };
-	}
-}, { immediate: true });
+	},
+	{ immediate: true }
+);
 
 function updateConditions(val) {
 	localConditions.value = val;
@@ -119,7 +129,7 @@ function save() {
 
 	// Strip IDs
 	const clean = dehydrate(localConditions.value);
-	
+
 	props.node.data[conditionField.value] = clean;
 	// DO NOT mark dirty here. useRuleConfig will handle it on modal Save.
 }
@@ -163,7 +173,7 @@ function validate() {
 }
 
 defineExpose({
-	validate
+	validate,
 });
 </script>
 

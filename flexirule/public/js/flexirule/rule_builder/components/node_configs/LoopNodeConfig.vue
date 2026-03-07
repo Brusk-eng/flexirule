@@ -44,7 +44,7 @@ function getJsonConfig(key, defaultVal = "") {
 }
 
 function validate() {
-	const iterator = getJsonConfig('iterator');
+	const iterator = getJsonConfig("iterator");
 	if (!iterator) {
 		return { valid: false, message: __("Iterator is required") };
 	}

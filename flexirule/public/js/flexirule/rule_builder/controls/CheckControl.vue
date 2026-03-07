@@ -1,5 +1,4 @@
 <script setup>
-
 const props = defineProps(["df", "modelValue", "read_only", "hideLabel"]);
 defineEmits(["update:modelValue"]);
 let slots = useSlots();
@@ -7,8 +6,8 @@ const showTooltip = ref(false);
 </script>
 
 <template>
-	<div 
-		class="control frappe-control checkbox" 
+	<div
+		class="control frappe-control checkbox"
 		:class="{ editable: slots.label, 'no-label': hideLabel }"
 		@mouseenter="showTooltip = true"
 		@mouseleave="showTooltip = false"
@@ -42,7 +41,11 @@ const showTooltip = ref(false);
 		</div>
 
 		<!-- standard description -->
-		<div v-if="df.description && !hideLabel" class="mt-2 description" v-html="__(df.description)"></div>
+		<div
+			v-if="df.description && !hideLabel"
+			class="mt-2 description"
+			v-html="__(df.description)"
+		></div>
 	</div>
 </template>
 
@@ -61,7 +64,9 @@ input {
 	justify-content: flex-start; /* Align left usually, or center for grid? */
 }
 
-.fake-check-input { /* If using custom styling later */ }
+.fake-check-input {
+	/* If using custom styling later */
+}
 
 .control.no-label {
 	display: flex;
@@ -93,7 +98,7 @@ input {
 	z-index: 1000;
 	min-width: 150px;
 	max-width: 250px;
-	box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 	pointer-events: none;
 	margin-bottom: 6px;
 }

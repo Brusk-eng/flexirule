@@ -8,26 +8,35 @@ import frappe
 
 
 def get_excluded_doctypes():
-	# DEPRECATED
-	"""Get list of doctypes to exclude from rule execution"""
-	excluded = frappe.get_hooks("flexirule_excluded_doctypes") or []
+	"""Get list of doctypes to exclude from rule execution (cached per request)."""
 
-	default_excluded = [
-		"Error Log",
-		"Activity Log",
-		"Access Log",
-		"Email Queue",
-		"Scheduled Job Log",
-		"Version",
-		"Comment",
-		"Communication",
-		"File",
-		"Rule",
-		"Rule Action",
-		"Process",
-	]
+	def _build_exclusion_list():
+		excluded = frappe.get_hooks("flexirule_excluded_doctypes") or []
 
-	return list(set(excluded + default_excluded))
+		default_excluded = [
+			"Error Log",
+			"Activity Log",
+			"Access Log",
+			"Email Queue",
+			"Scheduled Job Log",
+			"Version",
+			"Comment",
+			"Communication",
+			"File",
+			# FlexiRule internal doctypes
+			"Rule",
+			"Rule Action",
+			"Rule Execution Log",
+			"Rule Scheduler",
+			"Process",
+			"Process Operation",
+			"Data Review Task",
+			"Data Review Related Document",
+		]
+
+		return list(set(excluded + default_excluded))
+
+	return frappe.local_cache("flexirule_excluded_doctypes", "list", _build_exclusion_list)
 
 
 def execute_rules(doc, method=None):

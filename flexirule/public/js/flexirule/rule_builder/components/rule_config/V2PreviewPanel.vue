@@ -4,25 +4,29 @@ import { getContract } from "../../../core/contracts.js";
 import { useStore } from "../../store";
 
 const props = defineProps({
-	node: Object
+	node: Object,
 });
 
 const store = useStore();
 
 const actionType = computed(() => props.node?.data?.action_type);
-const contract = computed(() => actionType.value ? getContract(actionType.value) : null);
+const contract = computed(() => (actionType.value ? getContract(actionType.value) : null));
 
 const operationDescription = ref("");
 
-watch(() => [props.node?.data?.process_name, props.node?.data?.operation], async ([processName, opName]) => {
-	if (processName && opName) {
-		const ops = await store.get_process_operations(processName);
-		const op = ops.find(o => o.func_name === opName);
-		operationDescription.value = op?.description || "";
-	} else {
-		operationDescription.value = "";
-	}
-}, { immediate: true });
+watch(
+	() => [props.node?.data?.process_name, props.node?.data?.operation],
+	async ([processName, opName]) => {
+		if (processName && opName) {
+			const ops = await store.get_process_operations(processName);
+			const op = ops.find((o) => o.func_name === opName);
+			operationDescription.value = op?.description || "";
+		} else {
+			operationDescription.value = "";
+		}
+	},
+	{ immediate: true }
+);
 </script>
 
 <template>
@@ -31,19 +35,29 @@ watch(() => [props.node?.data?.process_name, props.node?.data?.operation], async
 			<!-- Configuration Guide Section -->
 			<div class="guide-section mb-5">
 				<div class="d-flex align-items-center mb-4">
-					<div class="guide-icon" :style="{ background: contract?.color || 'var(--primary)' }">
+					<div
+						class="guide-icon"
+						:style="{ background: contract?.color || 'var(--primary)' }"
+					>
 						<i :class="contract?.icon || 'fa fa-info-circle'"></i>
 					</div>
 					<div>
 						<h4 class="mb-0">{{ __("Configuration Guide") }}</h4>
-						<span class="text-muted small">{{ __("Understanding") }} {{ actionType }}</span>
+						<span class="text-muted small"
+							>{{ __("Understanding") }} {{ actionType }}</span
+						>
 					</div>
 				</div>
 
 				<div class="guide-card">
 					<div class="guide-item mb-4">
 						<label class="guide-label">{{ __("Action Role") }}</label>
-						<p class="guide-text">{{ contract?.description || __("No description available for this action type.") }}</p>
+						<p class="guide-text">
+							{{
+								contract?.description ||
+								__("No description available for this action type.")
+							}}
+						</p>
 					</div>
 
 					<div class="guide-item" v-if="actionType === 'Process' && operationDescription">
@@ -63,11 +77,15 @@ watch(() => [props.node?.data?.process_name, props.node?.data?.operation], async
 					</div>
 					<h4>{{ __("V2 Vision") }}</h4>
 				</div>
-				
+
 				<p class="text-muted mb-4">
-					{{ __("We are moving towards a fully reactive, schema-aware builder where every action is a micro-process with its own inputs, internal state, and structured outputs.") }}
+					{{
+						__(
+							"We are moving towards a fully reactive, schema-aware builder where every action is a micro-process with its own inputs, internal state, and structured outputs."
+						)
+					}}
 				</p>
-				
+
 				<div class="v2-features">
 					<div class="feature-card">
 						<i class="fa fa-magic"></i>

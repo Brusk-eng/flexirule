@@ -33,7 +33,11 @@
 				</div>
 				<div class="mapping-list">
 					<div v-if="!mappings.length" class="empty-state">
-						{{ __("No input mappings. Param names will be auto-matched if they match context variable names.") }}
+						{{
+							__(
+								"No input mappings. Param names will be auto-matched if they match context variable names."
+							)
+						}}
 					</div>
 					<div v-for="(m, idx) in mappings" :key="idx" class="mapping-row">
 						<div class="mapping-inputs">
@@ -43,19 +47,26 @@
 								:get_options="getVariableOptions"
 								:placeholder="__('From Context')"
 								:read_only="readOnly"
-								@update:modelValue="m.source = $event; saveMappings();"
+								@update:modelValue="
+									m.source = $event;
+									saveMappings();
+								"
 							/>
 							<i class="fa fa-arrow-right text-muted mx-1"></i>
-							<input 
-								type="text" 
-								class="form-control input-xs" 
-								v-model="m.target" 
+							<input
+								type="text"
+								class="form-control input-xs"
+								v-model="m.target"
 								:placeholder="__('To Param')"
 								:disabled="readOnly"
 								@change="saveMappings"
 							/>
 						</div>
-						<button v-if="!readOnly" class="btn btn-xs btn-link text-danger" @click="removeMapping(idx)">
+						<button
+							v-if="!readOnly"
+							class="btn btn-xs btn-link text-danger"
+							@click="removeMapping(idx)"
+						>
 							<i class="fa fa-trash"></i>
 						</button>
 					</div>
@@ -75,10 +86,10 @@
 						<div class="input-group-prepend">
 							<span class="input-group-text"><i class="fa fa-search"></i></span>
 						</div>
-						<input 
-							type="text" 
-							class="form-control" 
-							v-model="searchQuery" 
+						<input
+							type="text"
+							class="form-control"
+							v-model="searchQuery"
 							:placeholder="__('Search variables...')"
 						/>
 					</div>
@@ -89,19 +100,23 @@
 						<div class="spinner-border spinner-border-sm text-muted text-center"></div>
 					</div>
 					<template v-else>
-						<div 
-							v-for="v in filteredVariables" 
-							:key="v.value" 
+						<div
+							v-for="v in filteredVariables"
+							:key="v.value"
 							class="variable-item"
 							:title="v.label"
 							draggable="true"
 							@dragstart="onDragStart($event, v)"
 						>
 							<span class="variable-label">{{ v.label }}</span>
-							<span class="variable-type">{{ v.type || 'Data' }}</span>
+							<span class="variable-type">{{ v.type || "Data" }}</span>
 						</div>
 						<div v-if="filteredVariables.length === 0" class="empty-state">
-							{{ searchQuery ? __("No matching variables") : __("No scope variables available") }}
+							{{
+								searchQuery
+									? __("No matching variables")
+									: __("No scope variables available")
+							}}
 						</div>
 					</template>
 				</div>
@@ -127,35 +142,41 @@ const searchQuery = ref("");
 const filteredVariables = computed(() => {
 	if (!searchQuery.value) return variables.value;
 	const q = searchQuery.value.toLowerCase();
-	return variables.value.filter(v => 
-		v.label.toLowerCase().includes(q) || 
-		v.value.toLowerCase().includes(q)
+	return variables.value.filter(
+		(v) => v.label.toLowerCase().includes(q) || v.value.toLowerCase().includes(q)
 	);
 });
 
 function onDragStart(event, variable) {
-    if (event.dataTransfer) {
-        // Provide both structured data and fallback text
-        const text = `{{ ${variable.value} }}`;
-        event.dataTransfer.setData('text/plain', text);
-        event.dataTransfer.setData('application/x-flexirule-variable', variable.value);
-        event.dataTransfer.effectAllowed = 'copy';
-    }
+	if (event.dataTransfer) {
+		// Provide both structured data and fallback text
+		const text = `{{ ${variable.value} }}`;
+		event.dataTransfer.setData("text/plain", text);
+		event.dataTransfer.setData("application/x-flexirule-variable", variable.value);
+		event.dataTransfer.effectAllowed = "copy";
+	}
 }
 
 // Parse mappings from JSON
-watch(() => props.node.data?.input_mapping, (val) => {
-	if (val) {
-		try {
-			const obj = typeof val === 'string' ? JSON.parse(val) : val;
-			mappings.value = Object.entries(obj).map(([source, target]) => ({ source, target }));
-		} catch (e) {
+watch(
+	() => props.node.data?.input_mapping,
+	(val) => {
+		if (val) {
+			try {
+				const obj = typeof val === "string" ? JSON.parse(val) : val;
+				mappings.value = Object.entries(obj).map(([source, target]) => ({
+					source,
+					target,
+				}));
+			} catch (e) {
+				mappings.value = [];
+			}
+		} else {
 			mappings.value = [];
 		}
-	} else {
-		mappings.value = [];
-	}
-}, { immediate: true });
+	},
+	{ immediate: true }
+);
 
 async function refreshVariables() {
 	if (!props.node?.id) return;
@@ -187,21 +208,25 @@ function removeMapping(idx) {
 
 function saveMappings() {
 	const obj = {};
-	mappings.value.forEach(m => {
+	mappings.value.forEach((m) => {
 		if (m.source && m.target) {
 			obj[m.source] = m.target;
 		}
 	});
-	updateField('input_mapping', obj);
+	updateField("input_mapping", obj);
 }
 
 function getVariableOptions() {
-	return variables.value.map(v => ({ label: v.label, value: v.value }));
+	return variables.value.map((v) => ({ label: v.label, value: v.value }));
 }
 
-watch(() => props.node?.id, () => {
-	refreshVariables();
-}, { immediate: true });
+watch(
+	() => props.node?.id,
+	() => {
+		refreshVariables();
+	},
+	{ immediate: true }
+);
 
 onMounted(() => {
 	refreshVariables();
@@ -214,7 +239,7 @@ function validate() {
 			errors.push(__("Input Mapping #{0} is incomplete", [idx + 1]));
 		}
 	});
-	
+
 	if (errors.length) {
 		return { valid: false, errors };
 	}

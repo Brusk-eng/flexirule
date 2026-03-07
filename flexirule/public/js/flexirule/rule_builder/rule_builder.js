@@ -203,7 +203,8 @@ class RuleBuilder {
 
 							frappe.msgprint({
 								title: __("Success"),
-								message: r.message?.message || __("Rule test completed successfully"),
+								message:
+									r.message?.message || __("Rule test completed successfully"),
 								indicator: "green",
 							});
 						} else {
@@ -227,4 +228,3 @@ class RuleBuilder {
  */
 frappe.ui.RuleBuilder = RuleBuilder;
 export default RuleBuilder;
-

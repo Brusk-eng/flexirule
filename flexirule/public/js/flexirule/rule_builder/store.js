@@ -120,8 +120,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		return doc_meta.value[doctype].map((f) => ({
 			...f,
-			label: `${alias}.${f.fieldname} (${f.label.split("(")[1] ? f.label.split("(")[1].replace(")", "") : f.label
-				})`,
+			label: `${alias}.${f.fieldname} (${
+				f.label.split("(")[1] ? f.label.split("(")[1].replace(")", "") : f.label
+			})`,
 			value: `${alias}.${f.fieldname}`,
 		}));
 	}
@@ -151,12 +152,14 @@ export const useStore = defineStore("rule-builder-store", () => {
 		// Load only relevant process adapters in parallel
 		const relevantProcesses = new Set();
 		if (rule_doc.value?.actions) {
-			rule_doc.value.actions.forEach(a => {
+			rule_doc.value.actions.forEach((a) => {
 				if (a.process_name) relevantProcesses.add(a.process_name);
 			});
 		}
 		if (relevantProcesses.size > 0) {
-			await Promise.all([...relevantProcesses].map(p => flexirule.utils.load_process_adapter(p)));
+			await Promise.all(
+				[...relevantProcesses].map((p) => flexirule.utils.load_process_adapter(p))
+			);
 		}
 
 		if (!trigger_event_options.value.length) {
@@ -184,9 +187,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 			edges.value = visual_data.filter((el) => el.source);
 
 			// Recovery: Ensure start node exists
-			const hasStart = nodes.value.some(n => n.id === 'start' || n.id === 'root' || n.type === 'start');
+			const hasStart = nodes.value.some(
+				(n) => n.id === "start" || n.id === "root" || n.type === "start"
+			);
 			if (!hasStart) {
-				console.warn("RuleBuilder: Start node missing in visual_data. Reconstructing from actions.");
+				console.warn(
+					"RuleBuilder: Start node missing in visual_data. Reconstructing from actions."
+				);
 				sync_actions_to_graph();
 			}
 		} else if (rule_doc.value.actions && rule_doc.value.actions.length > 0) {
@@ -366,7 +373,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 			const actionTypeRaw = (action.action_type || "Process").trim();
 			let type = actionTypeRaw.toLowerCase();
 
-			const isRoot = actionTypeRaw === "Entry Action" || nodeId === "start" || nodeId === "root";
+			const isRoot =
+				actionTypeRaw === "Entry Action" || nodeId === "start" || nodeId === "root";
 
 			if (isRoot) {
 				type = "start";
@@ -404,7 +412,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 				name: action.name,
 				input_mapping: safeParse(action.input_mapping),
 				output_mapping: safeParse(action.output_mapping),
-				rule: action.rule || (action.action_type === "Sub-Rule" ? getSubRuleName(configData) : null),
+				rule:
+					action.rule ||
+					(action.action_type === "Sub-Rule" ? getSubRuleName(configData) : null),
 				skip_conditions: action.skip_conditions !== undefined ? action.skip_conditions : 1,
 				skip_permissions: action.skip_permissions || 0,
 				next_step_if_true: action.next_step_if_true,
@@ -438,7 +448,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
 					source: nodeId,
 					target: action.next_step_if_true,
-					sourceHandle: (action.action_type === "Condition" || action.action_type === "Loop") ? "true" : "default",
+					sourceHandle:
+						action.action_type === "Condition" || action.action_type === "Loop"
+							? "true"
+							: "default",
 					animated: action.action_type === "Entry Action",
 				});
 			}
@@ -463,7 +476,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 			return null;
 		}
 	}
-
 
 	// ============================================================
 	// FILE-BACKED PROCESSES
@@ -495,13 +507,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return flexirule.utils.filter_eligible_operations(raw_ops, {
 			document_type,
 			has_doc: true, // Rule Builder always operates in doc context
-			doctype_meta: doctype_meta ? {
-				issingle: doctype_meta.issingle,
-				istable: doctype_meta.istable,
-				is_submittable: doctype_meta.is_submittable,
-				track_changes: doctype_meta.track_changes,
-				// Add more meta properties as needed
-			} : null
+			doctype_meta: doctype_meta
+				? {
+						issingle: doctype_meta.issingle,
+						istable: doctype_meta.istable,
+						is_submittable: doctype_meta.is_submittable,
+						track_changes: doctype_meta.track_changes,
+						// Add more meta properties as needed
+				  }
+				: null,
 		});
 	}
 
@@ -569,7 +583,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 				// Prevent saving if node is not yet configured (Selector type)
 				if (node.type === "selector") {
-					errors.push(`${label}: ${__("Please configure this action type before saving")}`);
+					errors.push(
+						`${label}: ${__("Please configure this action type before saving")}`
+					);
 					return;
 				}
 
@@ -606,13 +622,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 			// 2. Contract Validation: Variable Dependencies and Flow Constraints
 			// Build operation metadata from loaded processes
-			const op_metadata = flexirule.validation?.build_operation_metadata?.(processes.value) || {};
+			const op_metadata =
+				flexirule.validation?.build_operation_metadata?.(processes.value) || {};
 
 			// Prepare actions in topological order for validation
 			const sortedNodesForValidation = getTopologicalSort(nodes.value, edges.value);
 			const actionsForValidation = sortedNodesForValidation.map((node) => ({
 				action_id: node.data?.action_id || node.id,
-				action_type: node.type === "start" ? "Entry Action" : (node.data?.action_type || "Process"),
+				action_type:
+					node.type === "start" ? "Entry Action" : node.data?.action_type || "Process",
 				action_label: node.data?.action_label || node.label || node.id,
 				process_name: node.data?.process_name,
 				operation: node.data?.operation,
@@ -623,12 +641,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 				rule: node.data?.rule,
 				config: node.data?.config,
 				input_variables: node.data?.input_variables,
-				name: node.data?.name
+				name: node.data?.name,
 			}));
 
 			// Validate variable dependencies
 			if (flexirule.validation?.validate_variable_dependencies) {
-				const varResult = flexirule.validation.validate_variable_dependencies(actionsForValidation, op_metadata);
+				const varResult = flexirule.validation.validate_variable_dependencies(
+					actionsForValidation,
+					op_metadata
+				);
 				if (!varResult.valid) {
 					const message = varResult.errors.map((e) => `<li>${e}</li>`).join("");
 					frappe.msgprint({
@@ -646,8 +667,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 			// Validate flow constraints (is_terminal, writes_to)
 			if (flexirule.validation?.validate_flow_constraints) {
-				const edgesForValidation = edges.value.map((e) => ({ source: e.source, target: e.target }));
-				const flowResult = flexirule.validation.validate_flow_constraints(actionsForValidation, op_metadata, edgesForValidation);
+				const edgesForValidation = edges.value.map((e) => ({
+					source: e.source,
+					target: e.target,
+				}));
+				const flowResult = flexirule.validation.validate_flow_constraints(
+					actionsForValidation,
+					op_metadata,
+					edgesForValidation
+				);
 				if (!flowResult.valid) {
 					const message = flowResult.errors.map((e) => `<li>${e}</li>`).join("");
 					frappe.msgprint({
@@ -721,14 +749,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 				const action_type = is_start_node
 					? "Entry Action"
 					: node.data?.action_type === "Sub-rule"
-						? "Sub-Rule"
-						: node.data?.action_type || "Process";
+					? "Sub-Rule"
+					: node.data?.action_type || "Process";
 
 				// Parent ID logic
 				let prev_action_id = null;
 				if (!is_start_node && incoming) {
 					const parentNode = nodes.value.find((n) => n.id === incoming.source);
-					prev_action_id = parentNode?.data?.action_id || parentNode?.id || incoming.source;
+					prev_action_id =
+						parentNode?.data?.action_id || parentNode?.id || incoming.source;
 				}
 
 				return {
@@ -742,16 +771,28 @@ export const useStore = defineStore("rule-builder-store", () => {
 					is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
 					process_name: node.data?.process_name,
 					operation: node.data?.operation,
-					config: (node.data?.config && typeof node.data.config !== 'string') ? JSON.stringify(node.data.config) : node.data?.config,
+					config:
+						node.data?.config && typeof node.data.config !== "string"
+							? JSON.stringify(node.data.config)
+							: node.data?.config,
 					target_field: node.data?.target_field,
 					value_template: node.data?.value_template,
 					error_template: node.data?.error_template,
 					notification_template: node.data?.notification_template,
 					notification_type: node.data?.notification_type,
 					condition_expression: node.data?.condition_expression,
-					condition_json: (node.data?.condition_json && typeof node.data.condition_json !== 'string') ? JSON.stringify(node.data.condition_json) : node.data?.condition_json,
-					input_mapping: (node.data?.input_mapping && typeof node.data.input_mapping !== 'string') ? JSON.stringify(node.data.input_mapping) : node.data?.input_mapping,
-					output_mapping: (node.data?.output_mapping && typeof node.data.output_mapping !== 'string') ? JSON.stringify(node.data.output_mapping) : node.data?.output_mapping,
+					condition_json:
+						node.data?.condition_json && typeof node.data.condition_json !== "string"
+							? JSON.stringify(node.data.condition_json)
+							: node.data?.condition_json,
+					input_mapping:
+						node.data?.input_mapping && typeof node.data.input_mapping !== "string"
+							? JSON.stringify(node.data.input_mapping)
+							: node.data?.input_mapping,
+					output_mapping:
+						node.data?.output_mapping && typeof node.data.output_mapping !== "string"
+							? JSON.stringify(node.data.output_mapping)
+							: node.data?.output_mapping,
 					on_error: node.data?.on_error || "Stop",
 					timeout: node.data?.timeout || 30,
 					priority: node.data?.priority || 0,
@@ -775,7 +816,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 			clear_dirty();
 		} catch (e) {
 			console.error("FlexiRule: Save failed", e);
-			const errorMsg = e.message || (typeof e === 'string' ? e : __("Unknown error occurred during save"));
+			const errorMsg =
+				e.message || (typeof e === "string" ? e : __("Unknown error occurred during save"));
 			frappe.msgprint({
 				title: __("Critical Error"),
 				message: errorMsg,
@@ -803,7 +845,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 			return;
 		}
 		const node = nodes.value.find((el) => el.id === nodeId);
-		if (nodeId === "start" || nodeId === "root" || node?.type === "start" || node?.data?.action_type === "Entry Action") {
+		if (
+			nodeId === "start" ||
+			nodeId === "root" ||
+			node?.type === "start" ||
+			node?.data?.action_type === "Entry Action"
+		) {
 			frappe.msgprint(__("Cannot delete start node"));
 			return;
 		}
@@ -846,7 +893,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 		edges.forEach((e) => {
 			if (adj[e.source]) adj[e.source].push(e.target);
 		});
-		const entryNode = nodes.find((n) => n.id === "start" || n.type === "start" || n.data?.action_type === "Entry Action");
+		const entryNode = nodes.find(
+			(n) => n.id === "start" || n.type === "start" || n.data?.action_type === "Entry Action"
+		);
 		if (entryNode && !processed.has(entryNode.id)) {
 			processed.add(entryNode.id);
 			result.push(entryNode);
@@ -892,7 +941,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 			context_vars.push({
 				label: data.return_variable,
 				value: data.return_variable,
-				type: "Data" // In the future, we can resolve actual type
+				type: "Data", // In the future, we can resolve actual type
 			});
 		}
 
@@ -911,7 +960,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	function next_config_node() {
 		if (!selected_id.value) return;
-		const currentIndex = nodes.value.findIndex(n => n.id === selected_id.value);
+		const currentIndex = nodes.value.findIndex((n) => n.id === selected_id.value);
 		if (currentIndex === -1) return;
 
 		let nextIndex = (currentIndex + 1) % nodes.value.length;
@@ -920,7 +969,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	function prev_config_node() {
 		if (!selected_id.value) return;
-		const currentIndex = nodes.value.findIndex(n => n.id === selected_id.value);
+		const currentIndex = nodes.value.findIndex((n) => n.id === selected_id.value);
 		if (currentIndex === -1) return;
 
 		let prevIndex = (currentIndex - 1 + nodes.value.length) % nodes.value.length;

@@ -45,7 +45,6 @@
 </template>
 
 <script setup>
-
 const props = defineProps({
 	nodeData: Object,
 	availableRules: { type: Array, default: () => [] },

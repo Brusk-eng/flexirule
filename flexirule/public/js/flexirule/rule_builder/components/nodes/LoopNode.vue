@@ -11,7 +11,7 @@ const isEffectiveDisabled = computed(() => {
 
 const testResults = computed(() => {
 	const path = store.test_execution_path || [];
-	return path.filter(entry => entry.action_id === props.id);
+	return path.filter((entry) => entry.action_id === props.id);
 });
 
 const visitCount = computed(() => testResults.value.length);
@@ -29,17 +29,21 @@ function openConfig() {
 </script>
 
 <template>
-	<div 
-		class="loop-node-card" 
-		:class="{ 
-			selected: selected, 
+	<div
+		class="loop-node-card"
+		:class="{
+			selected: selected,
 			disabled: isEffectiveDisabled,
-			'test-executed': visitCount > 0
+			'test-executed': visitCount > 0,
 		}"
 	>
 		<!-- Execution Badge -->
 		<div v-if="visitCount > 0" class="execution-badge" :title="__('Visit Count')">
-			{{ visitCount > 1 ? visitCount + 'x' : store.test_execution_path.indexOf(firstVisit) + 1 }}
+			{{
+				visitCount > 1
+					? visitCount + "x"
+					: store.test_execution_path.indexOf(firstVisit) + 1
+			}}
 		</div>
 		<Handle type="target" :position="Position.Left" class="handle-target" />
 
@@ -61,13 +65,23 @@ function openConfig() {
 		<!-- Iteration Handle -->
 		<div class="out-port out-do">
 			<span class="port-label">{{ __("DO") }}</span>
-			<Handle type="source" :position="Position.Right" id="default" class="handle-out handle-do" />
+			<Handle
+				type="source"
+				:position="Position.Right"
+				id="default"
+				class="handle-out handle-do"
+			/>
 		</div>
 
 		<!-- Done Handle -->
 		<div class="out-port out-done">
 			<span class="port-label">{{ __("DONE") }}</span>
-			<Handle type="source" :position="Position.Bottom" id="false" class="handle-out handle-done" />
+			<Handle
+				type="source"
+				:position="Position.Bottom"
+				id="false"
+				class="handle-out handle-done"
+			/>
 		</div>
 	</div>
 </template>
@@ -114,7 +128,7 @@ function openConfig() {
 	font-size: 10px;
 	font-weight: 700;
 	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .node-header {
@@ -179,8 +193,12 @@ function openConfig() {
 	border-style: solid !important;
 }
 
-.handle-do { border-color: #fab005 !important; }
-.handle-done { border-color: #adb5bd !important; }
+.handle-do {
+	border-color: #fab005 !important;
+}
+.handle-done {
+	border-color: #adb5bd !important;
+}
 
 .out-port {
 	position: absolute;
@@ -208,5 +226,7 @@ function openConfig() {
 	color: #6c757d;
 }
 
-.out-do .port-label { color: #fab005; }
+.out-do .port-label {
+	color: #fab005;
+}
 </style>

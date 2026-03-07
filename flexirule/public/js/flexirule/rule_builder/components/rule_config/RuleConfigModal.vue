@@ -10,12 +10,12 @@
 							</div>
 							<h3>{{ title }}</h3>
 						</div>
-						
+
 						<!-- Centered Navigation -->
 						<div class="header-center">
 							<div class="modal-navigation">
-								<button 
-									class="nav-btn" 
+								<button
+									class="nav-btn"
 									@click="store.prev_config_node()"
 									:title="__('Previous Node')"
 								>
@@ -24,8 +24,8 @@
 								<div class="nav-status">
 									{{ currentNodeIndex + 1 }} / {{ totalNodes }}
 								</div>
-								<button 
-									class="nav-btn" 
+								<button
+									class="nav-btn"
 									@click="store.next_config_node()"
 									:title="__('Next Node')"
 								>
@@ -43,9 +43,9 @@
 						<!-- Content based on Mode -->
 						<template v-if="store.config_modal_mode === 'logic'">
 							<div class="conditions-view p-4">
-								<ConditionStep 
-									:node="draftNode" 
-									:read-only="store.is_read_only" 
+								<ConditionStep
+									:node="draftNode"
+									:read-only="store.is_read_only"
 									:ref="panelRefs.logic"
 								/>
 							</div>
@@ -57,12 +57,16 @@
 								<div class="setup-container">
 									<header class="section-header mb-4">
 										<h4>{{ __("Trigger Configuration") }}</h4>
-										<p class="text-muted">{{ __("Configure how and when this rule is triggered.") }}</p>
+										<p class="text-muted">
+											{{
+												__("Configure how and when this rule is triggered.")
+											}}
+										</p>
 									</header>
-									<StartNodeProperties 
+									<StartNodeProperties
 										:nodeData="draftNode.data"
 										:readOnly="store.is_read_only"
-										@update:field="(f, v) => draftNode.data[f] = v"
+										@update:field="(f, v) => (draftNode.data[f] = v)"
 										@open:conditions="store.config_modal_mode = 'logic'"
 									/>
 								</div>
@@ -72,21 +76,33 @@
 							<ResizablePanel v-else-if="draftNode">
 								<!-- Left Panel: Input Selection -->
 								<div class="resizable-panel left-panel" v-if="showLeftPanel">
-									<InputPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.input" />
+									<InputPanel
+										:node="draftNode"
+										:readOnly="store.is_read_only"
+										:ref="panelRefs.input"
+									/>
 								</div>
 
 								<div class="panel-resizer" v-if="showLeftPanel"></div>
 
 								<!-- Middle Panel: Dynamic Configuration -->
 								<div class="resizable-panel middle-panel">
-									<ConfigurationPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.config" />
+									<ConfigurationPanel
+										:node="draftNode"
+										:readOnly="store.is_read_only"
+										:ref="panelRefs.config"
+									/>
 								</div>
 
 								<div class="panel-resizer" v-if="showRightPanel"></div>
 
 								<!-- Right Panel: Output/Mapping -->
 								<div class="resizable-panel right-panel" v-if="showRightPanel">
-									<OutputPanel :node="draftNode" :readOnly="store.is_read_only" :ref="panelRefs.output" />
+									<OutputPanel
+										:node="draftNode"
+										:readOnly="store.is_read_only"
+										:ref="panelRefs.output"
+									/>
 								</div>
 							</ResizablePanel>
 						</template>
@@ -100,7 +116,11 @@
 							<button class="btn btn-default" @click="cancel">
 								{{ store.is_read_only ? __("Close") : __("Cancel") }}
 							</button>
-							<button v-if="!store.is_read_only" class="btn btn-primary ml-2" @click="save">
+							<button
+								v-if="!store.is_read_only"
+								class="btn btn-primary ml-2"
+								@click="save"
+							>
 								{{ __("Save Changes") }}
 							</button>
 						</div>
@@ -129,41 +149,39 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "save"]);
 const store = useStore();
 
-const { 
-	draftNode, 
-	panelRefs, 
-	save, 
-	cancel 
-} = useRuleConfig(props, emit);
+const { draftNode, panelRefs, save, cancel } = useRuleConfig(props, emit);
 
-const actionType = computed(() => (draftNode.value?.data?.action_type || draftNode.value?.type)?.toLowerCase());
+const actionType = computed(() =>
+	(draftNode.value?.data?.action_type || draftNode.value?.type)?.toLowerCase()
+);
 
 const totalNodes = computed(() => store.nodes.length);
 const currentNodeIndex = computed(() => {
 	if (!store.selected_id) return -1;
-	return store.nodes.findIndex(n => n.id === store.selected_id);
+	return store.nodes.findIndex((n) => n.id === store.selected_id);
 });
 
 const title = computed(() => {
 	if (!draftNode.value) return __("Rule Configuration");
-	let baseTitle = draftNode.value.data?.action_label || draftNode.value.label || __("Rule Configuration");
-	let suffix = store.config_modal_mode === 'logic' ? ` [${__("Logic")}]` : "";
+	let baseTitle =
+		draftNode.value.data?.action_label || draftNode.value.label || __("Rule Configuration");
+	let suffix = store.config_modal_mode === "logic" ? ` [${__("Logic")}]` : "";
 	return baseTitle + suffix;
 });
 
 function getIcon(type) {
-	if (!type) return 'fa fa-circle';
+	if (!type) return "fa fa-circle";
 	const icons = {
-		'process': 'fa fa-cog',
-		'condition': 'fa fa-code-fork',
-		'loop': 'fa fa-refresh',
-		'switch': 'fa fa-code-fork rotate-90',
-		'sub-rule': 'fa fa-cube',
-		'wait': 'fa fa-clock-o',
-		'start': 'fa fa-play',
-		'stop': 'fa fa-stop'
+		process: "fa fa-cog",
+		condition: "fa fa-code-fork",
+		loop: "fa fa-refresh",
+		switch: "fa fa-code-fork rotate-90",
+		"sub-rule": "fa fa-cube",
+		wait: "fa fa-clock-o",
+		start: "fa fa-play",
+		stop: "fa fa-stop",
 	};
-	return icons[type.toLowerCase()] || 'fa fa-circle';
+	return icons[type.toLowerCase()] || "fa fa-circle";
 }
 
 // -- Dynamic Layout Logic --
@@ -171,12 +189,12 @@ const layoutConfig = computed(() => {
 	const type = actionType.value;
 	let config = { input: false, config: true, output: false };
 
-	if (type === 'process') {
+	if (type === "process") {
 		config = { input: true, config: true, output: true };
-	} else if (['condition', 'set value', 'raise error', 'notify'].includes(type)) {
+	} else if (["condition", "set value", "raise error", "notify"].includes(type)) {
 		config = { input: true, config: true, output: false };
 	}
-	
+
 	return config;
 });
 
@@ -414,20 +432,20 @@ input:checked + .slider-v2:before {
 
 /* Default 2-panel or 3-panel logic handled via flex */
 .left-panel {
-    flex: 0 0 20%;
-    min-width: 250px;
+	flex: 0 0 20%;
+	min-width: 250px;
 	border-right: 1px solid var(--border-color);
 	background: #fcfcfc;
 }
 
 .middle-panel {
-    flex: 1;
+	flex: 1;
 	min-width: 400px;
 }
 
 .right-panel {
-    flex: 0 0 20%;
-    min-width: 250px;
+	flex: 0 0 20%;
+	min-width: 250px;
 	border-left: 1px solid var(--border-color);
 	background: #fcfcfc;
 }
@@ -438,13 +456,13 @@ input:checked + .slider-v2:before {
 /* CSS Selector hacking: if right-panel is missing, middle-panel should grow. */
 /* But styling applies to classes. We can use :last-child on middle-panel? */
 .middle-panel:last-child {
-    flex: 1; /* Take remaining space if it's the last child (no right panel) */
-    border-right: none;
+	flex: 1; /* Take remaining space if it's the last child (no right panel) */
+	border-right: none;
 }
 
 /* If Left panel also missing? (Future proofing) */
 .middle-panel:first-child {
-    flex: 1;
+	flex: 1;
 }
 
 .btn-close-modal {
@@ -472,24 +490,26 @@ input:checked + .slider-v2:before {
 }
 
 @media (max-width: 1200px) {
-    .left-panel, .right-panel {
-        flex: 0 0 25%;
-    }
+	.left-panel,
+	.right-panel {
+		flex: 0 0 25%;
+	}
 }
 
 @media (max-width: 992px) {
 	.config-modal-overlay {
 		padding: 12px;
 	}
-	
-    .left-panel, .right-panel {
-        display: none !important; /* Hide side panels on smaller screens to prioritize config */
-    }
-    
-    .middle-panel {
-        flex: 1;
-        min-width: 0;
-    }
+
+	.left-panel,
+	.right-panel {
+		display: none !important; /* Hide side panels on smaller screens to prioritize config */
+	}
+
+	.middle-panel {
+		flex: 1;
+		min-width: 0;
+	}
 
 	.config-modal-container {
 		max-width: 100%;
@@ -497,16 +517,16 @@ input:checked + .slider-v2:before {
 }
 
 @media (max-width: 768px) {
-    .config-modal-header {
-        padding: 0 12px;
-    }
-    
-    .header-left h3 {
-        font-size: 14px;
-    }
-    
-    .modal-navigation {
-        gap: 4px;
-    }
+	.config-modal-header {
+		padding: 0 12px;
+	}
+
+	.header-left h3 {
+		font-size: 14px;
+	}
+
+	.modal-navigation {
+		gap: 4px;
+	}
 }
 </style>

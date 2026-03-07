@@ -2,7 +2,6 @@
   SelectControl - Simple native select for reliability
 -->
 <script setup>
-
 const props = defineProps({
 	df: Object,
 	modelValue: [String, Number],
@@ -56,7 +55,11 @@ function on_change(event) {
 
 <template>
 	<div class="control frappe-control">
-		<div v-if="df?.label && !no_label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
+		<div
+			v-if="df?.label && !no_label && !hideLabel"
+			class="control-label label"
+			:class="{ reqd: df.reqd }"
+		>
 			{{ __(df.label) }}
 		</div>
 		<div class="select-wrapper">

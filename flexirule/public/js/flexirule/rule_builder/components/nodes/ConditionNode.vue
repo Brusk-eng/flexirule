@@ -11,7 +11,7 @@ const isEffectiveDisabled = computed(() => {
 
 const testResult = computed(() => {
 	const path = store.test_execution_path || [];
-	return path.find(entry => entry.action_id === props.id);
+	return path.find((entry) => entry.action_id === props.id);
 });
 
 function deleteNode() {
@@ -26,14 +26,14 @@ function openConfig() {
 </script>
 
 <template>
-	<div 
-		class="condition-node-card" 
-		:class="{ 
-			selected: selected, 
+	<div
+		class="condition-node-card"
+		:class="{
+			selected: selected,
 			disabled: isEffectiveDisabled,
 			'test-executed': !!testResult,
 			'outcome-true': testResult && testResult.result === true,
-			'outcome-false': testResult && testResult.result === false
+			'outcome-false': testResult && testResult.result === false,
 		}"
 	>
 		<!-- Execution Badge -->
@@ -62,13 +62,23 @@ function openConfig() {
 		<!-- True Output (Top) -->
 		<div class="out-port out-true">
 			<span class="port-label">{{ __("YES") }}</span>
-			<Handle type="source" :position="Position.Top" id="true" class="handle-out handle-true" />
+			<Handle
+				type="source"
+				:position="Position.Top"
+				id="true"
+				class="handle-out handle-true"
+			/>
 		</div>
 
 		<!-- False Output (Bottom) -->
 		<div class="out-port out-false">
 			<span class="port-label">{{ __("NO") }}</span>
-			<Handle type="source" :position="Position.Bottom" id="false" class="handle-out handle-false" />
+			<Handle
+				type="source"
+				:position="Position.Bottom"
+				id="false"
+				class="handle-out handle-false"
+			/>
 		</div>
 	</div>
 </template>
@@ -123,7 +133,7 @@ function openConfig() {
 	font-size: 10px;
 	font-weight: 700;
 	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Header */
@@ -196,16 +206,24 @@ function openConfig() {
 	z-index: 5;
 }
 
-.out-true { top: -20px; }
-.out-false { bottom: -20px; }
+.out-true {
+	top: -20px;
+}
+.out-false {
+	bottom: -20px;
+}
 
 .port-label {
 	font-size: 8px;
 	font-weight: 800;
 }
 
-.out-true .port-label { color: #198754; }
-.out-false .port-label { color: #dc3545; }
+.out-true .port-label {
+	color: #198754;
+}
+.out-false .port-label {
+	color: #dc3545;
+}
 
 .handle-out {
 	position: relative !important;
@@ -218,15 +236,19 @@ function openConfig() {
 	border-style: solid !important;
 }
 
-.handle-true { border-color: #198754 !important; }
-.handle-false { border-color: #dc3545 !important; }
+.handle-true {
+	border-color: #198754 !important;
+}
+.handle-false {
+	border-color: #dc3545 !important;
+}
 
 /* Fixed port label alignment */
 .out-true .port-label {
-    top: -12px;
+	top: -12px;
 }
 
 .out-false .port-label {
-    bottom: -12px;
+	bottom: -12px;
 }
 </style>

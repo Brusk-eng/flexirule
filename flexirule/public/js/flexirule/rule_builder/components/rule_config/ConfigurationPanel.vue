@@ -1,8 +1,8 @@
 <template>
 	<div class="configuration-panel">
 		<div v-if="node" class="panel-content">
-			<component 
-				:is="configComponent" 
+			<component
+				:is="configComponent"
 				v-if="configComponent"
 				ref="configRef"
 				:node="node"
@@ -10,7 +10,14 @@
 			/>
 			<div v-else class="empty-config p-5 text-center">
 				<i class="fa fa-sliders fa-3x text-muted mb-3"></i>
-				<p class="text-muted">{{ __("No configuration UI available for this node type ({0})").replace('{0}', node.type) }}</p>
+				<p class="text-muted">
+					{{
+						__("No configuration UI available for this node type ({0})").replace(
+							"{0}",
+							node.type
+						)
+					}}
+				</p>
 			</div>
 		</div>
 		<div v-else class="panel-content empty-state p-5 text-center">
@@ -36,15 +43,15 @@ const props = defineProps({
 });
 
 const configComponents = {
-	'process': ProcessConfig,
-	'condition': ConditionConfig,
-	'loop': LoopConfig,
-	'switch': SwitchConfig,
-	'sub-rule': SubRuleConfig,
-	'wait': WaitConfig,
-	'set value': SetValueConfig,
-	'raise error': RaiseErrorConfig,
-	'notify': NotifyConfig
+	process: ProcessConfig,
+	condition: ConditionConfig,
+	loop: LoopConfig,
+	switch: SwitchConfig,
+	"sub-rule": SubRuleConfig,
+	wait: WaitConfig,
+	"set value": SetValueConfig,
+	"raise error": RaiseErrorConfig,
+	notify: NotifyConfig,
 };
 
 const configComponent = computed(() => {
@@ -62,7 +69,7 @@ async function validate() {
 }
 
 defineExpose({
-	validate
+	validate,
 });
 </script>
 

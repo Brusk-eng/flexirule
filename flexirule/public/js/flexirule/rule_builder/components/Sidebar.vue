@@ -1,6 +1,5 @@
 <template>
 	<div class="rule-sidebar">
-
 		<div class="sidebar-header">
 			<h4>{{ sidebar_title }}</h4>
 			<button class="btn-close" @click="$emit('close')">×</button>
@@ -36,14 +35,15 @@
 
 				<!-- Delete Button -->
 				<hr />
-				<button class="btn btn-sm btn-danger w-100" @click="delete_node" :disabled="store.is_read_only">
+				<button
+					class="btn btn-sm btn-danger w-100"
+					@click="delete_node"
+					:disabled="store.is_read_only"
+				>
 					<i class="fa fa-trash"></i> {{ __("Delete") }}
 				</button>
 			</template>
 		</div>
-
-
-
 	</div>
 </template>
 
@@ -51,7 +51,6 @@
 import { useStore } from "../store";
 import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
-
 
 // Ensure ProcessConfigurator is loaded
 import "../../core/ProcessConfigurator.js";
@@ -76,9 +75,17 @@ const sidebar_title = computed(() => {
 const isConfigurable = computed(() => {
 	const type = selectedNode.value?.data?.action_type || selectedNode.value?.type;
 	if (!type) return false;
-	return ['Process', 'Condition', 'Set Value', 'Raise Error', 'Notify', 'Loop', 'Wait', 'Sub-Rule'].includes(type);
+	return [
+		"Process",
+		"Condition",
+		"Set Value",
+		"Raise Error",
+		"Notify",
+		"Loop",
+		"Wait",
+		"Sub-Rule",
+	].includes(type);
 });
-
 
 function update_start_field(fieldname, value) {
 	if (!selectedNode.value?.data) return;
@@ -151,10 +158,12 @@ function delete_node() {
 	}
 }
 
-
 async function open_config_dialog() {
 	const type = selectedNode.value?.data?.action_type || selectedNode.value?.type;
-	if (type === "Process" && (!selectedNode.value?.data?.process_name || !selectedNode.value?.data?.operation)) {
+	if (
+		type === "Process" &&
+		(!selectedNode.value?.data?.process_name || !selectedNode.value?.data?.operation)
+	) {
 		frappe.msgprint(__("Please select a Process and Operation first"));
 		return;
 	}
@@ -166,7 +175,6 @@ async function open_condition_dialog() {
 	store.config_modal_mode = "logic";
 	store.show_config_modal = true;
 }
-
 
 // Load Rule Action metadata on mount
 onMounted(async () => {

@@ -30,8 +30,6 @@ def sync_all_processes():
 	for app in frappe.get_installed_apps():
 		sync_processes_for_app(app)
 
-	frappe.db.commit()
-
 
 def sync_processes_for_app(app_name):
 	"""

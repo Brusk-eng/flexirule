@@ -11,7 +11,7 @@ const isEffectiveDisabled = computed(() => {
 
 const testResult = computed(() => {
 	const path = store.test_execution_path || [];
-	return path.find(entry => entry.action_id === props.id);
+	return path.find((entry) => entry.action_id === props.id);
 });
 
 function deleteNode() {
@@ -26,12 +26,12 @@ function openConfig() {
 </script>
 
 <template>
-	<div 
-		class="stop-node-card" 
-		:class="{ 
-			selected: selected, 
+	<div
+		class="stop-node-card"
+		:class="{
+			selected: selected,
 			disabled: isEffectiveDisabled,
-			'test-executed': !!testResult
+			'test-executed': !!testResult,
 		}"
 	>
 		<!-- Execution Badge -->
@@ -102,7 +102,7 @@ function openConfig() {
 	font-size: 10px;
 	font-weight: 700;
 	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 	border: 2px solid #198754;
 }
 

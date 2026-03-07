@@ -1,284 +1,265 @@
 <template>
-  <div class="flexi-grid" :class="{ 'is-readonly': read_only }">
+	<div class="flexi-grid" :class="{ 'is-readonly': read_only }">
+		<!-- Label -->
+		<div v-if="df.label" class="grid-label">
+			{{ __(df.label) }}
+			<span v-if="df.reqd" class="text-danger">*</span>
+		</div>
 
-    <!-- Label -->
-    <div v-if="df.label" class="grid-label">
-      {{ __(df.label) }}
-      <span v-if="df.reqd" class="text-danger">*</span>
-    </div>
+		<div class="grid-container">
+			<div class="grid-table" :style="{ '--grid-cols': gridTemplateColumns }">
+				<!-- HEADER -->
+				<div class="grid-header">
+					<div class="header-row">
+						<div class="header-cell static-col">
+							<input
+								type="checkbox"
+								:checked="isAllSelected"
+								:indeterminate="isAnySelected && !isAllSelected"
+								@change="toggleAll"
+							/>
+						</div>
 
-    <div class="grid-container">
-      <div
-        class="grid-table"
-        :style="{ '--grid-cols': gridTemplateColumns }"
-      >
+						<div class="header-cell static-col">
+							{{ __("No") }}
+						</div>
 
-        <!-- HEADER -->
-        <div class="grid-header">
-          <div class="header-row">
+						<div
+							v-for="col in visibleColumns"
+							:key="col.fieldname"
+							class="header-cell"
+							:class="{ 'sticky-col': col.sticky }"
+							:style="stickyStyle(col)"
+						>
+							<span class="header-text">{{ __(col.label) }}</span>
+							<div
+								class="resize-handle"
+								@mousedown="startResize($event, col.fieldname)"
+							></div>
+						</div>
+					</div>
+				</div>
 
-            <div class="header-cell static-col">
-              <input
-                type="checkbox"
-                :checked="isAllSelected"
-                :indeterminate="isAnySelected && !isAllSelected"
-                @change="toggleAll"
-              />
-            </div>
+				<!-- BODY -->
+				<div class="grid-body">
+					<div v-for="(row, rowIndex) in localRows" :key="row.name" class="grid-row">
+						<div class="grid-cell static-col">
+							<input
+								type="checkbox"
+								:checked="selectedRows.has(row.name)"
+								@change="toggleRow(row.name)"
+							/>
+						</div>
 
-            <div class="header-cell static-col">
-              {{ __("No") }}
-            </div>
+						<div class="grid-cell static-col text-muted">
+							{{ rowIndex + 1 }}
+						</div>
 
-            <div
-              v-for="col in visibleColumns"
-              :key="col.fieldname"
-              class="header-cell"
-              :class="{ 'sticky-col': col.sticky }"
-              :style="stickyStyle(col)"
-            >
-              <span class="header-text">{{ __(col.label) }}</span>
-              <div
-                class="resize-handle"
-                @mousedown="startResize($event, col.fieldname)"
-              ></div>
-            </div>
+						<div
+							v-for="col in visibleColumns"
+							:key="col.fieldname"
+							class="grid-cell"
+							:class="{
+								'sticky-col': col.sticky,
+								'is-required': getCellState(row, col.fieldname).reqd,
+							}"
+							:style="stickyStyle(col)"
+						>
+							<ControlFactory
+								v-if="!isCellHidden(row, col.fieldname)"
+								:df="getEffectiveDf(row, col)"
+								:modelValue="row[col.fieldname]"
+								:doc="row"
+								:engine="engine"
+								hideLabel
+								hideDescription
+								@update:modelValue="updateCell(rowIndex, col.fieldname, $event)"
+							/>
+						</div>
+					</div>
 
-          </div>
-        </div>
+					<div v-if="!localRows.length" class="empty-state">
+						{{ __("No rows added.") }}
+					</div>
+				</div>
+			</div>
+		</div>
 
-        <!-- BODY -->
-        <div class="grid-body">
-
-          <div
-            v-for="(row, rowIndex) in localRows"
-            :key="row.name"
-            class="grid-row"
-          >
-
-            <div class="grid-cell static-col">
-              <input
-                type="checkbox"
-                :checked="selectedRows.has(row.name)"
-                @change="toggleRow(row.name)"
-              />
-            </div>
-
-            <div class="grid-cell static-col text-muted">
-              {{ rowIndex + 1 }}
-            </div>
-
-            <div
-              v-for="col in visibleColumns"
-              :key="col.fieldname"
-              class="grid-cell"
-              :class="{
-                'sticky-col': col.sticky,
-                'is-required': getCellState(row, col.fieldname).reqd
-              }"
-              :style="stickyStyle(col)"
-            >
-              <ControlFactory
-                v-if="!isCellHidden(row, col.fieldname)"
-                :df="getEffectiveDf(row, col)"
-                :modelValue="row[col.fieldname]"
-                :doc="row"
-                :engine="engine"
-                hideLabel
-                hideDescription
-                @update:modelValue="updateCell(rowIndex, col.fieldname, $event)"
-              />
-            </div>
-
-          </div>
-
-          <div v-if="!localRows.length" class="empty-state">
-            {{ __("No rows added.") }}
-          </div>
-
-        </div>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div v-if="!read_only" class="grid-footer">
-      <button class="btn btn-xs btn-default" @click="addRow">
-        <i class="fa fa-plus"></i> {{ __("Add Row") }}
-      </button>
-    </div>
-
-  </div>
+		<!-- Footer -->
+		<div v-if="!read_only" class="grid-footer">
+			<button class="btn btn-xs btn-default" @click="addRow">
+				<i class="fa fa-plus"></i> {{ __("Add Row") }}
+			</button>
+		</div>
+	</div>
 </template>
 <script setup>
-import ControlFactory from "./ControlFactory.vue"
+import ControlFactory from "./ControlFactory.vue";
 
 const props = defineProps({
-  df: Object,
-  modelValue: Array,
-  engine: Object,
-  read_only: Boolean
-})
+	df: Object,
+	modelValue: Array,
+	engine: Object,
+	read_only: Boolean,
+});
 
-const emit = defineEmits(["update:modelValue"])
+const emit = defineEmits(["update:modelValue"]);
 
-const localRows = ref([])
-const selectedRows = ref(new Set())
-const columnWidths = reactive({})
+const localRows = ref([]);
+const selectedRows = ref(new Set());
+const columnWidths = reactive({});
 
 /* ---------------- Columns ---------------- */
 
-const columns = computed(() => props.df.fields || [])
+const columns = computed(() => props.df.fields || []);
 
 const visibleColumns = computed(() =>
-  columns.value.filter(c =>
-    !c.hidden &&
-    c.in_list_view !== 0 &&
-    !["Section Break", "Column Break", "HTML"].includes(c.fieldtype)
-  )
-)
+	columns.value.filter(
+		(c) =>
+			!c.hidden &&
+			c.in_list_view !== 0 &&
+			!["Section Break", "Column Break", "HTML"].includes(c.fieldtype)
+	)
+);
 
 /* ---------------- Grid Template ---------------- */
 
 const gridTemplateColumns = computed(() => {
-  const cols = ["40px", "40px"]
-  visibleColumns.value.forEach(c => {
-    cols.push(getColumnWidth(c.fieldname))
-  })
-  return cols.join(" ")
-})
+	const cols = ["40px", "40px"];
+	visibleColumns.value.forEach((c) => {
+		cols.push(getColumnWidth(c.fieldname));
+	});
+	return cols.join(" ");
+});
 
 function getColumnWidth(fieldname) {
-  return columnWidths[fieldname] || "180px"
+	return columnWidths[fieldname] || "180px";
 }
 
 /* ---------------- Sticky ---------------- */
 
 function stickyStyle(col) {
-  if (!col.sticky) return {}
-  let left = 80
-  for (const c of visibleColumns.value) {
-    if (c.fieldname === col.fieldname) break
-    if (c.sticky) left += parseInt(getColumnWidth(c.fieldname))
-  }
-  return { left: left + "px" }
+	if (!col.sticky) return {};
+	let left = 80;
+	for (const c of visibleColumns.value) {
+		if (c.fieldname === col.fieldname) break;
+		if (c.sticky) left += parseInt(getColumnWidth(c.fieldname));
+	}
+	return { left: left + "px" };
 }
 
 /* ---------------- Resize ---------------- */
 
-let resizing = null
-let startX = 0
-let startW = 0
+let resizing = null;
+let startX = 0;
+let startW = 0;
 
 function startResize(e, fieldname) {
-  resizing = fieldname
-  startX = e.pageX
-  startW = parseInt(getColumnWidth(fieldname))
-  document.addEventListener("mousemove", resize)
-  document.addEventListener("mouseup", stopResize)
+	resizing = fieldname;
+	startX = e.pageX;
+	startW = parseInt(getColumnWidth(fieldname));
+	document.addEventListener("mousemove", resize);
+	document.addEventListener("mouseup", stopResize);
 }
 
 function resize(e) {
-  if (!resizing) return
-  columnWidths[resizing] = Math.max(80, startW + e.pageX - startX) + "px"
+	if (!resizing) return;
+	columnWidths[resizing] = Math.max(80, startW + e.pageX - startX) + "px";
 }
 
 function stopResize() {
-  resizing = null
-  document.removeEventListener("mousemove", resize)
-  document.removeEventListener("mouseup", stopResize)
+	resizing = null;
+	document.removeEventListener("mousemove", resize);
+	document.removeEventListener("mouseup", stopResize);
 }
 
 /* ---------------- Data Sync ---------------- */
 
 watch(
-  () => props.modelValue,
-  val => {
-    localRows.value = (val || []).map(r => ({
-      ...r,
-      name: r.name || frappe.utils.get_random(10)
-    }))
-  },
-  { immediate: true }
-)
+	() => props.modelValue,
+	(val) => {
+		localRows.value = (val || []).map((r) => ({
+			...r,
+			name: r.name || frappe.utils.get_random(10),
+		}));
+	},
+	{ immediate: true }
+);
 
 function updateCell(idx, field, value) {
-  const row = localRows.value[idx]
-  row[field] = value
-  emit("update:modelValue", localRows.value)
+	const row = localRows.value[idx];
+	row[field] = value;
+	emit("update:modelValue", localRows.value);
 
-  // If engine is available, trigger logical change handling
-  if (props.engine && props.engine.handleFieldChange) {
-    row.__table_fieldname = props.df.fieldname
-    props.engine.handleFieldChange(field, value, row)
-  }
+	// If engine is available, trigger logical change handling
+	if (props.engine && props.engine.handleFieldChange) {
+		row.__table_fieldname = props.df.fieldname;
+		props.engine.handleFieldChange(field, value, row);
+	}
 }
 
 /* ---------------- Helpers ---------------- */
 
 async function addRow() {
-  const newRow = {
-    name: frappe.utils.get_random(10),
-    __table_fieldname: props.df.fieldname
-  }
-  
-  // Apply Defaults
-  columns.value.forEach(col => {
-    if (col.default !== undefined) {
-      newRow[col.fieldname] = col.default
-    }
-  })
+	const newRow = {
+		name: frappe.utils.get_random(10),
+		__table_fieldname: props.df.fieldname,
+	};
 
-  localRows.value.push(newRow)
-  emit("update:modelValue", localRows.value)
+	// Apply Defaults
+	columns.value.forEach((col) => {
+		if (col.default !== undefined) {
+			newRow[col.fieldname] = col.default;
+		}
+	});
 
-  // Trigger initial evaluation for this row
-  if (props.engine && props.engine.evaluate_dependencies) {
-    await props.engine.evaluate_dependencies(
-      props.engine.config, 
-      newRow, 
-      props.df.fieldname, 
-      props.df.fields
-    )
-  }
+	localRows.value.push(newRow);
+	emit("update:modelValue", localRows.value);
+
+	// Trigger initial evaluation for this row
+	if (props.engine && props.engine.evaluate_dependencies) {
+		await props.engine.evaluate_dependencies(
+			props.engine.config,
+			newRow,
+			props.df.fieldname,
+			props.df.fields
+		);
+	}
 }
 
 function toggleRow(name) {
-  selectedRows.value.has(name)
-    ? selectedRows.value.delete(name)
-    : selectedRows.value.add(name)
+	selectedRows.value.has(name) ? selectedRows.value.delete(name) : selectedRows.value.add(name);
 }
 
 const isAllSelected = computed(
-  () => localRows.value.length && selectedRows.value.size === localRows.value.length
-)
-const isAnySelected = computed(() => selectedRows.value.size)
+	() => localRows.value.length && selectedRows.value.size === localRows.value.length
+);
+const isAnySelected = computed(() => selectedRows.value.size);
 
 function toggleAll() {
-  isAllSelected.value
-    ? selectedRows.value.clear()
-    : localRows.value.forEach(r => selectedRows.value.add(r.name))
+	isAllSelected.value
+		? selectedRows.value.clear()
+		: localRows.value.forEach((r) => selectedRows.value.add(r.name));
 }
 
 function getCellState(row, field) {
-  return props.engine?.dependency_states?.[row.name]?.[field] || {}
+	return props.engine?.dependency_states?.[row.name]?.[field] || {};
 }
 
 function isCellHidden(row, field) {
-  return getCellState(row, field).hidden
+	return getCellState(row, field).hidden;
 }
 
 function getEffectiveDf(row, col) {
-  const state = getCellState(row, col.fieldname)
-  return {
-    ...col,
-    options: state.options ?? col.options,
-    reqd: state.reqd ?? col.reqd,
-    read_only: state.read_only || props.read_only
-  }
+	const state = getCellState(row, col.fieldname);
+	return {
+		...col,
+		options: state.options ?? col.options,
+		reqd: state.reqd ?? col.reqd,
+		read_only: state.read_only || props.read_only,
+	};
 }
 </script>
-
-
 
 <style>
 /* ============================================================
@@ -354,13 +335,13 @@ function getEffectiveDf(row, col) {
 
 .flexi-grid .header-cell,
 .flexi-grid .grid-cell {
-	flex: 0 0 auto !important;   /* NEVER grow or shrink */
+	flex: 0 0 auto !important; /* NEVER grow or shrink */
 	box-sizing: border-box;
 	border-right: 1px solid var(--border-color, #f0f0f0);
 	display: flex;
 	align-items: center;
 	height: 100%;
-	padding: 0 8px;              /* Frappe-style padding */
+	padding: 0 8px; /* Frappe-style padding */
 	position: relative;
 	overflow: hidden;
 }
@@ -404,7 +385,7 @@ function getEffectiveDf(row, col) {
 
 .flexi-grid .header-cell.sticky-col {
 	z-index: 60;
-	box-shadow: 2px 0 5px rgba(0,0,0,0.04);
+	box-shadow: 2px 0 5px rgba(0, 0, 0, 0.04);
 }
 
 /* ---------- Resize Handle ---------- */
@@ -437,7 +418,7 @@ function getEffectiveDf(row, col) {
 
 /* Inputs must NOT fill height */
 .flexi-grid .grid-cell .form-control {
-	height: 28px !important;      /* Frappe default */
+	height: 28px !important; /* Frappe default */
 	min-height: 28px !important;
 	padding: 4px 8px !important;
 	border-radius: 4px !important;
@@ -534,47 +515,45 @@ function getEffectiveDf(row, col) {
 }
 .flexi-grid .header-row,
 .flexi-grid .grid-row {
-  display: grid;
-  grid-template-columns: var(--grid-cols);
+	display: grid;
+	grid-template-columns: var(--grid-cols);
 }
 
 .header-cell,
 .grid-cell {
-  height: 40px;
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  border-right: 1px solid #e5e7eb;
-  box-sizing: border-box;
+	height: 40px;
+	display: flex;
+	align-items: center;
+	padding: 0 8px;
+	border-right: 1px solid #e5e7eb;
+	box-sizing: border-box;
 }
 
 .header-cell {
-  font-weight: 600;
-  background: #f8f9fa;
+	font-weight: 600;
+	background: #f8f9fa;
 }
 
 .grid-row:hover {
-  background: #fafafb;
+	background: #fafafb;
 }
 
 .static-col {
-  justify-content: center;
+	justify-content: center;
 }
 
 .sticky-col {
-  position: sticky;
-  z-index: 20;
-  background: inherit;
+	position: sticky;
+	z-index: 20;
+	background: inherit;
 }
 
 .resize-handle {
-  position: absolute;
-  right: -3px;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  cursor: col-resize;
+	position: absolute;
+	right: -3px;
+	top: 0;
+	bottom: 0;
+	width: 6px;
+	cursor: col-resize;
 }
-
-
 </style>

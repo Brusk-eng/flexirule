@@ -175,18 +175,18 @@ function onDrop(event) {
 		<!-- label -->
 		<div class="field-controls">
 			<slot name="label" />
-			<div v-if="!slots.label && df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
+			<div
+				v-if="!slots.label && df.label && !hideLabel"
+				class="control-label label"
+				:class="{ reqd: df.reqd }"
+			>
 				{{ __(df.label) }}
 			</div>
 			<slot name="actions" />
 		</div>
 
 		<!-- link input mounting point -->
-		<div 
-			ref="link"
-			@dragover.prevent
-			@drop="onDrop"
-		></div>
+		<div ref="link" @dragover.prevent @drop="onDrop"></div>
 
 		<!-- description -->
 		<div
@@ -195,12 +195,7 @@ function onDrop(event) {
 			v-html="__(df.description)"
 		/>
 	</div>
-	<div 
-		v-else 
-		ref="link"
-		@dragover.prevent
-		@drop="onDrop"
-	></div>
+	<div v-else ref="link" @dragover.prevent @drop="onDrop"></div>
 </template>
 
 <style scoped>

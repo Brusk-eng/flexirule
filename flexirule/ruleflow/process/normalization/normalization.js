@@ -390,7 +390,9 @@ function get_transformation_options() {
 		{
 			label: __("Currency to Number"),
 			value: "currency_to_number",
-			description: __("Extract numeric value from currency strings (removes symbols and separators)"),
+			description: __(
+				"Extract numeric value from currency strings (removes symbols and separators)"
+			),
 		},
 		{
 			label: __("Tax ID / VAT Cleaner"),

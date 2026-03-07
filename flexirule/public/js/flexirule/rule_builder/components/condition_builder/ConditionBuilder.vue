@@ -37,7 +37,7 @@ watch(
 			// Compare JSON strings to detect logical changes
 			const currentJSON = JSON.stringify(rootGroup);
 			const newJSON = JSON.stringify(newVal);
-			
+
 			if (newJSON !== currentJSON) {
 				Object.assign(rootGroup, JSON.parse(newJSON));
 			}
@@ -120,7 +120,10 @@ provide(
 );
 provide("operatorConfig", operatorConfig);
 provide("store", store);
-provide("readOnly", computed(() => props.readOnly));
+provide(
+	"readOnly",
+	computed(() => props.readOnly)
+);
 </script>
 
 <template>

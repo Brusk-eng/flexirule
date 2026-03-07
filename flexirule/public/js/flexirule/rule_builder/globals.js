@@ -10,7 +10,7 @@ import {
 	nextTick,
 	provide,
 	inject,
-	useSlots
+	useSlots,
 } from "vue";
 import LinkControl from "./controls/LinkControl.vue";
 import DataControl from "./controls/DataControl.vue";

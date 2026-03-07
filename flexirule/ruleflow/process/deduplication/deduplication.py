@@ -97,11 +97,12 @@ class DedupeMatcher:
 		elif algorithm == "Date Distance":
 			from frappe.utils import date_diff, getdate
 
+			tolerance = float(config.get("tolerance", 30))
+			if tolerance <= 0:
+				tolerance = 1
+
 			try:
 				d1, d2 = getdate(val1), getdate(val2)
-				tolerance = float(config.get("tolerance", 30))
-				if tolerance <= 0:
-					tolerance = 1
 				diff = abs(date_diff(d1, d2))
 				return max(0, 1.0 - (diff / tolerance))
 			except Exception:
@@ -129,8 +130,10 @@ def _build_blocking_filters(doc, fields_config):
 		if algo == "Exact":
 			filters[f["fieldname"]] = val
 		elif algo in ("Fuzzy", "Contains", "Phonetic"):
-			if isinstance(val, str) and len(val) >= 3:
-				filters[f["fieldname"]] = ["like", f"%{val[:3]}%"]
+			if isinstance(val, str):
+				val = val.lower().strip()
+				if len(val) >= 3:
+					filters[f["fieldname"]] = ["like", f"%{val[:3]}%"]
 	return filters
 
 

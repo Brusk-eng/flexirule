@@ -141,7 +141,7 @@
 		<RuleConfigModal
 			v-if="store.show_config_modal"
 			v-model="store.show_config_modal"
-			:node="store.nodes.find(n => n.id === store.selected_id)"
+			:node="store.nodes.find((n) => n.id === store.selected_id)"
 			@save="store.mark_dirty()"
 		/>
 	</div>
@@ -386,12 +386,15 @@ function onPaneClick() {
 function onConnect(params) {
 	const sourceHandle = params.sourceHandle || "default";
 	const id = `e-${params.source}-${params.target}-${sourceHandle}`;
-	
+
 	// Check for existing connection to avoid duplicates
 	const exists = (store.edges || []).some(
-		(e) => e.source === params.source && e.target === params.target && (e.sourceHandle || "default") === sourceHandle
+		(e) =>
+			e.source === params.source &&
+			e.target === params.target &&
+			(e.sourceHandle || "default") === sourceHandle
 	);
-	
+
 	if (exists) {
 		// console.warn("Connection already exists", id);
 		return;
