@@ -12,41 +12,42 @@ const actionTypes = computed(() => {
 	const meta = frappe.get_meta("Rule Action");
 	if (!meta || !meta.fields) return [];
 
-	const typeField = meta.fields.find(f => f.fieldname === 'action_type');
+	const typeField = meta.fields.find((f) => f.fieldname === "action_type");
 	if (!typeField || !typeField.options) return [];
 
 	// Map of action types to icons
 	const iconMap = {
-		"Process": "fa-cog",
-		"Condition": "fa-code-fork",
-		"Loop": "fa-refresh",
-		"Switch": "fa-code-fork",
-		"Wait": "fa-clock-o",
+		Process: "fa-cog",
+		Condition: "fa-code-fork",
+		Loop: "fa-refresh",
+		Switch: "fa-code-fork",
+		Wait: "fa-clock-o",
 		"Sub-Rule": "fa-cube",
-		"Stop": "fa-stop-circle",
+		Stop: "fa-stop-circle",
 		"Set Value": "fa-edit",
 		"Raise Error": "fa-exclamation-triangle",
-		"Notify": "fa-bell"
+		Notify: "fa-bell",
 	};
 
-	return typeField.options.split("\n")
-		.filter(t => t && t !== "Entry Action" && t !== "Start")
-		.map(t => ({
+	return typeField.options
+		.split("\n")
+		.filter((t) => t && t !== "Entry Action" && t !== "Start")
+		.map((t) => ({
 			label: __(t),
 			value: t, // Keep exact value for action_type
 			actionType: t,
-			icon: iconMap[t] || "fa-cog"
+			icon: iconMap[t] || "fa-cog",
 		}));
 });
 
 function onCreate() {
 	const typeConfig = actionTypes.value.find((t) => t.value === selectedType.value);
 	const nodeIndex = store.nodes.findIndex((n) => n.id === props.id);
-	
+
 	if (nodeIndex === -1) return;
 
 	const label = customLabel.value.trim() || typeConfig.label;
-	
+
 	// Upgrade the node
 	store.nodes[nodeIndex].type = typeConfig.actionType.toLowerCase();
 	store.nodes[nodeIndex].label = label;
@@ -55,7 +56,7 @@ function onCreate() {
 		action_type: typeConfig.actionType,
 		action_label: label,
 	};
-	
+
 	store.mark_dirty();
 }
 
@@ -87,10 +88,10 @@ function deleteNode() {
 			</div>
 			<div class="form-group">
 				<label class="small text-muted">{{ __("Label") }}</label>
-				<input 
-					type="text" 
-					v-model="customLabel" 
-					class="form-control input-xs" 
+				<input
+					type="text"
+					v-model="customLabel"
+					class="form-control input-xs"
 					:placeholder="__('Enter label...')"
 					@keyup.enter="onCreate"
 				/>
@@ -181,7 +182,8 @@ function deleteNode() {
 	text-align: center;
 }
 
-.handle-target, .handle-source {
+.handle-target,
+.handle-source {
 	width: 10px !important;
 	height: 10px !important;
 	background-color: #fff !important;

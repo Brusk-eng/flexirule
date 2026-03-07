@@ -21,8 +21,8 @@ frappe.listview_settings["Rule"] = {
 			// Add builder icon before rule name
 			return `
                 <span class="rule-name-cell">
-                    <a class="builder-icon" 
-                       href="/app/rule-builder/${doc.name}" 
+                    <a class="builder-icon"
+                       href="/app/rule-builder/${doc.name}"
                        title="${__("Open in Rule Builder")}"
                        onclick="event.stopPropagation();">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -23,7 +23,13 @@ function handleRemove() {
 
 <template>
 	<!-- Leaf Condition: has left operand -->
-	<SimpleCondition v-if="node.left" :node="node" :docFields="docFields" :readOnly="readOnly" @remove="handleRemove" />
+	<SimpleCondition
+		v-if="node.left"
+		:node="node"
+		:docFields="docFields"
+		:readOnly="readOnly"
+		@remove="handleRemove"
+	/>
 
 	<!-- Nested Group: has conditions array, no where -->
 	<ConditionGroupUI

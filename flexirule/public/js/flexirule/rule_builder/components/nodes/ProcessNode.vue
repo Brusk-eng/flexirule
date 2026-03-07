@@ -5,8 +5,6 @@ import { useStore } from "../../store";
 const props = defineProps(["data", "label", "id", "selected"]);
 const store = useStore();
 
-
-
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
 });
@@ -39,7 +37,7 @@ const nodeMeta = computed(() => {
 
 const testResult = computed(() => {
 	const path = store.test_execution_path || [];
-	return path.find(entry => entry.action_id === props.id);
+	return path.find((entry) => entry.action_id === props.id);
 });
 
 function deleteNode() {
@@ -56,10 +54,10 @@ function openConfig() {
 <template>
 	<div
 		class="process-node-card"
-		:class="{ 
-			selected: selected, 
+		:class="{
+			selected: selected,
 			disabled: isEffectiveDisabled,
-			'test-executed': !!testResult
+			'test-executed': !!testResult,
 		}"
 		:style="{ '--accent-color': nodeMeta.color }"
 	>
@@ -73,7 +71,7 @@ function openConfig() {
 		<div class="node-header">
 			<i class="fa" :class="nodeMeta.icon"></i>
 			<span class="type-text">{{ nodeMeta.typeLabel }}</span>
-			
+
 			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
 				<i class="fa fa-pencil"></i>
 			</button>
@@ -92,8 +90,8 @@ function openConfig() {
 
 		<!-- Footer/Status -->
 		<div class="node-footer">
-			<div 
-				class="config-status" 
+			<div
+				class="config-status"
 				:class="{ configured: data.config }"
 				@click.stop="openConfig"
 			>
@@ -149,7 +147,7 @@ function openConfig() {
 	font-size: 10px;
 	font-weight: 700;
 	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Header */
@@ -242,12 +240,11 @@ function openConfig() {
 }
 
 /* Handles */
-.handle-target, .handle-source {
+.handle-target,
+.handle-source {
 	width: 10px !important;
 	height: 10px !important;
 	background-color: #fff !important;
 	border: 2px solid var(--accent-color) !important;
 }
-
-
 </style>

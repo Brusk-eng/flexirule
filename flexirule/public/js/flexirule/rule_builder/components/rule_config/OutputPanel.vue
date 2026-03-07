@@ -16,7 +16,7 @@
 							fieldtype: 'Data',
 							label: __('Result Variable Name'),
 							description: __('Name of the variable to store the action output'),
-							read_only: readOnly
+							read_only: readOnly,
 						}"
 						:modelValue="node.data?.return_variable"
 						:read_only="readOnly"
@@ -33,17 +33,21 @@
 						<i class="fa fa-plus"></i> {{ __("Add") }}
 					</button>
 				</div>
-				
+
 				<div class="assignment-list">
 					<div v-if="!mappings.length" class="empty-state">
-						{{ __("No variables assigned. Use assignments to map specific response keys to context.") }}
+						{{
+							__(
+								"No variables assigned. Use assignments to map specific response keys to context."
+							)
+						}}
 					</div>
 					<div v-for="(m, idx) in mappings" :key="idx" class="mapping-row">
 						<div class="mapping-inputs">
-							<input 
-								type="text" 
-								class="form-control input-xs" 
-								v-model="m.source" 
+							<input
+								type="text"
+								class="form-control input-xs"
+								v-model="m.source"
 								:placeholder="__('Result Key')"
 								:disabled="readOnly"
 								@change="saveMappings"
@@ -55,10 +59,17 @@
 								:get_options="getVariableOptions"
 								:placeholder="__('Context Variable')"
 								:read_only="readOnly"
-								@update:modelValue="m.target = $event; saveMappings();"
+								@update:modelValue="
+									m.target = $event;
+									saveMappings();
+								"
 							/>
 						</div>
-						<button v-if="!readOnly" class="btn btn-xs btn-link text-danger" @click="removeMapping(idx)">
+						<button
+							v-if="!readOnly"
+							class="btn btn-xs btn-link text-danger"
+							@click="removeMapping(idx)"
+						>
 							<i class="fa fa-trash"></i>
 						</button>
 					</div>
@@ -69,7 +80,9 @@
 			<div v-if="operation_metadata?.output_schema" class="panel-section">
 				<h5 class="section-title">{{ __("Output Schema") }}</h5>
 				<div class="preview-box">
-					<pre class="json-preview"><code>{{ operation_metadata.output_schema }}</code></pre>
+					<pre
+						class="json-preview"
+					><code>{{ operation_metadata.output_schema }}</code></pre>
 				</div>
 			</div>
 		</div>
@@ -92,18 +105,25 @@ const store = useStore();
 const mappings = ref([]);
 
 // Parse mappings from JSON
-watch(() => props.node.data?.output_mapping, (val) => {
-	if (val) {
-		try {
-			const obj = typeof val === 'string' ? JSON.parse(val) : val;
-			mappings.value = Object.entries(obj).map(([source, target]) => ({ source, target }));
-		} catch (e) {
+watch(
+	() => props.node.data?.output_mapping,
+	(val) => {
+		if (val) {
+			try {
+				const obj = typeof val === "string" ? JSON.parse(val) : val;
+				mappings.value = Object.entries(obj).map(([source, target]) => ({
+					source,
+					target,
+				}));
+			} catch (e) {
+				mappings.value = [];
+			}
+		} else {
 			mappings.value = [];
 		}
-	} else {
-		mappings.value = [];
-	}
-}, { immediate: true });
+	},
+	{ immediate: true }
+);
 
 function updateField(fieldname, value) {
 	if (props.node.data) {
@@ -123,26 +143,29 @@ function removeMapping(idx) {
 
 function saveMappings() {
 	const obj = {};
-	mappings.value.forEach(m => {
+	mappings.value.forEach((m) => {
 		if (m.source && m.target) {
 			obj[m.source] = m.target;
 		}
 	});
-	updateField('output_mapping', obj);
+	updateField("output_mapping", obj);
 }
 
 function getVariableOptions() {
 	// Standard variables plus any produced by prior nodes
 	return [
-		{ label: 'doc (Main Document)', value: 'doc' },
-		...store.doc_fields.map(f => ({ label: `doc.${f.fieldname}`, value: `doc.${f.fieldname}` }))
+		{ label: "doc (Main Document)", value: "doc" },
+		...store.doc_fields.map((f) => ({
+			label: `doc.${f.fieldname}`,
+			value: `doc.${f.fieldname}`,
+		})),
 	];
 }
 
 const operation_metadata = computed(() => {
 	if (!props.node.data?.process_name || !props.node.data?.operation) return null;
-	const proc = store.processes.find(p => p.name === props.node.data.process_name);
-	return proc?.operations?.find(op => op.func_name === props.node.data.operation);
+	const proc = store.processes.find((p) => p.name === props.node.data.process_name);
+	return proc?.operations?.find((op) => op.func_name === props.node.data.operation);
 });
 
 function validate() {
@@ -153,10 +176,10 @@ function validate() {
 		}
 	});
 
-	// Optional: Check return variable validity? 
-	// For now, let's keep it loose as Frappe handles variable names mostly, 
+	// Optional: Check return variable validity?
+	// For now, let's keep it loose as Frappe handles variable names mostly,
 	// unless we want to enforce python identifier rules.
-	
+
 	if (errors.length) {
 		return { valid: false, errors };
 	}
@@ -268,7 +291,7 @@ defineExpose({ validate });
 
 .json-preview {
 	margin: 0;
-	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+	font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", monospace;
 	font-size: 11px;
 	line-height: 1.5;
 	color: #dcdcdc;

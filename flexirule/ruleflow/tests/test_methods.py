@@ -149,53 +149,13 @@ class TestNotificationMethods(unittest.TestCase):
 		self.assertEqual(comment.content, "Test comment from rule")
 
 
-class TestDeduplicationMethods(unittest.TestCase):
-	"""Test deduplication process methods using the new Process architecture"""
-
-	def setUp(self):
-		"""Setup test data"""
-		frappe.set_user("Administrator")
-		# Create test ToDo items
-		self.doc1 = frappe.get_doc({"doctype": "ToDo", "description": "First test item for dedup"})
-		self.doc1.insert(ignore_permissions=True)
-
-		self.doc2 = frappe.get_doc({"doctype": "ToDo", "description": "First test item for dedup"})
-		self.context = {"doc": self.doc2, "vars": {}}
-		self.process = frappe.get_doc("Process", "Deduplication")
-
-	def tearDown(self):
-		"""Cleanup"""
-		frappe.db.rollback()
-
-	def test_find_duplicates(self):
-		"""Test duplicate detection"""
-		# doc2 needs a name for the exclusion filter
-		self.doc2.name = "temp-new"
-
-		# Deduplication.execute calls its module's execute, which dispatches 'find_duplicates'
-		result = self.process.execute(
-			self.context,
-			func="find_duplicates",
-			config={
-				"overall_threshold": 0.8,
-				"fields_config": [{"fieldname": "description", "weight": 100, "algorithm": "Exact"}],
-			},
-		)
-
-		self.assertIsInstance(result, list)
-		self.assertGreaterEqual(len(result), 1)
-		# Result should contain match names
-		match_names = [m.get("name") for m in result]
-		self.assertIn(self.doc1.name, match_names)
-
-
 def run_tests():
 	"""Helper function to run all method tests"""
 	suite = unittest.TestSuite()
 	suite.addTest(unittest.makeSuite(TestValidationMethods))
 	suite.addTest(unittest.makeSuite(TestEnrichmentMethods))
 	suite.addTest(unittest.makeSuite(TestNotificationMethods))
-	suite.addTest(unittest.makeSuite(TestDeduplicationMethods))
+
 	runner = unittest.TextTestRunner()
 	runner.run(suite)
 

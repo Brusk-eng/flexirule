@@ -11,17 +11,19 @@ frappe.ui.form.on("Rule", {
 
 			const cached = frm._process_ops_cache[row.process_name];
 			if (cached) {
-				return cached.map(op => ({ value: op, description: "" }));
+				return cached.map((op) => ({ value: op, description: "" }));
 			}
 
-			return frappe.call({
-				method: "flexirule.ruleflow.api.get_process_operations",
-				args: { process_name: row.process_name },
-			}).then(r => {
-				const ops = r.message || [];
-				frm._process_ops_cache[row.process_name] = ops;
-				return ops.map(op => ({ value: op, description: "" }));
-			});
+			return frappe
+				.call({
+					method: "flexirule.ruleflow.api.get_process_operations",
+					args: { process_name: row.process_name },
+				})
+				.then((r) => {
+					const ops = r.message || [];
+					frm._process_ops_cache[row.process_name] = ops;
+					return ops.map((op) => ({ value: op, description: "" }));
+				});
 		};
 	},
 
@@ -57,7 +59,7 @@ frappe.ui.form.on("Rule", {
 		update_dashboard_indicators(frm);
 
 		if (frm.doc.actions?.length) {
-			frm.doc.actions.forEach(row => {
+			frm.doc.actions.forEach((row) => {
 				update_operation_options(frm, "Rule Action", row.name);
 			});
 		}
@@ -116,21 +118,19 @@ frappe.ui.form.on("Rule Action", {
 function apply_active_lock(frm) {
 	const is_active = !!frm.doc.is_active;
 
-	frm.fields.forEach(field => {
+	frm.fields.forEach((field) => {
 		if (!field.df || field.df.fieldname === "is_active") return;
 		frm.set_df_property(field.df.fieldname, "read_only", is_active ? 1 : 0);
 	});
 
 	frm.set_df_property("is_active", "read_only", 0);
 
-	Object.values(frm.fields_dict).forEach(f => {
+	Object.values(frm.fields_dict).forEach((f) => {
 		if (!f.grid) return;
 		f.grid.cannot_add_rows = is_active;
 		f.grid.cannot_delete_rows = is_active;
 		f.grid.only_sortable = is_active;
-		f.grid.wrapper
-			.find(".grid-row, .grid-add-row")
-			.toggleClass("disabled", is_active);
+		f.grid.wrapper.find(".grid-row, .grid-add-row").toggleClass("disabled", is_active);
 	});
 
 	if (is_active) {
@@ -204,7 +204,7 @@ function update_dashboard_indicators(frm) {
 		indicators.push({
 			label: __("Executed {0} times", [frm.doc.execution_count]),
 			color: "blue",
-			key: "execution_count"
+			key: "execution_count",
 		});
 	}
 
@@ -212,11 +212,11 @@ function update_dashboard_indicators(frm) {
 		indicators.push({
 			label: __("Has Errors"),
 			color: "red",
-			key: "last_error"
+			key: "last_error",
 		});
 	}
 
-	indicators.forEach(ind => {
+	indicators.forEach((ind) => {
 		if (!frm._dashboard_rendered[ind.key]) {
 			frm.dashboard.add_indicator(ind.label, ind.color);
 			frm._dashboard_rendered[ind.key] = true;
@@ -264,7 +264,6 @@ function test_rule(frm) {
 					if (r.message?.success) {
 						// Highlight path in builder
 
-
 						frappe.msgprint({
 							title: __("Success"),
 							message: r.message?.message || __("Rule test completed successfully"),
@@ -306,7 +305,7 @@ function toggle_action_fields(frm, cdt, cdn) {
 		"configure_operation",
 	];
 
-	hide_all.forEach(f => grid_row.toggle_display(f, false));
+	hide_all.forEach((f) => grid_row.toggle_display(f, false));
 
 	if (row.action_type === "Process") {
 		[
@@ -317,23 +316,19 @@ function toggle_action_fields(frm, cdt, cdn) {
 			"is_async",
 			"on_error",
 			"configure_operation",
-		].forEach(f => grid_row.toggle_display(f, true));
+		].forEach((f) => grid_row.toggle_display(f, true));
 	}
 
 	if (row.action_type === "Condition") {
-		[
-			"condition_expression",
-			"condition_json",
-			"next_step_if_false",
-		].forEach(f => grid_row.toggle_display(f, true));
+		["condition_expression", "condition_json", "next_step_if_false"].forEach((f) =>
+			grid_row.toggle_display(f, true)
+		);
 	}
 
 	if (row.action_type === "Sub-Rule") {
-		[
-			"rule",
-			"skip_conditions",
-			"skip_permissions",
-		].forEach(f => grid_row.toggle_display(f, true));
+		["rule", "skip_conditions", "skip_permissions"].forEach((f) =>
+			grid_row.toggle_display(f, true)
+		);
 	}
 }
 
@@ -344,7 +339,7 @@ function update_operation_options(frm, cdt, cdn) {
 	const grid_row = frm.get_field("actions").grid.get_row(row.name || cdn);
 	if (!grid_row) return;
 
-	const apply_ops = ops => {
+	const apply_ops = (ops) => {
 		const field = grid_row.get_field("operation");
 		if (!field) return;
 		field.df.options = ops.join("\n");
@@ -357,14 +352,16 @@ function update_operation_options(frm, cdt, cdn) {
 		return;
 	}
 
-	frappe.call({
-		method: "flexirule.ruleflow.api.get_process_operations",
-		args: { process_name: row.process_name },
-	}).then(r => {
-		const ops = r.message || [];
-		frm._process_ops_cache[row.process_name] = ops;
-		apply_ops(ops);
-	});
+	frappe
+		.call({
+			method: "flexirule.ruleflow.api.get_process_operations",
+			args: { process_name: row.process_name },
+		})
+		.then((r) => {
+			const ops = r.message || [];
+			frm._process_ops_cache[row.process_name] = ops;
+			apply_ops(ops);
+		});
 }
 
 function clone_rule(frm) {

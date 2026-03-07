@@ -210,7 +210,11 @@ function clearMapping() {
 				@update:mappingValue="setMapping"
 				@clearStatic="clearMapping"
 			>
-				<ControlFactory :df="valueFieldSchema" v-model="wrappedValue" :read_only="readOnly" />
+				<ControlFactory
+					:df="valueFieldSchema"
+					v-model="wrappedValue"
+					:read_only="readOnly"
+				/>
 			</MappingWrapper>
 		</div>
 		<div v-else class="condition-cell value-cell"></div>

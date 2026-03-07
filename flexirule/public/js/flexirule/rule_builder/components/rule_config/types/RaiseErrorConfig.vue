@@ -2,14 +2,16 @@
 	<div class="raise-error-config">
 		<div class="config-section">
 			<h5>{{ __("Raise Error Configuration") }}</h5>
-			
+
 			<div class="terminal-warning mb-3">
 				<i class="fa fa-exclamation-triangle"></i>
 				{{ __("This action will stop rule execution and throw an error.") }}
 			</div>
 
 			<div class="form-group mb-3">
-				<label class="form-label">{{ __("Error Message Template") }} <span class="text-danger">*</span></label>
+				<label class="form-label"
+					>{{ __("Error Message Template") }} <span class="text-danger">*</span></label
+				>
 				<CodeControl
 					v-model="errorTemplate"
 					:language="'jinja'"
@@ -17,20 +19,29 @@
 					:rows="4"
 				/>
 				<small class="text-muted">
-					{{ __("Jinja template for error message. Use {0}, {1}, etc.", [doubleLeft + " doc.name " + doubleRight, doubleLeft + " vars.result " + doubleRight]) }}
+					{{
+						__("Jinja template for error message. Use {0}, {1}, etc.", [
+							doubleLeft + " doc.name " + doubleRight,
+							doubleLeft + " vars.result " + doubleRight,
+						])
+					}}
 				</small>
 			</div>
 
 			<div class="template-helpers">
 				<span class="helper-label">{{ __("Quick Insert:") }}</span>
-				<button 
-					class="btn btn-xs btn-outline-secondary" 
+				<button
+					class="btn btn-xs btn-outline-secondary"
 					@click="insertTemplate('{{ doc.name }}')"
-				>doc.name</button>
-				<button 
-					class="btn btn-xs btn-outline-secondary" 
+				>
+					doc.name
+				</button>
+				<button
+					class="btn btn-xs btn-outline-secondary"
 					@click="insertTemplate('{{ doc.doctype }}')"
-				>doctype</button>
+				>
+					doctype
+				</button>
 			</div>
 
 			<div class="preview-section mt-3" v-if="errorTemplate">
@@ -66,7 +77,7 @@ const errorTemplate = computed({
 
 const previewText = computed(() => {
 	// Simple preview - just show template with placeholders
-	return errorTemplate.value?.replace(/\{\{[^}]+\}\}/g, '[...]') || '';
+	return errorTemplate.value?.replace(/\{\{[^}]+\}\}/g, "[...]") || "";
 });
 
 function insertTemplate(text) {

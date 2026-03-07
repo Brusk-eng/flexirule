@@ -11,8 +11,12 @@
 			<div v-else-if="field.fieldtype === 'Column Break'" class="column-break"></div>
 
 			<!-- Use ControlFactory for standard fields -->
-			<div v-else class="form-group" :class="{ 'has-error': fieldState(field).reqd && !getValue(field) }">
-				<ControlFactory 
+			<div
+				v-else
+				class="form-group"
+				:class="{ 'has-error': fieldState(field).reqd && !getValue(field) }"
+			>
+				<ControlFactory
 					:df="getNormalizedDf(field)"
 					:modelValue="getValue(field)"
 					:doc="engine._get_context(row).doc"
@@ -32,11 +36,11 @@ const props = defineProps({
 	fields: { type: Array, default: () => [] },
 	engine: { type: Object, required: true },
 	readOnly: { type: Boolean, default: false },
-	row: { type: Object, default: null } // If rendering for a child table row
+	row: { type: Object, default: null }, // If rendering for a child table row
 });
 
 const visibleFields = computed(() => {
-	return props.fields.filter(f => !fieldState(f).hidden);
+	return props.fields.filter((f) => !fieldState(f).hidden);
 });
 
 function fieldState(field) {
@@ -45,7 +49,7 @@ function fieldState(field) {
 		reqd: field.reqd,
 		read_only: field.read_only,
 		hidden: field.hidden,
-		options: field.options
+		options: field.options,
 	};
 
 	if (props.readOnly) {
@@ -61,7 +65,7 @@ function getNormalizedDf(field) {
 		reqd: state.reqd,
 		read_only: state.read_only,
 		hidden: state.hidden,
-		options: state.options || field.options
+		options: state.options || field.options,
 	};
 }
 

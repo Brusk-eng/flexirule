@@ -47,7 +47,7 @@ export default class ProcessConfigurator extends ProcessRuntime {
 
 	_load_config(node_data) {
 		if (!node_data) return {};
-		let config = (node_data.config && node_data.config !== "null") ? node_data.config : {};
+		let config = node_data.config && node_data.config !== "null" ? node_data.config : {};
 		if (typeof config === "string" && config.trim()) {
 			try {
 				config = JSON.parse(config);
@@ -73,17 +73,28 @@ export default class ProcessConfigurator extends ProcessRuntime {
 
 	async _handle_change(fieldname, value, row_context) {
 		if (row_context) {
-			const table_fieldname = row_context.__table_fieldname || this._find_table_of_row(row_context);
+			const table_fieldname =
+				row_context.__table_fieldname || this._find_table_of_row(row_context);
 			if (table_fieldname) row_context.__table_fieldname = table_fieldname;
 
-			await this.evaluate_dependencies(this.config, row_context, table_fieldname, this.normalized_fields);
+			await this.evaluate_dependencies(
+				this.config,
+				row_context,
+				table_fieldname,
+				this.normalized_fields
+			);
 		} else {
 			await this.evaluate_dependencies(this.config, null, null, this.normalized_fields);
 			for (const [table_fieldname, grid] of Object.entries(this.active_grids)) {
-				for (const row of (grid.grid_rows || [])) {
+				for (const row of grid.grid_rows || []) {
 					if (row.doc) {
 						row.doc.__table_fieldname = table_fieldname;
-						await this.evaluate_dependencies(this.config, row.doc, table_fieldname, this.normalized_fields);
+						await this.evaluate_dependencies(
+							this.config,
+							row.doc,
+							table_fieldname,
+							this.normalized_fields
+						);
 					}
 				}
 			}
@@ -101,7 +112,7 @@ export default class ProcessConfigurator extends ProcessRuntime {
 
 	_find_table_of_row(row) {
 		for (const [fieldname, val] of Object.entries(this.config)) {
-			if (Array.isArray(val) && val.some(r => (r.name === row.name || r === row))) {
+			if (Array.isArray(val) && val.some((r) => r.name === row.name || r === row)) {
 				return fieldname;
 			}
 		}
@@ -132,13 +143,17 @@ export default class ProcessConfigurator extends ProcessRuntime {
 
 	async _fetch_variables_from_server() {
 		if (!this.document_type) return [];
-		const rule_name = this.node_data?.parent || (frappe.get_route()[0] === "Form" && frappe.get_route()[1] === "Rule" ? frappe.get_route()[2] : null);
+		const rule_name =
+			this.node_data?.parent ||
+			(frappe.get_route()[0] === "Form" && frappe.get_route()[1] === "Rule"
+				? frappe.get_route()[2]
+				: null);
 		const action_id = this.node_data?.action_id;
 		if (rule_name && action_id) {
 			try {
 				const r = await frappe.call({
 					method: "flexirule.ruleflow.api.get_action_context_schema",
-					args: { rule_name, action_id }
+					args: { rule_name, action_id },
 				});
 				return r.message || [];
 			} catch (e) {
@@ -159,7 +174,7 @@ export default class ProcessConfigurator extends ProcessRuntime {
 				const values = dialog.get_values();
 				if (!values) return;
 
-				Object.keys(this.active_grids).forEach(fieldname => {
+				Object.keys(this.active_grids).forEach((fieldname) => {
 					const grid = this.active_grids[fieldname];
 					if (grid) values[fieldname] = grid.get_data() || [];
 				});
@@ -190,49 +205,60 @@ export default class ProcessConfigurator extends ProcessRuntime {
 
 		dialog.set_values(this.config);
 
-		this.normalized_fields.filter(f => f.fieldtype === "Table").forEach(tf => {
-			const field = dialog.fields_dict[tf.fieldname];
-			if (field && field.grid) {
-				const grid = field.grid;
-				this.active_grids[tf.fieldname] = grid;
+		this.normalized_fields
+			.filter((f) => f.fieldtype === "Table")
+			.forEach((tf) => {
+				const field = dialog.fields_dict[tf.fieldname];
+				if (field && field.grid) {
+					const grid = field.grid;
+					this.active_grids[tf.fieldname] = grid;
 
-				if (this.config[tf.fieldname]) {
-					grid.df.data = this.config[tf.fieldname];
-					grid.refresh();
-				}
+					if (this.config[tf.fieldname]) {
+						grid.df.data = this.config[tf.fieldname];
+						grid.refresh();
+					}
 
-				// Ultra-reliable column-level hooking
-				grid.df.fields.forEach(df => {
-					// 1. Value change hook
-					const original_change = df.change;
-					df.change = function () {
-						const me = this;
-						const row = me.grid_row ? me.grid_row.doc : null;
-						if (row) {
-							row.__table_fieldname = tf.fieldname;
-							dialog._flexirule_configurator.update_field(df.fieldname, me.get_value(), row);
-						}
-						if (typeof original_change === "function") original_change.call(me);
-					};
-
-					// 2. Data source hook for Autocomplete
-					if (df.fieldtype === "Autocomplete") {
-						df.get_data = function () {
+					// Ultra-reliable column-level hooking
+					grid.df.fields.forEach((df) => {
+						// 1. Value change hook
+						const original_change = df.change;
+						df.change = function () {
 							const me = this;
 							const row = me.grid_row ? me.grid_row.doc : null;
-							const context_id = row ? row.name : "root";
-							const table_ctx_id = tf.fieldname;
-
-							const configurator = dialog._flexirule_configurator;
-							const state = (configurator.dependency_states[context_id] || {})[df.fieldname] ||
-								(configurator.dependency_states[table_ctx_id] || {})[df.fieldname];
-
-							return state?.options || df.options || [];
+							if (row) {
+								row.__table_fieldname = tf.fieldname;
+								dialog._flexirule_configurator.update_field(
+									df.fieldname,
+									me.get_value(),
+									row
+								);
+							}
+							if (typeof original_change === "function") original_change.call(me);
 						};
-					}
-				});
-			}
-		});
+
+						// 2. Data source hook for Autocomplete
+						if (df.fieldtype === "Autocomplete") {
+							df.get_data = function () {
+								const me = this;
+								const row = me.grid_row ? me.grid_row.doc : null;
+								const context_id = row ? row.name : "root";
+								const table_ctx_id = tf.fieldname;
+
+								const configurator = dialog._flexirule_configurator;
+								const state =
+									(configurator.dependency_states[context_id] || {})[
+										df.fieldname
+									] ||
+									(configurator.dependency_states[table_ctx_id] || {})[
+										df.fieldname
+									];
+
+								return state?.options || df.options || [];
+							};
+						}
+					});
+				}
+			});
 
 		dialog._flexirule_configurator = this;
 
@@ -252,8 +278,9 @@ export default class ProcessConfigurator extends ProcessRuntime {
 	}
 
 	_bind_dialog_events(dialog) {
-		this.normalized_fields.forEach(df => {
-			if (["Section Break", "Column Break", "HTML", "Button", "Table"].includes(df.fieldtype)) return;
+		this.normalized_fields.forEach((df) => {
+			if (["Section Break", "Column Break", "HTML", "Button", "Table"].includes(df.fieldtype))
+				return;
 			const field = dialog.fields_dict[df.fieldname];
 			if (!field) return;
 
@@ -282,16 +309,24 @@ export default class ProcessConfigurator extends ProcessRuntime {
 
 			if (!row_context) {
 				// Refresh main dialog fields
-				Object.keys(state).forEach(fieldname => {
+				Object.keys(state).forEach((fieldname) => {
 					const field_state = state[fieldname];
 					const field = this.active_dialog.fields_dict[fieldname];
 					if (!field) return;
 
 					this.active_dialog.set_df_property(fieldname, "hidden", field_state.hidden);
 					this.active_dialog.set_df_property(fieldname, "reqd", field_state.reqd);
-					this.active_dialog.set_df_property(fieldname, "read_only", field_state.read_only);
+					this.active_dialog.set_df_property(
+						fieldname,
+						"read_only",
+						field_state.read_only
+					);
 					if (field_state.options !== null) {
-						this.active_dialog.set_df_property(fieldname, "options", field_state.options);
+						this.active_dialog.set_df_property(
+							fieldname,
+							"options",
+							field_state.options
+						);
 					}
 
 					if (trigger_field && trigger_field !== fieldname) {
@@ -302,10 +337,10 @@ export default class ProcessConfigurator extends ProcessRuntime {
 				});
 
 				// Refresh Grid Columns options
-				Object.keys(this.active_grids).forEach(table_fieldname => {
+				Object.keys(this.active_grids).forEach((table_fieldname) => {
 					const grid = this.active_grids[table_fieldname];
 					const column_states = this.dependency_states[table_fieldname] || {};
-					grid.df.fields.forEach(df => {
+					grid.df.fields.forEach((df) => {
 						const col_state = column_states[df.fieldname];
 						if (col_state && col_state.options !== null) {
 							df.options = col_state.options;
@@ -313,20 +348,26 @@ export default class ProcessConfigurator extends ProcessRuntime {
 					});
 					grid.refresh();
 				});
-
 			} else {
 				// Refresh grid row fields
-				const table_name = row_context.__table_fieldname || this._find_table_of_row(row_context);
+				const table_name =
+					row_context.__table_fieldname || this._find_table_of_row(row_context);
 				const grid = this.active_grids[table_name];
 				if (grid) {
 					const row_obj = grid.get_row ? grid.get_row(row_context.name) : null;
 					if (row_obj) {
-						Object.keys(state).forEach(fieldname => {
+						Object.keys(state).forEach((fieldname) => {
 							const field_state = state[fieldname];
 
 							// SKIP Section Breaks and Column Breaks (not standard fields in GridRow)
 							const field_def = this.field_map[fieldname];
-							if (field_def && ["Section Break", "Column Break", "HTML"].includes(field_def.fieldtype)) return;
+							if (
+								field_def &&
+								["Section Break", "Column Break", "HTML"].includes(
+									field_def.fieldtype
+								)
+							)
+								return;
 
 							if (typeof row_obj.toggle_display === "function") {
 								row_obj.toggle_display(fieldname, !field_state.hidden);
@@ -338,7 +379,9 @@ export default class ProcessConfigurator extends ProcessRuntime {
 								try {
 									const field_obj = row_obj.get_field(fieldname);
 									if (field_obj) field_obj.df.options = field_state.options;
-								} catch (e) { } // Silent catch if get_field fails
+								} catch (e) {
+									// Silent catch if get_field fails
+								}
 							}
 							if (trigger_field && trigger_field !== fieldname) {
 								if (typeof row_obj.refresh_field === "function") {
@@ -356,7 +399,8 @@ export default class ProcessConfigurator extends ProcessRuntime {
 
 	_sync_to_node() {
 		if (this.node_data) {
-			this.node_data.config = (this.config && Object.keys(this.config).length) ? JSON.stringify(this.config) : "";
+			this.node_data.config =
+				this.config && Object.keys(this.config).length ? JSON.stringify(this.config) : "";
 		}
 	}
 

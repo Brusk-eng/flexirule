@@ -2,7 +2,6 @@
   AutocompleteControl - Robust implementation for Grid integration
 -->
 <script setup>
-
 const props = defineProps({
 	df: Object,
 	modelValue: [String, Number],
@@ -83,11 +82,11 @@ async function init_control() {
 	// Fix clipping issues in Grid/Modal by moving dropdown to body
 	if (frappe_control.awesomplete) {
 		const awesomplete = frappe_control.awesomplete;
-		
+
 		// Move UL to body
 		if (awesomplete.ul && awesomplete.ul.parentNode !== document.body) {
 			document.body.appendChild(awesomplete.ul);
-			awesomplete.ul.classList.add('flexirule-autocomplete-dropdown');
+			awesomplete.ul.classList.add("flexirule-autocomplete-dropdown");
 		}
 
 		// Cleanup on destroy is simpler if we track it?
@@ -101,28 +100,30 @@ async function init_control() {
 			const rect = input.getBoundingClientRect();
 			const ul = awesomplete.ul;
 
-			ul.style.position = 'fixed';
-			ul.style.zIndex = '100010'; // Higher than most modals
-			ul.style.top = (rect.bottom + 2) + 'px'; // 2px margin
-			ul.style.left = rect.left + 'px';
-			ul.style.width = rect.width + 'px';
-			ul.style.minWidth = '150px';
+			ul.style.position = "fixed";
+			ul.style.zIndex = "100010"; // Higher than most modals
+			ul.style.top = rect.bottom + 2 + "px"; // 2px margin
+			ul.style.left = rect.left + "px";
+			ul.style.width = rect.width + "px";
+			ul.style.minWidth = "150px";
 		};
 
 		// Hook into open event to position
-		frappe_control.$input.on('awesomplete-open', updatePosition);
-		
+		frappe_control.$input.on("awesomplete-open", updatePosition);
+
 		// Optionally hook into window scroll/resize to close (simpler than repositioning)
 		// Or reposition?
 		// window.addEventListener('scroll', updatePosition, true); // capture phase for all scrolls
 	}
 
 	await set_options();
-	
+
 	if (props.modelValue !== undefined && props.modelValue !== null) {
 		is_setting_value = true;
 		frappe_control.set_value(props.modelValue);
-		setTimeout(() => { is_setting_value = false; }, 50);
+		setTimeout(() => {
+			is_setting_value = false;
+		}, 50);
 	}
 
 	if (frappe_control.$input) {
@@ -139,11 +140,18 @@ async function set_options() {
 	if (!frappe_control) return;
 	let opts = [];
 	if (typeof props.get_options === "function") {
-		try { opts = await props.get_options(props.doc); } catch (e) { opts = []; }
+		try {
+			opts = await props.get_options(props.doc);
+		} catch (e) {
+			opts = [];
+		}
 	} else if (props.options && Array.isArray(props.options)) {
 		opts = props.options;
 	} else if (props.df?.options && typeof props.df.options === "string") {
-		opts = props.df.options.split("\n").filter(Boolean).map(o => ({ value: o.trim(), label: o.trim() }));
+		opts = props.df.options
+			.split("\n")
+			.filter(Boolean)
+			.map((o) => ({ value: o.trim(), label: o.trim() }));
 	}
 
 	if (opts.length && frappe_control.set_data) {
@@ -151,29 +159,46 @@ async function set_options() {
 	}
 }
 
-watch(() => props.modelValue, (newVal) => {
-	if (frappe_control && !is_setting_value && frappe_control.get_value() !== newVal) {
-		is_setting_value = true;
-		frappe_control.set_value(newVal || "");
-		setTimeout(() => { is_setting_value = false; }, 50);
-	}
-});
-
-watch(() => [props.df?.fieldname, props.df?.fieldtype], async () => {
-	await init_control();
-});
-
-watch(() => props.options, async () => { await set_options(); }, { deep: true });
-watch(() => props.read_only, (newVal) => { 
-	if (frappe_control) {
-		if (typeof frappe_control.set_enabled === "function") {
-			frappe_control.set_enabled(!newVal);
-		} else {
-			frappe_control.df.read_only = newVal ? 1 : 0;
-			frappe_control.refresh();
+watch(
+	() => props.modelValue,
+	(newVal) => {
+		if (frappe_control && !is_setting_value && frappe_control.get_value() !== newVal) {
+			is_setting_value = true;
+			frappe_control.set_value(newVal || "");
+			setTimeout(() => {
+				is_setting_value = false;
+			}, 50);
 		}
 	}
-});
+);
+
+watch(
+	() => [props.df?.fieldname, props.df?.fieldtype],
+	async () => {
+		await init_control();
+	}
+);
+
+watch(
+	() => props.options,
+	async () => {
+		await set_options();
+	},
+	{ deep: true }
+);
+watch(
+	() => props.read_only,
+	(newVal) => {
+		if (frappe_control) {
+			if (typeof frappe_control.set_enabled === "function") {
+				frappe_control.set_enabled(!newVal);
+			} else {
+				frappe_control.df.read_only = newVal ? 1 : 0;
+				frappe_control.refresh();
+			}
+		}
+	}
+);
 
 function onDrop(event) {
 	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
@@ -192,8 +217,8 @@ function onDrop(event) {
 		<div v-if="df?.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>
-		<div 
-			ref="wrapper_ref" 
+		<div
+			ref="wrapper_ref"
 			class="autocomplete-input-wrapper"
 			@dragover.prevent
 			@drop="onDrop"
@@ -237,36 +262,36 @@ function onDrop(event) {
 /* Global style for teleporter dropdown */
 :global(.flexirule-autocomplete-dropdown) {
 	z-index: 100010 !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    border: 1px solid var(--border-color, #d1d5db);
-    border-radius: 4px;
-    background: #fff; /* Fix transparent background */
-    max-height: 200px; /* Fix scrolling */
-    overflow-y: auto;
-    padding: 0;
-    margin: 0;
-    list-style: none; /* Fix bullets */
-    position: fixed; /* Enforce fixed */
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	border: 1px solid var(--border-color, #d1d5db);
+	border-radius: 4px;
+	background: #fff; /* Fix transparent background */
+	max-height: 200px; /* Fix scrolling */
+	overflow-y: auto;
+	padding: 0;
+	margin: 0;
+	list-style: none; /* Fix bullets */
+	position: fixed; /* Enforce fixed */
 }
 
 :global(.flexirule-autocomplete-dropdown li) {
-    padding: 8px 12px;
-    cursor: pointer;
-    border-bottom: 1px solid #f9fafb;
-    font-size: 13px;
-    color: var(--text-color, #1f2937);
+	padding: 8px 12px;
+	cursor: pointer;
+	border-bottom: 1px solid #f9fafb;
+	font-size: 13px;
+	color: var(--text-color, #1f2937);
 }
 
 :global(.flexirule-autocomplete-dropdown li:hover),
 :global(.flexirule-autocomplete-dropdown li[aria-selected="true"]) {
-    background-color: var(--gray-100, #f3f4f6);
-    color: var(--text-color, #1f2937);
+	background-color: var(--gray-100, #f3f4f6);
+	color: var(--text-color, #1f2937);
 }
 
 :global(.flexirule-autocomplete-dropdown mark) {
-    background: transparent;
-    font-weight: bold;
-    color: inherit;
-    padding: 0;
+	background: transparent;
+	font-weight: bold;
+	color: inherit;
+	padding: 0;
 }
 </style>

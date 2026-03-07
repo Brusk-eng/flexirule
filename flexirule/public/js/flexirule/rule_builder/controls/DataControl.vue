@@ -38,7 +38,7 @@ function onDrop(event) {
 		const val = props.modelValue || "";
 		const newVal = val.substring(0, start) + text + val.substring(end);
 		emit("update:modelValue", newVal);
-		
+
 		// Set cursor after the inserted variable
 		nextTick(() => {
 			input.focus();
@@ -55,7 +55,11 @@ function onDrop(event) {
 			<slot name="label" />
 			<slot name="actions" />
 		</div>
-		<div v-else-if="df?.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
+		<div
+			v-else-if="df?.label && !hideLabel"
+			class="control-label label"
+			:class="{ reqd: df.reqd }"
+		>
 			{{ __(df.label) }}
 		</div>
 
@@ -87,7 +91,11 @@ function onDrop(event) {
 		/>
 
 		<!-- description -->
-		<div v-if="df.description && !hideDescription" class="mt-2 description" v-html="__(df.description)" />
+		<div
+			v-if="df.description && !hideDescription"
+			class="mt-2 description"
+			v-html="__(df.description)"
+		/>
 
 		<!-- timezone for datetime field -->
 		<div

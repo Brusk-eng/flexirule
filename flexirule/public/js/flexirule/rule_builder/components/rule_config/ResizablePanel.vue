@@ -2,8 +2,8 @@
 	<div class="resizable-container" :class="{ 'is-resizing': resizing, 'is-mobile': isMobile }">
 		<!-- Mobile Toggles -->
 		<div v-if="isMobile" class="panel-toggles">
-			<button 
-				v-for="(panel, index) in panels" 
+			<button
+				v-for="(panel, index) in panels"
 				:key="index"
 				class="btn btn-xs"
 				:class="activePanel === index ? 'btn-primary' : 'btn-default'"
@@ -27,11 +27,7 @@ const isMobile = ref(false);
 const activePanel = ref(1); // Default to middle panel on mobile
 const wrapper = ref(null);
 
-const panels = [
-	{ label: __("Inputs") },
-	{ label: __("Config") },
-	{ label: __("Outputs") }
-];
+const panels = [{ label: __("Inputs") }, { label: __("Config") }, { label: __("Outputs") }];
 
 let resizerListeners = [];
 
@@ -74,27 +70,26 @@ function applyDesktopLayout() {
 			child.style.display = "block";
 		} else if (child.classList.contains("resizable-panel")) {
 			child.style.display = "block";
-            // Do NOT force specific flex/width styles here, let CSS handle initial layout
-            // Only apply styles if resizing happened? 
-            // Or ensure we don't break the flex-basis logic.
-            
-            // Previous logic forced flex:1 on middle, which broke 20/60/20 ratio.
-            // We'll remove inline styles that might have been set by mobile layout.
-            child.style.width = "";
-            child.style.flex = "";
+			// Do NOT force specific flex/width styles here, let CSS handle initial layout
+			// Only apply styles if resizing happened?
+			// Or ensure we don't break the flex-basis logic.
+
+			// Previous logic forced flex:1 on middle, which broke 20/60/20 ratio.
+			// We'll remove inline styles that might have been set by mobile layout.
+			child.style.width = "";
+			child.style.flex = "";
 		}
 	});
 }
 
-
 function initResizers() {
 	if (!wrapper.value) return;
 	const resizers = wrapper.value.querySelectorAll(".panel-resizer");
-	
+
 	resizers.forEach((resizer) => {
 		const onMouseDown = (e) => {
 			if (isMobile.value) return;
-			
+
 			resizing.value = true;
 			const leftPanel = resizer.previousElementSibling;
 			const startX = e.clientX;
@@ -103,11 +98,11 @@ function initResizers() {
 			const onMouseMove = (moveEvent) => {
 				const dx = moveEvent.clientX - startX;
 				let newWidth = startWidth + dx;
-				
+
 				// Constraints
 				const minWidth = 200;
 				const maxWidth = wrapper.value.offsetWidth * 0.6;
-				
+
 				if (newWidth < minWidth) newWidth = minWidth;
 				if (newWidth > maxWidth) newWidth = maxWidth;
 

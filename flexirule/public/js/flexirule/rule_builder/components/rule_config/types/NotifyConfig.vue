@@ -14,7 +14,9 @@
 			</div>
 
 			<div class="form-group mb-3">
-				<label class="form-label">{{ __("Message Template") }} <span class="text-danger">*</span></label>
+				<label class="form-label"
+					>{{ __("Message Template") }} <span class="text-danger">*</span></label
+				>
 				<CodeControl
 					v-model="notificationTemplate"
 					:language="'jinja'"
@@ -22,7 +24,12 @@
 					:rows="4"
 				/>
 				<small class="text-muted">
-					{{ __("Jinja template for message. Use {0}, {1}, etc.", [doubleLeft + " doc.name " + doubleRight, doubleLeft + " vars.result " + doubleRight]) }}
+					{{
+						__("Jinja template for message. Use {0}, {1}, etc.", [
+							doubleLeft + " doc.name " + doubleRight,
+							doubleLeft + " vars.result " + doubleRight,
+						])
+					}}
 				</small>
 			</div>
 
@@ -36,18 +43,24 @@
 
 			<div class="template-helpers">
 				<span class="helper-label">{{ __("Quick Insert:") }}</span>
-				<button 
-					class="btn btn-xs btn-outline-secondary" 
+				<button
+					class="btn btn-xs btn-outline-secondary"
 					@click="insertTemplate('{{ doc.name }}')"
-				>doc.name</button>
-				<button 
-					class="btn btn-xs btn-outline-secondary" 
+				>
+					doc.name
+				</button>
+				<button
+					class="btn btn-xs btn-outline-secondary"
 					@click="insertTemplate('{{ doc.owner }}')"
-				>owner</button>
-				<button 
-					class="btn btn-xs btn-outline-secondary" 
+				>
+					owner
+				</button>
+				<button
+					class="btn btn-xs btn-outline-secondary"
 					@click="insertTemplate('{{ frappe.session.user }}')"
-				>user</button>
+				>
+					user
+				</button>
 			</div>
 
 			<div class="preview-section mt-3" v-if="notificationTemplate">
@@ -110,7 +123,7 @@ const previewIcon = computed(() => {
 });
 
 const previewText = computed(() => {
-	return notificationTemplate.value?.replace(/\{\{[^}]+\}\}/g, '[...]') || '';
+	return notificationTemplate.value?.replace(/\{\{[^}]+\}\}/g, "[...]") || "";
 });
 
 function insertTemplate(text) {

@@ -1,6 +1,6 @@
 <template>
 	<div class="sub-rule-config">
-		<SubRuleNodeConfig 
+		<SubRuleNodeConfig
 			:nodeData="node.data"
 			:availableRules="store.available_rules"
 			@update-field="updateField"

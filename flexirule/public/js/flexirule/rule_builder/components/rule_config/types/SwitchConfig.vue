@@ -1,6 +1,6 @@
 <template>
 	<div class="switch-config">
-		<SwitchNodeConfig 
+		<SwitchNodeConfig
 			:nodeData="node.data"
 			:availableNodes="availableNodes"
 			:getNodeLabel="getNodeLabel"
@@ -22,33 +22,33 @@ const store = useStore();
 
 const availableNodes = computed(() => {
 	return (store.nodes || [])
-		.filter(n => n.id !== props.node.id && n.id !== 'start')
-		.map(n => ({
+		.filter((n) => n.id !== props.node.id && n.id !== "start")
+		.map((n) => ({
 			id: n.id,
-			label: n.data?.action_label || n.label || n.id
+			label: n.data?.action_label || n.label || n.id,
 		}));
 });
 
 function getNodeLabel(id) {
-	const n = (store.nodes || []).find(el => el.id === id);
-	return n ? (n.data?.action_label || n.label || n.id) : id;
+	const n = (store.nodes || []).find((el) => el.id === id);
+	return n ? n.data?.action_label || n.label || n.id : id;
 }
 
 function updateJsonConfig(key, val) {
 	if (!props.node.data) return;
-	
+
 	let config = {};
 	try {
 		config = JSON.parse(props.node.data.config || "{}");
 	} catch (e) {
 		config = {};
 	}
-	
+
 	config[key] = val;
 	props.node.data.config = JSON.stringify(config);
 
 	// If cases changed, we might need to update edges
-	if (key === 'cases') {
+	if (key === "cases") {
 		syncEdges(val);
 	}
 
@@ -57,9 +57,9 @@ function updateJsonConfig(key, val) {
 
 function syncEdges(cases) {
 	const nodeId = props.node.id;
-	
+
 	// Remove all existing conditional edges from this node
-	store.edges = store.edges.filter(e => !(e.source === nodeId && e.sourceHandle !== 'default'));
+	store.edges = store.edges.filter((e) => !(e.source === nodeId && e.sourceHandle !== "default"));
 
 	// Add new edges for each case
 	Object.entries(cases).forEach(([val, target]) => {
@@ -68,7 +68,7 @@ function syncEdges(cases) {
 				id: `e-${nodeId}-${target}-${val}`,
 				source: nodeId,
 				target: target,
-				sourceHandle: val // Use case value as handleId
+				sourceHandle: val, // Use case value as handleId
 			});
 		}
 	});

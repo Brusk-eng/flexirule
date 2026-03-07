@@ -46,7 +46,11 @@
 			v-else-if="['Int', 'Float', 'Currency', 'Percent'].includes(df?.fieldtype)"
 			class="control frappe-control"
 		>
-			<div v-if="df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
+			<div
+				v-if="df.label && !hideLabel"
+				class="control-label label"
+				:class="{ reqd: df.reqd }"
+			>
 				{{ __(df.label) }}
 			</div>
 			<input
@@ -76,7 +80,11 @@
 			v-else-if="['Date', 'Datetime'].includes(df?.fieldtype)"
 			class="control frappe-control"
 		>
-			<div v-if="df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
+			<div
+				v-if="df.label && !hideLabel"
+				class="control-label label"
+				:class="{ reqd: df.reqd }"
+			>
 				{{ __(df.label) }}
 			</div>
 			<input
@@ -95,7 +103,11 @@
 
 		<!-- Time -->
 		<div v-else-if="df?.fieldtype === 'Time'" class="control frappe-control">
-			<div v-if="df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
+			<div
+				v-if="df.label && !hideLabel"
+				class="control-label label"
+				:class="{ reqd: df.reqd }"
+			>
 				{{ __(df.label) }}
 			</div>
 			<input
@@ -128,7 +140,11 @@
 			"
 			class="control frappe-control"
 		>
-			<div v-if="df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
+			<div
+				v-if="df.label && !hideLabel"
+				class="control-label label"
+				:class="{ reqd: df.reqd }"
+			>
 				{{ __(df.label) }}
 			</div>
 			<textarea
@@ -209,7 +225,7 @@ function onDrop(event) {
 		const val = props.modelValue || "";
 		const newVal = val.substring(0, start) + text + val.substring(end);
 		emit("update:modelValue", newVal);
-		
+
 		// Set cursor after the inserted variable
 		nextTick(() => {
 			input.focus();

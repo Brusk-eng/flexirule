@@ -57,7 +57,6 @@
 </template>
 
 <script setup>
-
 const props = defineProps({
 	nodeData: Object,
 	availableNodes: { type: Array, default: () => [] },
@@ -95,7 +94,7 @@ function removeSwitchCase(val) {
 }
 
 function validate() {
-	const expression = getJsonConfig('expression');
+	const expression = getJsonConfig("expression");
 	if (!expression) {
 		return { valid: false, message: __("Switch Expression is required") };
 	}

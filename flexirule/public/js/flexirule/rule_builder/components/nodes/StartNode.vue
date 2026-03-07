@@ -14,11 +14,16 @@ const displayLabel = computed(() => {
 
 const testResult = computed(() => {
 	const path = store.test_execution_path || [];
-	return path.find(entry => entry.action_id === props.id || entry.action_id === 'root' || entry.action_id === 'start');
+	return path.find(
+		(entry) =>
+			entry.action_id === props.id ||
+			entry.action_id === "root" ||
+			entry.action_id === "start"
+	);
 });
 
 function openConfig() {
-	store.selected_id = props.id || 'start'; // Start node might be 'start' or have ID
+	store.selected_id = props.id || "start"; // Start node might be 'start' or have ID
 	store.show_config_modal = true;
 	store.config_modal_mode = "setup";
 }
@@ -38,7 +43,7 @@ function openConfig() {
 				<div class="type-label">{{ __("TRIGGER") }}</div>
 				<div class="main-label">{{ displayLabel }}</div>
 			</div>
-			
+
 			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
 				<i class="fa fa-pencil"></i>
 			</button>
@@ -135,7 +140,7 @@ function openConfig() {
 	font-size: 9px;
 	font-weight: 700;
 	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 	border: 2px solid #10b981;
 }
 

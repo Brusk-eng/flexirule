@@ -1,9 +1,6 @@
 <template>
 	<div class="loop-config">
-		<LoopNodeConfig 
-			:nodeData="node.data"
-			@update-json-config="updateJsonConfig"
-		/>
+		<LoopNodeConfig :nodeData="node.data" @update-json-config="updateJsonConfig" />
 		<hr />
 		<ConditionStep :node="node" />
 	</div>
@@ -22,14 +19,14 @@ const store = useStore();
 
 function updateJsonConfig(key, val) {
 	if (!props.node.data) return;
-	
+
 	let config = {};
 	try {
 		config = JSON.parse(props.node.data.config || "{}");
 	} catch (e) {
 		config = {};
 	}
-	
+
 	config[key] = val;
 	props.node.data.config = JSON.stringify(config);
 	store.mark_dirty();

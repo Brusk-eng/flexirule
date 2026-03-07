@@ -57,7 +57,11 @@ flexirule.utils.get_doctype_fields = async function (doctype, prefix = "") {
 					// Match FieldSelect format: Label (Table)
 					label = __(df.label, null, parent_table) + " (" + __(parent_table) + ")";
 					if (table_prefix) {
-						label = `${table_prefix}.${df.fieldname} (${__(df.label, null, parent_table)})`;
+						label = `${table_prefix}.${df.fieldname} (${__(
+							df.label,
+							null,
+							parent_table
+						)})`;
 					}
 				}
 
@@ -68,7 +72,9 @@ flexirule.utils.get_doctype_fields = async function (doctype, prefix = "") {
 					doctype: parent_table,
 					fieldtype: df.fieldtype,
 					// Fallback Description: Type -> Options
-					description: df.description || (df.options ? `${df.fieldtype} → ${df.options}` : df.fieldtype)
+					description:
+						df.description ||
+						(df.options ? `${df.fieldtype} → ${df.options}` : df.fieldtype),
 				});
 				seen_fields.add(fieldname);
 			};
@@ -187,8 +193,8 @@ flexirule.utils.load_process_adapter = async function (process_name) {
 
 /**
  * Get a loaded process adapter.
- * 
- * @param {string} process_name 
+ *
+ * @param {string} process_name
  * @returns {Object|null}
  */
 flexirule.utils.get_process_adapter = function (process_name) {
@@ -220,14 +226,14 @@ flexirule.utils.get_process_operations = async function (process_name, db_operat
 
 /**
  * Filter operations based on eligibility constraints from Process Operation metadata.
- * 
+ *
  * Enforces:
  * - enabled === 1
  * - visible_in_builder === 1
  * - for_doctype matches context.document_type (or is empty)
  * - doctype_filters eval passes
  * - requires_doc is satisfied based on context.has_doc
- * 
+ *
  * @param {Array} operations - List of operation objects
  * @param {Object} context - { document_type, has_doc, doctype_meta }
  * @returns {Array} - Filtered list of eligible operations
@@ -252,9 +258,10 @@ flexirule.utils.filter_eligible_operations = function (operations, context = {})
 		// 4. Check doctype_filters (JSON array of Frappe-style filters)
 		if (op.doctype_filters && doctype_meta) {
 			try {
-				const filters = typeof op.doctype_filters === "string"
-					? JSON.parse(op.doctype_filters)
-					: op.doctype_filters;
+				const filters =
+					typeof op.doctype_filters === "string"
+						? JSON.parse(op.doctype_filters)
+						: op.doctype_filters;
 
 				if (Array.isArray(filters) && filters.length > 0) {
 					// Each filter is [doctype, field, operator, value]
@@ -266,11 +273,16 @@ flexirule.utils.filter_eligible_operations = function (operations, context = {})
 
 						// Simple operator support
 						switch (operator) {
-							case "=": return meta_value == value;
-							case "!=": return meta_value != value;
-							case "in": return Array.isArray(value) && value.includes(meta_value);
-							case "not in": return Array.isArray(value) && !value.includes(meta_value);
-							default: return true;
+							case "=":
+								return meta_value == value;
+							case "!=":
+								return meta_value != value;
+							case "in":
+								return Array.isArray(value) && value.includes(meta_value);
+							case "not in":
+								return Array.isArray(value) && !value.includes(meta_value);
+							default:
+								return true;
 						}
 					});
 					if (!passes) return false;
@@ -313,15 +325,15 @@ flexirule.utils.get_operation_config_fields = async function (process_name, oper
 /**
  * Get field property (type and options) for a field in a DocType.
  * Useful for resolving metadata for mapped fields.
- * 
- * @param {string} doctype 
- * @param {string} fieldname 
+ *
+ * @param {string} doctype
+ * @param {string} fieldname
  * @returns {Promise<{fieldtype: string, options: string|null}>}
  */
 /**
  * Get DocType metadata, ensuring it's loaded into the model.
- * 
- * @param {string} doctype 
+ *
+ * @param {string} doctype
  * @returns {Promise<Object>}
  */
 flexirule.utils.get_doctype_meta = function (doctype) {
@@ -336,9 +348,9 @@ flexirule.utils.get_doctype_meta = function (doctype) {
 /**
  * Safely parse JSON string with error logging.
  * Returns default value on failure.
- * 
- * @param {string} json_str 
- * @param {any} default_val 
+ *
+ * @param {string} json_str
+ * @param {any} default_val
  * @returns {any}
  */
 flexirule.utils.safe_json_parse = function (json_str, default_val = null) {

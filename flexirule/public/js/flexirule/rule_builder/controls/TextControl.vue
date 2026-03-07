@@ -1,6 +1,5 @@
 <!-- Used as Text, Small Text & Long Text Control -->
 <script setup>
-
 const props = defineProps(["df", "modelValue", "read_only"]);
 let emit = defineEmits(["update:modelValue"]);
 let slots = useSlots();

@@ -22,7 +22,10 @@ let show_popover = ref(false);
 const selectedValues = computed(() => {
 	if (Array.isArray(props.modelValue)) return props.modelValue;
 	if (typeof props.modelValue === "string" && props.modelValue) {
-		return props.modelValue.split(",").map(s => s.trim()).filter(Boolean);
+		return props.modelValue
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean);
 	}
 	return [];
 });
@@ -43,12 +46,15 @@ function togglePopover() {
 		// Close when clicking outside
 		setTimeout(() => {
 			const handleOutsideClick = (e) => {
-				if (!e.target.closest('.multi-check-popover') && !e.target.closest('.dropdown-trigger')) {
+				if (
+					!e.target.closest(".multi-check-popover") &&
+					!e.target.closest(".dropdown-trigger")
+				) {
 					show_popover.value = false;
-					document.removeEventListener('click', handleOutsideClick);
+					document.removeEventListener("click", handleOutsideClick);
 				}
 			};
-			document.addEventListener('click', handleOutsideClick);
+			document.addEventListener("click", handleOutsideClick);
 		}, 0);
 	}
 }
@@ -62,22 +68,23 @@ function make_control() {
 	// Robust Options Parsing with Selection State
 	let options = props.df.options || [];
 	if (typeof options === "string") {
-		options = options.split("\n")
-			.map(o => o.trim())
+		options = options
+			.split("\n")
+			.map((o) => o.trim())
 			.filter(Boolean)
-			.map(o => ({ 
-				label: o, 
+			.map((o) => ({
+				label: o,
 				value: o,
-				checked: current_selection.includes(o)
+				checked: current_selection.includes(o),
 			}));
 	} else if (Array.isArray(options)) {
-		options = options.map(o => {
-			const val = typeof o === 'object' ? o.value : o;
-			const label = typeof o === 'object' ? o.label : o;
+		options = options.map((o) => {
+			const val = typeof o === "object" ? o.value : o;
+			const label = typeof o === "object" ? o.label : o;
 			return {
 				label: label,
 				value: val,
-				checked: current_selection.includes(val)
+				checked: current_selection.includes(val),
 			};
 		});
 	}
@@ -94,11 +101,13 @@ function make_control() {
 				on_change: () => {
 					if (processing_update) return;
 					const val = control.value.get_value();
-					
+
 					processing_update = true;
 					emit("update:modelValue", val);
 					// Allow vue to process update before resetting flag
-					setTimeout(() => { processing_update = false; }, 50);
+					setTimeout(() => {
+						processing_update = false;
+					}, 50);
 				},
 			},
 			render_input: true,
@@ -107,7 +116,9 @@ function make_control() {
 		if (current_selection.length > 0) {
 			processing_update = true;
 			control.value.set_value(current_selection);
-			setTimeout(() => { processing_update = false; }, 50);
+			setTimeout(() => {
+				processing_update = false;
+			}, 50);
 		}
 	} catch (e) {
 		console.error("Failed to create MultiCheck control", e);
@@ -123,18 +134,24 @@ watch(
 	() => props.modelValue,
 	(val) => {
 		if (!control.value || processing_update) return;
-		
+
 		const currentVal = control.value.get_value() || [];
-		const newVal = Array.isArray(val) ? val : (typeof val === 'string' ? val.split(',').map(s => s.trim()) : [val]);
-		
+		const newVal = Array.isArray(val)
+			? val
+			: typeof val === "string"
+			? val.split(",").map((s) => s.trim())
+			: [val];
+
 		// Sort and stringify for deep comparison
 		const currentSorted = [...currentVal].sort();
 		const newSorted = [...newVal].sort();
-		
+
 		if (JSON.stringify(currentSorted) !== JSON.stringify(newSorted)) {
 			processing_update = true;
 			control.value.set_value(newVal);
-			setTimeout(() => { processing_update = false; }, 50);
+			setTimeout(() => {
+				processing_update = false;
+			}, 50);
 		}
 	},
 	{ deep: true }
@@ -158,18 +175,18 @@ onBeforeUnmount(() => {
 		<div v-if="df.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>
-		
+
 		<!-- Dropdown Mode (for Grid) -->
 		<template v-if="hideLabel">
-			<div 
-				class="dropdown-trigger" 
-				:class="{ 'has-value': selectedCount > 0, 'disabled': read_only }"
+			<div
+				class="dropdown-trigger"
+				:class="{ 'has-value': selectedCount > 0, disabled: read_only }"
 				@click.stop="togglePopover"
 			>
 				<span>{{ summaryLabel }}</span>
 				<i class="fa fa-chevron-down"></i>
 			</div>
-			
+
 			<div v-show="show_popover" class="multi-check-popover">
 				<div class="popover-inner" ref="wrapper"></div>
 			</div>
@@ -180,7 +197,11 @@ onBeforeUnmount(() => {
 			<div class="control-wrapper" ref="wrapper"></div>
 		</template>
 
-		<div v-if="df.description && !hideLabel" class="description text-muted mt-1" v-html="__(df.description)"></div>
+		<div
+			v-if="df.description && !hideLabel"
+			class="description text-muted mt-1"
+			v-html="__(df.description)"
+		></div>
 	</div>
 </template>
 

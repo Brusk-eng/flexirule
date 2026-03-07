@@ -1,12 +1,12 @@
 <!--
   ActionFieldProperties - DocField-driven property panel for Rule Action nodes
-  
+
   Renders fields dynamically from Rule Action DocType metadata, respecting:
    - depends_on
-   - mandatory_depends_on  
+   - mandatory_depends_on
    - read_only_depends_on
    - hidden
-   
+
   Follows Frappe Form Builder patterns.
 -->
 <script setup>
@@ -31,7 +31,7 @@ const EXCLUDED_FIELDS = [
 	"condition_json", // Managed by V2 modal
 	"input_mapping", // Managed by V2 modal
 	"output_mapping", // Managed by V2 modal
-	"process_method" // Obsolete
+	"process_method", // Obsolete
 ];
 
 // Layout fields to skip
@@ -99,11 +99,12 @@ function evaluate_depends_on(expression) {
 // Evaluate mandatory_depends_on
 function is_mandatory(df) {
 	// Special enforcement for return_variable
-	if (df.fieldname === 'return_variable' && operation_metadata.value) {
+	if (df.fieldname === "return_variable" && operation_metadata.value) {
 		const op = operation_metadata.value;
 		// Mandatory if operation writes to Context or declares output variables
-		if (op.writes_to === 'Context' || 
-			(op.writes_vars && JSON.stringify(op.writes_vars) !== '[]') ||
+		if (
+			op.writes_to === "Context" ||
+			(op.writes_vars && JSON.stringify(op.writes_vars) !== "[]") ||
 			op.output_schema
 		) {
 			return true;
@@ -187,7 +188,9 @@ const side_effect_warning = computed(() => {
 		return {
 			type: "danger",
 			icon: "fa-database",
-			message: __("This operation writes directly to the database. Side-effects cannot be rolled back."),
+			message: __(
+				"This operation writes directly to the database. Side-effects cannot be rolled back."
+			),
 		};
 	} else if (writes_to === "Document") {
 		return {
@@ -233,7 +236,10 @@ onMounted(async () => {
 <template>
 	<div class="action-field-properties">
 		<!-- Side-effect Warning Badge -->
-		<div v-if="side_effect_warning" :class="['side-effect-warning', 'alert-' + side_effect_warning.type]">
+		<div
+			v-if="side_effect_warning"
+			:class="['side-effect-warning', 'alert-' + side_effect_warning.type]"
+		>
 			<i :class="['fa', side_effect_warning.icon]"></i>
 			<span>{{ side_effect_warning.message }}</span>
 		</div>
@@ -241,11 +247,13 @@ onMounted(async () => {
 		<div v-for="df in visible_fields" :key="df.fieldname" class="field-wrapper">
 			<!-- Button fields (configures, set_conditions) -->
 			<template v-if="is_button_field(df)">
-				<button
-					class="btn btn-default btn-sm w-100"
-					@click="handle_button_click(df)"
-				>
-					<i v-if="df.fieldname === 'configure_operation' || df.fieldname === 'configures'" class="fa fa-cog"></i>
+				<button class="btn btn-default btn-sm w-100" @click="handle_button_click(df)">
+					<i
+						v-if="
+							df.fieldname === 'configure_operation' || df.fieldname === 'configures'
+						"
+						class="fa fa-cog"
+					></i>
 					<i v-else-if="df.fieldname === 'set_conditions'" class="fa fa-code-fork"></i>
 					{{ __(df.label) }}
 				</button>
