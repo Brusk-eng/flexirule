@@ -1,148 +1,155 @@
 {
-    "actions": [
-        {
-            "action": "flexirule.ruleflow.doctype.rule_scheduler.rule_scheduler.execute_now",
-            "action_type": "Server Action",
-            "label": "Execute Now"
-        }
-    ],
-    "autoname": "format:RS-{rule}-{#####}",
-    "creation": "2026-01-27 17:30:00",
-    "doctype": "DocType",
-    "editable_grid": 1,
-    "engine": "InnoDB",
-    "field_order": [
-        "rule",
-        "stopped",
-        "frequency",
-        "cron_format",
-        "column_break_meta",
-        "filter_doctype",
-        "filter_json",
-        "batch_size",
-        "on_error",
-        "section_break_status",
-        "last_execution",
-        "column_break_status",
-        "next_execution"
-    ],
-    "fields": [
-        {
-            "fieldname": "rule",
-            "fieldtype": "Link",
-            "in_list_view": 1,
-            "label": "Rule",
-            "options": "Rule",
-            "reqd": 1
-        },
-        {
-            "default": "0",
-            "fieldname": "stopped",
-            "fieldtype": "Check",
-            "label": "Stopped"
-        },
-        {
-            "default": "Daily",
-            "fieldname": "frequency",
-            "fieldtype": "Select",
-            "in_list_view": 1,
-            "in_standard_filter": 1,
-            "label": "Frequency",
-            "options": "All\nHourly\nDaily\nWeekly\nMonthly\nCron",
-            "reqd": 1
-        },
-        {
-            "depends_on": "eval:doc.frequency==='Cron'",
-            "description": "<pre>*  *  *  *  *\n┬  ┬  ┬  ┬  ┬\n│  │  │  │  └ day of week (0-6)\n│  │  │  └──── month (1-12)\n│  │  └─────── day of month (1-31)\n│  └────────── hour (0-23)\n└───────────── minute (0-59)</pre>",
-            "fieldname": "cron_format",
-            "fieldtype": "Data",
-            "label": "Cron Format"
-        },
-        {
-            "fieldname": "column_break_meta",
-            "fieldtype": "Column Break"
-        },
-        {
-            "fieldname": "filter_doctype",
-            "fieldtype": "Link",
-            "label": "Filter DocType",
-            "options": "DocType",
-            "description": "DocType to query for batch processing"
-        },
-        {
-            "fieldname": "filter_json",
-            "fieldtype": "Code",
-            "label": "Filter (JSON)",
-            "options": "JSON",
-            "description": "Frappe filter format: {\"status\": \"Open\"}"
-        },
-        {
-            "default": "100",
-            "fieldname": "batch_size",
-            "fieldtype": "Int",
-            "label": "Batch Size",
-            "description": "Documents per execution batch"
-        },
-        {
-            "default": "Skip",
-            "fieldname": "on_error",
-            "fieldtype": "Select",
-            "label": "On Error",
-            "options": "Skip\nStop",
-            "description": "Skip: continue to next doc. Stop: halt batch."
-        },
-        {
-            "fieldname": "section_break_status",
-            "fieldtype": "Section Break",
-            "label": "Execution Status"
-        },
-        {
-            "fieldname": "last_execution",
-            "fieldtype": "Datetime",
-            "label": "Last Execution",
-            "read_only": 1
-        },
-        {
-            "fieldname": "column_break_status",
-            "fieldtype": "Column Break"
-        },
-        {
-            "fieldname": "next_execution",
-            "fieldtype": "Datetime",
-            "is_virtual": 1,
-            "label": "Next Execution",
-            "read_only": 1
-        }
-    ],
-    "links": [
-        {
-            "link_doctype": "Rule Execution Log",
-            "link_fieldname": "scheduler"
-        }
-    ],
-    "modified": "2026-01-27 17:30:00",
-    "modified_by": "Administrator",
-    "module": "Ruleflow",
-    "name": "Rule Scheduler",
-    "naming_rule": "Expression",
-    "owner": "Administrator",
-    "permissions": [
-        {
-            "create": 1,
-            "delete": 1,
-            "email": 1,
-            "export": 1,
-            "print": 1,
-            "read": 1,
-            "report": 1,
-            "role": "System Manager",
-            "share": 1,
-            "write": 1
-        }
-    ],
-    "sort_field": "modified",
-    "sort_order": "DESC",
-    "states": [],
-    "title_field": "rule",
-    "track_changes": 1
+ "actions": [
+  {
+   "action": "flexirule.ruleflow.doctype.rule_scheduler.rule_scheduler.execute_now",
+   "action_type": "Server Action",
+   "label": "Execute Now"
+  }
+ ],
+ "autoname": "format:RS-{rule}-{#####}",
+ "creation": "2026-01-27 17:30:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "rule",
+  "stopped",
+  "frequency",
+  "cron_format",
+  "column_break_meta",
+  "filter_doctype",
+  "filter_json",
+  "filter_builder",
+  "batch_size",
+  "on_error",
+  "section_break_status",
+  "last_execution",
+  "column_break_status",
+  "next_execution"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Rule",
+   "options": "Rule",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "stopped",
+   "fieldtype": "Check",
+   "label": "Stopped"
+  },
+  {
+   "default": "Daily",
+   "fieldname": "frequency",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Frequency",
+   "options": "All\nHourly\nDaily\nWeekly\nMonthly\nCron",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.frequency==='Cron'",
+   "description": "<pre>*  *  *  *  *\n\u252c  \u252c  \u252c  \u252c  \u252c\n\u2502  \u2502  \u2502  \u2502  \u2514 day of week (0-6)\n\u2502  \u2502  \u2502  \u2514\u2500\u2500\u2500\u2500 month (1-12)\n\u2502  \u2502  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500 day of month (1-31)\n\u2502  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 hour (0-23)\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 minute (0-59)</pre>",
+   "fieldname": "cron_format",
+   "fieldtype": "Data",
+   "label": "Cron Format"
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "DocType to query for batch processing",
+   "fieldname": "filter_doctype",
+   "fieldtype": "Link",
+   "label": "Filter DocType",
+   "options": "DocType"
+  },
+  {
+   "description": "Frappe filter format: {\"status\": \"Open\"}",
+   "fieldname": "filter_json",
+   "fieldtype": "Code",
+   "label": "Filter (JSON)",
+   "options": "JSON"
+  },
+  {
+   "default": "100",
+   "description": "Documents per execution batch",
+   "fieldname": "batch_size",
+   "fieldtype": "Int",
+   "label": "Batch Size"
+  },
+  {
+   "default": "Skip",
+   "description": "Skip: continue to next doc. Stop: halt batch.",
+   "fieldname": "on_error",
+   "fieldtype": "Select",
+   "label": "On Error",
+   "options": "Skip\nStop"
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Execution Status"
+  },
+  {
+   "fieldname": "last_execution",
+   "fieldtype": "Datetime",
+   "label": "Last Execution",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "next_execution",
+   "fieldtype": "Datetime",
+   "is_virtual": 1,
+   "label": "Next Execution",
+   "read_only": 1
+  },
+  {
+   "fieldname": "filter_builder",
+   "fieldtype": "Button",
+   "label": "Filter Builder"
+  }
+ ],
+ "links": [
+  {
+   "link_doctype": "Rule Execution Log",
+   "link_fieldname": "scheduler"
+  }
+ ],
+ "modified": "2026-03-07 21:49:39.061215",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Rule Scheduler",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "rule",
+ "track_changes": 1
 }

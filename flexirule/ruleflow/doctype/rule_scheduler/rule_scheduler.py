@@ -21,6 +21,25 @@ from frappe.utils.background_jobs import is_job_enqueued
 
 
 class RuleScheduler(Document):
+	# begin: auto-generated types
+	# This code is auto-generated. Do not modify anything in this block.
+
+	from typing import TYPE_CHECKING
+
+	if TYPE_CHECKING:
+		from frappe.types import DF
+
+		batch_size: DF.Int
+		cron_format: DF.Data | None
+		filter_doctype: DF.Link | None
+		filter_json: DF.Code | None
+		frequency: DF.Literal["All", "Hourly", "Daily", "Weekly", "Monthly", "Cron"]
+		last_execution: DF.Datetime | None
+		on_error: DF.Literal["Skip", "Stop"]
+		rule: DF.Link
+		stopped: DF.Check
+
+	# end: auto-generated types
 	def validate(self):
 		self._validate_cron_format()
 		self._validate_rule()
