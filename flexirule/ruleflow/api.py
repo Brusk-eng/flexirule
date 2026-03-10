@@ -501,3 +501,90 @@ def clone_rule(rule_name, new_name=None):
 	except Exception as e:
 		frappe.log_error("Rule Clone Failed")
 		frappe.throw(_("Failed to clone rule: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def amend_rule(rule_name):
+	"""
+	Create a new version (amendment) of a rule.
+
+	The original rule stays active. The copy becomes a draft amendment
+	with incremented version and a link back via `previous_rule`.
+
+	Returns:
+	    Name of the new amended rule.
+	"""
+	from flexirule.ruleflow.core.rule_service import amend_rule as _amend_rule
+
+	return _amend_rule(rule_name)
+
+
+@frappe.whitelist()
+def test_action_query(rule_name, action_id, context_doc=None):
+	"""
+	Execute a single action in isolation for testing.
+	Returns detected return fields for auto-populating returns_keys.
+	"""
+	rule = frappe.get_doc("Rule", rule_name)
+
+	# Find the action
+	action = None
+	for a in rule.actions:
+		if a.action_id == action_id:
+			action = a
+			break
+
+	if not action:
+		frappe.throw(_("Action {0} not found in rule {1}").format(action_id, rule_name))
+
+	# Build a minimal context
+	doc = None
+	if context_doc:
+		import json as json_mod
+
+		doc_data = json_mod.loads(context_doc) if isinstance(context_doc, str) else context_doc
+		doc = frappe.get_doc(doc_data)
+	elif rule.document_type:
+		# Try to get a recent document for testing
+		recent = frappe.get_all(rule.document_type, limit=1, pluck="name")
+		if recent:
+			doc = frappe.get_doc(rule.document_type, recent[0])
+
+	if not doc:
+		frappe.throw(_("No document available for testing. Provide context_doc."))
+
+	from flexirule.ruleflow.core.engine import RuleEngine
+
+	engine = RuleEngine(rule, {"test_mode": True})
+	context = engine._initialize_context(doc)
+
+	# Execute only this one action via handler
+	from flexirule.ruleflow.core.action_handlers import HandlerRegistry
+
+	handler = HandlerRegistry.get(action.action_type)
+	if not handler:
+		frappe.throw(_("No handler for action type: {0}").format(action.action_type))
+
+	import time
+
+	start = time.time()
+	try:
+		result, next_id = handler.execute(action, context, engine)
+		duration = time.time() - start
+
+		# Detect return fields
+		detected_keys = []
+		if isinstance(result, dict):
+			detected_keys = [{"key": k} for k in result.keys()]
+		elif isinstance(result, list) and result and isinstance(result[0], dict):
+			detected_keys = [{"key": k} for k in result[0].keys()]
+
+		return {
+			"success": True,
+			"result": result,
+			"detected_keys": detected_keys,
+			"duration": round(duration, 4),
+		}
+	except Exception as e:
+		return {"success": False, "error": str(e)}
+

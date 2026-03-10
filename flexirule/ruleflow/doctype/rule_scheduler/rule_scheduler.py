@@ -174,7 +174,8 @@ class RuleScheduler(Document):
 
 				# Commit every batch_size documents
 				if (i + 1) % (self.batch_size or 100) == 0:
-					frappe.db.commit()
+					if not getattr(frappe.flags, "in_test", False):
+						frappe.db.commit()
 					frappe.publish_realtime(
 						"batch_progress",
 						{
@@ -186,7 +187,8 @@ class RuleScheduler(Document):
 						},
 					)
 
-			frappe.db.commit()
+			if not getattr(frappe.flags, "in_test", False):
+				frappe.db.commit()
 			self._update_last_execution()
 
 			frappe.logger("flexirule").info(

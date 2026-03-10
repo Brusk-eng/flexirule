@@ -21,6 +21,7 @@ def persist_execution_log(log_data: dict):
 	try:
 		log_doc = frappe.get_doc({"doctype": "Rule Execution Log", **log_data})
 		log_doc.insert(ignore_permissions=True, ignore_links=True)
-		frappe.db.commit()
+		if not getattr(frappe.flags, "in_test", False):
+			frappe.db.commit()
 	except Exception as e:
 		frappe.logger().error(f"Failed to persist Rule Execution Log: {e!s}")

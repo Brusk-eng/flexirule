@@ -31,17 +31,24 @@
         "on_error",
         "retry_count",
         "timeout",
+        "section_break_query",
+        "input_source",
+        "reference_doctype",
+        "reference_docname",
+        "mutation_mode",
         "column_break_mapping",
         "input_mapping",
         "output_mapping",
+        "section_break_return",
+        "return_type",
         "resolved_output_schema",
+        "return_variable",
         "section_break_subrule",
         "skip_conditions",
         "skip_permissions",
         "section_break_flow",
         "next_step_if_true",
         "next_step_if_false",
-        "return_variable",
         "section_break_visual",
         "position_x",
         "position_y",
@@ -69,7 +76,7 @@
             "fieldtype": "Select",
             "in_list_view": 1,
             "label": "Type",
-            "options": "Entry Action\nCondition\nProcess\nLoop\nStop\nSwitch\nWait\nSub-Rule\nSet Value\nRaise Error\nNotify",
+            "options": "Entry Action\nCondition\nProcess\nLoop\nStop\nSwitch\nWait\nSub-Rule\nSet Value\nRaise Error\nNotify\nQuery Records\nAggregate Records\nCreate Docs",
             "reqd": 1
         },
         {
@@ -164,7 +171,7 @@
             "depends_on": "eval:doc.action_type=='Process'",
             "fieldname": "section_break_process",
             "fieldtype": "Section Break",
-            "label": "Process Configuration"
+            "label": "Process / Action Configuration"
         },
         {
             "depends_on": "eval:doc.action_type=='Process'",
@@ -176,13 +183,13 @@
             "options": "Process"
         },
         {
-            "depends_on": "eval:doc.action_type=='Process' && doc.process_name",
-            "description": "Select the operation to execute",
+            "depends_on": "eval:['Process', 'Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+            "description": "Operation mode for this action",
             "fieldname": "operation",
             "fieldtype": "Autocomplete",
             "in_list_view": 1,
-            "label": "Operation",
-            "mandatory_depends_on": "eval:doc.action_type=='Process' && doc.process_name"
+            "label": "Operation / Mode",
+            "mandatory_depends_on": "eval:(doc.action_type=='Process' && doc.process_name) || ['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)"
         },
         {
             "description": "Configuration for the action (validated against schema for Process types)",
@@ -222,6 +229,45 @@
         },
         {
             "collapsible": 1,
+            "depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+            "fieldname": "section_break_query",
+            "fieldtype": "Section Break",
+            "label": "Query / Document Configuration"
+        },
+        {
+            "depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+            "fieldname": "input_source",
+            "fieldtype": "Select",
+            "label": "Input Source",
+            "options": "Context Doc\nContext Variable\nBoth"
+        },
+        {
+            "depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+            "description": "Target DocType for query or document creation",
+            "fieldname": "reference_doctype",
+            "fieldtype": "Link",
+            "label": "Reference DocType",
+            "mandatory_depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+            "options": "DocType"
+        },
+        {
+            "depends_on": "eval:doc.reference_doctype",
+            "description": "Specific document reference (for Query Doc / Update Existing)",
+            "fieldname": "reference_docname",
+            "fieldtype": "Dynamic Link",
+            "label": "Reference Document",
+            "options": "reference_doctype"
+        },
+        {
+            "depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+            "description": "How to store/apply the action result",
+            "fieldname": "mutation_mode",
+            "fieldtype": "Select",
+            "label": "Mutation Mode",
+            "options": "Set Doc Field\nUpdate Doc Field\nSet Context Variable\nUpdate Context Variable\nAppend to Context Variable\nBatch Database Set"
+        },
+        {
+            "collapsible": 1,
             "depends_on": "eval:doc.action_type=='Sub-Rule'",
             "fieldname": "section_break_subrule",
             "fieldtype": "Section Break",
@@ -237,11 +283,11 @@
         },
         {
             "default": "0",
-            "depends_on": "eval:doc.action_type=='Sub-Rule'",
-            "description": "Execute sub-rule without checking current user's permissions",
+            "depends_on": "eval:['Sub-Rule', 'Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+            "description": "Execute without checking current user's permissions",
             "fieldname": "skip_permissions",
             "fieldtype": "Check",
-            "label": "Skip Permission Check"
+            "label": "Ignore Permissions"
         },
         {
             "collapsible": 1,
@@ -269,6 +315,19 @@
             "fieldname": "return_variable",
             "fieldtype": "Data",
             "label": "Return Variable Name"
+        },
+        {
+            "collapsible": 1,
+            "fieldname": "section_break_return",
+            "fieldtype": "Section Break",
+            "label": "Return Schema"
+        },
+        {
+            "description": "Expected return type from this action",
+            "fieldname": "return_type",
+            "fieldtype": "Select",
+            "label": "Return Type",
+            "options": "\nBoolean\nDict\nList\nList of Dict\nDoc as Dict"
         },
         {
             "collapsible": 1,
@@ -328,11 +387,11 @@
             "options": "JSON"
         },
         {
-            "depends_on": "eval:doc.resolved_output_schema",
-            "description": "Resolved output schema from adapter (auto-generated)",
+            "depends_on": "eval:doc.return_type || doc.resolved_output_schema",
+            "description": "Return keys schema: [{\"key\": \"field_name\"}]",
             "fieldname": "resolved_output_schema",
             "fieldtype": "Code",
-            "label": "Resolved Output Schema",
+            "label": "Return Keys Schema",
             "options": "JSON"
         },
         {

@@ -117,6 +117,36 @@ export const ACTION_TYPE_CONTRACT = {
 		color: "#0ea5e9",
 		description: "Send a notification (toast, system message, or email) to the user.",
 	},
+	"Query Records": {
+		required_fields: ["reference_doctype", "operation"],
+		has_next_true: true,
+		has_next_false: false,
+		terminal: false,
+		icon: "fa fa-search",
+		color: "#0891b2",
+		description:
+			"Query records from a DocType. Supports Query List, Query Doc, Exist Record, Query Report, and Query API modes.",
+	},
+	"Aggregate Records": {
+		required_fields: ["reference_doctype", "operation", "config"],
+		has_next_true: true,
+		has_next_false: false,
+		terminal: false,
+		icon: "fa fa-calculator",
+		color: "#d97706",
+		description:
+			"Aggregate data from records using operations like sum, avg, count, min, max, or group_by.",
+	},
+	"Create Docs": {
+		required_fields: ["reference_doctype", "operation"],
+		has_next_true: true,
+		has_next_false: false,
+		terminal: false,
+		icon: "fa fa-plus-circle",
+		color: "#059669",
+		description:
+			"Create new documents or update existing ones with field mappings from the current context.",
+	},
 };
 
 /**

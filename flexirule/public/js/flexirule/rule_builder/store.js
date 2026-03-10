@@ -380,6 +380,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 				type = "start";
 			} else if (type === "sub-rule") {
 				type = "sub-rule";
+			} else if (type === "query records") {
+				type = "query";
+			} else if (type === "aggregate records") {
+				type = "aggregate";
+			} else if (type === "create docs") {
+				type = "createdoc";
 			}
 
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;
@@ -419,6 +425,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 				skip_permissions: action.skip_permissions || 0,
 				next_step_if_true: action.next_step_if_true,
 				next_step_if_false: action.next_step_if_false,
+				// New RC fields
+				input_source: action.input_source,
+				reference_doctype: action.reference_doctype,
+				reference_docname: action.reference_docname,
+				mutation_mode: action.mutation_mode,
+				return_type: action.return_type,
+				resolved_output_schema: safeParse(action.resolved_output_schema),
 			};
 
 			if (isRoot) {
@@ -807,6 +820,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 					next_step_if_false: false_edge?.target || null,
 					position_x: Math.round(node.position.x),
 					position_y: Math.round(node.position.y),
+					// New RC fields
+					input_source: node.data?.input_source,
+					reference_doctype: node.data?.reference_doctype,
+					reference_docname: node.data?.reference_docname,
+					mutation_mode: node.data?.mutation_mode,
+					return_type: node.data?.return_type,
+					resolved_output_schema:
+						node.data?.resolved_output_schema &&
+						typeof node.data.resolved_output_schema !== "string"
+							? JSON.stringify(node.data.resolved_output_schema)
+							: node.data?.resolved_output_schema,
 				};
 			});
 

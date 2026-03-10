@@ -350,6 +350,23 @@ class RuleEngine:
 		if not self.actions:
 			raise EmptyRuleError(_("Rule {0} has no enabled actions").format(self.rule.name))
 
+		# Check Rule Permission table if defined
+		rule_permissions = self.rule.get("permissions")
+		if rule_permissions:
+			user_roles = set(frappe.get_roles())
+			# System Manager always bypasses
+			if "System Manager" not in user_roles:
+				can_exec = any(
+					p.can_execute and p.role in user_roles
+					for p in rule_permissions
+				)
+				if not can_exec:
+					raise frappe.PermissionError(
+						_("User does not have execute permission for rule {0}").format(
+							self.rule.name
+						)
+					)
+
 	def _initialize_context(self, doc, **kwargs):
 		return {
 			**self.context,
