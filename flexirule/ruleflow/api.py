@@ -6,7 +6,7 @@ Whitelisted API functions for Bolton Rule Engine
 """
 
 import json
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import frappe
 from frappe import _
