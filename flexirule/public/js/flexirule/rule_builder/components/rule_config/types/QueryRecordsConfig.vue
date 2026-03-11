@@ -1,225 +1,312 @@
 <template>
-	<div class="query-records-config">
-		<!-- Summary Header -->
-		<div class="config-summary mb-4">
-			<div class="summary-item">
-				<span class="label" v-if="node.data.operation === 'Query Report'">{{ __("Report") }}</span>
-				<span class="label" v-else>{{ __("Target Doctype") }}</span>
-				<span class="value">{{ node.data.reference_doctype || node.data.reference_docname || '--' }}</span>
-			</div>
-			<div class="summary-item">
-				<span class="label">{{ __("Mode") }}</span>
-				<span class="value badge">{{ node.data.operation || 'Query List' }}</span>
-			</div>
+	<div class="query-config">
+		<div class="config-section">
+			<h5>{{ __("Query Records") }}</h5>
+			<p class="text-muted small">
+				{{ __("Configure the query mode and parameters.") }}
+			</p>
 		</div>
 
-		<!-- Mode Selection -->
-		<div class="section-container mb-4">
-			<label class="section-title">{{ __("Select Query Mode") }}</label>
-			<div class="mode-cards">
-				<div 
-					v-for="mode in modes" 
-					:key="mode.value"
-					:class="['mode-card', { active: node.data.operation === mode.value }]"
-					@click="updateField('operation', mode.value)"
-				>
-					<i :class="mode.icon"></i>
-					<div class="mode-text">
-						<div class="mode-name">{{ __(mode.label) }}</div>
-						<div class="mode-desc">{{ __(mode.description) }}</div>
-					</div>
-				</div>
-			</div>
+		<div class="config-section">
+			<ControlFactory
+				:df="modeField"
+				:modelValue="mode"
+				:hideDescription="true"
+				@update:modelValue="updateMode"
+			/>
 		</div>
 
-		<!-- Primary Config -->
-		<div class="section-container mb-4">
-			<div class="row">
-				<div class="col-6" v-if="node.data.operation !== 'Query Report'">
-					<ControlFactory
-						:df="{
-							fieldname: 'reference_doctype',
-							label: __('Target DocType'),
-							fieldtype: 'Link',
-							options: 'DocType',
-							placeholder: __('Select Doctype...'),
-							reqd: 1
-						}"
-						:modelValue="node.data.reference_doctype"
-						@update:modelValue="updateField('reference_doctype', $event)"
-					/>
-				</div>
-				<div class="col-6" v-if="node.data.operation === 'Query Doc'">
-					<ControlFactory
-						:df="{
-							fieldname: 'reference_docname',
-							label: __('Document Name'),
-							fieldtype: 'Dynamic Link',
-							options: 'reference_doctype',
-							placeholder: __('Select Record...'),
-							reqd: 1
-						}"
-						:modelValue="node.data.reference_docname"
-						:doc="node.data"
-						@update:modelValue="updateField('reference_docname', $event)"
-					/>
-				</div>
-				<div class="col-12" v-if="node.data.operation === 'Query Report'">
-					<ControlFactory
-						:df="{
-							fieldname: 'reference_docname',
-							label: __('Select Report'),
-							fieldtype: 'Link',
-							options: 'Report',
-							placeholder: __('Select Report...'),
-							reqd: 1
-						}"
-						:modelValue="node.data.reference_docname"
-						@update:modelValue="updateField('reference_docname', $event)"
-					/>
-				</div>
-			</div>
+		<div class="config-section">
+			<h6 class="text-muted">{{ __("Action Settings") }}</h6>
+			<ControlFactory
+				v-if="mode !== 'Query Report'"
+				:df="withReadOnly(referenceDoctypeField)"
+				:modelValue="props.node?.data?.reference_doctype"
+				@update:modelValue="(val) => updateActionField('reference_doctype', val)"
+			/>
+			<ControlFactory
+				v-if="mode === 'Query Doc'"
+				:df="withReadOnly(referenceDocnameField)"
+				:modelValue="props.node?.data?.reference_docname"
+				@update:modelValue="(val) => updateActionField('reference_docname', val)"
+			/>
+			<ControlFactory
+				v-if="mode === 'Query Report'"
+				:df="withReadOnly(reportLinkField)"
+				:modelValue="props.node?.data?.reference_docname"
+				@update:modelValue="(val) => onSelectReport(val)"
+			/>
+			<ControlFactory
+				:df="withReadOnly(inputSourceField)"
+				:modelValue="props.node?.data?.input_source"
+				@update:modelValue="(val) => updateActionField('input_source', val)"
+			/>
+			<ControlFactory
+				:df="withReadOnly(mutationModeField)"
+				:modelValue="props.node?.data?.mutation_mode"
+				@update:modelValue="(val) => updateActionField('mutation_mode', val)"
+			/>
 		</div>
 
-		<!-- Filter Builder (simplified version) -->
-		<div class="section-container mb-4" v-if="showFilters">
-			<label class="section-title d-flex justify-content-between">
-				<span>{{ __("Filters") }}</span>
-				<button class="btn btn-xs btn-default" @click="addFilter" v-if="!readOnly">
-					<i class="fa fa-plus"></i> {{ __("Add Filter") }}
-				</button>
-			</label>
-			
-			<div class="filters-list" v-if="filterRows.length">
-				<div v-for="(f, idx) in filterRows" :key="idx" class="filter-row">
-					<div class="filter-field">
-						<ControlFactory
-							:df="{
-								fieldname: 'field',
-								label: '',
-								fieldtype: 'Autocomplete',
-								placeholder: __('Field...')
-							}"
-							:modelValue="f.field"
-							:get_options="getFields"
-							@update:modelValue="updateFilter(idx, 'field', $event)"
-							hideLabel
-						/>
-					</div>
-					<div class="filter-op">
-						<select 
-							v-model="f.op" 
-							class="form-control form-control-sm"
-							@change="syncConfig"
-							:disabled="readOnly"
-						>
-							<option value="=">=</option>
-							<option value="!=">!=</option>
-							<option value=">">&gt;</option>
-							<option value="<">&lt;</option>
-							<option value=">=">&gt;=</option>
-							<option value="<=">&lt;=</option>
-							<option value="like">like</option>
-							<option value="in">in</option>
-						</select>
-					</div>
-					<div class="filter-value">
-						<input 
-							type="text" 
-							v-model="f.value" 
-							class="form-control form-control-sm"
-							:placeholder="__('Value...')"
-							@input="syncConfig"
-							:disabled="readOnly"
-						>
-					</div>
-					<button class="btn-remove" @click="removeFilter(idx)" v-if="!readOnly">×</button>
-				</div>
-			</div>
-			<div v-else class="empty-filters p-4 text-center text-muted">
-				{{ __("No filters defined. All records will be matched.") }}
-			</div>
+		<div v-if="!mode" class="alert alert-warning mt-3">
+			{{ __("Select a query mode to configure its parameters.") }}
 		</div>
 
-		<!-- Meta Settings: Limit and Ignore Permissions -->
-		<div class="section-container mb-4" v-if="showMetaSettings">
-			<div class="row align-items-end">
-				<div class="col-6" v-if="showLimit">
+		<div v-else class="config-section">
+			<template v-if="mode === 'Query List'">
+				<div class="sub-section">
+					<h6>{{ __("Filters") }}</h6>
+					<div class="table-rows">
+						<div v-for="(row, idx) in filterRows" :key="idx" class="row-item">
+							<input
+								class="form-control input-xs"
+								v-model="row.field"
+								:placeholder="__('Field')"
+								:disabled="readOnly"
+								@change="syncConfig"
+							/>
+							<select
+								class="form-control input-xs"
+								v-model="row.operator"
+								:disabled="readOnly"
+								@change="syncConfig"
+							>
+								<option v-for="op in operators" :key="op" :value="op">
+									{{ op }}
+								</option>
+							</select>
+							<input
+								class="form-control input-xs"
+								v-model="row.value"
+								:placeholder="__('Value')"
+								:disabled="readOnly"
+								@change="syncConfig"
+							/>
+							<select
+								class="form-control input-xs"
+								v-model="row.value_type"
+								:disabled="readOnly"
+								@change="syncConfig"
+							>
+								<option v-for="vt in valueTypes" :key="vt" :value="vt">
+									{{ __(vt) }}
+								</option>
+							</select>
+							<button
+								v-if="!readOnly"
+								class="btn btn-xs btn-link text-danger"
+								@click="removeFilter(idx)"
+							>
+								<i class="fa fa-trash"></i>
+							</button>
+						</div>
+						<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addFilter">
+							<i class="fa fa-plus"></i> {{ __("Add Filter") }}
+						</button>
+					</div>
+				</div>
+
+				<div class="sub-section">
+					<h6>{{ __("Fields") }}</h6>
+					<div class="table-rows">
+						<div v-for="(row, idx) in fieldRows" :key="idx" class="row-item">
+							<input
+								class="form-control input-xs"
+								v-model="row.field"
+								:placeholder="__('Field name')"
+								:disabled="readOnly"
+								@change="syncConfig"
+							/>
+							<button
+								v-if="!readOnly"
+								class="btn btn-xs btn-link text-danger"
+								@click="removeField(idx)"
+							>
+								<i class="fa fa-trash"></i>
+							</button>
+						</div>
+						<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addField">
+							<i class="fa fa-plus"></i> {{ __("Add Field") }}
+						</button>
+					</div>
+				</div>
+
+				<div class="sub-section">
 					<ControlFactory
-						:df="{
-							fieldname: 'limit',
-							label: __('Limit Results'),
-							fieldtype: 'Int',
-							placeholder: __('All')
-						}"
+						:df="withReadOnly(limitField)"
 						:modelValue="config.limit"
-						@update:modelValue="updateConfig('limit', $event)"
+						@update:modelValue="(val) => updateConfigKey('limit', val)"
 					/>
-				</div>
-				<div class="col-6">
 					<ControlFactory
-						:df="{
-							fieldname: 'ignore_permissions',
-							label: __('Ignore Permissions'),
-							fieldtype: 'Check'
-						}"
-						:modelValue="config.ignore_permissions"
-						@update:modelValue="updateConfig('ignore_permissions', $event)"
+						:df="withReadOnly(orderByField)"
+						:modelValue="config.order_by"
+						@update:modelValue="(val) => updateConfigKey('order_by', val)"
+					/>
+					<ControlFactory
+						:df="withReadOnly(groupByField)"
+						:modelValue="config.group_by"
+						@update:modelValue="(val) => updateConfigKey('group_by', val)"
 					/>
 				</div>
-			</div>
+			</template>
+
+			<template v-else-if="mode === 'Query Doc'">
+				<ControlFactory
+					:df="withReadOnly(docnameField)"
+					:modelValue="config.docname"
+					@update:modelValue="(val) => updateConfigKey('docname', val)"
+				/>
+				<ControlFactory
+					:df="withReadOnly(docnameExprField)"
+					:modelValue="config.docname_expression"
+					@update:modelValue="(val) => updateConfigKey('docname_expression', val)"
+				/>
+			</template>
+
+			<template v-else-if="mode === 'Exist Record'">
+				<div class="sub-section">
+					<h6>{{ __("Filters") }}</h6>
+					<div class="table-rows">
+						<div v-for="(row, idx) in filterRows" :key="idx" class="row-item">
+							<input
+								class="form-control input-xs"
+								v-model="row.field"
+								:placeholder="__('Field')"
+								:disabled="readOnly"
+								@change="syncConfig"
+							/>
+							<select
+								class="form-control input-xs"
+								v-model="row.operator"
+								:disabled="readOnly"
+								@change="syncConfig"
+							>
+								<option v-for="op in operators" :key="op" :value="op">
+									{{ op }}
+								</option>
+							</select>
+							<input
+								class="form-control input-xs"
+								v-model="row.value"
+								:placeholder="__('Value')"
+								:disabled="readOnly"
+								@change="syncConfig"
+							/>
+							<select
+								class="form-control input-xs"
+								v-model="row.value_type"
+								:disabled="readOnly"
+								@change="syncConfig"
+							>
+								<option v-for="vt in valueTypes" :key="vt" :value="vt">
+									{{ __(vt) }}
+								</option>
+							</select>
+							<button
+								v-if="!readOnly"
+								class="btn btn-xs btn-link text-danger"
+								@click="removeFilter(idx)"
+							>
+								<i class="fa fa-trash"></i>
+							</button>
+						</div>
+						<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addFilter">
+							<i class="fa fa-plus"></i> {{ __("Add Filter") }}
+						</button>
+					</div>
+				</div>
+			</template>
+
+			<template v-else-if="mode === 'Query Report'">
+				<div v-if="reportFilters.length" class="sub-section">
+					<h6>{{ __("Report Filters") }}</h6>
+					<div class="table-rows">
+						<div
+							v-for="df in reportFilters"
+							:key="df.fieldname"
+							class="row-item report"
+						>
+							<ControlFactory
+								:df="withReadOnly(df)"
+								:modelValue="reportFilterValues[df.fieldname]"
+								@update:modelValue="(val) => updateReportFilter(df.fieldname, val)"
+							/>
+						</div>
+					</div>
+				</div>
+				<div v-else class="text-muted small">
+					{{ __("Select a report to load its filters.") }}
+				</div>
+			</template>
+
+			<template v-else-if="mode === 'Query API'">
+				<ControlFactory
+					:df="withReadOnly(methodField)"
+					:modelValue="config.method"
+					@update:modelValue="(val) => updateConfigKey('method', val)"
+				/>
+				<div class="sub-section">
+					<h6>{{ __("Arguments") }}</h6>
+					<div class="table-rows">
+						<div v-for="(row, idx) in argRows" :key="idx" class="row-item">
+							<input
+								class="form-control input-xs"
+								v-model="row.key"
+								:placeholder="__('Key')"
+								:disabled="readOnly"
+								@change="syncConfig"
+							/>
+							<input
+								class="form-control input-xs"
+								v-model="row.value"
+								:placeholder="__('Value')"
+								:disabled="readOnly"
+								@change="syncConfig"
+							/>
+							<select
+								class="form-control input-xs"
+								v-model="row.value_type"
+								:disabled="readOnly"
+								@change="syncConfig"
+							>
+								<option v-for="vt in valueTypes" :key="vt" :value="vt">
+									{{ __(vt) }}
+								</option>
+							</select>
+							<button
+								v-if="!readOnly"
+								class="btn btn-xs btn-link text-danger"
+								@click="removeArg(idx)"
+							>
+								<i class="fa fa-trash"></i>
+							</button>
+						</div>
+						<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addArg">
+							<i class="fa fa-plus"></i> {{ __("Add Argument") }}
+						</button>
+					</div>
+				</div>
+			</template>
 		</div>
 
-		<!-- Fields / Columns Selection (Moved to End) -->
-		<div class="section-container mb-4" v-if="showFieldSelection">
-			<label class="section-title">{{ node.data.operation === 'Query Report' ? __("Columns to Fetch") : __("Fields to Fetch") }}</label>
-			<div class="field-selection-wrapper">
-				<ControlFactory
-					:df="{
-						fieldname: 'fields',
-						label: '',
-						fieldtype: 'MultiSelect',
-						placeholder: node.data.operation === 'Query Report' ? __('Add columns...') : __('Add fields...')
-					}"
-					:modelValue="config.fields"
-					:get_data="getFieldsForMultiSelect"
-					@update:modelValue="updateConfig('fields', $event)"
-				/>
-				<p class="text-muted small mt-1" v-if="node.data.operation !== 'Query Report'">
-					{{ __("Leave empty to fetch all fields.") }}
-				</p>
-			</div>
+		<div class="config-section test-section">
+			<button class="btn btn-xs btn-default" @click="testQuery" :disabled="readOnly">
+				<i class="fa fa-flask"></i> {{ __("Test Query") }}
+			</button>
+			<span v-if="testStatus" class="ml-2 text-muted">{{ testStatus }}</span>
 		</div>
 
-		<!-- Advanced Settings (JSON) -->
-		<div class="section-container">
-			<div class="d-flex justify-content-between align-items-center mb-2">
-				<label class="section-title mb-0">{{ __("Advanced JSON Config") }}</label>
-				<button 
-					class="btn btn-xs btn-link" 
-					@click="showJson = !showJson"
-				>
-					{{ showJson ? __('Hide') : __('Edit Raw JSON') }}
-				</button>
-			</div>
-			<div v-if="showJson" class="json-editor">
-				<ControlFactory
-					:df="{
-						fieldname: 'config',
-						label: '',
-						fieldtype: 'Code',
-						options: 'JSON'
-					}"
-					:modelValue="node.data.config"
-					@update:modelValue="updateField('config', $event)"
-				/>
-			</div>
+		<div v-if="detectedKeys.length" class="config-section">
+			<h6>{{ __("Detected Return Keys") }}</h6>
+			<ul class="small text-muted">
+				<li v-for="k in detectedKeys" :key="k.key">{{ k.key }}</li>
+			</ul>
 		</div>
 	</div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from "vue";
+import { reactive, ref, computed, watch } from "vue";
 import { useStore } from "../../../store";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 
@@ -229,362 +316,461 @@ const props = defineProps({
 });
 
 const store = useStore();
-const showJson = ref(false);
+const config = reactive({});
+const testStatus = ref("");
 
-const modes = [
-	{ 
-		value: "Query List", 
-		label: "Query List", 
-		icon: "fa fa-list", 
-		description: "Fetch multiple records matching filters." 
-	},
-	{ 
-		value: "Query Doc", 
-		label: "Query Doc", 
-		icon: "fa fa-file-text-o", 
-		description: "Fetch a specific record by name or filter." 
-	},
-	{ 
-		value: "Exist Record", 
-		label: "Exist Record", 
-		icon: "fa fa-check-square-o", 
-		description: "Check if any record matches given filters." 
-	},
-	{ 
-		value: "Query Report", 
-		label: "Query Report", 
-		icon: "fa fa-table", 
-		description: "Execute a Frappe Report and fetch results." 
-	},
-	{ 
-		value: "Query API", 
-		label: "Query API", 
-		icon: "fa fa-exchange", 
-		description: "Call a whitelisted server-side method." 
-	}
-];
+const filterRows = ref([]);
+const fieldRows = ref([]);
+const argRows = ref([]);
 
-const showFilters = computed(() => {
-	return ["Query List", "Query Doc", "Exist Record"].includes(props.node.data.operation);
-});
+const reportFilters = ref([]);
+const reportFilterValues = reactive({});
 
-const showFieldSelection = computed(() => {
-	return ["Query List", "Query Doc", "Query Report"].includes(props.node.data.operation);
-});
+const mode = computed(() => props.node?.data?.operation || "");
 
-const showMetaSettings = computed(() => {
-	return ["Query List", "Query Doc", "Exist Record", "Query Report"].includes(props.node.data.operation);
-});
+const operators = ["=", "!=", ">", ">=", "<", "<=", "in", "not in"];
+const valueTypes = ["Value", "Number", "Boolean", "Expression"];
 
-const showLimit = computed(() => {
-	return ["Query List", "Query Report"].includes(props.node.data.operation);
-});
+const modeField = computed(() => ({
+	fieldname: "operation",
+	fieldtype: "Select",
+	label: __("Mode"),
+	options: "Query List\nQuery Doc\nExist Record\nQuery Report\nQuery API",
+	read_only: props.readOnly,
+}));
 
-// Flat filter array for UI
-const filterRows = reactive([]);
-const config = reactive({
-	fields: [],
-	limit: 0,
-	ignore_permissions: 0
-});
+const referenceDoctypeField = {
+	fieldname: "reference_doctype",
+	fieldtype: "Link",
+	label: __("Reference DocType"),
+	options: "DocType",
+	reqd: 1,
+};
 
-// Cache for suggestions
-const cached_fields = ref([]);
-const cached_report_columns = ref([]);
+const referenceDocnameField = {
+	fieldname: "reference_docname",
+	fieldtype: "Data",
+	label: __("Reference Document"),
+	description: __("Optional static document name."),
+};
 
-function parseInitalConfig() {
-	let rawConfig = {};
-	try {
-		rawConfig = JSON.parse(props.node.data.config || "{}");
-	} catch (e) { rawConfig = {}; }
+const reportLinkField = {
+	fieldname: "reference_docname",
+	fieldtype: "Link",
+	label: __("Report"),
+	options: "Report",
+};
 
-	config.fields = rawConfig.fields || [];
-	config.limit = rawConfig.limit || 0;
-	config.ignore_permissions = rawConfig.ignore_permissions || 0;
+const inputSourceField = {
+	fieldname: "input_source",
+	fieldtype: "Select",
+	label: __("Input Source"),
+	options: "Context Doc\nContext Variable\nBoth",
+};
 
-	const filters = rawConfig.filters || {};
-	filterRows.splice(0);
-	
-	Object.entries(filters).forEach(([field, val]) => {
-		if (Array.isArray(val) && val.length === 2) {
-			filterRows.push({ field, op: val[0], value: val[1] });
-		} else {
-			filterRows.push({ field, op: "=", value: val });
-		}
-	});
+const mutationModeField = {
+	fieldname: "mutation_mode",
+	fieldtype: "Select",
+	label: __("Mutation Mode"),
+	options:
+		"Set Doc Field\nUpdate Doc Field\nSet Context Variable\nUpdate Context Variable\nAppend to Context Variable\nBatch Database Set",
+};
+
+const limitField = {
+	fieldname: "limit",
+	fieldtype: "Int",
+	label: __("Limit"),
+	description: __("Max rows to return."),
+};
+
+const orderByField = {
+	fieldname: "order_by",
+	fieldtype: "Data",
+	label: __("Order By"),
+	description: __("Example: modified desc"),
+};
+
+const groupByField = {
+	fieldname: "group_by",
+	fieldtype: "Data",
+	label: __("Group By"),
+	description: __("Optional group by field."),
+};
+
+const docnameField = {
+	fieldname: "docname",
+	fieldtype: "Data",
+	label: __("Document Name"),
+};
+
+const docnameExprField = {
+	fieldname: "docname_expression",
+	fieldtype: "Code",
+	label: __("Docname Expression"),
+	options: "PythonExpression",
+};
+
+const methodField = {
+	fieldname: "method",
+	fieldtype: "Data",
+	label: __("Whitelisted Method"),
+};
+
+const detectedKeys = computed(() => props.node?.data?.resolved_output_schema || []);
+
+function withReadOnly(field) {
+	return { ...field, read_only: props.readOnly };
 }
 
-function syncConfig() {
-	if (props.readOnly) return;
-	
-	let rawConfig = {};
-	try {
-		rawConfig = JSON.parse(props.node.data.config || "{}");
-	} catch (e) { rawConfig = {}; }
-
-	const activeFilters = {};
-	filterRows.forEach(f => {
-		if (f.field) {
-			if (f.op === "=") activeFilters[f.field] = f.value;
-			else activeFilters[f.field] = [f.op, f.value];
-		}
-	});
-
-	rawConfig.filters = activeFilters;
-	rawConfig.fields = config.fields;
-	rawConfig.limit = config.limit;
-	rawConfig.ignore_permissions = config.ignore_permissions;
-	
-	props.node.data.config = JSON.stringify(rawConfig);
+function updateMode(value) {
+	if (!props.node?.data) return;
+	props.node.data.operation = value;
+	if (value === "Query Report") {
+		props.node.data.reference_doctype = "Report";
+	}
 	store.mark_dirty();
 }
 
-function updateField(fieldname, value) {
-	if (props.readOnly) return;
+function updateActionField(fieldname, value) {
+	if (!props.node?.data) return;
 	props.node.data[fieldname] = value;
-	if (fieldname === 'operation') {
-		syncConfig(); 
-	}
 	store.mark_dirty();
 }
 
-function updateConfig(key, value) {
-	if (props.readOnly) return;
+async function onSelectReport(val) {
+	if (!props.node?.data) return;
+	props.node.data.reference_doctype = "Report";
+	props.node.data.reference_docname = val;
+	store.mark_dirty();
+	await loadReportFilters(val);
+}
+
+function updateConfigKey(key, value) {
 	config[key] = value;
 	syncConfig();
 }
 
 function addFilter() {
-	filterRows.push({ field: "", op: "=", value: "" });
+	filterRows.value.push({ field: "", operator: "=", value: "", value_type: "Value" });
 }
 
 function removeFilter(idx) {
-	filterRows.splice(idx, 1);
+	filterRows.value.splice(idx, 1);
 	syncConfig();
 }
 
-function updateFilter(idx, key, val) {
-	filterRows[idx][key] = val;
+function addField() {
+	fieldRows.value.push({ field: "" });
+}
+
+function removeField(idx) {
+	fieldRows.value.splice(idx, 1);
 	syncConfig();
 }
 
-async function getFields() {
-	if (!props.node.data.reference_doctype) return [];
-	await frappe.model.with_doctype(props.node.data.reference_doctype);
-	const meta = frappe.get_meta(props.node.data.reference_doctype);
-	if (!meta?.fields) return [];
-	cached_fields.value = meta.fields
-		.filter(df => !frappe.model.layout_fields.includes(df.fieldtype) && !df.hidden)
-		.map(df => ({ value: df.fieldname, label: df.label }));
-	return cached_fields.value;
+function addArg() {
+	argRows.value.push({ key: "", value: "", value_type: "Value" });
 }
 
-async function fetchReportColumns() {
-	if (props.node.data.operation !== 'Query Report' || !props.node.data.reference_docname) {
-		cached_report_columns.value = [];
+function removeArg(idx) {
+	argRows.value.splice(idx, 1);
+	syncConfig();
+}
+
+function parseValueType(val) {
+	if (typeof val === "number") return "Number";
+	if (typeof val === "boolean") return "Boolean";
+	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
+		return "Expression";
+	}
+	return "Value";
+}
+
+function stripExpression(val) {
+	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
+		return val.slice(1, -1);
+	}
+	return val;
+}
+
+function encodeValue(row) {
+	let val = row.value;
+	if (row.value_type === "Number") {
+		const num = Number(val);
+		if (!Number.isNaN(num)) return num;
+		return val;
+	}
+	if (row.value_type === "Boolean") {
+		if (val === true || val === "true" || val === 1 || val === "1") return true;
+		if (val === false || val === "false" || val === 0 || val === "0") return false;
+		return Boolean(val);
+	}
+	if (row.value_type === "Expression") {
+		return `{${val}}`;
+	}
+	return val;
+}
+
+function buildFilters() {
+	const filters = {};
+	filterRows.value.forEach((row) => {
+		if (!row.field) return;
+		let val = encodeValue(row);
+		if (["in", "not in"].includes(row.operator) && typeof val === "string") {
+			val = val
+				.split(",")
+				.map((v) => v.trim())
+				.filter((v) => v);
+		}
+		if (row.operator && row.operator !== "=") {
+			filters[row.field] = [row.operator, val];
+		} else {
+			filters[row.field] = val;
+		}
+	});
+	return filters;
+}
+
+function buildFields() {
+	return fieldRows.value.map((r) => r.field).filter((f) => f);
+}
+
+function buildArgs() {
+	const args = {};
+	argRows.value.forEach((row) => {
+		if (!row.key) return;
+		args[row.key] = encodeValue(row);
+	});
+	return args;
+}
+
+function syncConfig() {
+	const newConfig = {};
+	Object.keys(config).forEach((k) => {
+		const val = config[k];
+		if (val !== undefined && val !== null && val !== "") newConfig[k] = val;
+	});
+
+	if (["Query List", "Exist Record"].includes(mode.value)) {
+		const filters = buildFilters();
+		if (Object.keys(filters).length) newConfig.filters = filters;
+	}
+
+	if (mode.value === "Query List") {
+		const fields = buildFields();
+		if (fields.length) newConfig.fields = fields;
+	}
+
+	if (mode.value === "Query API") {
+		const args = buildArgs();
+		if (Object.keys(args).length) newConfig.args = args;
+	}
+
+	if (mode.value === "Query Report") {
+		const reportName = props.node?.data?.reference_docname || config.report_name;
+		if (reportName) newConfig.report_name = reportName;
+		const filters = { ...reportFilterValues };
+		if (Object.keys(filters).length) newConfig.filters = filters;
+	}
+
+	assignConfig(newConfig);
+}
+
+function assignConfig(newConfig) {
+	if (!props.node?.data) return;
+	let current = props.node.data.config || {};
+	if (typeof current === "string") {
+		try {
+			current = JSON.parse(current);
+		} catch (e) {
+			current = {};
+		}
+	}
+	const currentStr = JSON.stringify(current || {});
+	const nextStr = JSON.stringify(newConfig || {});
+	if (currentStr !== nextStr) {
+		props.node.data.config = newConfig;
+		store.mark_dirty();
+	}
+}
+
+async function loadReportFilters(reportName) {
+	if (!reportName) {
+		reportFilters.value = [];
+		Object.keys(reportFilterValues).forEach((k) => delete reportFilterValues[k]);
 		return;
 	}
 	try {
 		const res = await frappe.call({
 			method: "frappe.desk.query_report.get_script",
-			args: { report_name: props.node.data.reference_docname }
+			args: { report_name: reportName },
 		});
-		if (res.message && res.message.columns) {
-			cached_report_columns.value = res.message.columns.map(col => {
-				if (typeof col === 'string') {
-					const parts = col.split(':');
-					const fieldname = parts[0].trim();
-					return { value: fieldname, label: fieldname };
-				}
-				return { value: col.fieldname, label: col.label || col.fieldname };
-			});
+		const filters = res.message?.filters || [];
+		reportFilters.value = filters.map((f) => ({
+			fieldname: f.fieldname,
+			fieldtype: f.fieldtype || "Data",
+			label: f.label || f.fieldname,
+			options: f.options,
+			reqd: f.reqd || 0,
+			default: f.default,
+		}));
+		Object.keys(reportFilterValues).forEach((k) => delete reportFilterValues[k]);
+		reportFilters.value.forEach((df) => {
+			if (df.default !== undefined) reportFilterValues[df.fieldname] = df.default;
+		});
+		syncConfig();
+	} catch (e) {
+		console.error("Failed to load report filters", e);
+		reportFilters.value = [];
+	}
+}
+
+function updateReportFilter(fieldname, value) {
+	reportFilterValues[fieldname] = value;
+	syncConfig();
+}
+
+function loadConfig(val) {
+	let parsed = {};
+	if (typeof val === "string") {
+		try {
+			parsed = JSON.parse(val);
+		} catch (e) {
+			parsed = {};
+		}
+	} else if (val && typeof val === "object") {
+		parsed = val;
+	}
+
+	Object.keys(config).forEach((k) => delete config[k]);
+	Object.assign(config, parsed);
+
+	const filters = parsed.filters || {};
+	filterRows.value = Object.entries(filters).map(([field, val]) => {
+		let operator = "=";
+		let value = val;
+		if (Array.isArray(val) && val.length === 2) {
+			operator = val[0];
+			value = val[1];
+		}
+		const value_type = parseValueType(value);
+		return {
+			field,
+			operator,
+			value: stripExpression(value),
+			value_type,
+		};
+	});
+
+	const fields = parsed.fields || [];
+	fieldRows.value = Array.isArray(fields) ? fields.map((f) => ({ field: f })) : [];
+
+	const args = parsed.args || {};
+	argRows.value = Object.entries(args).map(([key, value]) => ({
+		key,
+		value: stripExpression(value),
+		value_type: parseValueType(value),
+	}));
+
+	if (mode.value === "Query Report") {
+		const reportName = props.node?.data?.reference_docname || parsed.report_name;
+		if (reportName) {
+			loadReportFilters(reportName);
+			Object.keys(reportFilterValues).forEach((k) => delete reportFilterValues[k]);
+			Object.assign(reportFilterValues, parsed.filters || {});
+		}
+	}
+}
+
+watch(
+	() => props.node?.data?.config,
+	(val) => loadConfig(val),
+	{ immediate: true }
+);
+
+watch(
+	() => [filterRows.value, fieldRows.value, argRows.value, reportFilterValues, config],
+	() => {
+		syncConfig();
+	},
+	{ deep: true }
+);
+
+async function testQuery() {
+	if (!props.node?.data?.action_id || !store.rule_doc?.name) return;
+	if (store.is_dirty) {
+		frappe.msgprint(__("Please save the rule before testing."));
+		return;
+	}
+	try {
+		testStatus.value = __("Running...");
+		const res = await frappe.call({
+			method: "flexirule.ruleflow.api.test_action_query",
+			args: {
+				rule_name: store.rule_doc.name,
+				action_id: props.node.data.action_id,
+			},
+		});
+		const message = res.message || {};
+		if (message.success) {
+			props.node.data.resolved_output_schema = message.detected_keys || [];
+			store.mark_dirty();
+			testStatus.value = __("OK ({0}s)").replace("{0}", message.duration || 0);
+		} else {
+			testStatus.value = __("Failed");
+			frappe.msgprint(message.error || __("Query test failed"));
 		}
 	} catch (e) {
-		console.warn("Failed to fetch report columns", e);
-		cached_report_columns.value = [];
+		testStatus.value = __("Failed");
+		frappe.msgprint(e.message || __("Query test failed"));
 	}
 }
 
-function getFieldsForMultiSelect(query) {
-	let list = [];
-	if (props.node.data.operation === 'Query Report') {
-		list = cached_report_columns.value;
-	} else {
-		list = cached_fields.value;
-	}
-
-	if (!query) return list;
-	const q = query.toLowerCase();
-	return list.filter(f => 
-		(f.value || "").toLowerCase().includes(q) || 
-		(f.label || "").toLowerCase().includes(q)
-	);
+function validate() {
+	return { valid: true };
 }
 
-onMounted(async () => {
-	if (!props.node.data.operation) {
-		updateField('operation', 'Query List');
-	}
-	parseInitalConfig();
-	if (props.node.data.reference_doctype) await getFields();
-	if (props.node.data.operation === 'Query Report' && props.node.data.reference_docname) {
-		await fetchReportColumns();
-	}
-});
-
-watch(() => props.node.data.reference_doctype, async (val) => {
-	if (val) await getFields();
-});
-
-watch(() => props.node.data.reference_docname, async (val) => {
-	if (props.node.data.operation === 'Query Report' && val) {
-		await fetchReportColumns();
-	}
-});
-
+defineExpose({ validate });
 </script>
 
 <style scoped>
-.query-records-config {
-	font-family: var(--font-stack-sans);
-}
-
-.config-summary {
-	display: flex;
-	gap: 24px;
-	padding: 16px;
-	background: #f1f5f9;
-	border-radius: 12px;
-	border: 1px solid #e2e8f0;
-}
-
-.summary-item {
+.query-config {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 16px;
 }
 
-.summary-item .label {
-	font-size: 10px;
-	font-weight: 700;
-	text-transform: uppercase;
-	color: #64748b;
+.config-section {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 }
 
-.summary-item .value {
-	font-size: 14px;
-	font-weight: 600;
+.sub-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
 }
 
-.section-title {
-	font-size: 13px;
-	font-weight: 700;
-	color: #334155;
-	margin-bottom: 12px;
-	display: block;
+.table-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 }
 
-.mode-cards {
+.row-item {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-	gap: 12px;
+	grid-template-columns: 1.3fr 0.7fr 1fr 0.8fr auto;
+	gap: 6px;
+	align-items: center;
 }
 
-.mode-card {
+.row-item.report {
+	grid-template-columns: 1fr;
+}
+
+.test-section {
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 12px;
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 10px;
-	cursor: pointer;
-	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.mode-card:hover {
-	border-color: var(--primary);
-	background: #f8fafc;
-	transform: translateY(-1px);
-}
-
-.mode-card.active {
-	border-color: var(--primary);
-	background: rgba(var(--primary-rgb), 0.04);
-	box-shadow: 0 0 0 1px var(--primary);
-}
-
-.mode-card i {
-	font-size: 18px;
-	color: #94a3b8;
-	width: 24px;
-	text-align: center;
-}
-
-.mode-card.active i {
-	color: var(--primary);
-}
-
-.mode-name {
-	font-size: 13px;
-	font-weight: 700;
-}
-
-.mode-desc {
-	font-size: 11px;
-	color: #64748b;
-}
-
-.filters-list {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.filter-row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 8px;
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-}
-
-.filter-field { flex: 1; }
-.filter-op { width: 80px; }
-.filter-value { flex: 1; }
-
-.btn-remove {
-	background: none;
-	border: none;
-	color: #94a3b8;
-	font-size: 18px;
-	cursor: pointer;
-	padding: 0 4px;
-}
-
-.btn-remove:hover { color: #ef4444; }
-
-.empty-filters {
-	background: #f8fafc;
-	border: 1px dashed #cbd5e1;
-	border-radius: 8px;
-	font-size: 12px;
-}
-
-.json-editor {
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-	overflow: hidden;
-}
-
-.small { font-size: 11px; }
-
-.field-selection-wrapper {
-	padding: 12px;
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
 }
 </style>

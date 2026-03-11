@@ -689,7 +689,10 @@ class RuleEngine:
 		if mutation_mode:
 			contract = get_contract(action.action_type)
 			allowed = contract.get("allowed_mutations")
-			if allowed and mutation_mode not in allowed:
+			if not allowed:
+				# Ignore mutation_mode for action types that don't declare it
+				return
+			if mutation_mode not in allowed:
 				raise MethodExecutionError(
 					_("Mutation mode '{0}' is not allowed for action type '{1}'").format(
 						mutation_mode, action.action_type

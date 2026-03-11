@@ -483,22 +483,23 @@ class Rule(Document):
 					)
 				)
 
-		# 1b. Contract: Allowed mutation modes
+		# 1b. Contract: Allowed mutation modes (only for action types that declare it)
 		if getattr(action, "mutation_mode", None):
 			allowed_mutations = contract.get("allowed_mutations")
-			if allowed_mutations and action.mutation_mode not in allowed_mutations:
-				frappe.throw(
-					_("Action '{0}' ({1}) does not allow mutation mode '{2}'").format(
-						action.action_label, action_type, action.mutation_mode
+			if allowed_mutations:
+				if action.mutation_mode not in allowed_mutations:
+					frappe.throw(
+						_("Action '{0}' ({1}) does not allow mutation mode '{2}'").format(
+							action.action_label, action_type, action.mutation_mode
+						)
 					)
-				)
 
-			if not action.return_variable:
-				frappe.throw(
-					_("Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set").format(
-						action.action_label, action_type
+				if not action.return_variable:
+					frappe.throw(
+						_(
+							"Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set"
+						).format(action.action_label, action_type)
 					)
-				)
 
 		# 1c. Return Schema requires Return Variable
 		if (action.return_type or action.resolved_output_schema) and not action.return_variable:

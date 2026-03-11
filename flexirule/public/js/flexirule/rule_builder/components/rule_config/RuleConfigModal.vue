@@ -180,6 +180,9 @@ function getIcon(type) {
 		wait: "fa fa-clock-o",
 		start: "fa fa-play",
 		stop: "fa fa-stop",
+		query: "fa fa-search",
+		aggregate: "fa fa-calculator",
+		createdoc: "fa fa-plus-circle",
 	};
 	return icons[type.toLowerCase()] || "fa fa-circle";
 }

@@ -122,7 +122,11 @@ function update_action_field(fieldname, value) {
 
 	// Handle action_type change - update node type
 	if (fieldname === "action_type" && selectedNode.value.data.action_type !== value) {
-		selectedNode.value.type = value.toLowerCase();
+		let type = value.toLowerCase();
+		if (value === "Query Records") type = "query";
+		if (value === "Aggregate Records") type = "aggregate";
+		if (value === "Create Docs") type = "createdoc";
+		selectedNode.value.type = type;
 	}
 
 	selectedNode.value.data[fieldname] = value;

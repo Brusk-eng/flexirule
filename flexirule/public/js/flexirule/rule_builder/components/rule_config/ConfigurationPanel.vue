@@ -55,13 +55,16 @@ const configComponents = {
 	"set value": SetValueConfig,
 	"raise error": RaiseErrorConfig,
 	notify: NotifyConfig,
-	"query records": QueryRecordsConfig,
-	"aggregate records": AggregateRecordsConfig,
-	"create docs": CreateDocsConfig,
+	query: QueryRecordsConfig,
+	aggregate: AggregateRecordsConfig,
+	createdoc: CreateDocsConfig,
 };
 
 const configComponent = computed(() => {
-	const type = props.node?.type?.toLowerCase();
+	let type = props.node?.type?.toLowerCase();
+	if (type === "query records") type = "query";
+	if (type === "aggregate records") type = "aggregate";
+	if (type === "create docs") type = "createdoc";
 	return configComponents[type] || null;
 });
 

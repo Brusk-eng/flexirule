@@ -1,176 +1,135 @@
 <template>
 	<div class="create-docs-config">
-		<!-- Flow Header -->
-		<div class="flow-steps mb-4">
-			<div :class="['flow-step', { active: step === 1 }]" @click="step = 1">
-				<span class="step-num">1</span>
-				<span class="step-txt">{{ __("Reference") }}</span>
-			</div>
-			<div class="flow-arrow"><i class="fa fa-chevron-right"></i></div>
-			<div :class="['flow-step', { active: step === 2, disabled: !node.data.reference_doctype }]" @click="node.data.reference_doctype && (step = 2)">
-				<span class="step-num">2</span>
-				<span class="step-txt">{{ __("Mappings") }}</span>
-			</div>
-			<div class="flow-arrow"><i class="fa fa-chevron-right"></i></div>
-			<div :class="['flow-step', { active: step === 3 }]" @click="step = 3">
-				<span class="step-num">3</span>
-				<span class="step-txt">{{ __("Mutation") }}</span>
-			</div>
+		<div class="config-section">
+			<h5>{{ __("Create Docs") }}</h5>
+			<p class="text-muted small">
+				{{ __("Configure document creation or update mapping.") }}
+			</p>
 		</div>
 
-		<!-- Step 1: Base Config -->
-		<div v-if="step === 1" class="step-content">
-			<div class="row">
-				<div class="col-7">
-					<ControlFactory
-						:df="{
-							fieldname: 'reference_doctype',
-							label: __('Target DocType'),
-							fieldtype: 'Link',
-							options: 'DocType',
-							reqd: 1,
-							description: __('Which DocType do you want to create or update?')
-						}"
-						:modelValue="node.data.reference_doctype"
-						@update:modelValue="updateField('reference_doctype', $event)"
-					/>
-				</div>
-				<div class="col-5">
-					<ControlFactory
-						:df="{
-							fieldname: 'operation',
-							label: __('Mode'),
-							fieldtype: 'Select',
-							options: 'Create New\nUpdate Existing',
-							reqd: 1
-						}"
-						:modelValue="node.data.operation"
-						@update:modelValue="updateField('operation', $event)"
-					/>
-				</div>
-			</div>
-			
-			<div class="mt-4 p-4 bg-light rounded text-center" v-if="!node.data.reference_doctype">
-				<i class="fa fa-info-circle text-primary fa-2x mb-2"></i>
-				<p>{{ __("Please select a Target DocType to proceed to mapping.") }}</p>
-			</div>
-			<div class="mt-4 d-flex justify-content-end" v-else>
-				<button class="btn btn-primary btn-sm" @click="step = 2">
-					{{ __("Continue to Mappings") }} <i class="fa fa-arrow-right ml-1"></i>
-				</button>
-			</div>
+		<div class="config-section">
+			<ControlFactory
+				:df="modeField"
+				:modelValue="mode"
+				:hideDescription="true"
+				@update:modelValue="updateMode"
+			/>
 		</div>
 
-		<!-- Step 2: Field Mappings -->
-		<div v-if="step === 2" class="step-content">
-			<div class="mapping-toolbar mb-3 d-flex justify-content-between align-items-center">
-				<div class="mapping-info">
-					<strong>{{ __("Target:") }}</strong> {{ node.data.reference_doctype }}
-				</div>
-				<button 
-					class="btn btn-xs btn-outline-primary"
-					@click="addMappingRow"
-					v-if="!readOnly"
-				>
-					<i class="fa fa-plus"></i> {{ __("Add Field Mapping") }}
-				</button>
-			</div>
-
-			<div class="mapping-table-wrapper">
-				<table class="table table-sm table-mapping">
-					<thead>
-						<tr>
-							<th width="40%">{{ __("Target Field") }}</th>
-							<th width="50%">{{ __("Source (Variable or Template)") }}</th>
-							<th v-if="!readOnly" width="10%"></th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr v-for="(m, idx) in mappings" :key="idx">
-							<td>
-								<ControlFactory
-									:df="{ fieldname: 'tf', fieldtype: 'Autocomplete' }"
-									:modelValue="m.target"
-									:get_options="getTargetFields"
-									@update:modelValue="updateMappingRow(idx, 'target', $event)"
-									hideLabel
-								/>
-							</td>
-							<td>
-								<div class="source-input-group">
-									<input 
-										type="text" 
-										v-model="m.source" 
-										class="form-control form-control-sm"
-										:placeholder="__('e.g. {{ doc.name }} or vars.x')"
-										@input="syncMapping"
-										:disabled="readOnly"
-									/>
-									<div class="source-hint" v-if="m.source && m.source.includes('{{')">
-										<i class="fa fa-magic"></i> {{ __("Jinja Template") }}
-									</div>
-								</div>
-							</td>
-							<td v-if="!readOnly" class="text-right">
-								<button class="btn btn-xs btn-link text-danger" @click="removeMappingRow(idx)">
-									<i class="fa fa-trash"></i>
-								</button>
-							</td>
-						</tr>
-						<tr v-if="!mappings.length">
-							<td colspan="3" class="text-center p-4 text-muted">
-								{{ __("No fields mapped. Node will fail if mandatory fields are missing.") }}
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
+		<div class="config-section">
+			<h6 class="text-muted">{{ __("Action Settings") }}</h6>
+			<ControlFactory
+				:df="withReadOnly(referenceDoctypeField)"
+				:modelValue="props.node?.data?.reference_doctype"
+				@update:modelValue="(val) => updateActionField('reference_doctype', val)"
+			/>
+			<ControlFactory
+				v-if="mode === 'Update Existing'"
+				:df="withReadOnly(referenceDocnameField)"
+				:modelValue="props.node?.data?.reference_docname"
+				@update:modelValue="(val) => updateActionField('reference_docname', val)"
+			/>
+			<ControlFactory
+				:df="withReadOnly(inputSourceField)"
+				:modelValue="props.node?.data?.input_source"
+				@update:modelValue="(val) => updateActionField('input_source', val)"
+			/>
+			<ControlFactory
+				:df="withReadOnly(mutationModeField)"
+				:modelValue="props.node?.data?.mutation_mode"
+				@update:modelValue="(val) => updateActionField('mutation_mode', val)"
+			/>
 		</div>
 
-		<!-- Step 3: Post-Execution -->
-		<div v-if="step === 3" class="step-content">
-			<div class="section-container border rounded p-4 bg-white">
-				<div class="row align-items-center">
-					<div class="col-8">
-						<h5 class="mb-1">{{ __("Mutation & Persistence") }}</h5>
-						<p class="text-muted small">
-							{{ __("Control how the created/updated document interacts with your current context.") }}
-						</p>
-					</div>
-					<div class="col-4 text-right">
-						<i class="fa fa-database fa-3x text-light"></i>
-					</div>
-				</div>
-				
-				<hr />
+		<div v-if="!mode" class="alert alert-warning mt-3">
+			{{ __("Select a mode to configure parameters.") }}
+		</div>
 
-				<div class="row mt-3">
-					<div class="col-6">
-						<ControlFactory
-							:df="{
-								fieldname: 'mutation_mode',
-								label: __('After Save Action'),
-								fieldtype: 'Select',
-								options: 'None\nSet Doc Field\nSet Context Variable',
-								description: __('What to do with the result?')
-							}"
-							:modelValue="node.data.mutation_mode"
-							@update:modelValue="updateField('mutation_mode', $event)"
+		<div v-else class="config-section">
+			<template v-if="mode === 'Update Existing'">
+				<ControlFactory
+					:df="withReadOnly(docnameField)"
+					:modelValue="config.docname"
+					@update:modelValue="(val) => updateConfigKey('docname', val)"
+				/>
+				<ControlFactory
+					:df="withReadOnly(docnameExprField)"
+					:modelValue="config.docname_expression"
+					@update:modelValue="(val) => updateConfigKey('docname_expression', val)"
+				/>
+			</template>
+
+			<div class="sub-section">
+				<h6>{{ __("Static Values") }}</h6>
+				<div class="table-rows">
+					<div v-for="(row, idx) in staticRows" :key="idx" class="row-item">
+						<input
+							class="form-control input-xs"
+							v-model="row.key"
+							:placeholder="__('Field')"
+							:disabled="readOnly"
+							@change="syncConfig"
 						/>
-					</div>
-					<div class="col-6" v-if="node.data.mutation_mode && node.data.mutation_mode !== 'None'">
-						<ControlFactory
-							:df="{
-								fieldname: 'return_variable',
-								label: __('Variable Name'),
-								fieldtype: 'Data',
-								reqd: 1,
-								description: __('Name of the field/key to store the document reference.')
-							}"
-							:modelValue="node.data.return_variable"
-							@update:modelValue="updateField('return_variable', $event)"
+						<input
+							class="form-control input-xs"
+							v-model="row.value"
+							:placeholder="__('Value')"
+							:disabled="readOnly"
+							@change="syncConfig"
 						/>
+						<select
+							class="form-control input-xs"
+							v-model="row.value_type"
+							:disabled="readOnly"
+							@change="syncConfig"
+						>
+							<option v-for="vt in valueTypes" :key="vt" :value="vt">
+								{{ __(vt) }}
+							</option>
+						</select>
+						<button
+							v-if="!readOnly"
+							class="btn btn-xs btn-link text-danger"
+							@click="removeStatic(idx)"
+						>
+							<i class="fa fa-trash"></i>
+						</button>
 					</div>
+					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addStatic">
+						<i class="fa fa-plus"></i> {{ __("Add Value") }}
+					</button>
+				</div>
+			</div>
+
+			<div class="sub-section">
+				<h6>{{ __("Field Mappings") }}</h6>
+				<div class="table-rows">
+					<div v-for="(row, idx) in mappingRows" :key="idx" class="row-item mappings">
+						<input
+							class="form-control input-xs"
+							v-model="row.source"
+							:placeholder="__('Source expression')"
+							:disabled="readOnly"
+							@change="syncConfig"
+						/>
+						<input
+							class="form-control input-xs"
+							v-model="row.target"
+							:placeholder="__('Target field')"
+							:disabled="readOnly"
+							@change="syncConfig"
+						/>
+						<button
+							v-if="!readOnly"
+							class="btn btn-xs btn-link text-danger"
+							@click="removeMapping(idx)"
+						>
+							<i class="fa fa-trash"></i>
+						</button>
+					</div>
+					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addMapping">
+						<i class="fa fa-plus"></i> {{ __("Add Mapping") }}
+					</button>
 				</div>
 			</div>
 		</div>
@@ -178,7 +137,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from "vue";
+import { reactive, ref, computed, watch } from "vue";
 import { useStore } from "../../../store";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 
@@ -188,92 +147,268 @@ const props = defineProps({
 });
 
 const store = useStore();
-const step = ref(1);
-const mappings = reactive([]);
+const config = reactive({});
+const staticRows = ref([]);
+const mappingRows = ref([]);
 
-function parseConfig() {
-	let config = {};
-	try {
-		config = JSON.parse(props.node.data.config || "{}");
-	} catch (e) { config = {}; }
-	
-	const map = config.mapping || {};
-	mappings.splice(0);
-	Object.entries(map).forEach(([target, source]) => {
-		mappings.push({ target, source });
-	});
+const mode = computed(() => props.node?.data?.operation || "");
+
+const valueTypes = ["Value", "Number", "Boolean", "Expression"];
+
+const modeField = computed(() => ({
+	fieldname: "operation",
+	fieldtype: "Select",
+	label: __("Mode"),
+	options: "Create New\nUpdate Existing",
+	read_only: props.readOnly,
+}));
+
+const referenceDoctypeField = {
+	fieldname: "reference_doctype",
+	fieldtype: "Link",
+	label: __("Reference DocType"),
+	options: "DocType",
+	reqd: 1,
+};
+
+const referenceDocnameField = {
+	fieldname: "reference_docname",
+	fieldtype: "Data",
+	label: __("Reference Document"),
+};
+
+const inputSourceField = {
+	fieldname: "input_source",
+	fieldtype: "Select",
+	label: __("Input Source"),
+	options: "Context Doc\nContext Variable\nBoth",
+};
+
+const mutationModeField = {
+	fieldname: "mutation_mode",
+	fieldtype: "Select",
+	label: __("Mutation Mode"),
+	options:
+		"Set Doc Field\nUpdate Doc Field\nSet Context Variable\nUpdate Context Variable\nAppend to Context Variable\nBatch Database Set",
+};
+
+const docnameField = {
+	fieldname: "docname",
+	fieldtype: "Data",
+	label: __("Document Name"),
+};
+
+const docnameExprField = {
+	fieldname: "docname_expression",
+	fieldtype: "Code",
+	label: __("Docname Expression"),
+	options: "PythonExpression",
+};
+
+function withReadOnly(field) {
+	return { ...field, read_only: props.readOnly };
 }
 
-function syncMapping() {
-	if (props.readOnly) return;
-	let config = {};
-	try {
-		config = JSON.parse(props.node.data.config || "{}");
-	} catch (e) { config = {}; }
-
-	const mapObj = {};
-	mappings.forEach(m => {
-		if (m.target) mapObj[m.target] = m.source;
-	});
-	
-	config.mapping = mapObj;
-	props.node.data.config = JSON.stringify(config);
+function updateMode(value) {
+	if (!props.node?.data) return;
+	props.node.data.operation = value;
 	store.mark_dirty();
 }
 
-function updateField(f, v) {
-	if (props.readOnly) return;
-	props.node.data[f] = v;
+function updateActionField(fieldname, value) {
+	if (!props.node?.data) return;
+	props.node.data[fieldname] = value;
 	store.mark_dirty();
 }
 
-function addMappingRow() {
-	mappings.push({ target: "", source: "" });
+function updateConfigKey(key, value) {
+	config[key] = value;
+	syncConfig();
 }
 
-function removeMappingRow(idx) {
-	mappings.splice(idx, 1);
-	syncMapping();
+function addStatic() {
+	staticRows.value.push({ key: "", value: "", value_type: "Value" });
 }
 
-function updateMappingRow(idx, key, val) {
-	mappings[idx][key] = val;
-	syncMapping();
+function removeStatic(idx) {
+	staticRows.value.splice(idx, 1);
+	syncConfig();
 }
 
-async function getTargetFields() {
-	if (!props.node.data.reference_doctype) return [];
-	await frappe.model.with_doctype(props.node.data.reference_doctype);
-	const meta = frappe.get_meta(props.node.data.reference_doctype);
-	return meta?.fields?.map(f => ({ value: f.fieldname, label: f.label })) || [];
+function addMapping() {
+	mappingRows.value.push({ source: "", target: "" });
 }
 
-onMounted(() => {
-	if (!props.node.data.operation) updateField('operation', 'Create New');
-	parseConfig();
-});
+function removeMapping(idx) {
+	mappingRows.value.splice(idx, 1);
+	syncConfig();
+}
 
+function parseValueType(val) {
+	if (typeof val === "number") return "Number";
+	if (typeof val === "boolean") return "Boolean";
+	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
+		return "Expression";
+	}
+	return "Value";
+}
+
+function stripExpression(val) {
+	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
+		return val.slice(1, -1);
+	}
+	return val;
+}
+
+function encodeValue(row) {
+	let val = row.value;
+	if (row.value_type === "Number") {
+		const num = Number(val);
+		if (!Number.isNaN(num)) return num;
+		return val;
+	}
+	if (row.value_type === "Boolean") {
+		if (val === true || val === "true" || val === 1 || val === "1") return true;
+		if (val === false || val === "false" || val === 0 || val === "0") return false;
+		return Boolean(val);
+	}
+	if (row.value_type === "Expression") {
+		return `{${val}}`;
+	}
+	return val;
+}
+
+function buildStaticValues() {
+	const values = {};
+	staticRows.value.forEach((row) => {
+		if (!row.key) return;
+		values[row.key] = encodeValue(row);
+	});
+	return values;
+}
+
+function buildMappings() {
+	return mappingRows.value
+		.filter((r) => r.source && r.target)
+		.map((r) => ({ source: r.source, target: r.target }));
+}
+
+function syncConfig() {
+	const newConfig = {};
+	Object.keys(config).forEach((k) => {
+		const val = config[k];
+		if (val !== undefined && val !== null && val !== "") newConfig[k] = val;
+	});
+
+	const staticValues = buildStaticValues();
+	if (Object.keys(staticValues).length) newConfig.static_values = staticValues;
+
+	const mappings = buildMappings();
+	if (mappings.length) newConfig.field_mappings = mappings;
+
+	assignConfig(newConfig);
+}
+
+function assignConfig(newConfig) {
+	if (!props.node?.data) return;
+	let current = props.node.data.config || {};
+	if (typeof current === "string") {
+		try {
+			current = JSON.parse(current);
+		} catch (e) {
+			current = {};
+		}
+	}
+	const currentStr = JSON.stringify(current || {});
+	const nextStr = JSON.stringify(newConfig || {});
+	if (currentStr !== nextStr) {
+		props.node.data.config = newConfig;
+		store.mark_dirty();
+	}
+}
+
+function loadConfig(val) {
+	let parsed = {};
+	if (typeof val === "string") {
+		try {
+			parsed = JSON.parse(val);
+		} catch (e) {
+			parsed = {};
+		}
+	} else if (val && typeof val === "object") {
+		parsed = val;
+	}
+
+	Object.keys(config).forEach((k) => delete config[k]);
+	Object.assign(config, parsed);
+
+	const staticValues = parsed.static_values || {};
+	staticRows.value = Object.entries(staticValues).map(([key, value]) => ({
+		key,
+		value: stripExpression(value),
+		value_type: parseValueType(value),
+	}));
+
+	const mappings = parsed.field_mappings || [];
+	mappingRows.value = Array.isArray(mappings)
+		? mappings.map((m) => ({ source: m.source || "", target: m.target || "" }))
+		: [];
+}
+
+watch(
+	() => props.node?.data?.config,
+	(val) => loadConfig(val),
+	{ immediate: true }
+);
+
+watch(
+	() => [staticRows.value, mappingRows.value, config],
+	() => {
+		syncConfig();
+	},
+	{ deep: true }
+);
+
+function validate() {
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>
 
 <style scoped>
-.flow-steps { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px; background: #fff; border-bottom: 3px solid #f1f5f9; border-radius: 12px 12px 0 0; }
-.flow-step { display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 0.5; transition: 0.2s; padding: 6px 12px; border-radius: 20px; }
-.flow-step.active { opacity: 1; background: #eff6ff; color: #2563eb; font-weight: 700; transform: scale(1.05); }
-.flow-step.disabled { cursor: not-allowed; pointer-events: none; }
-.step-num { width: 22px; height: 22px; border-radius: 50%; background: #94a3b8; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; }
-.flow-step.active .step-num { background: #2563eb; }
-.step-txt { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.create-docs-config {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
 
-.step-content { padding: 20px; animation: slideIn 0.3s ease-out; }
-@keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.config-section {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
 
-.mapping-table-wrapper { border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
-.table-mapping { margin-bottom: 0; }
-.table-mapping th { background: #f8fafc; border-top: none; font-size: 11px; font-weight: 700; color: #64748b; padding: 8px 12px; }
-.table-mapping td { vertical-align: middle; padding: 8px 12px; }
+.sub-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
 
-.source-input-group { position: relative; }
-.source-hint { position: absolute; right: 8px; top: 4px; font-size: 9px; color: var(--primary); font-weight: 600; font-family: monospace; }
+.table-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
 
-.btn-link { font-size: 12px; font-weight: 600; text-decoration: none !important; }
+.row-item {
+	display: grid;
+	grid-template-columns: 1.2fr 1.2fr 0.8fr auto;
+	gap: 6px;
+	align-items: center;
+}
+
+.row-item.mappings {
+	grid-template-columns: 1.4fr 1.2fr auto;
+}
 </style>

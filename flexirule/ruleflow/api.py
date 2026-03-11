@@ -577,7 +577,15 @@ def test_action_query(rule_name, action_id, context_doc=None):
 		# Detect return fields
 		detected_keys = []
 		if isinstance(result, dict):
-			detected_keys = [{"key": k} for k in result.keys()]
+			# Query Report returns {columns, result}
+			if "columns" in result and "result" in result:
+				columns = result.get("columns") or []
+				if columns and isinstance(columns[0], dict):
+					detected_keys = [{"key": c.get("fieldname") or c.get("label")} for c in columns]
+				elif columns and isinstance(columns[0], str):
+					detected_keys = [{"key": c} for c in columns]
+			else:
+				detected_keys = [{"key": k} for k in result.keys()]
 		elif isinstance(result, list) and result and isinstance(result[0], dict):
 			detected_keys = [{"key": k} for k in result[0].keys()]
 
