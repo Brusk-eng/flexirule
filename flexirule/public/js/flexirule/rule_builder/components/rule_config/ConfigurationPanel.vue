@@ -21,9 +21,10 @@
 					<i class="fa fa-sliders fa-3x text-muted mb-3"></i>
 					<p class="text-muted">
 						{{
-							__(
-								"No configuration UI available for this node type ({0})"
-							).replace("{0}", node.type)
+							__("No configuration UI available for this node type ({0})").replace(
+								"{0}",
+								node.type
+							)
 						}}
 					</p>
 				</div>
