@@ -1,13 +1,13 @@
 <template>
 	<div class="query-config">
-		<div class="config-section">
+		<div class="config-section section-card">
 			<h5>{{ __("Query Records") }}</h5>
 			<p class="text-muted small">
 				{{ __("Configure the query mode and parameters.") }}
 			</p>
 		</div>
 
-		<div class="config-section">
+		<div class="config-section section-card">
 			<ControlFactory
 				:df="modeField"
 				:modelValue="mode"
@@ -16,45 +16,54 @@
 			/>
 		</div>
 
-		<div class="config-section">
+		<div class="config-section section-card">
 			<h6 class="text-muted">{{ __("Action Settings") }}</h6>
-			<ControlFactory
-				v-if="mode !== 'Query Report'"
-				:df="withReadOnly(referenceDoctypeField)"
-				:modelValue="props.node?.data?.reference_doctype"
-				@update:modelValue="(val) => updateActionField('reference_doctype', val)"
-			/>
-			<ControlFactory
-				v-if="mode === 'Query Doc'"
-				:df="withReadOnly(referenceDocnameField)"
-				:modelValue="props.node?.data?.reference_docname"
-				@update:modelValue="(val) => updateActionField('reference_docname', val)"
-			/>
-			<ControlFactory
-				v-if="mode === 'Query Report'"
-				:df="withReadOnly(reportLinkField)"
-				:modelValue="props.node?.data?.reference_docname"
-				@update:modelValue="(val) => onSelectReport(val)"
-			/>
-			<ControlFactory
-				:df="withReadOnly(inputSourceField)"
-				:modelValue="props.node?.data?.input_source"
-				@update:modelValue="(val) => updateActionField('input_source', val)"
-			/>
-			<ControlFactory
-				:df="withReadOnly(mutationModeField)"
-				:modelValue="props.node?.data?.mutation_mode"
-				@update:modelValue="(val) => updateActionField('mutation_mode', val)"
-			/>
+			<div class="action-settings-grid">
+				<div class="grid-item span-2" v-if="mode !== 'Query Report'">
+					<ControlFactory
+						:df="withReadOnly(referenceDoctypeField)"
+						:modelValue="props.node?.data?.reference_doctype"
+						@update:modelValue="(val) => updateActionField('reference_doctype', val)"
+					/>
+				</div>
+				<div class="grid-item span-2" v-if="mode === 'Query Doc'">
+					<ControlFactory
+						:df="withReadOnly(referenceDocnameField)"
+						:modelValue="props.node?.data?.reference_docname"
+						@update:modelValue="(val) => updateActionField('reference_docname', val)"
+					/>
+				</div>
+				<div class="grid-item span-2" v-if="mode === 'Query Report'">
+					<ControlFactory
+						:df="withReadOnly(reportLinkField)"
+						:modelValue="props.node?.data?.reference_docname"
+						@update:modelValue="(val) => onSelectReport(val)"
+					/>
+				</div>
+				<div class="grid-item">
+					<ControlFactory
+						:df="withReadOnly(inputSourceField)"
+						:modelValue="props.node?.data?.input_source"
+						@update:modelValue="(val) => updateActionField('input_source', val)"
+					/>
+				</div>
+				<div class="grid-item">
+					<ControlFactory
+						:df="withReadOnly(mutationModeField)"
+						:modelValue="props.node?.data?.mutation_mode"
+						@update:modelValue="(val) => updateActionField('mutation_mode', val)"
+					/>
+				</div>
+			</div>
 		</div>
 
 		<div v-if="!mode" class="alert alert-warning mt-3">
 			{{ __("Select a query mode to configure its parameters.") }}
 		</div>
 
-		<div v-else class="config-section">
+		<div v-else class="config-section section-card">
 			<template v-if="mode === 'Query List'">
-				<div class="sub-section">
+				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<div class="table-rows">
 						<div v-for="(row, idx) in filterRows" :key="idx" class="row-item">
@@ -106,7 +115,7 @@
 					</div>
 				</div>
 
-				<div class="sub-section">
+				<div class="sub-section section-subcard">
 					<h6>{{ __("Fields") }}</h6>
 					<div class="table-rows">
 						<div v-for="(row, idx) in fieldRows" :key="idx" class="row-item">
@@ -131,7 +140,7 @@
 					</div>
 				</div>
 
-				<div class="sub-section">
+				<div class="sub-section section-subcard">
 					<ControlFactory
 						:df="withReadOnly(limitField)"
 						:modelValue="config.limit"
@@ -164,7 +173,7 @@
 			</template>
 
 			<template v-else-if="mode === 'Exist Record'">
-				<div class="sub-section">
+				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<div class="table-rows">
 						<div v-for="(row, idx) in filterRows" :key="idx" class="row-item">
@@ -245,7 +254,7 @@
 					:modelValue="config.method"
 					@update:modelValue="(val) => updateConfigKey('method', val)"
 				/>
-				<div class="sub-section">
+				<div class="sub-section section-subcard">
 					<h6>{{ __("Arguments") }}</h6>
 					<div class="table-rows">
 						<div v-for="(row, idx) in argRows" :key="idx" class="row-item">
@@ -289,14 +298,14 @@
 			</template>
 		</div>
 
-		<div class="config-section test-section">
+		<div class="config-section section-card test-section">
 			<button class="btn btn-xs btn-default" @click="testQuery" :disabled="readOnly">
 				<i class="fa fa-flask"></i> {{ __("Test Query") }}
 			</button>
 			<span v-if="testStatus" class="ml-2 text-muted">{{ testStatus }}</span>
 		</div>
 
-		<div v-if="detectedKeys.length" class="config-section">
+		<div v-if="detectedKeys.length" class="config-section section-card">
 			<h6>{{ __("Detected Return Keys") }}</h6>
 			<ul class="small text-muted">
 				<li v-for="k in detectedKeys" :key="k.key">{{ k.key }}</li>
@@ -746,10 +755,33 @@ defineExpose({ validate });
 	gap: 12px;
 }
 
+.section-card {
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 12px;
+	background: var(--bg-light, #fff);
+}
+
+.section-subcard {
+	border: 1px dashed var(--border-color);
+	border-radius: 6px;
+	padding: 10px;
+}
+
 .sub-section {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
+}
+
+.action-settings-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.grid-item.span-2 {
+	grid-column: 1 / -1;
 }
 
 .table-rows {
@@ -772,5 +804,6 @@ defineExpose({ validate });
 .test-section {
 	display: flex;
 	align-items: center;
+	gap: 8px;
 }
 </style>

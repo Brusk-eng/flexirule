@@ -1,13 +1,13 @@
 <template>
 	<div class="create-docs-config">
-		<div class="config-section">
+		<div class="config-section section-card">
 			<h5>{{ __("Create Docs") }}</h5>
 			<p class="text-muted small">
 				{{ __("Configure document creation or update mapping.") }}
 			</p>
 		</div>
 
-		<div class="config-section">
+		<div class="config-section section-card">
 			<ControlFactory
 				:df="modeField"
 				:modelValue="mode"
@@ -16,36 +16,45 @@
 			/>
 		</div>
 
-		<div class="config-section">
+		<div class="config-section section-card">
 			<h6 class="text-muted">{{ __("Action Settings") }}</h6>
-			<ControlFactory
-				:df="withReadOnly(referenceDoctypeField)"
-				:modelValue="props.node?.data?.reference_doctype"
-				@update:modelValue="(val) => updateActionField('reference_doctype', val)"
-			/>
-			<ControlFactory
-				v-if="mode === 'Update Existing'"
-				:df="withReadOnly(referenceDocnameField)"
-				:modelValue="props.node?.data?.reference_docname"
-				@update:modelValue="(val) => updateActionField('reference_docname', val)"
-			/>
-			<ControlFactory
-				:df="withReadOnly(inputSourceField)"
-				:modelValue="props.node?.data?.input_source"
-				@update:modelValue="(val) => updateActionField('input_source', val)"
-			/>
-			<ControlFactory
-				:df="withReadOnly(mutationModeField)"
-				:modelValue="props.node?.data?.mutation_mode"
-				@update:modelValue="(val) => updateActionField('mutation_mode', val)"
-			/>
+			<div class="action-settings-grid">
+				<div class="grid-item span-2">
+					<ControlFactory
+						:df="withReadOnly(referenceDoctypeField)"
+						:modelValue="props.node?.data?.reference_doctype"
+						@update:modelValue="(val) => updateActionField('reference_doctype', val)"
+					/>
+				</div>
+				<div class="grid-item span-2" v-if="mode === 'Update Existing'">
+					<ControlFactory
+						:df="withReadOnly(referenceDocnameField)"
+						:modelValue="props.node?.data?.reference_docname"
+						@update:modelValue="(val) => updateActionField('reference_docname', val)"
+					/>
+				</div>
+				<div class="grid-item">
+					<ControlFactory
+						:df="withReadOnly(inputSourceField)"
+						:modelValue="props.node?.data?.input_source"
+						@update:modelValue="(val) => updateActionField('input_source', val)"
+					/>
+				</div>
+				<div class="grid-item">
+					<ControlFactory
+						:df="withReadOnly(mutationModeField)"
+						:modelValue="props.node?.data?.mutation_mode"
+						@update:modelValue="(val) => updateActionField('mutation_mode', val)"
+					/>
+				</div>
+			</div>
 		</div>
 
 		<div v-if="!mode" class="alert alert-warning mt-3">
 			{{ __("Select a mode to configure parameters.") }}
 		</div>
 
-		<div v-else class="config-section">
+		<div v-else class="config-section section-card">
 			<template v-if="mode === 'Update Existing'">
 				<ControlFactory
 					:df="withReadOnly(docnameField)"
@@ -59,7 +68,7 @@
 				/>
 			</template>
 
-			<div class="sub-section">
+			<div class="sub-section section-subcard">
 				<h6>{{ __("Static Values") }}</h6>
 				<div class="table-rows">
 					<div v-for="(row, idx) in staticRows" :key="idx" class="row-item">
@@ -125,7 +134,7 @@
 				</div>
 			</div>
 
-			<div class="sub-section">
+			<div class="sub-section section-subcard">
 				<h6>{{ __("Field Mappings") }}</h6>
 				<div class="table-rows">
 					<div v-for="(row, idx) in mappingRows" :key="idx" class="row-item mappings">
@@ -501,10 +510,33 @@ defineExpose({ validate });
 	gap: 12px;
 }
 
+.section-card {
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 12px;
+	background: var(--bg-light, #fff);
+}
+
+.section-subcard {
+	border: 1px dashed var(--border-color);
+	border-radius: 6px;
+	padding: 10px;
+}
+
 .sub-section {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
+}
+
+.action-settings-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.grid-item.span-2 {
+	grid-column: 1 / -1;
 }
 
 .table-rows {
