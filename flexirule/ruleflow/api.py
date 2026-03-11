@@ -522,8 +522,8 @@ def amend_rule(rule_name: str) -> str:
 
 @frappe.whitelist()
 def test_action_query(
-	rule_name: str, action_id: str, context_doc: Optional[Union[str, Dict[str, Any]]] = None
-) -> Dict[str, Any]:
+	rule_name: str, action_id: str, context_doc: str | dict[str, Any] | None = None
+) -> dict[str, Any]:
 	"""
 	Execute a single action in isolation for testing.
 	Returns detected return fields for auto-populating returns_keys.
