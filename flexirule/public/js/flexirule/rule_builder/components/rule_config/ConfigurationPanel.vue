@@ -1,26 +1,35 @@
 <template>
 	<div class="configuration-panel">
 		<div v-if="node" class="panel-content">
-			<component
-				:is="configComponent"
-				v-if="configComponent"
-				ref="configRef"
-				:node="node"
-				:readOnly="readOnly"
-			/>
-			<div v-else class="empty-config p-5 text-center">
-				<i class="fa fa-sliders fa-3x text-muted mb-3"></i>
-				<p class="text-muted">
-					{{
-						__("No configuration UI available for this node type ({0})").replace(
-							"{0}",
-							node.type
-						)
-					}}
-				</p>
+			<div class="panel-header">
+				<div class="header-text">
+					<h4>{{ __("Configuration") }}</h4>
+					<p class="text-muted small">
+						{{ node.data?.action_type || node.type || __("Action") }}
+					</p>
+				</div>
+			</div>
+			<div class="panel-sections">
+				<component
+					:is="configComponent"
+					v-if="configComponent"
+					ref="configRef"
+					:node="node"
+					:readOnly="readOnly"
+				/>
+				<div v-else class="empty-config text-center">
+					<i class="fa fa-sliders fa-3x text-muted mb-3"></i>
+					<p class="text-muted">
+						{{
+							__(
+								"No configuration UI available for this node type ({0})"
+							).replace("{0}", node.type)
+						}}
+					</p>
+				</div>
 			</div>
 		</div>
-		<div v-else class="panel-content empty-state p-5 text-center">
+		<div v-else class="panel-content empty-state text-center">
 			<p class="text-muted">{{ __("Select a node to configure") }}</p>
 		</div>
 	</div>
@@ -92,7 +101,32 @@ defineExpose({
 .panel-content {
 	flex: 1;
 	overflow-y: auto;
-	padding: 24px;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.panel-header {
+	padding: 20px;
+	border-bottom: 1px solid var(--border-color);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.panel-header h4 {
+	margin: 0 0 4px 0;
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.panel-sections {
+	flex: 1;
+	overflow-y: auto;
+	padding: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
 .empty-config {
@@ -101,5 +135,13 @@ defineExpose({
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
+}
+
+.empty-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+	padding: 20px;
 }
 </style>

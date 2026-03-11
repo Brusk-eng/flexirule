@@ -42,12 +42,13 @@
 				<h6>{{ __("Filters") }}</h6>
 				<div class="table-rows">
 					<div v-for="(row, idx) in filterRows" :key="idx" class="row-item">
-						<input
-							class="form-control input-xs"
-							v-model="row.field"
-							:placeholder="__('Field')"
-							:disabled="readOnly"
-							@change="syncConfig"
+						<FieldPickerControl
+							:df="{ label: '' }"
+							:fields="doctypeFields"
+							:documentType="referenceDoctype"
+							:modelValue="row.field"
+							:read_only="readOnly"
+							@update:modelValue="(val) => (row.field = val)"
 						/>
 						<select
 							class="form-control input-xs"
@@ -59,13 +60,36 @@
 								{{ op }}
 							</option>
 						</select>
-						<input
-							class="form-control input-xs"
-							v-model="row.value"
-							:placeholder="__('Value')"
-							:disabled="readOnly"
-							@change="syncConfig"
-						/>
+						<div class="value-cell">
+							<template v-if="row.value_type === 'Variable'">
+								<AutocompleteControl
+									:df="{ fieldtype: 'Autocomplete', label: '' }"
+									:options="variableOptions"
+									:modelValue="row.value"
+									:read_only="readOnly"
+									:hideLabel="true"
+									@update:modelValue="(val) => (row.value = val)"
+								/>
+							</template>
+							<template v-else-if="row.value_type === 'Expression'">
+								<input
+									class="form-control input-xs"
+									v-model="row.value"
+									:placeholder="__('Expression')"
+									:disabled="readOnly"
+									@change="syncConfig"
+								/>
+							</template>
+							<template v-else>
+								<ControlFactory
+									:df="valueFieldDf(row)"
+									:modelValue="row.value"
+									:hideLabel="true"
+									:hideDescription="true"
+									@update:modelValue="(val) => (row.value = val)"
+								/>
+							</template>
+						</div>
 						<select
 							class="form-control input-xs"
 							v-model="row.value_type"
@@ -92,16 +116,22 @@
 
 			<div class="sub-section">
 				<template v-if="['sum', 'avg', 'min', 'max'].includes(mode)">
-					<ControlFactory
-						:df="withReadOnly(fieldField)"
+					<FieldPickerControl
+						:df="fieldField"
+						:fields="doctypeFields"
+						:documentType="referenceDoctype"
 						:modelValue="config.field"
+						:read_only="readOnly"
 						@update:modelValue="(val) => updateConfigKey('field', val)"
 					/>
 				</template>
 				<template v-else-if="mode === 'group_by'">
-					<ControlFactory
-						:df="withReadOnly(groupByField)"
+					<FieldPickerControl
+						:df="groupByField"
+						:fields="doctypeFields"
+						:documentType="referenceDoctype"
 						:modelValue="config.group_by_field"
+						:read_only="readOnly"
 						@update:modelValue="(val) => updateConfigKey('group_by_field', val)"
 					/>
 					<ControlFactory
@@ -109,9 +139,12 @@
 						:modelValue="config.agg_function"
 						@update:modelValue="(val) => updateConfigKey('agg_function', val)"
 					/>
-					<ControlFactory
-						:df="withReadOnly(aggFieldField)"
+					<FieldPickerControl
+						:df="aggFieldField"
+						:fields="doctypeFields"
+						:documentType="referenceDoctype"
 						:modelValue="config.agg_field"
+						:read_only="readOnly"
 						@update:modelValue="(val) => updateConfigKey('agg_field', val)"
 					/>
 				</template>
@@ -133,11 +166,14 @@ const props = defineProps({
 const store = useStore();
 const config = reactive({});
 const filterRows = ref([]);
+const doctypeFields = ref([]);
+const variableOptions = ref([]);
 
 const mode = computed(() => props.node?.data?.operation || "");
+const referenceDoctype = computed(() => props.node?.data?.reference_doctype || "");
 
 const operators = ["=", "!=", ">", ">=", "<", "<=", "in", "not in"];
-const valueTypes = ["Value", "Number", "Boolean", "Expression"];
+const valueTypes = ["Value", "Number", "Boolean", "Variable", "Expression"];
 
 const modeField = computed(() => ({
 	fieldname: "operation",
@@ -195,6 +231,18 @@ const aggFieldField = {
 	label: __("Aggregate Field"),
 };
 
+const fieldMap = computed(() => {
+	const map = {};
+	doctypeFields.value.forEach((f) => {
+		map[f.value] = f;
+	});
+	return map;
+});
+
+const variableSet = computed(() => {
+	return new Set((variableOptions.value || []).map((v) => v.value));
+});
+
 function withReadOnly(field) {
 	return { ...field, read_only: props.readOnly };
 }
@@ -229,6 +277,8 @@ function parseValueType(val) {
 	if (typeof val === "number") return "Number";
 	if (typeof val === "boolean") return "Boolean";
 	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
+		const inner = val.slice(1, -1);
+		if (variableSet.value.has(inner)) return "Variable";
 		return "Expression";
 	}
 	return "Value";
@@ -256,7 +306,51 @@ function encodeValue(row) {
 	if (row.value_type === "Expression") {
 		return `{${val}}`;
 	}
+	if (row.value_type === "Variable") {
+		return `{${val}}`;
+	}
 	return val;
+}
+
+function valueFieldDf(row) {
+	let fieldtype = "Data";
+	let options = null;
+	if (row.value_type === "Number") fieldtype = "Float";
+	else if (row.value_type === "Boolean") fieldtype = "Check";
+	else if (row.field && fieldMap.value[row.field]) {
+		fieldtype = fieldMap.value[row.field].fieldtype || "Data";
+		options = fieldMap.value[row.field].options || null;
+	}
+	return {
+		fieldname: "value",
+		fieldtype,
+		options,
+		read_only: props.readOnly,
+	};
+}
+
+async function refreshVariables() {
+	if (!props.node?.id) {
+		variableOptions.value = [];
+		return;
+	}
+	try {
+		variableOptions.value = await store.getAvailableVariables(props.node.id);
+	} catch (e) {
+		variableOptions.value = [];
+	}
+}
+
+async function loadDoctypeFields(doctype) {
+	if (!doctype) {
+		doctypeFields.value = [];
+		return;
+	}
+	try {
+		doctypeFields.value = await flexirule.utils.get_doctype_fields(doctype);
+	} catch (e) {
+		doctypeFields.value = [];
+	}
 }
 
 function buildFilters() {
@@ -341,11 +435,36 @@ function loadConfig(val) {
 			value_type,
 		};
 	});
+	normalizeVariableRows();
+}
+
+function normalizeVariableRows() {
+	if (!filterRows.value.length || !variableSet.value.size) return;
+	filterRows.value.forEach((row) => {
+		if (row.value_type === "Expression" && variableSet.value.has(row.value)) {
+			row.value_type = "Variable";
+		}
+	});
 }
 
 watch(
 	() => props.node?.data?.config,
 	(val) => loadConfig(val),
+	{ immediate: true }
+);
+
+watch(
+	() => referenceDoctype.value,
+	(val) => loadDoctypeFields(val),
+	{ immediate: true }
+);
+
+watch(
+	() => props.node?.id,
+	async () => {
+		await refreshVariables();
+		normalizeVariableRows();
+	},
 	{ immediate: true }
 );
 
@@ -391,8 +510,16 @@ defineExpose({ validate });
 
 .row-item {
 	display: grid;
-	grid-template-columns: 1.3fr 0.7fr 1fr 0.8fr auto;
+	grid-template-columns: 1.6fr 0.8fr 1.6fr 0.8fr auto;
 	gap: 6px;
 	align-items: center;
+}
+
+.row-item .field-picker-control {
+	margin-bottom: 0;
+}
+
+.value-cell :deep(.control-factory) {
+	width: 100%;
 }
 </style>

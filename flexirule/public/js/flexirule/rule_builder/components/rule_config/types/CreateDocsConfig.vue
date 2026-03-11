@@ -63,20 +63,44 @@
 				<h6>{{ __("Static Values") }}</h6>
 				<div class="table-rows">
 					<div v-for="(row, idx) in staticRows" :key="idx" class="row-item">
-						<input
-							class="form-control input-xs"
-							v-model="row.key"
-							:placeholder="__('Field')"
-							:disabled="readOnly"
-							@change="syncConfig"
+						<FieldPickerControl
+							:df="{ label: '' }"
+							:fields="doctypeFields"
+							:documentType="referenceDoctype"
+							:modelValue="row.key"
+							:read_only="readOnly"
+							@update:modelValue="(val) => (row.key = val)"
 						/>
-						<input
-							class="form-control input-xs"
-							v-model="row.value"
-							:placeholder="__('Value')"
-							:disabled="readOnly"
-							@change="syncConfig"
-						/>
+						<div class="value-cell">
+							<template v-if="row.value_type === 'Variable'">
+								<AutocompleteControl
+									:df="{ fieldtype: 'Autocomplete', label: '' }"
+									:options="variableOptions"
+									:modelValue="row.value"
+									:read_only="readOnly"
+									:hideLabel="true"
+									@update:modelValue="(val) => (row.value = val)"
+								/>
+							</template>
+							<template v-else-if="row.value_type === 'Expression'">
+								<input
+									class="form-control input-xs"
+									v-model="row.value"
+									:placeholder="__('Expression')"
+									:disabled="readOnly"
+									@change="syncConfig"
+								/>
+							</template>
+							<template v-else>
+								<ControlFactory
+									:df="valueFieldDf(row)"
+									:modelValue="row.value"
+									:hideLabel="true"
+									:hideDescription="true"
+									@update:modelValue="(val) => (row.value = val)"
+								/>
+							</template>
+						</div>
 						<select
 							class="form-control input-xs"
 							v-model="row.value_type"
@@ -105,19 +129,21 @@
 				<h6>{{ __("Field Mappings") }}</h6>
 				<div class="table-rows">
 					<div v-for="(row, idx) in mappingRows" :key="idx" class="row-item mappings">
-						<input
-							class="form-control input-xs"
-							v-model="row.source"
-							:placeholder="__('Source expression')"
-							:disabled="readOnly"
-							@change="syncConfig"
+						<AutocompleteControl
+							:df="{ fieldtype: 'Autocomplete', label: '' }"
+							:options="variableOptions"
+							:modelValue="row.source"
+							:read_only="readOnly"
+							:hideLabel="true"
+							@update:modelValue="(val) => (row.source = val)"
 						/>
-						<input
-							class="form-control input-xs"
-							v-model="row.target"
-							:placeholder="__('Target field')"
-							:disabled="readOnly"
-							@change="syncConfig"
+						<FieldPickerControl
+							:df="{ label: '' }"
+							:fields="doctypeFields"
+							:documentType="referenceDoctype"
+							:modelValue="row.target"
+							:read_only="readOnly"
+							@update:modelValue="(val) => (row.target = val)"
 						/>
 						<button
 							v-if="!readOnly"
@@ -150,10 +176,13 @@ const store = useStore();
 const config = reactive({});
 const staticRows = ref([]);
 const mappingRows = ref([]);
+const doctypeFields = ref([]);
+const variableOptions = ref([]);
 
 const mode = computed(() => props.node?.data?.operation || "");
+const referenceDoctype = computed(() => props.node?.data?.reference_doctype || "");
 
-const valueTypes = ["Value", "Number", "Boolean", "Expression"];
+const valueTypes = ["Value", "Number", "Boolean", "Variable", "Expression"];
 
 const modeField = computed(() => ({
 	fieldname: "operation",
@@ -205,6 +234,18 @@ const docnameExprField = {
 	options: "PythonExpression",
 };
 
+const fieldMap = computed(() => {
+	const map = {};
+	doctypeFields.value.forEach((f) => {
+		map[f.value] = f;
+	});
+	return map;
+});
+
+const variableSet = computed(() => {
+	return new Set((variableOptions.value || []).map((v) => v.value));
+});
+
 function withReadOnly(field) {
 	return { ...field, read_only: props.readOnly };
 }
@@ -248,6 +289,8 @@ function parseValueType(val) {
 	if (typeof val === "number") return "Number";
 	if (typeof val === "boolean") return "Boolean";
 	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
+		const inner = val.slice(1, -1);
+		if (variableSet.value.has(inner)) return "Variable";
 		return "Expression";
 	}
 	return "Value";
@@ -275,7 +318,51 @@ function encodeValue(row) {
 	if (row.value_type === "Expression") {
 		return `{${val}}`;
 	}
+	if (row.value_type === "Variable") {
+		return `{${val}}`;
+	}
 	return val;
+}
+
+function valueFieldDf(row) {
+	let fieldtype = "Data";
+	let options = null;
+	if (row.value_type === "Number") fieldtype = "Float";
+	else if (row.value_type === "Boolean") fieldtype = "Check";
+	else if (row.key && fieldMap.value[row.key]) {
+		fieldtype = fieldMap.value[row.key].fieldtype || "Data";
+		options = fieldMap.value[row.key].options || null;
+	}
+	return {
+		fieldname: "value",
+		fieldtype,
+		options,
+		read_only: props.readOnly,
+	};
+}
+
+async function refreshVariables() {
+	if (!props.node?.id) {
+		variableOptions.value = [];
+		return;
+	}
+	try {
+		variableOptions.value = await store.getAvailableVariables(props.node.id);
+	} catch (e) {
+		variableOptions.value = [];
+	}
+}
+
+async function loadDoctypeFields(doctype) {
+	if (!doctype) {
+		doctypeFields.value = [];
+		return;
+	}
+	try {
+		doctypeFields.value = await flexirule.utils.get_doctype_fields(doctype);
+	} catch (e) {
+		doctypeFields.value = [];
+	}
 }
 
 function buildStaticValues() {
@@ -348,6 +435,7 @@ function loadConfig(val) {
 		value: stripExpression(value),
 		value_type: parseValueType(value),
 	}));
+	normalizeVariableRows();
 
 	const mappings = parsed.field_mappings || [];
 	mappingRows.value = Array.isArray(mappings)
@@ -355,9 +443,33 @@ function loadConfig(val) {
 		: [];
 }
 
+function normalizeVariableRows() {
+	if (!staticRows.value.length || !variableSet.value.size) return;
+	staticRows.value.forEach((row) => {
+		if (row.value_type === "Expression" && variableSet.value.has(row.value)) {
+			row.value_type = "Variable";
+		}
+	});
+}
+
 watch(
 	() => props.node?.data?.config,
 	(val) => loadConfig(val),
+	{ immediate: true }
+);
+
+watch(
+	() => referenceDoctype.value,
+	(val) => loadDoctypeFields(val),
+	{ immediate: true }
+);
+
+watch(
+	() => props.node?.id,
+	async () => {
+		await refreshVariables();
+		normalizeVariableRows();
+	},
 	{ immediate: true }
 );
 
@@ -403,12 +515,20 @@ defineExpose({ validate });
 
 .row-item {
 	display: grid;
-	grid-template-columns: 1.2fr 1.2fr 0.8fr auto;
+	grid-template-columns: 1.4fr 1.6fr 0.8fr auto;
 	gap: 6px;
 	align-items: center;
 }
 
 .row-item.mappings {
-	grid-template-columns: 1.4fr 1.2fr auto;
+	grid-template-columns: 1.4fr 1.4fr auto;
+}
+
+.row-item .field-picker-control {
+	margin-bottom: 0;
+}
+
+.value-cell :deep(.control-factory) {
+	width: 100%;
 }
 </style>
