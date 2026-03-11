@@ -93,6 +93,7 @@ const isConfigurable = computed(() => {
 function update_start_field(fieldname, value) {
 	if (!selectedNode.value?.data) return;
 	selectedNode.value.data[fieldname] = value;
+	store.touch_node(selectedNode.value.id);
 	store.mark_dirty();
 }
 
@@ -130,6 +131,7 @@ function update_action_field(fieldname, value) {
 	}
 
 	selectedNode.value.data[fieldname] = value;
+	store.touch_node(selectedNode.value.id);
 	store.mark_dirty();
 }
 
