@@ -179,6 +179,9 @@ class TestComplexFlows(FrappeTestCase):
 			}
 		).insert()
 
+		# Execute
+		RuleCoordinator.execute_rule(rule.name, {"doc": self.doc})
+
 		# Check Execution Log
 		logs = frappe.get_all("Rule Execution Log", filters={"rule": rule.name}, fields=["name", "status"])
 		self.assertEqual(len(logs), 1, f"Expected 1 log, got {len(logs)}: {logs}")
