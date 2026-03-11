@@ -326,11 +326,7 @@ watch(
 		<div class="form-group">
 			<div class="section-header">
 				<label class="control-label">{{ __("Rule Permissions") }}</label>
-				<button
-					v-if="!readOnly"
-					class="btn btn-xs btn-link"
-					@click="add_permission_row"
-				>
+				<button v-if="!readOnly" class="btn btn-xs btn-link" @click="add_permission_row">
 					<i class="fa fa-plus"></i> {{ __("Add") }}
 				</button>
 			</div>

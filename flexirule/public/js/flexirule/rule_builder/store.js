@@ -777,9 +777,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				const skip_roles = Array.isArray(startNode.data.skip_for_roles)
 					? startNode.data.skip_for_roles
 					: [];
-				doc.skip_for_roles = skip_roles
-					.filter(Boolean)
-					.map((role) => ({ role: role }));
+				doc.skip_for_roles = skip_roles.filter(Boolean).map((role) => ({ role: role }));
 				const perms = Array.isArray(startNode.data.permissions)
 					? startNode.data.permissions
 					: [];
