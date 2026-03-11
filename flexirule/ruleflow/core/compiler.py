@@ -298,6 +298,16 @@ class ConditionCompiler:
 			import ast
 
 			ast.parse(expression, mode="eval")
+
+			from flexirule.ruleflow.core.permissions import validate_safe_eval
+
+			frappe.flags.in_validate_safe_eval = True
+			try:
+				if not validate_safe_eval(expression):
+					return False, "Expression contains forbidden pattern"
+			finally:
+				frappe.flags.in_validate_safe_eval = False
+
 		except SyntaxError as e:
 			return False, f"Invalid Python syntax: {e}"
 

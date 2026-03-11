@@ -28,7 +28,9 @@ def validate_graph_integrity(rule_doc):
 			neighbors = []
 			if current_action.get("next_step_if_true"):
 				neighbors.append(current_action.get("next_step_if_true"))
-			if current_action.get("action_type") == "Condition" and current_action.get("next_step_if_false"):
+			if current_action.get("action_type") in ["Condition", "Switch", "Loop"] and current_action.get(
+				"next_step_if_false"
+			):
 				neighbors.append(current_action.get("next_step_if_false"))
 
 			for neighbor in neighbors:

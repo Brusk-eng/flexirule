@@ -13,6 +13,19 @@ from frappe import _
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
 
+
+def _require_api_access():
+	"""Check if user has permission to use sensitive API endpoints"""
+	if frappe.session.user == "Administrator":
+		return
+
+	roles = frappe.get_roles(frappe.session.user)
+	if "System Manager" not in roles and "Rule Builder" not in roles:
+		frappe.throw(
+			_("Not permitted. Requires 'System Manager' or 'Rule Builder' role."), frappe.PermissionError
+		)
+
+
 # Layout fieldtypes to exclude by default
 LAYOUT_FIELDTYPES = [
 	"Tab Break",
@@ -186,6 +199,7 @@ def test_rule(
 	Test a rule against a document.
 	Supports either an existing document (by docname) or a transient document (by document_json).
 	"""
+	_require_api_access()
 
 	rule = frappe.get_doc("Rule", rule_name)
 
@@ -271,6 +285,8 @@ def execute_rule(rule_name, context=None, dry_run=True):
 	"""
 	Pure execution API for a rule.
 	"""
+	_require_api_access()
+
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 	if isinstance(context, str):
@@ -299,6 +315,7 @@ def execute_rule(rule_name, context=None, dry_run=True):
 @frappe.whitelist()
 def clear_cache(doctype=None):
 	"""Clear rule cache"""
+	_require_api_access()
 	try:
 		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
@@ -351,6 +368,7 @@ def get_schema_field_options(schema_field, parent_doctype, current_values=None):
 @frappe.whitelist()
 def get_rule_versions(rule_name, limit=20):
 	"""Get version history for a rule"""
+	_require_api_access()
 	from flexirule.ruleflow.doctype.rule.rule_version_hooks import (
 		get_rule_versions as _get_versions,
 	)
@@ -361,6 +379,7 @@ def get_rule_versions(rule_name, limit=20):
 @frappe.whitelist()
 def restore_rule_version(rule_name, version_name):
 	"""Restore a rule to a previous version"""
+	_require_api_access()
 	from flexirule.ruleflow.doctype.rule.rule_version_hooks import (
 		restore_rule_version as _restore,
 	)
@@ -371,6 +390,7 @@ def restore_rule_version(rule_name, version_name):
 @frappe.whitelist()
 def export_rule(rule_name):
 	"""Export a rule to JSON"""
+	_require_api_access()
 	from flexirule.ruleflow.utils.import_export import export_rule as _export
 
 	return _export(rule_name)
@@ -379,6 +399,7 @@ def export_rule(rule_name):
 @frappe.whitelist()
 def import_rule(import_data, overwrite=False):
 	"""Import a rule from JSON"""
+	_require_api_access()
 	from flexirule.ruleflow.utils.import_export import import_rule as _import
 
 	overwrite = frappe.parse_json(overwrite) if isinstance(overwrite, str) else overwrite
@@ -475,6 +496,7 @@ def clone_rule(rule_name, new_name=None):
 	Clone a rule to create a new version or copy.
 	Resets status to Draft (inactive) and clears execution stats.
 	"""
+	_require_api_access()
 	try:
 		doc = frappe.get_doc("Rule", rule_name)
 
@@ -515,6 +537,7 @@ def amend_rule(rule_name: str) -> str:
 	Returns:
 	    Name of the new amended rule.
 	"""
+	_require_api_access()
 	from flexirule.ruleflow.core.rule_service import amend_rule as _amend_rule
 
 	return _amend_rule(rule_name)
@@ -528,6 +551,7 @@ def test_action_query(
 	Execute a single action in isolation for testing.
 	Returns detected return fields for auto-populating returns_keys.
 	"""
+	_require_api_access()
 	rule = frappe.get_doc("Rule", rule_name)
 
 	# Find the action

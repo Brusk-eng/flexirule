@@ -59,7 +59,7 @@ class RuleCoordinator:
 			engine = RuleEngine(rule, execution_context=context)
 			# Ensure engine knows about dry_run (it can use it for logging/behavior)
 			engine.context["dry_run"] = dry_run
-			return engine.execute(doc)
+			return engine.execute(doc, event_name=rule.trigger_event)
 
 		if dry_run:
 			savepoint_name = "flexirule_dry_run"
@@ -97,15 +97,15 @@ class RuleCoordinator:
 					frappe.log_error("FlexiRule: Cache write failed.")
 					return rule_map or {}
 
-			return rule_map
+			return rule_map or {}
 
 		# Use the SAME local cache key as hooks.py for unified access
 		# Note: hooks.py calls it via frappe.local_cache("flexirule_map", "unified", generator)
 		# So we should match that or adapt RuleCoordinator to retrieve the "unified" key if it exists.
 		if hasattr(frappe.local, "flexirule_map") and "unified" in frappe.local.flexirule_map:
-			return frappe.local.flexirule_map["unified"]
+			return frappe.local.flexirule_map["unified"] or {}
 
-		return frappe.local_cache("flexirule_map", "unified", generator)
+		return frappe.local_cache("flexirule_map", "unified", generator) or {}
 
 	@staticmethod
 	def _build_rule_map() -> dict:
@@ -177,7 +177,7 @@ class RuleCoordinator:
 		# Execute eligible rules
 		for rule_doc in valid_rules:
 			try:
-				RuleCoordinator.execute_single_rule(doc, rule_doc, old_doc=old_doc)
+				RuleCoordinator.execute_single_rule(doc, rule_doc, old_doc=old_doc, event_name=event_name)
 			except Exception as e:
 				# Log error to Rule Execution Log (async to avoid transaction conflicts)
 				error_msg = str(e)
@@ -322,7 +322,7 @@ class RuleCoordinator:
 		return rules
 
 	@staticmethod
-	def execute_single_rule(doc, rule_doc, old_doc=None):
+	def execute_single_rule(doc, rule_doc, old_doc=None, event_name=None):
 		"""
 		Execute a single rule against a document
 
@@ -330,6 +330,7 @@ class RuleCoordinator:
 		        doc: Frappe document
 		        rule_doc: Rule document
 		        old_doc: Document state before save (optional)
+		        event_name: Trigger event name (optional)
 		"""
 		# Check if rule should run asynchronously
 		if rule_doc.execution_mode == "Asynchronous":
@@ -347,10 +348,6 @@ class RuleCoordinator:
 
 		from flexirule.ruleflow.core.engine import RuleEngine
 
-		# Increment execution count (Cached in Redis, not DB write)
-		frappe.cache().hincrby(f"rule_stats:{rule_doc.name}", "count", 1)
-		frappe.cache().hset(f"rule_stats:{rule_doc.name}", "last_executed", frappe.utils.now())
-
 		# Execute using new Engine
 		# Pass old_doc in context
 		execution_context = {"old_doc": old_doc}
@@ -358,7 +355,7 @@ class RuleCoordinator:
 			execution_context["test_mode"] = True
 
 		engine = RuleEngine(rule_doc, execution_context=execution_context)
-		engine.execute(doc)
+		engine.execute(doc, event_name=event_name)
 
 	@staticmethod
 	def run_rule_background(rule_name, doc_doctype, doc_name):
