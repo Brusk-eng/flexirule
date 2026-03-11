@@ -187,8 +187,6 @@ def _async_create_doc(doc_data, ignore_permissions=False):
 	"""Background job for async document creation."""
 	new_doc = frappe.get_doc(doc_data)
 	new_doc.insert(ignore_permissions=ignore_permissions)
-	if not frappe.flags.in_test:
-		frappe.db.commit()
 
 
 # Register handler

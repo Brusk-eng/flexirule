@@ -6,6 +6,7 @@ Whitelisted API functions for Bolton Rule Engine
 """
 
 import json
+from typing import Any, Dict, Optional, Union
 
 import frappe
 from frappe import _
@@ -504,7 +505,7 @@ def clone_rule(rule_name, new_name=None):
 
 
 @frappe.whitelist()
-def amend_rule(rule_name):
+def amend_rule(rule_name: str) -> str:
 	"""
 	Create a new version (amendment) of a rule.
 
@@ -520,7 +521,9 @@ def amend_rule(rule_name):
 
 
 @frappe.whitelist()
-def test_action_query(rule_name, action_id, context_doc=None):
+def test_action_query(
+	rule_name: str, action_id: str, context_doc: Optional[Union[str, Dict[str, Any]]] = None
+) -> Dict[str, Any]:
 	"""
 	Execute a single action in isolation for testing.
 	Returns detected return fields for auto-populating returns_keys.
