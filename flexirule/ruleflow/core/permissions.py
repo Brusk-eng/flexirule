@@ -159,6 +159,8 @@ def validate_safe_eval(expression):
 	expr_lower = expression.lower()
 	for pattern in dangerous:
 		if pattern in expr_lower:
+			if getattr(frappe.flags, "in_validate_safe_eval", False):
+				return False
 			frappe.throw(
 				_("Expression contains forbidden pattern: {0}").format(pattern),
 				frappe.ValidationError,

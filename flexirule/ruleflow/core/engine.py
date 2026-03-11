@@ -245,12 +245,13 @@ class RuleEngine:
 		except (json.JSONDecodeError, TypeError):
 			return {}
 
-	def execute(self, doc, **kwargs):
+	def execute(self, doc, event_name=None, **kwargs):
 		"""
 		Execute rule with comprehensive error handling
 
 		Args:
 		        doc: Frappe document to process
+		        event_name: Trigger event name (e.g. 'Before Save')
 		        **kwargs: Additional context variables
 
 		Returns:
@@ -261,6 +262,7 @@ class RuleEngine:
 		status = "Success"
 		error_detail = None
 		self.path_trace = []
+		self.context["event_name"] = event_name or self.rule.trigger_event
 
 		try:
 			# Pre-execution validation
@@ -336,13 +338,16 @@ class RuleEngine:
 
 		finally:
 			# Persist Log
-			duration = time.time() - start_time
+			duration = (time.time() - start_time) * 1000  # Convert to ms
 			self._save_execution_log(
 				status,
 				duration,
 				error_detail,
 				context=context if "context" in locals() else None,
 			)
+
+			if not self.context.get("dry_run"):
+				self._update_rule_stats(success=(status == "Success"), duration=duration, error=error_detail)
 
 	def _validate_execution(self):
 		"""Validate rule is executable"""
@@ -726,6 +731,32 @@ class RuleEngine:
 					_("Operation {0} requires a document but context.doc is not set").format(operation)
 				)
 
+		# 2. Runtime Contract: writes_to Document check in restricted events
+		if op_def and op_def.writes_to == "Document":
+			event_name = context.get("event_name")
+			after_events = [
+				"After Insert",
+				"After Save",
+				"On Submit",
+				"Before Cancel",
+				"On Cancel",
+				"On Trash",
+				"On Update After Submit",
+				"On Change",
+			]
+			if event_name in after_events:
+				self._log(
+					"WARNING",
+					_(
+						"Operation {0} writes to Document in an 'After' event ({1}). "
+						"This may cause inconsistent state or recursive triggers."
+					).format(operation, event_name),
+				)
+
+		# 3. Runtime Contract: has_side_effect in transactional context
+		if op_def and op_def.has_side_effect:
+			self._log("INFO", _("Executing operation {0} with side effects").format(operation))
+
 		for attempt in range(retry_count + 1):
 			try:
 				if attempt > 0:
@@ -847,24 +878,47 @@ class RuleEngine:
 		if self.rule.debug_mode or self.context.get("test_mode"):
 			frappe.logger().info(f"[{self.rule.name}] [{level}] {message}")
 
-	def _update_rule_stats(self, success=True, error=None):
+	def _update_rule_stats(self, success=True, duration=0, error=None):
 		"""Update rule execution statistics (non-blocking, no commit)"""
 		if self.context.get("dry_run"):
 			return
 
 		try:
+			# Get current stats to calculate new success rate and avg time
+			current_count = self.rule.execution_count or 0
+			current_avg = self.rule.avg_execution_time or 0
+			current_success_rate = self.rule.success_rate or 0
+
+			new_count = current_count + 1
+			new_avg = (current_avg * current_count + duration) / new_count
+
+			# Calculate new success rate
+			success_count = (current_success_rate / 100.0) * current_count
+			if success:
+				success_count += 1
+			new_success_rate = (success_count / new_count) * 100.0
+
 			# Update in DB without triggering validations
-			# Note: No explicit commit - let the calling transaction handle it
 			frappe.db.set_value(
 				"Rule",
 				self.rule.name,
 				{
-					"execution_count": (self.rule.execution_count or 0) + 1,
+					"execution_count": new_count,
+					"avg_execution_time": new_avg,
+					"success_rate": new_success_rate,
 					"last_executed": frappe.utils.now(),
 					"last_error": error if not success else None,
 				},
 				update_modified=False,
 			)
+
+			# Also update local object for immediate feedback in engine if needed
+			self.rule.execution_count = new_count
+			self.rule.avg_execution_time = new_avg
+			self.rule.success_rate = new_success_rate
+			self.rule.last_executed = frappe.utils.now()
+			self.rule.last_error = error if not success else None
+
 		except Exception as e:
 			# Don't fail execution if stats update fails
 			frappe.logger().error(f"Failed to update rule stats: {e!s}")

@@ -65,6 +65,8 @@ function onCreate() {
 		action_label: label,
 	};
 
+	store.selected_id = props.id;
+	store.touch_node(props.id);
 	store.mark_dirty();
 }
 

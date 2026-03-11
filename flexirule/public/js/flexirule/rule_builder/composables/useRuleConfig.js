@@ -94,6 +94,7 @@ export function useRuleConfig(props, emit) {
 		if (props.node && draftNode.value) {
 			props.node.data = JSON.parse(JSON.stringify(draftNode.value.data));
 			props.node.label = draftNode.value.label || draftNode.value.data?.action_label;
+			store.touch_node(props.node.id);
 			store.mark_dirty();
 		}
 

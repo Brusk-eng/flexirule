@@ -959,6 +959,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 		mark_dirty();
 	}
 
+	function touch_node(nodeId) {
+		if (!nodeId) return;
+		const idx = nodes.value.findIndex((n) => n.id === nodeId);
+		if (idx === -1) return;
+		const node = nodes.value[idx];
+		nodes.value.splice(idx, 1, {
+			...node,
+			data: { ...(node.data || {}) },
+		});
+	}
+
 	function getTopologicalSort(nodes, edges) {
 		const adj = {};
 		const processed = new Set();
@@ -1080,6 +1091,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		clear_dirty,
 		delete_node,
 		delete_edge,
+		touch_node,
 		getEffectivelyDisabledIds,
 		fetch_available_rules,
 		fetch_processes,

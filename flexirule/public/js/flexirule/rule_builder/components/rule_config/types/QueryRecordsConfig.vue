@@ -67,12 +67,13 @@
 					<h6>{{ __("Filters") }}</h6>
 					<div class="table-rows">
 						<div v-for="(row, idx) in filterRows" :key="idx" class="row-item">
-							<input
-								class="form-control input-xs"
-								v-model="row.field"
-								:placeholder="__('Field')"
-								:disabled="readOnly"
-								@change="syncConfig"
+							<FieldPickerControl
+								:df="{ label: '' }"
+								:fields="doctypeFields"
+								:documentType="referenceDoctype"
+								:modelValue="row.field"
+								:read_only="readOnly"
+								@update:modelValue="(val) => (row.field = val)"
 							/>
 							<select
 								class="form-control input-xs"
@@ -119,12 +120,13 @@
 					<h6>{{ __("Fields") }}</h6>
 					<div class="table-rows">
 						<div v-for="(row, idx) in fieldRows" :key="idx" class="row-item">
-							<input
-								class="form-control input-xs"
-								v-model="row.field"
-								:placeholder="__('Field name')"
-								:disabled="readOnly"
-								@change="syncConfig"
+							<FieldPickerControl
+								:df="{ label: '' }"
+								:fields="doctypeFields"
+								:documentType="referenceDoctype"
+								:modelValue="row.field"
+								:read_only="readOnly"
+								@update:modelValue="(val) => (row.field = val)"
 							/>
 							<button
 								v-if="!readOnly"
@@ -151,9 +153,12 @@
 						:modelValue="config.order_by"
 						@update:modelValue="(val) => updateConfigKey('order_by', val)"
 					/>
-					<ControlFactory
-						:df="withReadOnly(groupByField)"
+					<FieldPickerControl
+						:df="groupByField"
+						:fields="doctypeFields"
+						:documentType="referenceDoctype"
 						:modelValue="config.group_by"
+						:read_only="readOnly"
 						@update:modelValue="(val) => updateConfigKey('group_by', val)"
 					/>
 				</div>
@@ -177,12 +182,13 @@
 					<h6>{{ __("Filters") }}</h6>
 					<div class="table-rows">
 						<div v-for="(row, idx) in filterRows" :key="idx" class="row-item">
-							<input
-								class="form-control input-xs"
-								v-model="row.field"
-								:placeholder="__('Field')"
-								:disabled="readOnly"
-								@change="syncConfig"
+							<FieldPickerControl
+								:df="{ label: '' }"
+								:fields="doctypeFields"
+								:documentType="referenceDoctype"
+								:modelValue="row.field"
+								:read_only="readOnly"
+								@update:modelValue="(val) => (row.field = val)"
 							/>
 							<select
 								class="form-control input-xs"
@@ -331,11 +337,13 @@ const testStatus = ref("");
 const filterRows = ref([]);
 const fieldRows = ref([]);
 const argRows = ref([]);
+const doctypeFields = ref([]);
 
 const reportFilters = ref([]);
 const reportFilterValues = reactive({});
 
 const mode = computed(() => props.node?.data?.operation || "");
+const referenceDoctype = computed(() => props.node?.data?.reference_doctype || "");
 
 const operators = ["=", "!=", ">", ">=", "<", "<=", "in", "not in"];
 const valueTypes = ["Value", "Number", "Boolean", "Expression"];
@@ -444,6 +452,18 @@ function updateActionField(fieldname, value) {
 	if (!props.node?.data) return;
 	props.node.data[fieldname] = value;
 	store.mark_dirty();
+}
+
+async function loadDoctypeFields(doctype) {
+	if (!doctype) {
+		doctypeFields.value = [];
+		return;
+	}
+	try {
+		doctypeFields.value = await flexirule.utils.get_doctype_fields(doctype);
+	} catch (e) {
+		doctypeFields.value = [];
+	}
 }
 
 async function onSelectReport(val) {
@@ -698,6 +718,12 @@ watch(
 );
 
 watch(
+	() => referenceDoctype.value,
+	(val) => loadDoctypeFields(val),
+	{ immediate: true }
+);
+
+watch(
 	() => [filterRows.value, fieldRows.value, argRows.value, reportFilterValues, config],
 	() => {
 		syncConfig();
@@ -795,6 +821,10 @@ defineExpose({ validate });
 	grid-template-columns: 1.3fr 0.7fr 1fr 0.8fr auto;
 	gap: 6px;
 	align-items: center;
+}
+
+.row-item .field-picker-control {
+	margin-bottom: 0;
 }
 
 .row-item.report {

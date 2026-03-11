@@ -214,7 +214,23 @@
    "fieldname": "execution_count",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Execution Count",
+   "label": "Total Executions",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "success_rate",
+   "fieldtype": "Percent",
+   "label": "Success Rate",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "avg_execution_time",
+   "fieldtype": "Float",
+   "label": "Avg. Execution Time (ms)",
    "no_copy": 1,
    "read_only": 1
   },

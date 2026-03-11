@@ -133,7 +133,7 @@ class NormalizationPipeline:
 
 # Whitelisted API for testing
 @frappe.whitelist()
-def test_normalization(text, transformations):
+def test_normalization(text: str, transformations: str | list):
 	"""
 	Test normalization transformations
 
