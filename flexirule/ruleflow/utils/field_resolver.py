@@ -250,7 +250,7 @@ class FieldResolver:
 
 # Whitelisted API for UI
 @frappe.whitelist()
-def get_doctype_fields(doctype, include_child_tables=False):
+def get_doctype_fields(doctype: str, include_child_tables: bool = False):
 	"""
 	Get all fields for a DocType (API endpoint)
 
