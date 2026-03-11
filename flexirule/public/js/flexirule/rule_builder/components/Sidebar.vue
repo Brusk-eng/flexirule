@@ -123,16 +123,42 @@ function update_action_field(fieldname, value) {
 
 	// Handle action_type change - update node type
 	if (fieldname === "action_type" && selectedNode.value.data.action_type !== value) {
-		let type = value.toLowerCase();
-		if (value === "Query Records") type = "query";
-		if (value === "Aggregate Records") type = "aggregate";
-		if (value === "Create Docs") type = "createdoc";
-		selectedNode.value.type = type;
+		selectedNode.value.type = map_action_type(value);
 	}
 
 	selectedNode.value.data[fieldname] = value;
 	store.touch_node(selectedNode.value.id);
 	store.mark_dirty();
+}
+
+function map_action_type(actionType) {
+	if (!actionType) return selectedNode.value?.type || "process";
+	switch (actionType) {
+		case "Entry Action":
+			return "start";
+		case "Condition":
+			return "condition";
+		case "Loop":
+			return "loop";
+		case "Wait":
+			return "wait";
+		case "Sub-Rule":
+			return "sub-rule";
+		case "Raise Error":
+			return "raise-error";
+		case "Set Value":
+			return "set-value";
+		case "Notify":
+			return "notify";
+		case "Query Records":
+			return "query";
+		case "Aggregate Records":
+			return "aggregate";
+		case "Create Docs":
+			return "createdoc";
+		default:
+			return "process";
+	}
 }
 
 function update_edge(field, newTarget) {
