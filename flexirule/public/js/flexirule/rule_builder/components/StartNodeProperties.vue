@@ -6,6 +6,7 @@
 -->
 <script setup>
 import { useStore } from "../store";
+import LinkControl from "../controls/LinkControl.vue";
 
 const props = defineProps({
 	nodeData: Object,
@@ -18,6 +19,12 @@ const store = useStore();
 
 // Trigger event options from store
 const trigger_event_options = computed(() => store.trigger_event_options || []);
+const priority_options = Array.from({ length: 21 }, (_, i) => String(i));
+
+const skip_roles = ref([]);
+const permissions = ref([]);
+const pending_skip_role = ref("");
+const is_manual_trigger = computed(() => props.nodeData?.trigger_event === "Manual");
 
 function update_field(fieldname, value) {
 	emit("update:field", fieldname, value);
@@ -28,6 +35,113 @@ const has_conditions = computed(() => {
 	const cond = props.nodeData?.trigger_condition;
 	return cond && cond !== "{}" && cond !== "null";
 });
+
+const rule_status = computed(() => props.nodeData?.status || __("Draft"));
+
+function normalize_skip_roles(value) {
+	if (Array.isArray(value)) return value.filter(Boolean);
+	return [];
+}
+
+function normalize_permissions(value) {
+	if (!Array.isArray(value)) return [];
+	return value.map((row) => ({
+		role: row.role || "",
+		can_execute: row.can_execute ? 1 : 0,
+		can_edit: row.can_edit ? 1 : 0,
+		can_view: row.can_view ? 1 : 0,
+		can_disable: row.can_disable ? 1 : 0,
+	}));
+}
+
+function default_permission_row() {
+	const is_active = !!props.nodeData?.is_active;
+	return {
+		role: "System Manager",
+		can_execute: 1,
+		can_view: 1,
+		can_edit: is_active ? 0 : 1,
+		can_disable: is_active ? 1 : 0,
+	};
+}
+
+function ensure_default_permission() {
+	if (props.readOnly) return;
+	if (!permissions.value.length) {
+		permissions.value = [default_permission_row()];
+		update_field("permissions", permissions.value);
+	}
+}
+
+function add_permission_row() {
+	permissions.value.push({
+		role: "",
+		can_execute: 0,
+		can_edit: 0,
+		can_view: 0,
+		can_disable: 0,
+	});
+	update_field("permissions", permissions.value);
+}
+
+function remove_permission_row(idx) {
+	permissions.value.splice(idx, 1);
+	update_field("permissions", permissions.value);
+}
+
+function update_permission(idx, key, value) {
+	if (!permissions.value[idx]) return;
+	permissions.value[idx][key] = value ? 1 : 0;
+	update_field("permissions", permissions.value);
+}
+
+function update_permission_role(idx, value) {
+	if (!permissions.value[idx]) return;
+	permissions.value[idx].role = value;
+	update_field("permissions", permissions.value);
+}
+
+function add_skip_role() {
+	const role = pending_skip_role.value;
+	if (!role) return;
+	if (!skip_roles.value.includes(role)) {
+		skip_roles.value.push(role);
+		update_field("skip_for_roles", skip_roles.value);
+	}
+	pending_skip_role.value = "";
+}
+
+function remove_skip_role(role) {
+	skip_roles.value = skip_roles.value.filter((r) => r !== role);
+	update_field("skip_for_roles", skip_roles.value);
+}
+
+watch(
+	() => props.nodeData?.skip_for_roles,
+	(val) => {
+		skip_roles.value = normalize_skip_roles(val);
+	},
+	{ immediate: true, deep: true }
+);
+
+watch(
+	() => props.nodeData?.permissions,
+	(val) => {
+		permissions.value = normalize_permissions(val);
+		ensure_default_permission();
+	},
+	{ immediate: true, deep: true }
+);
+
+watch(
+	() => props.nodeData?.trigger_event,
+	(val) => {
+		if (val === "Manual") {
+			update_field("priority", "0");
+		}
+	},
+	{ immediate: true }
+);
 </script>
 
 <template>
@@ -36,6 +150,22 @@ const has_conditions = computed(() => {
 		<div class="form-group">
 			<label class="control-label">{{ __("Document Type") }}</label>
 			<input type="text" class="form-control" :value="nodeData?.document_type" readonly />
+		</div>
+
+		<!-- Rule Name / Status -->
+		<div class="form-group">
+			<label class="control-label">{{ __("Rule Status") }}</label>
+			<input type="text" class="form-control" :value="rule_status" readonly />
+		</div>
+
+		<div class="form-group">
+			<label class="control-label">{{ __("Version") }}</label>
+			<input type="text" class="form-control" :value="nodeData?.version" readonly />
+		</div>
+
+		<div class="form-group" v-if="nodeData?.previous_rule">
+			<label class="control-label">{{ __("Previous Rule") }}</label>
+			<input type="text" class="form-control" :value="nodeData?.previous_rule" readonly />
 		</div>
 
 		<!-- Trigger Event -->
@@ -55,7 +185,7 @@ const has_conditions = computed(() => {
 
 		<!-- Trigger Filters (Legacy, Read-only) -->
 		<div class="form-group">
-			<label class="control-label">{{ __("Trigger Filters (Legacy)") }}</label>
+			<label class="control-label">{{ __("Trigger Filters (Python)") }}</label>
 			<div class="description text-muted mb-2">
 				{{ __("ReadOnly: Auto-compiled from Condition Builder") }}
 			</div>
@@ -63,7 +193,7 @@ const has_conditions = computed(() => {
 				class="form-control text-mono"
 				rows="2"
 				readonly
-				:value="nodeData?.trigger_filters"
+				:value="nodeData?.trigger_condition_expression"
 			></textarea>
 		</div>
 
@@ -82,6 +212,180 @@ const has_conditions = computed(() => {
 			<div v-if="has_conditions" class="mt-2 text-success small">
 				<i class="fa fa-check-circle"></i>
 				{{ __("Conditions Configured") }}
+			</div>
+		</div>
+
+		<!-- Priority -->
+		<div class="form-group">
+			<label class="control-label">{{ __("Priority") }}</label>
+			<select
+				class="form-control"
+				:value="nodeData?.priority"
+				@change="update_field('priority', $event.target.value)"
+				:disabled="readOnly || is_manual_trigger"
+			>
+				<option v-for="opt in priority_options" :key="opt" :value="opt">
+					{{ opt }}
+				</option>
+			</select>
+			<div v-if="is_manual_trigger" class="description text-muted mt-1">
+				{{ __("Manual trigger rules must use priority 0.") }}
+			</div>
+		</div>
+
+		<!-- Execution Mode -->
+		<div class="form-group">
+			<label class="control-label">{{ __("Execution Mode") }}</label>
+			<select
+				class="form-control"
+				:value="nodeData?.execution_mode"
+				@change="update_field('execution_mode', $event.target.value)"
+				:disabled="readOnly"
+			>
+				<option value="Synchronous">{{ __("Synchronous") }}</option>
+				<option value="Asynchronous">{{ __("Asynchronous") }}</option>
+			</select>
+		</div>
+
+		<!-- Max Execution Time -->
+		<div class="form-group">
+			<label class="control-label">{{ __("Max Execution Time (seconds)") }}</label>
+			<input
+				type="number"
+				class="form-control"
+				:value="nodeData?.max_execution_time"
+				:disabled="readOnly"
+				@change="update_field('max_execution_time', Number($event.target.value))"
+			/>
+		</div>
+
+		<!-- Debug Mode -->
+		<div class="form-group inline-field">
+			<label class="control-label">{{ __("Debug Mode") }}</label>
+			<input
+				type="checkbox"
+				:checked="!!nodeData?.debug_mode"
+				:disabled="readOnly"
+				@change="update_field('debug_mode', $event.target.checked ? 1 : 0)"
+			/>
+		</div>
+
+		<!-- Is Sub Rule -->
+		<div class="form-group inline-field">
+			<label class="control-label">{{ __("Is Sub Rule") }}</label>
+			<input
+				type="checkbox"
+				:checked="!!nodeData?.is_sub_rule"
+				:disabled="readOnly"
+				@change="update_field('is_sub_rule', $event.target.checked ? 1 : 0)"
+			/>
+		</div>
+
+		<!-- Description -->
+		<div class="form-group">
+			<label class="control-label">{{ __("Description") }}</label>
+			<textarea
+				class="form-control"
+				rows="2"
+				:disabled="readOnly"
+				:value="nodeData?.description"
+				@change="update_field('description', $event.target.value)"
+			></textarea>
+		</div>
+
+		<!-- Skip for Roles -->
+		<div class="form-group">
+			<label class="control-label">{{ __("Skip for Roles") }}</label>
+			<div class="role-picker">
+				<LinkControl
+					:df="{ fieldtype: 'Link', options: 'Role', label: '' }"
+					:modelValue="pending_skip_role"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="(val) => (pending_skip_role = val)"
+				/>
+				<button class="btn btn-xs btn-default" @click="add_skip_role" :disabled="readOnly">
+					{{ __("Add") }}
+				</button>
+			</div>
+			<div class="role-tags" v-if="skip_roles.length">
+				<span v-for="role in skip_roles" :key="role" class="role-tag">
+					{{ role }}
+					<button
+						v-if="!readOnly"
+						class="btn btn-xs btn-link text-danger"
+						@click="remove_skip_role(role)"
+					>
+						×
+					</button>
+				</span>
+			</div>
+		</div>
+
+		<!-- Rule Permissions -->
+		<div class="form-group">
+			<div class="section-header">
+				<label class="control-label">{{ __("Rule Permissions") }}</label>
+				<button
+					v-if="!readOnly"
+					class="btn btn-xs btn-link"
+					@click="add_permission_row"
+				>
+					<i class="fa fa-plus"></i> {{ __("Add") }}
+				</button>
+			</div>
+			<div class="perm-table">
+				<div class="perm-row perm-header">
+					<span>{{ __("Role") }}</span>
+					<span>{{ __("Execute") }}</span>
+					<span>{{ __("Edit") }}</span>
+					<span>{{ __("View") }}</span>
+					<span>{{ __("Disable") }}</span>
+					<span></span>
+				</div>
+				<div v-for="(row, idx) in permissions" :key="idx" class="perm-row">
+					<LinkControl
+						:df="{ fieldtype: 'Link', options: 'Role', label: '' }"
+						:modelValue="row.role"
+						:read_only="readOnly"
+						:hideLabel="true"
+						@update:modelValue="(val) => update_permission_role(idx, val)"
+					/>
+					<input
+						type="checkbox"
+						:checked="!!row.can_execute"
+						:disabled="readOnly"
+						@change="update_permission(idx, 'can_execute', $event.target.checked)"
+					/>
+					<input
+						type="checkbox"
+						:checked="!!row.can_edit"
+						:disabled="readOnly"
+						@change="update_permission(idx, 'can_edit', $event.target.checked)"
+					/>
+					<input
+						type="checkbox"
+						:checked="!!row.can_view"
+						:disabled="readOnly"
+						@change="update_permission(idx, 'can_view', $event.target.checked)"
+					/>
+					<input
+						type="checkbox"
+						:checked="!!row.can_disable"
+						:disabled="readOnly"
+						@change="update_permission(idx, 'can_disable', $event.target.checked)"
+					/>
+					<button
+						v-if="!readOnly"
+						class="btn btn-xs btn-link text-danger"
+						@click="remove_permission_row(idx)"
+					>
+						<i class="fa fa-trash"></i>
+					</button>
+				</div>
+				<div v-if="!permissions.length" class="text-muted small">
+					{{ __("No permissions configured.") }}
+				</div>
 			</div>
 		</div>
 	</div>
@@ -140,5 +444,60 @@ const has_conditions = computed(() => {
 
 .mb-2 {
 	margin-bottom: 8px;
+}
+
+.inline-field {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.role-picker {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.role-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.role-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 6px;
+	border-radius: 12px;
+	background: var(--bg-light-gray, #f5f5f5);
+	font-size: 11px;
+}
+
+.section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.perm-table {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.perm-row {
+	display: grid;
+	grid-template-columns: 1.6fr 0.7fr 0.6fr 0.6fr 0.7fr auto;
+	gap: 6px;
+	align-items: center;
+}
+
+.perm-header {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--text-muted);
 }
 </style>

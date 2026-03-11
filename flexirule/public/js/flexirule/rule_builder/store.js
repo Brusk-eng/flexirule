@@ -439,6 +439,26 @@ export const useStore = defineStore("rule-builder-store", () => {
 				nodeData.trigger_event = rule_doc.value.trigger_event;
 				nodeData.trigger_condition = rule_doc.value.trigger_condition;
 				nodeData.trigger_condition_expression = rule_doc.value.trigger_condition_expression;
+				nodeData.priority = rule_doc.value.priority;
+				nodeData.execution_mode = rule_doc.value.execution_mode;
+				nodeData.max_execution_time = rule_doc.value.max_execution_time;
+				nodeData.debug_mode = rule_doc.value.debug_mode;
+				nodeData.skip_for_roles = (rule_doc.value.skip_for_roles || [])
+					.map((row) => row.role)
+					.filter(Boolean);
+				nodeData.permissions = (rule_doc.value.permissions || []).map((row) => ({
+					role: row.role,
+					can_execute: row.can_execute || 0,
+					can_edit: row.can_edit || 0,
+					can_view: row.can_view || 0,
+					can_disable: row.can_disable || 0,
+				}));
+				nodeData.description = rule_doc.value.description;
+				nodeData.is_sub_rule = rule_doc.value.is_sub_rule || 0;
+				nodeData.version = rule_doc.value.version;
+				nodeData.status = rule_doc.value.status;
+				nodeData.previous_rule = rule_doc.value.previous_rule;
+				nodeData.is_active = rule_doc.value.is_active;
 			}
 
 			actionNodes.push({
@@ -744,6 +764,35 @@ export const useStore = defineStore("rule-builder-store", () => {
 			doc.trigger_condition_expression =
 				startNode?.data?.trigger_condition_expression || null;
 			doc.trigger_condition = startNode?.data?.trigger_condition || null;
+			if (startNode?.data) {
+				doc.priority = startNode.data.priority ?? doc.priority;
+				doc.execution_mode = startNode.data.execution_mode || doc.execution_mode;
+				doc.max_execution_time =
+					startNode.data.max_execution_time !== undefined
+						? startNode.data.max_execution_time
+						: doc.max_execution_time;
+				doc.debug_mode = startNode.data.debug_mode ? 1 : 0;
+				doc.description = startNode.data.description;
+				doc.is_sub_rule = startNode.data.is_sub_rule ? 1 : 0;
+				const skip_roles = Array.isArray(startNode.data.skip_for_roles)
+					? startNode.data.skip_for_roles
+					: [];
+				doc.skip_for_roles = skip_roles
+					.filter(Boolean)
+					.map((role) => ({ role: role }));
+				const perms = Array.isArray(startNode.data.permissions)
+					? startNode.data.permissions
+					: [];
+				doc.permissions = perms
+					.filter((row) => row && row.role)
+					.map((row) => ({
+						role: row.role,
+						can_execute: row.can_execute ? 1 : 0,
+						can_edit: row.can_edit ? 1 : 0,
+						can_view: row.can_view ? 1 : 0,
+						can_disable: row.can_disable ? 1 : 0,
+					}));
+			}
 
 			// Sort nodes but ensure Entry Action is processed
 			const edgesList = edges.value;
