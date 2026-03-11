@@ -41,9 +41,7 @@ def amend_rule(rule_name: str) -> str:
 		},
 	)
 	if existing_draft:
-		frappe.throw(
-			_("A draft amendment already exists for this rule: {0}").format(existing_draft)
-		)
+		frappe.throw(_("A draft amendment already exists for this rule: {0}").format(existing_draft))
 
 	# Copy the document
 	new_doc = frappe.copy_doc(original)
@@ -110,10 +108,9 @@ def validate_single_draft_copy(rule_doc):
 
 	if other_drafts:
 		frappe.throw(
-			_(
-				"Only one draft amendment is allowed per rule lineage. "
-				"Existing draft: {0}"
-			).format(other_drafts[0])
+			_("Only one draft amendment is allowed per rule lineage. Existing draft: {0}").format(
+				other_drafts[0]
+			)
 		)
 
 

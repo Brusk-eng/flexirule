@@ -38,8 +38,27 @@ class Rule(Document):
 		permissions: DF.Table[RulePermission]
 		previous_rule: DF.Link | None
 		priority: DF.Literal[
-			"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
-			"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+			"0",
+			"1",
+			"2",
+			"3",
+			"4",
+			"5",
+			"6",
+			"7",
+			"8",
+			"9",
+			"10",
+			"11",
+			"12",
+			"13",
+			"14",
+			"15",
+			"16",
+			"17",
+			"18",
+			"19",
+			"20",
 		]
 		rule_name: DF.Data
 		skip_for_roles: DF.TableMultiSelect[HasRole]
@@ -93,9 +112,7 @@ class Rule(Document):
 	def validate_priority_manual(self):
 		"""If trigger_event is Manual, priority must be 0."""
 		if self.trigger_event == "Manual" and str(self.priority) != "0":
-			frappe.throw(
-				_("Manual trigger rules must have priority set to 0.")
-			)
+			frappe.throw(_("Manual trigger rules must have priority set to 0."))
 
 	def validate_version_constraints(self):
 		"""
@@ -306,6 +323,7 @@ class Rule(Document):
 		if not self.actions:
 			return
 
+		from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 		from flexirule.ruleflow.core.compiler import ConditionCompiler
 
 		compiler = ConditionCompiler()
@@ -350,6 +368,18 @@ class Rule(Document):
 
 			# 3. Validate action type-specific constraints
 			self._validate_all_action_types(action)
+
+			# 4. Handler-level validation (action-specific)
+			handler = HandlerRegistry.get(action.action_type)
+			if handler:
+				errors = handler.validate(action, {"doc": None, "vars": {}})
+				if errors:
+					message = "; ".join([str(e) for e in errors])
+					frappe.throw(
+						_("Action '{0}' ({1}) validation failed: {2}").format(
+							action.action_label, action.action_type, message
+						)
+					)
 
 	def get_computed_status(self):
 		if self.get("is_archived"):
@@ -452,6 +482,39 @@ class Rule(Document):
 						action.action_label, action_type, field
 					)
 				)
+
+		# 1b. Contract: Allowed mutation modes
+		if getattr(action, "mutation_mode", None):
+			allowed_mutations = contract.get("allowed_mutations")
+			if allowed_mutations and action.mutation_mode not in allowed_mutations:
+				frappe.throw(
+					_("Action '{0}' ({1}) does not allow mutation mode '{2}'").format(
+						action.action_label, action_type, action.mutation_mode
+					)
+				)
+
+			if not action.return_variable:
+				frappe.throw(
+					_("Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set").format(
+						action.action_label, action_type
+					)
+				)
+
+		# 1c. Return Schema requires Return Variable
+		if (action.return_type or action.resolved_output_schema) and not action.return_variable:
+			frappe.throw(
+				_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
+					action.action_label, action_type
+				)
+			)
+
+		# 1d. Output Mapping cannot be used with async actions
+		if action.output_mapping and action.is_async:
+			frappe.throw(
+				_("Action '{0}' ({1}) cannot use Output Mapping with Async enabled").format(
+					action.action_label, action_type
+				)
+			)
 
 		# 2. Contract: Terminal action should not have next_step
 		if contract.get("terminal"):

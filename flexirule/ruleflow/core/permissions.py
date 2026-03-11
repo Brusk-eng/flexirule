@@ -57,6 +57,24 @@ def check_rule_permission(rule_doc, throw=True):
 	if "System Manager" in user_roles:
 		return True
 
+	# 3b. Check rule-specific permissions table (if defined)
+	rule_permissions = safe_get(rule_doc, "permissions")
+	if rule_permissions:
+		can_exec = any(
+			(getattr(p, "can_execute", 0) or (hasattr(p, "get") and p.get("can_execute")))
+			and (getattr(p, "role", None) or (hasattr(p, "get") and p.get("role"))) in user_roles
+			for p in rule_permissions
+		)
+		if not can_exec:
+			if throw:
+				frappe.throw(
+					_("You don't have the required role to execute rule '{0}'").format(
+						safe_get(rule_doc, "rule_name") or rule_doc.name
+					),
+					frappe.PermissionError,
+				)
+			return False
+
 	# 4. Check if user has permission on the target doctype
 	target_doctype = rule_doc.document_type
 	if not frappe.has_permission(target_doctype, "write"):
@@ -66,20 +84,6 @@ def check_rule_permission(rule_doc, throw=True):
 				frappe.PermissionError,
 			)
 		return False
-
-	# Check rule-specific allowed roles if defined
-	allowed_roles_docs = rule_doc.get("allowed_roles")
-	if allowed_roles_docs:
-		allowed = [r.get("role") for r in allowed_roles_docs]
-		user_roles = frappe.get_roles(user)
-
-		if not any(role in user_roles for role in allowed):
-			if throw:
-				frappe.throw(
-					_("You don't have the required role to execute rule '{0}'").format(rule_doc.rule_name),
-					frappe.PermissionError,
-				)
-			return False
 
 	return True
 

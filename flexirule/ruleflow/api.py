@@ -569,7 +569,9 @@ def test_action_query(rule_name, action_id, context_doc=None):
 
 	start = time.time()
 	try:
-		result, next_id = handler.execute(action, context, engine)
+		result, _next_id = handler.execute(action, context, engine)
+		# Apply post-processing (output mapping, return validation, mutation)
+		engine._post_process_action_result(action, result, context)
 		duration = time.time() - start
 
 		# Detect return fields
@@ -587,4 +589,3 @@ def test_action_query(rule_name, action_id, context_doc=None):
 		}
 	except Exception as e:
 		return {"success": False, "error": str(e)}
-

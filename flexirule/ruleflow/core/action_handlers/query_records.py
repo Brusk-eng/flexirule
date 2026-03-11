@@ -18,6 +18,7 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
 class QueryRecordsHandler(ActionHandler):
@@ -37,6 +38,10 @@ class QueryRecordsHandler(ActionHandler):
 
 		if not reference_doctype:
 			frappe.throw(_("Reference DocType is required for Query Records action"))
+
+		# Apply input mapping (Context -> Config)
+		if getattr(action, "input_mapping", None):
+			config = apply_input_mapping(context, action.input_mapping, config)
 
 		# Dispatch to mode handler
 		mode_handlers = {
@@ -59,10 +64,6 @@ class QueryRecordsHandler(ActionHandler):
 			ignore_permissions=ignore_permissions,
 		)
 
-		# Store result in return variable if specified
-		if action.return_variable:
-			context.setdefault("vars", {})[action.return_variable] = result
-
 		# Determine next action
 		next_action = action.next_step_if_true
 		return result, next_action
@@ -78,10 +79,22 @@ class QueryRecordsHandler(ActionHandler):
 		mode = action.operation
 		if mode == "Query Doc" and not action.reference_docname:
 			config = self._parse_config(action.config)
-			if not config.get("docname_expression"):
+			if not config.get("docname") and not config.get("docname_expression"):
 				errors.append(
-					_("Query Doc mode requires either a Reference Document or a docname_expression in config")
+					_(
+						"Query Doc mode requires either a Reference Document or a docname/docname_expression in config"
+					)
 				)
+
+		if mode == "Query Report":
+			config = self._parse_config(action.config)
+			if not config.get("report_name"):
+				errors.append(_("Query Report mode requires report_name in config"))
+
+		if mode == "Query API":
+			config = self._parse_config(action.config)
+			if not config.get("method"):
+				errors.append(_("Query API mode requires method in config"))
 
 		return errors
 
@@ -126,11 +139,7 @@ class QueryRecordsHandler(ActionHandler):
 
 		# Support dynamic docname from expression
 		if not docname and config.get("docname_expression"):
-			docname = frappe.safe_eval(
-				config["docname_expression"],
-				eval_globals={"frappe": frappe},
-				eval_locals=context,
-			)
+			docname = self._safe_eval(config["docname_expression"], context)
 
 		if not docname:
 			frappe.throw(_("No document name specified for Query Doc"))
@@ -200,17 +209,18 @@ class QueryRecordsHandler(ActionHandler):
 		for key, value in filters.items():
 			if isinstance(value, str) and "{" in value:
 				try:
-					resolved[key] = frappe.safe_eval(
-						value.replace("{", "").replace("}", ""),
-						eval_globals={"frappe": frappe},
-						eval_locals=context,
-					)
+					resolved[key] = self._safe_eval(value.replace("{", "").replace("}", ""), context)
 				except Exception:
 					resolved[key] = value
 			else:
 				resolved[key] = value
 
 		return resolved
+
+	def _safe_eval(self, expression, context):
+		"""Evaluate expressions using SafeFrappeAPI from context."""
+		safe_frappe = context.get("frappe") or frappe
+		return frappe.safe_eval(expression, eval_globals={"frappe": safe_frappe}, eval_locals=context)
 
 
 # Register handler

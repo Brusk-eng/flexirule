@@ -4,6 +4,7 @@
  * Provides a list of checkboxes for multiple selection.
  * Options should be an array of {label, value} or {label, value, checked}.
  */
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 
 const props = defineProps({
 	df: Object,
@@ -14,10 +15,10 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
-let wrapper = ref(null);
-let control = ref(null);
+const wrapper = ref(null);
+const control = ref(null);
 let processing_update = false;
-let show_popover = ref(false);
+const show_popover = ref(false);
 
 const selectedValues = computed(() => {
 	if (Array.isArray(props.modelValue)) return props.modelValue;

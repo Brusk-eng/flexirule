@@ -122,6 +122,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
+		allowed_mutations: ["Set Context Variable", "Append to Context Variable"],
 		icon: "fa fa-search",
 		color: "#0891b2",
 		description:
@@ -132,6 +133,11 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
+		allowed_mutations: [
+			"Set Context Variable",
+			"Append to Context Variable",
+			"Update Context Variable",
+		],
 		icon: "fa fa-calculator",
 		color: "#d97706",
 		description:
@@ -142,6 +148,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
+		allowed_mutations: ["Set Doc Field", "Set Context Variable"],
 		icon: "fa fa-plus-circle",
 		color: "#059669",
 		description:
@@ -212,6 +219,27 @@ export function validateAgainstContract(nodeData) {
 	// 3. Check has_next_false constraint
 	if (!contract.has_next_false && nodeData.next_step_if_false) {
 		errors.push(__("{0} does not support 'next step if false'", [nodeData.action_type]));
+	}
+
+	// 4. Mutation mode validation
+	if (nodeData.mutation_mode) {
+		const allowed = contract.allowed_mutations;
+		if (Array.isArray(allowed) && allowed.length && !allowed.includes(nodeData.mutation_mode)) {
+			errors.push(
+				__("Mutation mode '{0}' is not allowed for {1}", [
+					nodeData.mutation_mode,
+					nodeData.action_type,
+				])
+			);
+		}
+		if (!nodeData.return_variable) {
+			errors.push(__("Mutation Mode requires a Return Variable Name"));
+		}
+	}
+
+	// 5. Return schema requires a return variable
+	if ((nodeData.return_type || nodeData.resolved_output_schema) && !nodeData.return_variable) {
+		errors.push(__("Return Schema requires a Return Variable Name"));
 	}
 
 	return {

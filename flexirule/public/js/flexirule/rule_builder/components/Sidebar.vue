@@ -84,6 +84,9 @@ const isConfigurable = computed(() => {
 		"Loop",
 		"Wait",
 		"Sub-Rule",
+		"Query Records",
+		"Aggregate Records",
+		"Create Docs",
 	].includes(type);
 });
 

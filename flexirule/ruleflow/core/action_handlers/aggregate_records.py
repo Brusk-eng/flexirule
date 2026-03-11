@@ -8,11 +8,13 @@ Performs aggregate operations (sum, avg, count, min, max, group_by) on records.
 """
 
 import json
+from typing import ClassVar
 
 import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
 class AggregateRecordsHandler(ActionHandler):
@@ -20,7 +22,7 @@ class AggregateRecordsHandler(ActionHandler):
 
 	action_type = "Aggregate Records"
 
-	SUPPORTED_OPERATIONS = {"sum", "avg", "count", "min", "max", "group_by"}
+	SUPPORTED_OPERATIONS: ClassVar[set[str]] = {"sum", "avg", "count", "min", "max", "group_by"}
 
 	def execute(self, action, context, engine):
 		"""Execute aggregation based on configured operation (mode)."""
@@ -34,6 +36,17 @@ class AggregateRecordsHandler(ActionHandler):
 
 		if not reference_doctype:
 			frappe.throw(_("Reference DocType is required for Aggregate Records action"))
+
+		# Apply input mapping (Context -> Config)
+		if getattr(action, "input_mapping", None):
+			config = apply_input_mapping(context, action.input_mapping, config)
+
+		# Basic permission check for aggregate queries
+		if not ignore_permissions and not frappe.has_permission(reference_doctype, "read"):
+			frappe.throw(
+				_("You don't have read permission for {0}").format(reference_doctype),
+				frappe.PermissionError,
+			)
 
 		if mode not in self.SUPPORTED_OPERATIONS:
 			frappe.throw(
@@ -65,15 +78,6 @@ class AggregateRecordsHandler(ActionHandler):
 				reference_doctype, mode, aggregate_field, filters, ignore_permissions
 			)
 
-		# Store result in return variable if specified
-		if action.return_variable:
-			context.setdefault("vars", {})[action.return_variable] = result
-
-		# Apply mutation mode
-		mutation_mode = action.mutation_mode
-		if mutation_mode and action.return_variable:
-			self._apply_mutation(mutation_mode, action.return_variable, result, context)
-
 		next_action = action.next_step_if_true
 		return result, next_action
 
@@ -87,9 +91,7 @@ class AggregateRecordsHandler(ActionHandler):
 
 		config = self._parse_config(action.config)
 		if action.operation in ("sum", "avg", "min", "max") and not config.get("field"):
-			errors.append(
-				_("{0} operation requires 'field' in config").format(action.operation)
-			)
+			errors.append(_("{0} operation requires 'field' in config").format(action.operation))
 
 		return errors
 
@@ -192,11 +194,7 @@ class AggregateRecordsHandler(ActionHandler):
 		for key, value in filters.items():
 			if isinstance(value, str) and "{" in value:
 				try:
-					resolved[key] = frappe.safe_eval(
-						value.replace("{", "").replace("}", ""),
-						eval_globals={"frappe": frappe},
-						eval_locals=context,
-					)
+					resolved[key] = self._safe_eval(value.replace("{", "").replace("}", ""), context)
 				except Exception:
 					resolved[key] = value
 			else:
@@ -204,24 +202,10 @@ class AggregateRecordsHandler(ActionHandler):
 
 		return resolved
 
-	def _apply_mutation(self, mutation_mode, var_name, result, context):
-		"""Apply mutation mode to context."""
-		vars_dict = context.setdefault("vars", {})
-
-		if mutation_mode == "Set Context Variable":
-			vars_dict[var_name] = result
-		elif mutation_mode == "Append to Context Variable":
-			existing = vars_dict.get(var_name, [])
-			if isinstance(existing, list):
-				existing.append(result)
-			else:
-				vars_dict[var_name] = [existing, result]
-		elif mutation_mode == "Update Context Variable":
-			existing = vars_dict.get(var_name, {})
-			if isinstance(existing, dict) and isinstance(result, dict):
-				existing.update(result)
-			else:
-				vars_dict[var_name] = result
+	def _safe_eval(self, expression, context):
+		"""Evaluate expressions using SafeFrappeAPI from context."""
+		safe_frappe = context.get("frappe") or frappe
+		return frappe.safe_eval(expression, eval_globals={"frappe": safe_frappe}, eval_locals=context)
 
 
 # Register handler

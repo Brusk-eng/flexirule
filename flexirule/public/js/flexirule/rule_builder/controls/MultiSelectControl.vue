@@ -3,51 +3,35 @@
  * MultiSelectControl - Wrapper for Frappe's MultiSelect control
  * Supports both static options (Select) and dynamic links (Link)
  */
+import { ref, onMounted, watch, onBeforeUnmount, nextTick } from "vue";
 
 const props = defineProps({
 	df: Object,
 	modelValue: [Array, String],
 	read_only: Boolean,
+	get_data: { type: Function, default: null },
 });
 
 const emit = defineEmits(["update:modelValue"]);
 
-let wrapper = ref(null);
-let control = ref(null);
+const wrapper = ref(null);
+const control = ref(null);
+let is_setting_value = false;
 
-function make_control() {
+async function make_control() {
 	if (!wrapper.value) return;
 	wrapper.value.innerHTML = "";
 
-	// Parse value: standardizing to array for MultiSelect
-	let initialValue = [];
-	if (Array.isArray(props.modelValue)) {
-		initialValue = props.modelValue;
-	} else if (typeof props.modelValue === "string" && props.modelValue) {
-		try {
-			const parsed = JSON.parse(props.modelValue);
-			initialValue = Array.isArray(parsed) ? parsed : [props.modelValue];
-		} catch {
-			initialValue = props.modelValue
-				.split(",")
-				.map((s) => s.trim())
-				.filter(Boolean);
-		}
-	}
-
 	try {
-		control.value = frappe.ui.form.make_control({
-			parent: wrapper.value,
-			df: {
-				...props.df,
-				fieldtype: "MultiSelect", // Force MultiSelect
-				label: props.df.label,
-				options: props.df.options, // DocType for Link or Options for Select
-				read_only: props.read_only,
-				change: () => {
+		const control_df = {
+			...props.df,
+			fieldtype: "MultiSelect",
+			label: props.df.label,
+			read_only: props.read_only,
+			get_data: props.get_data || props.df.get_data,
+			change: () => {
+				if (control.value && !is_setting_value) {
 					const val = control.value.get_value();
-					// MultiSelect returns comma-separated string. We should emit Array/List.
-					// Split, trim, and filter text.
 					const arr = val
 						? val
 								.split(",")
@@ -55,82 +39,87 @@ function make_control() {
 								.filter(Boolean)
 						: [];
 					emit("update:modelValue", arr);
-				},
-				get_data: props.df.get_data, // Pass through get_data if defined
+				}
 			},
+		};
+
+		const ControlClass = frappe.ui.form.ControlMultiSelect;
+		control.value = new ControlClass({
+			df: control_df,
+			parent: $(wrapper.value),
 			render_input: true,
+			only_input: true,
 		});
+		control.value.make();
 
-		// Convert Array to comma-separated string for Frappe Control
-		const strValue = Array.isArray(initialValue) ? initialValue.join(", ") : initialValue || "";
-
-		if (strValue) {
-			control.value.set_value(strValue);
-		}
-
-		// Robust listener
-		if (control.value.$input) {
-			control.value.$input.on("change input awesomplete-selectcomplete", () => {
-				const val = control.value.get_value();
-				const arr = val
-					? val
-							.split(",")
-							.map((s) => s.trim())
-							.filter(Boolean)
-					: [];
-				emit("update:modelValue", arr);
-			});
+		// Set initial value
+		if (props.modelValue) {
+			sync_value(props.modelValue);
 		}
 	} catch (e) {
 		console.error("Failed to create MultiSelect control", e);
-		wrapper.value.innerHTML = `<div class="text-danger">Error loading control</div>`;
+		wrapper.value.innerHTML = `<div class="text-danger small">${__("Error loading control")}: ${
+			e.message
+		}</div>`;
+	}
+}
+
+function sync_value(val) {
+	if (!control.value) return;
+
+	let str_value = "";
+	if (Array.isArray(val)) {
+		str_value = val.join(", ");
+	} else if (typeof val === "string") {
+		str_value = val;
+	}
+
+	if (control.value.get_value() !== str_value) {
+		is_setting_value = true;
+		control.value.set_value(str_value);
+		setTimeout(() => {
+			is_setting_value = false;
+		}, 50);
 	}
 }
 
 onMounted(() => {
-	make_control();
+	nextTick(() => {
+		make_control();
+	});
 });
 
 watch(
 	() => props.modelValue,
 	(val) => {
-		// Sync external changes to control
-		if (!control.value) return;
-
-		let currentVal = control.value.get_value(); // String from control
-		let newValStr = Array.isArray(val) ? val.join(", ") : val || "";
-
-		// Normalize comparison (strings)
-		if (currentVal !== newValStr) {
-			control.value.set_value(newValStr);
-		}
-	}
-);
-
-watch(
-	() => props.df,
-	() => {
-		make_control();
+		sync_value(val);
 	},
 	{ deep: true }
 );
 
+watch(
+	() => [props.df?.options, props.read_only],
+	() => {
+		make_control();
+	}
+);
+
 onBeforeUnmount(() => {
 	if (control.value && control.value.destroy) {
-		// control.value.destroy(); // Frappe controls might not have destroy, mostly DOM removal is enough
+		// control.value.destroy();
 	}
 });
 </script>
 
-<!--
-@deprecated
-Reason: Superseded by standard controls. Imported but unused in ControlFactory.
-Replaced by: flexirule.ui.ConfigurableAction
-Removal Target: v2.0
--->
 <template>
 	<div class="control-wrapper" ref="wrapper"></div>
 </template>
+
+<script>
+export default {
+	name: "MultiSelectControl",
+};
+</script>
 
 <style scoped>
 .control-wrapper {
@@ -138,5 +127,8 @@ Removal Target: v2.0
 }
 :deep(.form-group) {
 	margin-bottom: 0 !important;
+}
+:deep(.awesomplete > ul) {
+	z-index: 1050;
 }
 </style>

@@ -15,6 +15,7 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
 class CreateDocHandler(ActionHandler):
@@ -36,21 +37,19 @@ class CreateDocHandler(ActionHandler):
 		if not reference_doctype:
 			frappe.throw(_("Reference DocType is required for Create Docs action"))
 
+		# Apply input mapping (Context -> Config)
+		if getattr(action, "input_mapping", None):
+			config = apply_input_mapping(context, action.input_mapping, config)
+
 		# Dispatch to mode handler
 		if mode == "Create New":
 			result = self._create_new(
 				reference_doctype, config, context, action, ignore_permissions, is_async
 			)
 		elif mode == "Update Existing":
-			result = self._update_existing(
-				reference_doctype, config, context, action, ignore_permissions
-			)
+			result = self._update_existing(reference_doctype, config, context, action, ignore_permissions)
 		else:
 			frappe.throw(_("Unknown Create Docs mode: {0}").format(mode))
-
-		# Store result in return variable if specified
-		if action.return_variable:
-			context.setdefault("vars", {})[action.return_variable] = result
 
 		next_action = action.next_step_if_true
 		return result, next_action
@@ -66,11 +65,11 @@ class CreateDocHandler(ActionHandler):
 		mode = action.operation
 		if mode == "Update Existing" and not action.reference_docname:
 			config = self._parse_config(action.config)
-			if not config.get("docname_expression"):
+			if not config.get("docname") and not config.get("docname_expression"):
 				errors.append(
 					_(
 						"Update Existing mode requires either a Reference Document "
-						"or a docname_expression in config"
+						"or a docname/docname_expression in config"
 					)
 				)
 		return errors
@@ -106,16 +105,10 @@ class CreateDocHandler(ActionHandler):
 
 			try:
 				# Resolve source expression
-				value = frappe.safe_eval(
-					source,
-					eval_globals={"frappe": frappe},
-					eval_locals=context,
-				)
+				value = self._safe_eval(source, context)
 				resolved[target] = value
 			except Exception as e:
-				frappe.logger().warning(
-					f"Failed to resolve field mapping '{source}' -> '{target}': {e}"
-				)
+				frappe.logger().warning(f"Failed to resolve field mapping '{source}' -> '{target}': {e}")
 
 		return resolved
 
@@ -157,11 +150,7 @@ class CreateDocHandler(ActionHandler):
 
 		# Support dynamic docname from expression
 		if not docname and config.get("docname_expression"):
-			docname = frappe.safe_eval(
-				config["docname_expression"],
-				eval_globals={"frappe": frappe},
-				eval_locals=context,
-			)
+			docname = self._safe_eval(config["docname_expression"], context)
 
 		if not docname:
 			frappe.throw(_("No document name specified for Update Existing"))
@@ -187,6 +176,11 @@ class CreateDocHandler(ActionHandler):
 		doc.save(ignore_permissions=ignore_permissions)
 
 		return doc.as_dict()
+
+	def _safe_eval(self, expression, context):
+		"""Evaluate expressions using SafeFrappeAPI from context."""
+		safe_frappe = context.get("frappe") or frappe
+		return frappe.safe_eval(expression, eval_globals={"frappe": safe_frappe}, eval_locals=context)
 
 
 def _async_create_doc(doc_data, ignore_permissions=False):

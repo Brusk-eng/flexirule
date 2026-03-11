@@ -36,6 +36,9 @@ import WaitConfig from "./types/WaitConfig.vue";
 import SetValueConfig from "./types/SetValueConfig.vue";
 import RaiseErrorConfig from "./types/RaiseErrorConfig.vue";
 import NotifyConfig from "./types/NotifyConfig.vue";
+import QueryRecordsConfig from "./types/QueryRecordsConfig.vue";
+import AggregateRecordsConfig from "./types/AggregateRecordsConfig.vue";
+import CreateDocsConfig from "./types/CreateDocsConfig.vue";
 
 const props = defineProps({
 	node: Object,
@@ -52,6 +55,9 @@ const configComponents = {
 	"set value": SetValueConfig,
 	"raise error": RaiseErrorConfig,
 	notify: NotifyConfig,
+	"query records": QueryRecordsConfig,
+	"aggregate records": AggregateRecordsConfig,
+	"create docs": CreateDocsConfig,
 };
 
 const configComponent = computed(() => {

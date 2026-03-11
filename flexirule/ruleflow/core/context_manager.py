@@ -8,6 +8,8 @@ Provides structured variable storage, return type validation,
 and variable availability tracking during rule execution.
 """
 
+from typing import ClassVar
+
 import frappe
 from frappe import _
 
@@ -21,7 +23,7 @@ class ContextManager:
 	"""
 
 	# Mapping of return_type strings to Python types
-	TYPE_MAP = {
+	TYPE_MAP: ClassVar[dict[str, tuple]] = {
 		"Boolean": (bool,),
 		"Dict": (dict,),
 		"List": (list,),
@@ -49,7 +51,7 @@ class ContextManager:
 		"""Access the context document."""
 		return self.context.get("doc")
 
-	def set_variable(self, name: str, value, return_type: str = None):
+	def set_variable(self, name: str, value, return_type: str | None = None):
 		"""
 		Set a context variable with optional type validation.
 
@@ -65,11 +67,13 @@ class ContextManager:
 			self.validate_return_type(value, return_type, name)
 
 		self.vars[name] = value
-		self._variable_history.append({
-			"name": name,
-			"type": type(value).__name__,
-			"declared_type": return_type,
-		})
+		self._variable_history.append(
+			{
+				"name": name,
+				"type": type(value).__name__,
+				"declared_type": return_type,
+			}
+		)
 
 	def get_variable(self, name: str, default=None):
 		"""
@@ -104,12 +108,14 @@ class ContextManager:
 					declared_type = entry.get("declared_type")
 					break
 
-			result.append({
-				"name": name,
-				"type": type(value).__name__,
-				"declared_type": declared_type,
-				"value_preview": self._preview_value(value),
-			})
+			result.append(
+				{
+					"name": name,
+					"type": type(value).__name__,
+					"declared_type": declared_type,
+					"value_preview": self._preview_value(value),
+				}
+			)
 
 		return result
 
@@ -132,9 +138,9 @@ class ContextManager:
 
 		if not isinstance(value, expected_types):
 			frappe.throw(
-				_(
-					"Return type mismatch for '{0}': expected {1}, got {2}"
-				).format(var_name, return_type, type(value).__name__)
+				_("Return type mismatch for '{0}': expected {1}, got {2}").format(
+					var_name, return_type, type(value).__name__
+				)
 			)
 
 		# Additional validation for "List of Dict"
@@ -142,10 +148,9 @@ class ContextManager:
 			for i, item in enumerate(value):
 				if item is not None and not isinstance(item, dict):
 					frappe.throw(
-						_(
-							"Return type mismatch for '{0}': item at index {1} "
-							"is {2}, expected dict"
-						).format(var_name, i, type(item).__name__)
+						_("Return type mismatch for '{0}': item at index {1} is {2}, expected dict").format(
+							var_name, i, type(item).__name__
+						)
 					)
 
 	def validate_return_keys(self, value, expected_keys: list[dict], var_name: str = "result"):
@@ -174,11 +179,10 @@ class ContextManager:
 		missing = key_names - actual_keys
 		if missing:
 			frappe.logger().warning(
-				f"Return keys mismatch for '{var_name}': "
-				f"expected keys {missing} not found in result"
+				f"Return keys mismatch for '{var_name}': expected keys {missing} not found in result"
 			)
 
-	def apply_mutation(self, mutation_mode: str, var_name: str, value, context: dict = None):
+	def apply_mutation(self, mutation_mode: str, var_name: str, value, context: dict | None = None):
 		"""
 		Apply a mutation mode to store/update a value.
 
@@ -223,9 +227,7 @@ class ContextManager:
 			# Direct database update (bypasses ORM)
 			doc = ctx.get("doc")
 			if doc and isinstance(value, dict):
-				frappe.db.set_value(
-					doc.doctype, doc.name, value, update_modified=True
-				)
+				frappe.db.set_value(doc.doctype, doc.name, value, update_modified=True)
 
 	def _preview_value(self, value, max_len=100):
 		"""Get a short preview of a value for debugging."""
