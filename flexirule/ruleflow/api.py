@@ -73,7 +73,7 @@ SYSTEM_FIELDS = [
 
 
 @frappe.whitelist()
-def get_doctype_fields(doctype, filters=None):
+def get_doctype_fields(doctype: str, filters: str | dict | None = None):
 	"""
 	Get fields for DocField autocomplete - grouped by parent/child tables
 
@@ -281,7 +281,7 @@ def test_rule(
 
 
 @frappe.whitelist()
-def execute_rule(rule_name, context=None, dry_run=True):
+def execute_rule(rule_name: str, context: str | dict | None = None, dry_run: bool | str = True):
 	"""
 	Pure execution API for a rule.
 	"""
@@ -313,7 +313,7 @@ def execute_rule(rule_name, context=None, dry_run=True):
 
 
 @frappe.whitelist()
-def clear_cache(doctype=None):
+def clear_cache(doctype: str | None = None):
 	"""Clear rule cache"""
 	_require_api_access()
 	try:
@@ -338,7 +338,9 @@ def get_operator_config():
 
 
 @frappe.whitelist()
-def get_schema_field_options(schema_field, parent_doctype, current_values=None):
+def get_schema_field_options(
+	schema_field: str | dict, parent_doctype: str, current_values: str | dict | None = None
+):
 	"""
 	Get options for a schema field dynamically
 	Used for dependent DocField sources
@@ -366,7 +368,7 @@ def get_schema_field_options(schema_field, parent_doctype, current_values=None):
 
 
 @frappe.whitelist()
-def get_rule_versions(rule_name, limit=20):
+def get_rule_versions(rule_name: str, limit: int | str = 20):
 	"""Get version history for a rule"""
 	_require_api_access()
 	from flexirule.ruleflow.doctype.rule.rule_version_hooks import (
@@ -377,7 +379,7 @@ def get_rule_versions(rule_name, limit=20):
 
 
 @frappe.whitelist()
-def restore_rule_version(rule_name, version_name):
+def restore_rule_version(rule_name: str, version_name: str):
 	"""Restore a rule to a previous version"""
 	_require_api_access()
 	from flexirule.ruleflow.doctype.rule.rule_version_hooks import (
@@ -388,7 +390,7 @@ def restore_rule_version(rule_name, version_name):
 
 
 @frappe.whitelist()
-def export_rule(rule_name):
+def export_rule(rule_name: str):
 	"""Export a rule to JSON"""
 	_require_api_access()
 	from flexirule.ruleflow.utils.import_export import export_rule as _export
@@ -397,7 +399,7 @@ def export_rule(rule_name):
 
 
 @frappe.whitelist()
-def import_rule(import_data, overwrite=False):
+def import_rule(import_data: str | dict, overwrite: bool | str = False):
 	"""Import a rule from JSON"""
 	_require_api_access()
 	from flexirule.ruleflow.utils.import_export import import_rule as _import
@@ -407,7 +409,7 @@ def import_rule(import_data, overwrite=False):
 
 
 @frappe.whitelist()
-def get_action_context_schema(rule_name, action_id):
+def get_action_context_schema(rule_name: str, action_id: str):
 	"""
 	Get available context variables for a specific action in rule flow.
 	Used by UI to enable context-aware field selection.
@@ -473,7 +475,7 @@ def get_action_context_schema(rule_name, action_id):
 
 
 @frappe.whitelist()
-def get_process_operations(process_name):
+def get_process_operations(process_name: str):
 	"""
 	Get enabled operations for a specific process.
 	"""
@@ -491,7 +493,7 @@ def get_process_operations(process_name):
 
 
 @frappe.whitelist()
-def clone_rule(rule_name, new_name=None):
+def clone_rule(rule_name: str, new_name: str | None = None):
 	"""
 	Clone a rule to create a new version or copy.
 	Resets status to Draft (inactive) and clears execution stats.
