@@ -22,17 +22,41 @@ const emit = defineEmits(["update:field", "open:conditions", "open:config"]);
 
 const store = useStore();
 
-// Fields to exclude from rendering
-const EXCLUDED_FIELDS = [
-	"action_id", // Auto-generated
-	"position_x", // Visual metadata
-	"position_y", // Visual metadata
-	"config", // Managed by V2 modal
-	"condition_json", // Managed by V2 modal
-	"input_mapping", // Managed by V2 modal
-	"output_mapping", // Managed by V2 modal
-	"process_method", // Obsolete
-];
+// Action types that use the V2 config modal for `config`
+const CONFIG_MODAL_TYPES = new Set([
+	"Process",
+	"Condition",
+	"Set Value",
+	"Raise Error",
+	"Notify",
+	"Loop",
+	"Wait",
+	"Sub-Rule",
+	"Switch",
+	"Query Records",
+	"Aggregate Records",
+	"Create Docs",
+]);
+
+const excluded_fields = computed(() => {
+	const base = [
+		"action_id", // Auto-generated
+		"position_x", // Visual metadata
+		"position_y", // Visual metadata
+		"condition_json", // Managed by V2 modal
+		"input_mapping", // Managed by V2 modal
+		"output_mapping", // Managed by V2 modal
+		"process_method", // Obsolete
+	];
+
+	const MODAL_TYPES = ["Query Records", "Aggregate Records", "Create Docs"];
+
+	if (MODAL_TYPES.includes(props.nodeData?.action_type)) {
+		base.push("operation", "reference_doctype", "reference_docname", "mutation_mode", "config");
+	}
+
+	return base;
+});
 
 // Layout fields to skip
 const LAYOUT_FIELDS = ["Section Break", "Column Break", "Tab Break"];
@@ -51,7 +75,7 @@ const doc_fields = computed(() => {
 		if (LAYOUT_FIELDS.includes(df.fieldtype)) return false;
 
 		// Skip excluded fields
-		if (EXCLUDED_FIELDS.includes(df.fieldname)) return false;
+		if (excluded_fields.value.includes(df.fieldname)) return false;
 
 		// Skip always hidden fields
 		if (df.hidden) return false;

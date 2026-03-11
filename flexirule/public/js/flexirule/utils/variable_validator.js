@@ -329,6 +329,25 @@ flexirule.validation.validate_action_types = function (
 				);
 			}
 		}
+
+		// Mutation mode requires return variable
+		if (action.mutation_mode && !action.return_variable) {
+			errors.push(
+				__("Action '{0}' has Mutation Mode set but no Return Variable Name is provided.", [
+					label,
+				])
+			);
+		}
+
+		// Return schema requires return variable
+		if ((action.return_type || action.resolved_output_schema) && !action.return_variable) {
+			errors.push(
+				__(
+					"Action '{0}' defines a Return Schema but no Return Variable Name is provided.",
+					[label]
+				)
+			);
+		}
 	}
 
 	return {

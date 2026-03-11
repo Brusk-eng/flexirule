@@ -150,9 +150,8 @@ def run_batch_normalize(doctype, config):
 			normalized = apply_transformations(val, transformations)
 			frappe.db.set_value(doctype, doc_data.name, target_field, normalized, update_modified=False)
 
-		if frappe.flags.in_test:
-			continue  # Don't commit in tests
-		frappe.db.commit()
+		if not getattr(frappe.flags, "in_test", False):
+			frappe.db.commit()
 
 
 def batch_dedupe(context, config=None, **kwargs):
@@ -190,9 +189,8 @@ def run_batch_dedupe(doctype, config):
 
 		find_duplicates_and_task(ctx, config)
 
-		if frappe.flags.in_test:
-			continue
-		frappe.db.commit()
+		if not getattr(frappe.flags, "in_test", False):
+			frappe.db.commit()
 
 
 # ============================================================

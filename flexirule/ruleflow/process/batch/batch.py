@@ -57,10 +57,12 @@ def execute_for_documents(context, config):
 				break
 
 		if (i + 1) % batch_size == 0:
-			frappe.db.commit()
+			if not getattr(frappe.flags, "in_test", False):
+				frappe.db.commit()
 			_publish_progress(batch_id, i + 1, len(documents))
 
-	frappe.db.commit()
+	if not getattr(frappe.flags, "in_test", False):
+		frappe.db.commit()
 	return results
 
 

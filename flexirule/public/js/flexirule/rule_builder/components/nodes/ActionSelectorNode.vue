@@ -27,6 +27,9 @@ const actionTypes = computed(() => {
 		"Set Value": "fa-edit",
 		"Raise Error": "fa-exclamation-triangle",
 		Notify: "fa-bell",
+		"Query Records": "fa-search",
+		"Aggregate Records": "fa-calculator",
+		"Create Docs": "fa-plus-circle",
 	};
 
 	return typeField.options
@@ -48,8 +51,13 @@ function onCreate() {
 
 	const label = customLabel.value.trim() || typeConfig.label;
 
+	let nodeType = typeConfig.actionType.toLowerCase();
+	if (typeConfig.actionType === "Query Records") nodeType = "query";
+	if (typeConfig.actionType === "Aggregate Records") nodeType = "aggregate";
+	if (typeConfig.actionType === "Create Docs") nodeType = "createdoc";
+
 	// Upgrade the node
-	store.nodes[nodeIndex].type = typeConfig.actionType.toLowerCase();
+	store.nodes[nodeIndex].type = nodeType;
 	store.nodes[nodeIndex].label = label;
 	store.nodes[nodeIndex].data = {
 		...store.nodes[nodeIndex].data,

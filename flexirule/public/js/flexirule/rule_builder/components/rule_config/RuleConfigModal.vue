@@ -180,6 +180,9 @@ function getIcon(type) {
 		wait: "fa fa-clock-o",
 		start: "fa fa-play",
 		stop: "fa fa-stop",
+		query: "fa fa-search",
+		aggregate: "fa fa-calculator",
+		createdoc: "fa fa-plus-circle",
 	};
 	return icons[type.toLowerCase()] || "fa fa-circle";
 }
@@ -193,6 +196,8 @@ const layoutConfig = computed(() => {
 		config = { input: true, config: true, output: true };
 	} else if (["condition", "set value", "raise error", "notify"].includes(type)) {
 		config = { input: true, config: true, output: false };
+	} else if (["query records", "aggregate records", "create docs"].includes(type)) {
+		config = { input: true, config: true, output: true };
 	}
 
 	return config;

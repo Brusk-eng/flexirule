@@ -15,7 +15,7 @@
 			:df="df"
 			:modelValue="modelValue"
 			:options="df?.options || df?.autocomplete_options"
-			:get_options="df?.get_options"
+			:get_options="get_options || df?.get_options"
 			:doc="doc"
 			:hideLabel="hideLabel"
 			:hideDescription="hideDescription"
@@ -173,6 +173,16 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
+		<!-- MultiSelect -->
+		<MultiSelectControl
+			v-else-if="df?.fieldtype === 'MultiSelect'"
+			:df="df"
+			:modelValue="modelValue"
+			:get_data="get_data || df?.get_data"
+			:read_only="df.read_only"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
+
 		<!-- MultiCheck -->
 		<MultiCheckControl
 			v-else-if="df?.fieldtype === 'MultiCheck'"
@@ -210,6 +220,8 @@ const props = defineProps({
 	engine: { type: Object, default: null }, // Passed down to components like FlexiGrid
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
+	get_options: { type: Function, default: null },
+	get_data: { type: Function, default: null },
 });
 
 const emit = defineEmits(["update:modelValue"]);

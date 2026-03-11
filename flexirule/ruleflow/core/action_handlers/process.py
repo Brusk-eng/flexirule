@@ -13,7 +13,7 @@ from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
-from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
+from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
 class ProcessHandler(ActionHandler):
@@ -70,12 +70,6 @@ class ProcessHandler(ActionHandler):
 			retry_count=action.retry_count or 0,
 			timeout=action.timeout or 30,
 		)
-
-		# Apply Output Mapping (Result -> Context)
-		if getattr(action, "output_mapping", None):
-			if action.is_async:
-				raise MethodExecutionError(_("Async actions cannot map outputs"))
-			apply_output_mapping(result, action.output_mapping, context)
 
 		return result, getattr(action, "next_step_if_true", None)
 

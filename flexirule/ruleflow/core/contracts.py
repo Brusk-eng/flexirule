@@ -87,6 +87,37 @@ ACTION_TYPE_CONTRACT = {
 		"has_next_false": False,
 		"terminal": False,
 	},
+	"Query Records": {
+		"required_fields": ["reference_doctype", "operation"],
+		"has_next_true": True,
+		"has_next_false": False,
+		"terminal": False,
+		"allowed_mutations": [
+			"Set Context Variable",
+			"Append to Context Variable",
+		],
+	},
+	"Aggregate Records": {
+		"required_fields": ["reference_doctype", "operation", "config"],
+		"has_next_true": True,
+		"has_next_false": False,
+		"terminal": False,
+		"allowed_mutations": [
+			"Set Context Variable",
+			"Append to Context Variable",
+			"Update Context Variable",
+		],
+	},
+	"Create Docs": {
+		"required_fields": ["reference_doctype", "operation"],
+		"has_next_true": True,
+		"has_next_false": False,
+		"terminal": False,
+		"allowed_mutations": [
+			"Set Doc Field",
+			"Set Context Variable",
+		],
+	},
 }
 
 

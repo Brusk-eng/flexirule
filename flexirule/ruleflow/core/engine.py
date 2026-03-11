@@ -23,6 +23,8 @@ from frappe import _
 from jsonschema import ValidationError as SchemaValidationError
 from jsonschema import validate
 
+from flexirule.ruleflow.core.context_manager import ContextManager
+from flexirule.ruleflow.core.contracts import get_contract
 from flexirule.ruleflow.core.evaluator import check_link_match
 from flexirule.ruleflow.core.exceptions import (
 	CycleDetectedError,
@@ -32,7 +34,7 @@ from flexirule.ruleflow.core.exceptions import (
 )
 from flexirule.ruleflow.core.exceptions import TimeoutError as BoltonTimeoutError
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
-from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
+from flexirule.ruleflow.utils.mapping import apply_output_mapping
 from flexirule.ruleflow.utils.schema_validator import (
 	frappe_fields_to_json_schema,
 	get_custom_validator,
@@ -350,6 +352,18 @@ class RuleEngine:
 		if not self.actions:
 			raise EmptyRuleError(_("Rule {0} has no enabled actions").format(self.rule.name))
 
+		# Check Rule Permission table if defined
+		rule_permissions = self.rule.get("permissions")
+		if rule_permissions:
+			user_roles = set(frappe.get_roles())
+			# System Manager always bypasses
+			if "System Manager" not in user_roles:
+				can_exec = any(p.can_execute and p.role in user_roles for p in rule_permissions)
+				if not can_exec:
+					raise frappe.PermissionError(
+						_("User does not have execute permission for rule {0}").format(self.rule.name)
+					)
+
 	def _initialize_context(self, doc, **kwargs):
 		return {
 			**self.context,
@@ -463,13 +477,8 @@ class RuleEngine:
 					except Exception:
 						pass
 
-				# Store result if variable specified
-				if current.return_variable and result is not None:
-					context["vars"][current.return_variable] = result
-					self._log(
-						"DEBUG",
-						_("Stored result in variable: {0}").format(current.return_variable),
-					)
+				# Shared post-processing (output mapping, return validation, mutation)
+				self._post_process_action_result(current, result, context)
 
 				# Move to next node
 				current = self._get_action_by_id(next_id) if next_id else None
@@ -634,6 +643,66 @@ class RuleEngine:
 		except Exception as e:
 			self._log("ERROR", f"Condition evaluation failed: {e}")
 			return False
+
+	def _post_process_action_result(self, action, result, context):
+		"""
+		Apply shared post-processing:
+		- Output mapping (result -> context)
+		- Return variable storage + type/key validation
+		- Mutation mode application
+		"""
+		cm = ContextManager(context)
+
+		# 1. Output Mapping (Result -> Context)
+		output_mapping = getattr(action, "output_mapping", None)
+		if output_mapping:
+			if getattr(action, "is_async", 0):
+				raise MethodExecutionError(_("Async actions cannot map outputs"))
+			apply_output_mapping(result, output_mapping, context)
+
+		# 2. Return Variable + Type/Schema Validation
+		return_variable = getattr(action, "return_variable", None)
+		return_type = getattr(action, "return_type", None)
+		resolved_output_schema = getattr(action, "resolved_output_schema", None)
+
+		if return_variable and result is not None:
+			cm.set_variable(return_variable, result, return_type)
+
+			# Optional return keys validation
+			expected_keys = []
+			if resolved_output_schema:
+				try:
+					expected_keys = (
+						json.loads(resolved_output_schema)
+						if isinstance(resolved_output_schema, str)
+						else resolved_output_schema
+					)
+				except Exception:
+					self._log("WARNING", _("Invalid Return Keys Schema JSON for {0}").format(return_variable))
+					expected_keys = []
+
+			if expected_keys:
+				cm.validate_return_keys(result, expected_keys, return_variable)
+
+		# 3. Mutation Mode (Result -> Doc/Context/DB)
+		mutation_mode = getattr(action, "mutation_mode", None)
+		if mutation_mode:
+			contract = get_contract(action.action_type)
+			allowed = contract.get("allowed_mutations")
+			if not allowed:
+				# Ignore mutation_mode for action types that don't declare it
+				return
+			if mutation_mode not in allowed:
+				raise MethodExecutionError(
+					_("Mutation mode '{0}' is not allowed for action type '{1}'").format(
+						mutation_mode, action.action_type
+					)
+				)
+			if not return_variable:
+				raise MethodExecutionError(
+					_("Mutation Mode '{0}' requires a Return Variable Name").format(mutation_mode)
+				)
+			cm.apply_mutation(mutation_mode, return_variable, result, context)
 
 	# Legacy _execute_* methods have been removed.
 	# All action execution now uses the Handler Strategy Pattern.

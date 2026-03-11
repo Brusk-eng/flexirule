@@ -27,7 +27,7 @@ def create_test_rule(name, doctype="ToDo", event="Validate", actions=None):
 			"document_type": doctype,
 			"trigger_event": event,
 			"is_active": 1,
-			"priority": 100,
+			"priority": "0" if event == "Manual" else "10",
 			"max_execution_time": 30,
 		}
 	)

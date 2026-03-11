@@ -22,6 +22,7 @@ class Rule(Document):
 		from frappe.types import DF
 
 		from flexirule.ruleflow.doctype.rule_action.rule_action import RuleAction
+		from flexirule.ruleflow.doctype.rule_permission.rule_permission import RulePermission
 
 		actions: DF.Table[RuleAction]
 		debug_mode: DF.Check
@@ -34,7 +35,31 @@ class Rule(Document):
 		last_error: DF.Text | None
 		last_executed: DF.Datetime | None
 		max_execution_time: DF.Int
-		priority: DF.Int
+		permissions: DF.Table[RulePermission]
+		previous_rule: DF.Link | None
+		priority: DF.Literal[
+			"0",
+			"1",
+			"2",
+			"3",
+			"4",
+			"5",
+			"6",
+			"7",
+			"8",
+			"9",
+			"10",
+			"11",
+			"12",
+			"13",
+			"14",
+			"15",
+			"16",
+			"17",
+			"18",
+			"19",
+			"20",
+		]
 		rule_name: DF.Data
 		skip_for_roles: DF.TableMultiSelect[HasRole]
 		status: DF.Literal["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]
@@ -56,6 +81,8 @@ class Rule(Document):
 			"On Update After Submit",
 			"On Change",
 		]
+		version: DF.Int
+		visual_data: DF.Code | None
 
 	# end: auto-generated types
 	def validate(self):
@@ -69,11 +96,36 @@ class Rule(Document):
 		self.validate_no_sub_rule_cycles()
 		self.validate_variable_availability()
 		self.validate_active_rule_lock()
+		self.validate_priority_manual()
+		self.validate_version_constraints()
 
 		# New strict validations
 		self.validate_strict_requirements()
 
 		self.status = self.get_computed_status()
+
+	def before_save(self):
+		"""Initialize version for new rules."""
+		if self.is_new() and not self.version:
+			self.version = 1
+
+	def validate_priority_manual(self):
+		"""If trigger_event is Manual, priority must be 0."""
+		if self.trigger_event == "Manual" and str(self.priority) != "0":
+			frappe.throw(_("Manual trigger rules must have priority set to 0."))
+
+	def validate_version_constraints(self):
+		"""
+		Enforce versioning constraints:
+		- Only one draft amendment per rule lineage.
+		- Cannot amend if a newer draft version already exists.
+		"""
+		if not self.previous_rule:
+			return
+
+		from flexirule.ruleflow.core.rule_service import validate_single_draft_copy
+
+		validate_single_draft_copy(self)
 
 	def validate_strict_requirements(self):
 		"""
@@ -195,6 +247,8 @@ class Rule(Document):
 
 	def before_insert(self):
 		self.ensure_start_node()
+		if not self.version:
+			self.version = 1
 
 	def ensure_start_node(self):
 		"""Ensure a Start Node (Entry Action) exists"""
@@ -269,6 +323,7 @@ class Rule(Document):
 		if not self.actions:
 			return
 
+		from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 		from flexirule.ruleflow.core.compiler import ConditionCompiler
 
 		compiler = ConditionCompiler()
@@ -313,6 +368,18 @@ class Rule(Document):
 
 			# 3. Validate action type-specific constraints
 			self._validate_all_action_types(action)
+
+			# 4. Handler-level validation (action-specific)
+			handler = HandlerRegistry.get(action.action_type)
+			if handler:
+				errors = handler.validate(action, {"doc": None, "vars": {}})
+				if errors:
+					message = "; ".join([str(e) for e in errors])
+					frappe.throw(
+						_("Action '{0}' ({1}) validation failed: {2}").format(
+							action.action_label, action.action_type, message
+						)
+					)
 
 	def get_computed_status(self):
 		if self.get("is_archived"):
@@ -415,6 +482,40 @@ class Rule(Document):
 						action.action_label, action_type, field
 					)
 				)
+
+		# 1b. Contract: Allowed mutation modes (only for action types that declare it)
+		if getattr(action, "mutation_mode", None):
+			allowed_mutations = contract.get("allowed_mutations")
+			if allowed_mutations:
+				if action.mutation_mode not in allowed_mutations:
+					frappe.throw(
+						_("Action '{0}' ({1}) does not allow mutation mode '{2}'").format(
+							action.action_label, action_type, action.mutation_mode
+						)
+					)
+
+				if not action.return_variable:
+					frappe.throw(
+						_(
+							"Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set"
+						).format(action.action_label, action_type)
+					)
+
+		# 1c. Return Schema requires Return Variable
+		if (action.return_type or action.resolved_output_schema) and not action.return_variable:
+			frappe.throw(
+				_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
+					action.action_label, action_type
+				)
+			)
+
+		# 1d. Output Mapping cannot be used with async actions
+		if action.output_mapping and action.is_async:
+			frappe.throw(
+				_("Action '{0}' ({1}) cannot use Output Mapping with Async enabled").format(
+					action.action_label, action_type
+				)
+			)
 
 		# 2. Contract: Terminal action should not have next_step
 		if contract.get("terminal"):

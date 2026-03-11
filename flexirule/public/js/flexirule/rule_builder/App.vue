@@ -55,6 +55,15 @@
 					<template #node-sub-rule="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
 					</template>
+					<template #node-query="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
+					<template #node-aggregate="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
+					<template #node-createdoc="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
 
 					<Background :gap="15" />
 					<Panel :position="PanelPosition.BottomLeft" class="controls-panel">
