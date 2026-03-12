@@ -25,6 +25,7 @@ class Rule(Document):
 		from flexirule.ruleflow.doctype.rule_permission.rule_permission import RulePermission
 
 		actions: DF.Table[RuleAction]
+		avg_execution_time: DF.Float
 		debug_mode: DF.Check
 		description: DF.Text | None
 		document_type: DF.Link
@@ -63,6 +64,7 @@ class Rule(Document):
 		rule_name: DF.Data
 		skip_for_roles: DF.TableMultiSelect[HasRole]
 		status: DF.Literal["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]
+		success_rate: DF.Percent
 		trigger_condition: DF.Code | None
 		trigger_condition_expression: DF.Code | None
 		trigger_event: DF.Literal[

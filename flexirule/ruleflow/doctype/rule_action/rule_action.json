@@ -1,422 +1,428 @@
 {
-	"actions": [],
-	"creation": "2025-11-30 17:50:00",
-	"doctype": "DocType",
-	"editable_grid": 1,
-	"engine": "InnoDB",
-	"field_order": [
-		"action_id",
-		"action_type",
-		"action_label",
-		"rule",
-		"is_enabled",
-		"priority",
-		"is_async",
-		"column_break_1",
-		"condition_expression",
-		"condition_json",
-		"set_conditions",
-		"section_break_quick_action",
-		"target_field",
-		"value_template",
-		"error_template",
-		"notification_template",
-		"notification_type",
-		"section_break_process",
-		"process_name",
-		"operation",
-		"configure_operation",
-		"config",
-		"column_break_2",
-		"on_error",
-		"retry_count",
-		"timeout",
-		"section_break_query",
-		"input_source",
-		"reference_doctype",
-		"reference_docname",
-		"mutation_mode",
-		"column_break_mapping",
-		"input_mapping",
-		"output_mapping",
-		"section_break_return",
-		"return_type",
-		"resolved_output_schema",
-		"return_variable",
-		"section_break_subrule",
-		"skip_conditions",
-		"skip_permissions",
-		"section_break_flow",
-		"next_step_if_true",
-		"next_step_if_false",
-		"section_break_visual",
-		"position_x",
-		"position_y",
-		"description"
-	],
-	"fields": [
-		{
-			"description": "Auto-generated unique ID for the action node",
-			"fieldname": "action_id",
-			"fieldtype": "Data",
-			"label": "Action ID",
-			"read_only": 1,
-			"reqd": 1
-		},
-		{
-			"fieldname": "action_label",
-			"fieldtype": "Data",
-			"in_list_view": 1,
-			"label": "Label",
-			"reqd": 1
-		},
-		{
-			"description": "Type of action node",
-			"fieldname": "action_type",
-			"fieldtype": "Select",
-			"in_list_view": 1,
-			"label": "Type",
-			"options": "Entry Action\nCondition\nProcess\nLoop\nStop\nSwitch\nWait\nSub-Rule\nSet Value\nRaise Error\nNotify\nQuery Records\nAggregate Records\nCreate Docs",
-			"reqd": 1
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Sub-Rule'",
-			"fieldname": "rule",
-			"fieldtype": "Link",
-			"label": "Rule",
-			"link_filters": "[[\"Rule\",\"is_sub_rule\",\"=\",1]]",
-			"options": "Rule"
-		},
-		{
-			"default": "1",
-			"fieldname": "is_enabled",
-			"fieldtype": "Check",
-			"in_list_view": 1,
-			"label": "Enabled"
-		},
-		{
-			"fieldname": "column_break_1",
-			"fieldtype": "Column Break"
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Condition'",
-			"description": "Condition expression to evaluate when the action is triggered",
-			"fieldname": "condition_expression",
-			"fieldtype": "Code",
-			"label": "Condition Expression (Python)",
-			"options": "PythonExpression",
-			"read_only": 1
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Condition'",
-			"description": "Condition expression to evaluate when the action is triggered",
-			"fieldname": "condition_json",
-			"fieldtype": "Code",
-			"label": "Condition (JSON)",
-			"mandatory_depends_on": "eval:doc.action_type=='Condition'",
-			"options": "JSON"
-		},
-		{
-			"collapsible": 1,
-			"depends_on": "eval:['Set Value', 'Raise Error', 'Notify'].includes(doc.action_type)",
-			"fieldname": "section_break_quick_action",
-			"fieldtype": "Section Break",
-			"label": "Quick Action Configuration"
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Set Value'",
-			"description": "Field to update (e.g., doc.status)",
-			"fieldname": "target_field",
-			"fieldtype": "Data",
-			"label": "Target Field",
-			"mandatory_depends_on": "eval:doc.action_type=='Set Value'"
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Set Value'",
-			"description": "Jinja template for value (e.g., {{ doc.customer_name }})",
-			"fieldname": "value_template",
-			"fieldtype": "Code",
-			"label": "Value Template",
-			"mandatory_depends_on": "eval:doc.action_type=='Set Value'",
-			"options": "Jinja"
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Raise Error'",
-			"description": "Jinja template for error message",
-			"fieldname": "error_template",
-			"fieldtype": "Code",
-			"label": "Error Message Template",
-			"mandatory_depends_on": "eval:doc.action_type=='Raise Error'",
-			"options": "Jinja"
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Notify'",
-			"description": "Jinja template for notification message",
-			"fieldname": "notification_template",
-			"fieldtype": "Code",
-			"label": "Notification Template",
-			"mandatory_depends_on": "eval:doc.action_type=='Notify'",
-			"options": "Jinja"
-		},
-		{
-			"default": "Toast",
-			"depends_on": "eval:doc.action_type=='Notify'",
-			"fieldname": "notification_type",
-			"fieldtype": "Select",
-			"label": "Notification Type",
-			"options": "Toast\nSystem\nEmail"
-		},
-		{
-			"collapsible": 1,
-			"depends_on": "eval:doc.action_type=='Process'",
-			"fieldname": "section_break_process",
-			"fieldtype": "Section Break",
-			"label": "Process / Action Configuration"
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Process'",
-			"description": "Select the process to use",
-			"fieldname": "process_name",
-			"fieldtype": "Link",
-			"label": "Process",
-			"mandatory_depends_on": "eval:doc.action_type=='Process'",
-			"options": "Process"
-		},
-		{
-			"depends_on": "eval:['Process', 'Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
-			"description": "Operation mode for this action",
-			"fieldname": "operation",
-			"fieldtype": "Autocomplete",
-			"in_list_view": 1,
-			"label": "Operation / Mode",
-			"mandatory_depends_on": "eval:(doc.action_type=='Process' && doc.process_name) || ['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)"
-		},
-		{
-			"description": "Configuration for the action (validated against schema for Process types)",
-			"fieldname": "config",
-			"fieldtype": "Code",
-			"label": "Configuration (JSON)",
-			"options": "JSON"
-		},
-		{
-			"fieldname": "column_break_2",
-			"fieldtype": "Column Break"
-		},
-		{
-			"default": "Stop",
-			"depends_on": "eval:doc.action_type=='Process'",
-			"description": "Action to take if execution fails",
-			"fieldname": "on_error",
-			"fieldtype": "Select",
-			"label": "On Error",
-			"options": "Stop\nContinue\nRetry\nRollback\nEscalate"
-		},
-		{
-			"default": "0",
-			"depends_on": "eval:doc.on_error=='Retry'",
-			"description": "Number of retries on failure (exponential backoff)",
-			"fieldname": "retry_count",
-			"fieldtype": "Int",
-			"label": "Retry Count"
-		},
-		{
-			"default": "30",
-			"depends_on": "eval:doc.action_type=='Process'",
-			"description": "Maximum execution time for this process",
-			"fieldname": "timeout",
-			"fieldtype": "Int",
-			"label": "Timeout (seconds)"
-		},
-		{
-			"collapsible": 1,
-			"depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
-			"fieldname": "section_break_query",
-			"fieldtype": "Section Break",
-			"label": "Query / Document Configuration"
-		},
-		{
-			"depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
-			"fieldname": "input_source",
-			"fieldtype": "Select",
-			"label": "Input Source",
-			"options": "Context Doc\nContext Variable\nBoth"
-		},
-		{
-			"depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
-			"description": "Target DocType for query or document creation",
-			"fieldname": "reference_doctype",
-			"fieldtype": "Link",
-			"label": "Reference DocType",
-			"mandatory_depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
-			"options": "DocType"
-		},
-		{
-			"depends_on": "eval:doc.reference_doctype",
-			"description": "Specific document reference (for Query Doc / Update Existing)",
-			"fieldname": "reference_docname",
-			"fieldtype": "Dynamic Link",
-			"label": "Reference Document",
-			"options": "reference_doctype"
-		},
-		{
-			"depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
-			"description": "How to store/apply the action result",
-			"fieldname": "mutation_mode",
-			"fieldtype": "Select",
-			"label": "Mutation Mode",
-			"options": "Set Doc Field\nUpdate Doc Field\nSet Context Variable\nUpdate Context Variable\nAppend to Context Variable\nBatch Database Set"
-		},
-		{
-			"collapsible": 1,
-			"depends_on": "eval:doc.action_type=='Sub-Rule'",
-			"fieldname": "section_break_subrule",
-			"fieldtype": "Section Break",
-			"label": "Sub-Rule Options"
-		},
-		{
-			"default": "1",
-			"depends_on": "eval:doc.action_type=='Sub-Rule'",
-			"description": "Skip evaluating the sub-rule's trigger conditions",
-			"fieldname": "skip_conditions",
-			"fieldtype": "Check",
-			"label": "Skip Sub-Rule Conditions"
-		},
-		{
-			"default": "0",
-			"depends_on": "eval:['Sub-Rule', 'Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
-			"description": "Execute without checking current user's permissions",
-			"fieldname": "skip_permissions",
-			"fieldtype": "Check",
-			"label": "Ignore Permissions"
-		},
-		{
-			"collapsible": 1,
-			"fieldname": "section_break_flow",
-			"fieldtype": "Section Break",
-			"label": "Flow Control"
-		},
-		{
-			"description": "Next action node to execute if the condition is true",
-			"fieldname": "next_step_if_true",
-			"fieldtype": "Autocomplete",
-			"label": "Next Step (If True/Default)",
-			"options": "action_id"
-		},
-		{
-			"depends_on": "eval:doc.action_type=='Condition'",
-			"description": "Next action node to execute if the condition is false",
-			"fieldname": "next_step_if_false",
-			"fieldtype": "Data",
-			"label": "Next Step (If False)",
-			"options": "action_id"
-		},
-		{
-			"description": "Variable name to store the return value of the action",
-			"fieldname": "return_variable",
-			"fieldtype": "Data",
-			"label": "Return Variable Name"
-		},
-		{
-			"collapsible": 1,
-			"fieldname": "section_break_return",
-			"fieldtype": "Section Break",
-			"label": "Return Schema"
-		},
-		{
-			"description": "Expected return type from this action",
-			"fieldname": "return_type",
-			"fieldtype": "Select",
-			"label": "Return Type",
-			"options": "\nBoolean\nDict\nList\nList of Dict\nDoc as Dict"
-		},
-		{
-			"collapsible": 1,
-			"fieldname": "section_break_visual",
-			"fieldtype": "Section Break",
-			"label": "Visual Editor Metadata"
-		},
-		{
-			"fieldname": "position_x",
-			"fieldtype": "Int",
-			"hidden": 1,
-			"label": "Position X"
-		},
-		{
-			"fieldname": "position_y",
-			"fieldtype": "Int",
-			"hidden": 1,
-			"label": "Position Y"
-		},
-		{
-			"description": "Optional documentation for this action",
-			"fieldname": "description",
-			"fieldtype": "Text",
-			"label": "Description"
-		},
-		{
-			"default": "0",
-			"description": "Execution order for parallel actions (higher = first)",
-			"fieldname": "priority",
-			"fieldtype": "Int",
-			"hidden": 1,
-			"label": "Priority"
-		},
-		{
-			"default": "0",
-			"description": "Execute in background queue",
-			"fieldname": "is_async",
-			"fieldtype": "Check",
-			"label": "Async"
-		},
-		{
-			"description": "Map context variables to method params: {\"context_var\": \"param_name\"}",
-			"fieldname": "input_mapping",
-			"fieldtype": "Code",
-			"label": "Input Mapping",
-			"options": "JSON"
-		},
-		{
-			"fieldname": "column_break_mapping",
-			"fieldtype": "Column Break"
-		},
-		{
-			"description": "Map result keys to context: {\"result_key\": \"context_var\"}",
-			"fieldname": "output_mapping",
-			"fieldtype": "Code",
-			"label": "Output Mapping",
-			"options": "JSON"
-		},
-		{
-			"depends_on": "eval:doc.return_type || doc.resolved_output_schema",
-			"description": "Return keys schema: [{\"key\": \"field_name\"}]",
-			"fieldname": "resolved_output_schema",
-			"fieldtype": "Code",
-			"label": "Return Keys Schema",
-			"options": "JSON"
-		},
-		{
-			"depends_on": "eval:doc.action_type===\"Condition\"",
-			"fieldname": "set_conditions",
-			"fieldtype": "Button",
-			"label": "Set Conditions"
-		},
-		{
-			"depends_on": "eval:['Process', 'Condition', 'Set Value', 'Raise Error', 'Notify', 'Loop', 'Wait', 'Sub-Rule'].includes(doc.action_type)",
-			"fieldname": "configure_operation",
-			"fieldtype": "Button",
-			"label": "Configure"
-		}
-	],
-	"istable": 1,
-	"links": [],
-	"modified": "2026-01-24 16:27:11.182416",
-	"modified_by": "Administrator",
-	"module": "Ruleflow",
-	"name": "Rule Action",
-	"owner": "Administrator",
-	"permissions": [],
-	"row_format": "Dynamic",
-	"sort_field": "modified",
-	"sort_order": "DESC",
-	"states": []
+ "actions": [],
+ "creation": "2025-11-30 17:50:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "action_id",
+  "action_type",
+  "rule",
+  "is_enabled",
+  "is_async",
+  "column_break_1",
+  "action_label",
+  "skip_permissions",
+  "skip_conditions",
+  "section_break_query",
+  "input_source",
+  "reference_doctype",
+  "reference_docname",
+  "column_break_mapping",
+  "input_mapping",
+  "output_mapping",
+  "condition_action_section",
+  "set_conditions",
+  "condition_json",
+  "column_break_artn",
+  "condition_expression",
+  "section_break_quick_action",
+  "target_field",
+  "value_template",
+  "error_template",
+  "notification_template",
+  "notification_type",
+  "section_break_process",
+  "process_name",
+  "operation",
+  "configure_operation",
+  "config",
+  "column_break_2",
+  "on_error",
+  "retry_count",
+  "timeout",
+  "section_break_return",
+  "mutation_mode",
+  "return_variable",
+  "resolved_output_schema",
+  "column_break_lkqa",
+  "return_type",
+  "section_break_flow",
+  "next_step_if_true",
+  "column_break_btph",
+  "next_step_if_false",
+  "section_break_visual",
+  "position_x",
+  "position_y",
+  "description"
+ ],
+ "fields": [
+  {
+   "description": "Auto-generated unique ID for the action node",
+   "fieldname": "action_id",
+   "fieldtype": "Data",
+   "label": "Action ID",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "action_label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label",
+   "reqd": 1
+  },
+  {
+   "description": "Type of action node",
+   "fieldname": "action_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Entry Action\nCondition\nProcess\nLoop\nStop\nSwitch\nWait\nSub-Rule\nSet Value\nRaise Error\nNotify\nQuery Records\nAggregate Records\nCreate Docs",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.action_type=='Sub-Rule'",
+   "fieldname": "rule",
+   "fieldtype": "Link",
+   "label": "Rule",
+   "link_filters": "[[\"Rule\",\"is_sub_rule\",\"=\",1]]",
+   "options": "Rule"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.action_type=='Condition'",
+   "description": "Condition expression to evaluate when the action is triggered",
+   "fieldname": "condition_expression",
+   "fieldtype": "Code",
+   "label": "Condition Expression (Python)",
+   "options": "PythonExpression",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.action_type=='Condition'",
+   "description": "Condition expression to evaluate when the action is triggered",
+   "fieldname": "condition_json",
+   "fieldtype": "Code",
+   "label": "Condition (JSON)",
+   "mandatory_depends_on": "eval:doc.action_type=='Condition'",
+   "options": "JSON"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:['Set Value', 'Raise Error', 'Notify'].includes(doc.action_type)",
+   "fieldname": "section_break_quick_action",
+   "fieldtype": "Section Break",
+   "label": "Quick Action Configuration"
+  },
+  {
+   "depends_on": "eval:doc.action_type=='Set Value'",
+   "description": "Field to update (e.g., doc.status)",
+   "fieldname": "target_field",
+   "fieldtype": "Data",
+   "label": "Target Field",
+   "mandatory_depends_on": "eval:doc.action_type=='Set Value'"
+  },
+  {
+   "depends_on": "eval:doc.action_type=='Set Value'",
+   "description": "Jinja template for value (e.g., {{ doc.customer_name }})",
+   "fieldname": "value_template",
+   "fieldtype": "Code",
+   "label": "Value Template",
+   "mandatory_depends_on": "eval:doc.action_type=='Set Value'",
+   "options": "Jinja"
+  },
+  {
+   "depends_on": "eval:doc.action_type=='Raise Error'",
+   "description": "Jinja template for error message",
+   "fieldname": "error_template",
+   "fieldtype": "Code",
+   "label": "Error Message Template",
+   "mandatory_depends_on": "eval:doc.action_type=='Raise Error'",
+   "options": "Jinja"
+  },
+  {
+   "depends_on": "eval:doc.action_type=='Notify'",
+   "description": "Jinja template for notification message",
+   "fieldname": "notification_template",
+   "fieldtype": "Code",
+   "label": "Notification Template",
+   "mandatory_depends_on": "eval:doc.action_type=='Notify'",
+   "options": "Jinja"
+  },
+  {
+   "default": "Toast",
+   "depends_on": "eval:doc.action_type=='Notify'",
+   "fieldname": "notification_type",
+   "fieldtype": "Select",
+   "label": "Notification Type",
+   "options": "Toast\nSystem\nEmail"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.action_type=='Process'",
+   "fieldname": "section_break_process",
+   "fieldtype": "Section Break",
+   "label": "Process / Action Configuration"
+  },
+  {
+   "depends_on": "eval:doc.action_type=='Process'",
+   "description": "Select the process to use",
+   "fieldname": "process_name",
+   "fieldtype": "Link",
+   "label": "Process",
+   "mandatory_depends_on": "eval:doc.action_type=='Process'",
+   "options": "Process"
+  },
+  {
+   "depends_on": "eval:['Process', 'Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+   "description": "Operation mode for this action",
+   "fieldname": "operation",
+   "fieldtype": "Autocomplete",
+   "in_list_view": 1,
+   "label": "Operation / Mode",
+   "mandatory_depends_on": "eval:(doc.action_type=='Process' && doc.process_name) || ['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)"
+  },
+  {
+   "description": "Configuration for the action (validated against schema for Process types)",
+   "fieldname": "config",
+   "fieldtype": "Code",
+   "label": "Configuration (JSON)",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Stop",
+   "depends_on": "eval:doc.action_type=='Process'",
+   "description": "Action to take if execution fails",
+   "fieldname": "on_error",
+   "fieldtype": "Select",
+   "label": "On Error",
+   "options": "Stop\nContinue\nRetry\nRollback\nEscalate"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.on_error=='Retry'",
+   "description": "Number of retries on failure (exponential backoff)",
+   "fieldname": "retry_count",
+   "fieldtype": "Int",
+   "label": "Retry Count"
+  },
+  {
+   "default": "30",
+   "depends_on": "eval:doc.action_type=='Process'",
+   "description": "Maximum execution time for this process",
+   "fieldname": "timeout",
+   "fieldtype": "Int",
+   "label": "Timeout (seconds)"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+   "fieldname": "section_break_query",
+   "fieldtype": "Section Break",
+   "label": "Action Input"
+  },
+  {
+   "depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+   "fieldname": "input_source",
+   "fieldtype": "Select",
+   "label": "Input Source",
+   "options": "Context Doc\nContext Variable\nBoth"
+  },
+  {
+   "depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+   "description": "Target DocType for query or document creation",
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "mandatory_depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+   "options": "DocType"
+  },
+  {
+   "depends_on": "eval:doc.reference_doctype",
+   "description": "Specific document reference (for Query Doc / Update Existing)",
+   "fieldname": "reference_docname",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Document",
+   "options": "reference_doctype"
+  },
+  {
+   "depends_on": "eval:['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+   "description": "How to store/apply the action result",
+   "fieldname": "mutation_mode",
+   "fieldtype": "Select",
+   "label": "Mutation Mode",
+   "options": "Set Doc Field\nUpdate Doc Field\nSet Context Variable\nUpdate Context Variable\nAppend to Context Variable\nBatch Database Set"
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.action_type=='Sub-Rule'",
+   "description": "Skip evaluating the sub-rule's trigger conditions",
+   "fieldname": "skip_conditions",
+   "fieldtype": "Check",
+   "label": "Skip Sub-Rule Conditions"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:['Sub-Rule', 'Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)",
+   "description": "For Actions wich enforce permission access.\n",
+   "fieldname": "skip_permissions",
+   "fieldtype": "Check",
+   "label": "Ignore Permissions"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_flow",
+   "fieldtype": "Section Break",
+   "label": "Flow Control"
+  },
+  {
+   "description": "Next action node to execute if the condition is true",
+   "fieldname": "next_step_if_true",
+   "fieldtype": "Autocomplete",
+   "label": "Next Step (If True/Default)",
+   "options": "action_id"
+  },
+  {
+   "depends_on": "eval:doc.action_type=='Condition'",
+   "description": "Next action node to execute if the condition is false",
+   "fieldname": "next_step_if_false",
+   "fieldtype": "Data",
+   "label": "Next Step (If False)",
+   "options": "action_id"
+  },
+  {
+   "description": "Variable name to store the return value of the action",
+   "fieldname": "return_variable",
+   "fieldtype": "Data",
+   "label": "Return Variable Name"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_return",
+   "fieldtype": "Section Break",
+   "label": "Return Schema"
+  },
+  {
+   "description": "Expected return type from this action",
+   "fieldname": "return_type",
+   "fieldtype": "Select",
+   "label": "Return Type",
+   "options": "\nBoolean\nDict\nList\nList of Dict\nDoc as Dict"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_visual",
+   "fieldtype": "Section Break",
+   "label": "Visual Editor Metadata"
+  },
+  {
+   "fieldname": "position_x",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Position X"
+  },
+  {
+   "fieldname": "position_y",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Position Y"
+  },
+  {
+   "description": "Optional documentation for this action",
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description"
+  },
+  {
+   "default": "0",
+   "description": "Execute in background queue",
+   "fieldname": "is_async",
+   "fieldtype": "Check",
+   "label": "Async"
+  },
+  {
+   "description": "Map context variables to method params: {\"context_var\": \"param_name\"}",
+   "fieldname": "input_mapping",
+   "fieldtype": "Code",
+   "label": "Input Mapping",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "column_break_mapping",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Map result keys to context: {\"result_key\": \"context_var\"}",
+   "fieldname": "output_mapping",
+   "fieldtype": "Code",
+   "label": "Output Mapping",
+   "options": "JSON"
+  },
+  {
+   "depends_on": "eval:doc.return_type || doc.resolved_output_schema",
+   "description": "Return keys schema: [{\"fieldname\": \"field_name\",fieldtype\":\"\",options\":\"\",\"label\":\"Field Label\"}]\nWhen return Type is Boolen then value will be assign to Return Variable Name",
+   "fieldname": "resolved_output_schema",
+   "fieldtype": "Code",
+   "label": "Return Keys Schema",
+   "options": "JSON"
+  },
+  {
+   "depends_on": "eval:doc.action_type===\"Condition\"",
+   "fieldname": "set_conditions",
+   "fieldtype": "Button",
+   "label": "Set Conditions"
+  },
+  {
+   "depends_on": "eval:['Process', 'Condition', 'Set Value', 'Raise Error', 'Notify', 'Loop', 'Wait', 'Sub-Rule'].includes(doc.action_type)",
+   "fieldname": "configure_operation",
+   "fieldtype": "Button",
+   "label": "Configure"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.action_type=='Condition'",
+   "fieldname": "condition_action_section",
+   "fieldtype": "Section Break",
+   "label": "Condition Action"
+  },
+  {
+   "fieldname": "column_break_artn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_lkqa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_btph",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-12 22:27:30.970769",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Rule Action",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
 }
