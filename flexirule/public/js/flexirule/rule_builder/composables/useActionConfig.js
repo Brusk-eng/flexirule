@@ -1,0 +1,143 @@
+import { reactive, ref, computed, watch, onMounted } from "vue";
+import { useStore } from "../store";
+
+export function useActionConfig(props) {
+	const store = useStore();
+	const config = reactive({});
+	const doctype_fields = ref([]);
+	const variable_options = ref([]);
+	const loading = ref(false);
+
+	const mode = computed(() => props.node?.data?.operation || "");
+	const reference_doctype = computed(
+		() => props.node?.data?.reference_doctype || props.node?.data?.doctype || ""
+	);
+	const reference_docname = computed(
+		() => props.node?.data?.reference_docname || props.node?.data?.docname || ""
+	);
+
+	function with_read_only(field) {
+		return { ...field, read_only: props.readOnly };
+	}
+
+	async function load_doctype_fields(doctype) {
+		if (!doctype) {
+			doctype_fields.value = [];
+			return;
+		}
+		try {
+			loading.value = true;
+			doctype_fields.value = await flexirule.utils.get_doctype_fields(doctype);
+		} catch (e) {
+			console.error("FlexiRule: Failed to load doctype fields", e);
+			doctype_fields.value = [];
+		} finally {
+			loading.value = false;
+		}
+	}
+
+	async function refresh_variables() {
+		if (!props.node?.id) {
+			variable_options.value = [];
+			return;
+		}
+		try {
+			variable_options.value = await store.getAvailableVariables(props.node.id);
+		} catch (e) {
+			variable_options.value = [];
+		}
+	}
+
+	function parse_value_type(val, variable_set) {
+		if (typeof val === "number") return "Number";
+		if (typeof val === "boolean") return "Boolean";
+		if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
+			const inner = val.slice(1, -1);
+			if (variable_set && variable_set.has(inner)) return "Variable";
+			return "Expression";
+		}
+		return "Value";
+	}
+
+	function strip_expression(val) {
+		if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
+			return val.slice(1, -1);
+		}
+		return val;
+	}
+
+	function encode_value(row) {
+		let val = row.value;
+		if (row.value_type === "Number") {
+			const num = Number(val);
+			if (!Number.isNaN(num)) return num;
+			return val;
+		}
+		if (row.value_type === "Boolean") {
+			if (val === true || val === "true" || val === 1 || val === "1") return true;
+			if (val === false || val === "false" || val === 0 || val === "0") return false;
+			return Boolean(val);
+		}
+		if (row.value_type === "Expression" || row.value_type === "Variable") {
+			return `{${val}}`;
+		}
+		return val;
+	}
+
+	function sync_config(new_config) {
+		if (!props.node?.data) return;
+
+		let current = props.node.data.config || {};
+		if (typeof current === "string") {
+			try {
+				current = JSON.parse(current);
+			} catch (e) {
+				current = {};
+			}
+		}
+
+		const current_str = JSON.stringify(current || {});
+		const next_str = JSON.stringify(new_config || {});
+
+		if (current_str !== next_str) {
+			props.node.data.config = new_config;
+			store.mark_dirty();
+		}
+	}
+
+	function update_action_field(fieldname, value) {
+		if (!props.node?.data) return;
+		props.node.data[fieldname] = value;
+		store.mark_dirty();
+	}
+
+	watch(
+		() => reference_doctype.value,
+		(val) => load_doctype_fields(val),
+		{ immediate: true }
+	);
+
+	watch(
+		() => props.node?.id,
+		() => refresh_variables(),
+		{ immediate: true }
+	);
+
+	return {
+		store,
+		config,
+		doctype_fields,
+		variable_options,
+		loading,
+		mode,
+		reference_doctype,
+		with_read_only,
+		load_doctype_fields,
+		refresh_variables,
+		parse_value_type,
+		strip_expression,
+		encode_value,
+		sync_config,
+		update_action_field,
+	};
+}

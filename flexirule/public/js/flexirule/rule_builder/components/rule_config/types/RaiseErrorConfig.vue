@@ -1,28 +1,34 @@
 <template>
 	<div class="raise-error-config">
-		<div class="config-section">
+		<div class="config-section section-card">
 			<h5>{{ __("Raise Error Configuration") }}</h5>
-
-			<div class="terminal-warning mb-3">
-				<i class="fa fa-exclamation-triangle"></i>
+			<p class="text-muted small">
 				{{ __("This action will stop rule execution and throw an error.") }}
+			</p>
+		</div>
+
+		<div class="config-section section-card">
+			<div class="terminal-warning mb-4">
+				<i class="fa fa-exclamation-triangle"></i>
+				<span>{{
+					__("Critical: Stops all further processing of the current rule flow.")
+				}}</span>
 			</div>
 
 			<div class="form-group mb-3">
 				<label class="form-label"
 					>{{ __("Error Message Template") }} <span class="text-danger">*</span></label
 				>
-				<CodeControl
-					v-model="errorTemplate"
-					:language="'jinja'"
-					:placeholder="__('Enter error message template')"
-					:rows="4"
+				<ControlFactory
+					:df="with_read_only(errorTemplateField)"
+					:modelValue="props.node?.data?.error_template"
+					@update:modelValue="(val) => update_action_field('error_template', val)"
 				/>
 				<small class="text-muted">
 					{{
 						__("Jinja template for error message. Use {0}, {1}, etc.", [
-							doubleLeft + " doc.name " + doubleRight,
-							doubleLeft + " vars.result " + doubleRight,
+							double_left + " doc.name " + double_right,
+							double_left + " vars.result " + double_right,
 						])
 					}}
 				</small>
@@ -31,24 +37,23 @@
 			<div class="template-helpers">
 				<span class="helper-label">{{ __("Quick Insert:") }}</span>
 				<button
+					v-for="helper in helpers"
+					:key="helper.label"
 					class="btn btn-xs btn-outline-secondary"
-					@click="insertTemplate('{{ doc.name }}')"
+					:disabled="readOnly"
+					@click="insert_template(helper.value)"
 				>
-					doc.name
-				</button>
-				<button
-					class="btn btn-xs btn-outline-secondary"
-					@click="insertTemplate('{{ doc.doctype }}')"
-				>
-					doctype
+					{{ helper.label }}
 				</button>
 			</div>
 
-			<div class="preview-section mt-3" v-if="errorTemplate">
-				<label class="form-label">{{ __("Preview") }}</label>
+			<div class="preview-section mt-4" v-if="props.node?.data?.error_template">
+				<label class="form-label text-muted small uppercase font-weight-bold">{{
+					__("Preview")
+				}}</label>
 				<div class="error-preview">
 					<i class="fa fa-times-circle"></i>
-					<span>{{ previewText }}</span>
+					<span>{{ preview_text }}</span>
 				</div>
 			</div>
 		</div>
@@ -57,36 +62,45 @@
 
 <script setup>
 import { computed } from "vue";
+import { useActionConfig } from "../../../composables/useActionConfig";
+import ControlFactory from "../../../controls/ControlFactory.vue";
 
 const props = defineProps({
 	node: Object,
+	readOnly: Boolean,
 });
 
-// Define variables to avoid parsing issues with {{ }}
-const doubleLeft = String.fromCharCode(123, 123); // {{
-const doubleRight = String.fromCharCode(125, 125); // }}
+const { with_read_only, update_action_field } = useActionConfig(props);
 
-const errorTemplate = computed({
-	get: () => props.node?.data?.error_template || "",
-	set: (val) => {
-		if (props.node?.data) {
-			props.node.data.error_template = val;
-		}
-	},
+const double_left = "{{";
+const double_right = "}}";
+
+const errorTemplateField = {
+	fieldname: "error_template",
+	fieldtype: "Code",
+	label: "",
+	options: "Jinja",
+	rows: 5,
+};
+
+const helpers = [
+	{ label: "doc.name", value: "{{ doc.name }}" },
+	{ label: "doctype", value: "{{ doc.doctype }}" },
+	{ label: "owner", value: "{{ doc.owner }}" },
+];
+
+const preview_text = computed(() => {
+	return props.node?.data?.error_template?.replace(/\{\{[^}]+\}\}/g, "[...]") || "";
 });
 
-const previewText = computed(() => {
-	// Simple preview - just show template with placeholders
-	return errorTemplate.value?.replace(/\{\{[^}]+\}\}/g, "[...]") || "";
-});
-
-function insertTemplate(text) {
-	errorTemplate.value = (errorTemplate.value || "") + text;
+function insert_template(text) {
+	const current = props.node?.data?.error_template || "";
+	update_action_field("error_template", current + text);
 }
 
 function validate() {
 	const errors = [];
-	if (!errorTemplate.value) {
+	if (!props.node?.data?.error_template) {
 		errors.push(__("Error Message Template is required"));
 	}
 	return { valid: errors.length === 0, errors };
@@ -97,40 +111,43 @@ defineExpose({ validate });
 
 <style scoped>
 .raise-error-config {
-	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
-.config-section h5 {
-	margin-bottom: 16px;
-	font-weight: 600;
-	color: var(--heading-color);
+.section-card {
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 16px;
+	background: var(--bg-light, #fff);
 }
 
 .terminal-warning {
-	background: #fef2f2;
-	border: 1px solid #fecaca;
+	background: #fff5f5;
+	border: 1px solid #feb2b2;
 	border-radius: 6px;
 	padding: 12px;
-	color: #dc2626;
+	color: #c53030;
 	display: flex;
 	align-items: center;
 	gap: 10px;
-}
-
-.terminal-warning i {
-	font-size: 16px;
+	font-size: 13px;
+	font-weight: 500;
 }
 
 .form-label {
 	font-weight: 500;
 	margin-bottom: 6px;
 	display: block;
+	font-size: 13px;
 }
 
 .template-helpers {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	margin-top: 12px;
 	flex-wrap: wrap;
 }
 
@@ -139,24 +156,24 @@ defineExpose({ validate });
 	color: var(--text-muted);
 }
 
-.btn-xs {
-	font-size: 11px;
-	padding: 2px 8px;
-}
-
 .error-preview {
-	background: #fef2f2;
-	border: 1px solid #fecaca;
+	background: #fff5f5;
+	border: 1px solid #feb2b2;
 	border-radius: 6px;
 	padding: 12px;
-	color: #b91c1c;
+	color: #c53030;
 	display: flex;
 	align-items: flex-start;
 	gap: 10px;
+	font-size: 13px;
 }
 
 .error-preview i {
-	color: #dc2626;
 	margin-top: 2px;
+}
+
+.uppercase {
+	text-transform: uppercase;
+	letter-spacing: 0.025em;
 }
 </style>

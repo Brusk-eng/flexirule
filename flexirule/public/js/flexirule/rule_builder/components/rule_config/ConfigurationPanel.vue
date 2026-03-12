@@ -10,12 +10,20 @@
 				</div>
 			</div>
 			<div class="panel-sections">
+				<!-- Universal Action Settings (except for Start node) -->
+				<ActionSettings
+					v-if="node.type !== 'start'"
+					:node="node"
+					:readOnly="readOnly"
+					@update:field="on_update_action_field"
+				/>
+
 				<component
 					:is="configComponent"
 					v-if="configComponent"
 					ref="configRef"
 					:node="node"
-					:readOnly="readOnly"
+					:read_only="readOnly"
 				/>
 				<div v-else class="empty-config text-center">
 					<i class="fa fa-sliders fa-3x text-muted mb-3"></i>
@@ -37,6 +45,9 @@
 </template>
 
 <script setup>
+import { computed, ref } from "vue";
+import { useStore } from "../../store";
+import ActionSettings from "./ActionSettings.vue";
 import ProcessConfig from "./types/ProcessConfig.vue";
 import ConditionConfig from "./types/ConditionConfig.vue";
 import LoopConfig from "./types/LoopConfig.vue";
@@ -54,6 +65,8 @@ const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 });
+
+const store = useStore();
 
 const configComponents = {
 	process: ProcessConfig,
@@ -79,6 +92,12 @@ const configComponent = computed(() => {
 });
 
 const configRef = ref(null);
+
+function on_update_action_field({ fieldname, value }) {
+	if (!props.node?.data) return;
+	props.node.data[fieldname] = value;
+	store.mark_dirty();
+}
 
 async function validate() {
 	if (configRef.value && typeof configRef.value.validate === "function") {

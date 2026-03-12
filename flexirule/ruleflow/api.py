@@ -618,7 +618,7 @@ def test_action_query(
 		duration = time.time() - start
 
 		# Detect return fields
-		detected_keys = []
+		schema = []
 
 		# 1. Try to detect from Action Config first (most reliable for Query List)
 		if action.action_type == "Query Records":
@@ -630,27 +630,37 @@ def test_action_query(
 
 				if mode == "Query List":
 					fields = config_data.get("fields") or ["name"]
-					detected_keys = [{"key": f} for f in fields]
+					for f in fields:
+						schema.append({"fieldname": f, "label": f, "fieldtype": "Data"})
 				elif mode == "Query Report" and isinstance(result, dict) and "columns" in result:
 					columns = result.get("columns") or []
-					if columns and isinstance(columns[0], dict):
-						detected_keys = [{"key": c.get("fieldname") or c.get("label")} for c in columns]
-					elif columns and isinstance(columns[0], str):
-						detected_keys = [{"key": c} for c in columns]
+					for c in columns:
+						if isinstance(c, dict):
+							schema.append(
+								{
+									"fieldname": c.get("fieldname") or c.get("label"),
+									"label": c.get("label") or c.get("fieldname"),
+									"fieldtype": c.get("fieldtype") or "Data",
+								}
+							)
+						elif isinstance(c, str):
+							schema.append({"fieldname": c, "label": c, "fieldtype": "Data"})
 			except Exception:
 				pass
 
 		# 2. Fallback to result inspection if still empty
-		if not detected_keys:
+		if not schema:
 			if isinstance(result, dict):
-				detected_keys = [{"key": k} for k in result.keys()]
+				for k in result.keys():
+					schema.append({"fieldname": k, "label": k, "fieldtype": "Data"})
 			elif isinstance(result, list) and result and isinstance(result[0], dict):
-				detected_keys = [{"key": k} for k in result[0].keys()]
+				for k in result[0].keys():
+					schema.append({"fieldname": k, "label": k, "fieldtype": "Data"})
 
 		return {
 			"success": True,
 			"result": result,
-			"detected_keys": detected_keys,
+			"schema": schema,
 			"duration": round(duration, 4),
 		}
 	except Exception as e:
