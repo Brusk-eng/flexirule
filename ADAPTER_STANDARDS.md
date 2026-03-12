@@ -132,7 +132,7 @@ flexirule.processes["ProcessName"] = {
 						fieldtype: "Data",
 						label: __("Field Label"),
 						reqd: 0,
-					}
+					},
 				];
 			},
 
@@ -147,7 +147,7 @@ flexirule.processes["ProcessName"] = {
 						label: __("Output Variable"),
 						value: "output_var",
 						type: "Data",
-					}
+					},
 				];
 			},
 
@@ -202,31 +202,31 @@ flexirule.processes["ProcessName"] = {
 
 The runtime automatically maps these custom field types to Frappe equivalents:
 
-- `DocField` → `Autocomplete` (with document field options)
-- `MultiDocField` → `MultiSelectList` (with document field options)
-- `FlexiAutocomplete` → Enhanced autocomplete with descriptions
+-   `DocField` → `Autocomplete` (with document field options)
+-   `MultiDocField` → `MultiSelectList` (with document field options)
+-   `FlexiAutocomplete` → Enhanced autocomplete with descriptions
 
 ## Context Object
 
 The context object passed to adapter functions contains:
 
-- `doc`: Current configuration object (or row in tables)
-- `row`: Current row object (in table contexts)
-- `parent`: Parent configuration object
-- `config`: Root configuration object
-- `document_type`: Target document type
-- `process_name`: Current process name
-- `operation_name`: Current operation name
-- `vars`: Context variables dictionary
-- `update_field`: Function to update field values: `(fieldname, value) => void`
+-   `doc`: Current configuration object (or row in tables)
+-   `row`: Current row object (in table contexts)
+-   `parent`: Parent configuration object
+-   `config`: Root configuration object
+-   `document_type`: Target document type
+-   `process_name`: Current process name
+-   `operation_name`: Current operation name
+-   `vars`: Context variables dictionary
+-   `update_field`: Function to update field values: `(fieldname, value) => void`
 
 ## Dependency Handling
 
 The runtime supports standard Frappe dependency attributes:
 
-- `depends_on`: Controls field visibility
-- `mandatory_depends_on`: Controls field requirement
-- `read_only_depends_on`: Controls field editability
+-   `depends_on`: Controls field visibility
+-   `mandatory_depends_on`: Controls field requirement
+-   `read_only_depends_on`: Controls field editability
 
 ## Best Practices
 
@@ -250,7 +250,7 @@ The runtime supports standard Frappe dependency attributes:
 
 The runtime provides several utilities at `flexirule.utils`:
 
-- `flexirule.utils.get_doctype_fields(doctype)`: Returns cached fields for any DocType.
-- `flexirule.utils.get_combined_fields(doctype, variables)`: Combines DocType fields with action variables.
-- `flexirule.utils.load_process_adapter(process_name)`: Loads a process adapter dynamically.
-- `flexirule.utils.get_process_adapter(process_name)`: Gets a loaded process adapter instance.
+-   `flexirule.utils.get_doctype_fields(doctype)`: Returns cached fields for any DocType.
+-   `flexirule.utils.get_combined_fields(doctype, variables)`: Combines DocType fields with action variables.
+-   `flexirule.utils.load_process_adapter(process_name)`: Loads a process adapter dynamically.
+-   `flexirule.utils.get_process_adapter(process_name)`: Gets a loaded process adapter instance.

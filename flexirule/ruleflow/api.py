@@ -547,7 +547,10 @@ def amend_rule(rule_name: str) -> str:
 
 @frappe.whitelist()
 def test_action_query(
-	rule_name: str, action_id: str, context_doc: str | dict[str, Any] | None = None
+	rule_name: str,
+	action_id: str,
+	context_doc: str | dict[str, Any] | None = None,
+	overrides: str | dict[str, Any] | None = None,
 ) -> dict[str, Any]:
 	"""
 	Execute a single action in isolation for testing.
@@ -565,6 +568,17 @@ def test_action_query(
 
 	if not action:
 		frappe.throw(_("Action {0} not found in rule {1}").format(action_id, rule_name))
+
+	# Apply overrides if provided (useful for testing UI changes without saving)
+	if overrides:
+		if isinstance(overrides, str):
+			overrides = json.loads(overrides)
+		for key, val in overrides.items():
+			if hasattr(action, key):
+				setattr(action, key, val)
+			# config might be a string in the DB but a dict in overrides
+			elif key == "config" and isinstance(val, dict):
+				action.config = json.dumps(val)
 
 	# Build a minimal context
 	doc = None
@@ -605,18 +619,33 @@ def test_action_query(
 
 		# Detect return fields
 		detected_keys = []
-		if isinstance(result, dict):
-			# Query Report returns {columns, result}
-			if "columns" in result and "result" in result:
-				columns = result.get("columns") or []
-				if columns and isinstance(columns[0], dict):
-					detected_keys = [{"key": c.get("fieldname") or c.get("label")} for c in columns]
-				elif columns and isinstance(columns[0], str):
-					detected_keys = [{"key": c} for c in columns]
-			else:
+
+		# 1. Try to detect from Action Config first (most reliable for Query List)
+		if action.action_type == "Query Records":
+			try:
+				config_data = (
+					json.loads(action.config) if isinstance(action.config, str) else (action.config or {})
+				)
+				mode = action.operation or config_data.get("operation")
+
+				if mode == "Query List":
+					fields = config_data.get("fields") or ["name"]
+					detected_keys = [{"key": f} for f in fields]
+				elif mode == "Query Report" and isinstance(result, dict) and "columns" in result:
+					columns = result.get("columns") or []
+					if columns and isinstance(columns[0], dict):
+						detected_keys = [{"key": c.get("fieldname") or c.get("label")} for c in columns]
+					elif columns and isinstance(columns[0], str):
+						detected_keys = [{"key": c} for c in columns]
+			except Exception:
+				pass
+
+		# 2. Fallback to result inspection if still empty
+		if not detected_keys:
+			if isinstance(result, dict):
 				detected_keys = [{"key": k} for k in result.keys()]
-		elif isinstance(result, list) and result and isinstance(result[0], dict):
-			detected_keys = [{"key": k} for k in result[0].keys()]
+			elif isinstance(result, list) and result and isinstance(result[0], dict):
+				detected_keys = [{"key": k} for k in result[0].keys()]
 
 		return {
 			"success": True,

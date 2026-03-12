@@ -1,78 +1,11 @@
 <template>
-	<div class="input-panel">
+	<div class="input-panel reference-utility">
 		<div class="panel-header">
-			<h4>{{ __("Inputs & Sources") }}</h4>
-			<p class="text-muted small">{{ __("Select the data sources for this action") }}</p>
+			<h4>{{ __("Reference & Variables") }}</h4>
+			<p class="text-muted small">{{ __("Explore available data and action guide") }}</p>
 		</div>
 
 		<div class="panel-sections">
-			<!-- Trigger Source -->
-			<div class="panel-section">
-				<h5 class="section-title">{{ __("Trigger Source") }}</h5>
-				<div class="source-item active">
-					<div class="source-icon">
-						<i class="fa fa-bolt"></i>
-					</div>
-					<div class="source-info">
-						<span class="source-name">{{ __("Main Document") }}</span>
-						<span class="source-meta">{{ node.data?.document_type }}</span>
-					</div>
-					<div class="source-check">
-						<i class="fa fa-check-circle"></i>
-					</div>
-				</div>
-			</div>
-
-			<!-- Input Mapping -->
-			<div class="panel-section">
-				<div class="section-header">
-					<h5 class="section-title">{{ __("Input Mapping") }}</h5>
-					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addMapping">
-						<i class="fa fa-plus"></i> {{ __("Add") }}
-					</button>
-				</div>
-				<div class="mapping-list">
-					<div v-if="!mappings.length" class="empty-state">
-						{{
-							__(
-								"No input mappings. Param names will be auto-matched if they match context variable names."
-							)
-						}}
-					</div>
-					<div v-for="(m, idx) in mappings" :key="idx" class="mapping-row">
-						<div class="mapping-inputs">
-							<AutocompleteControl
-								:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
-								:modelValue="m.source"
-								:get_options="getVariableOptions"
-								:placeholder="__('From Context')"
-								:read_only="readOnly"
-								@update:modelValue="
-									m.source = $event;
-									saveMappings();
-								"
-							/>
-							<i class="fa fa-arrow-right text-muted mx-1"></i>
-							<input
-								type="text"
-								class="form-control input-xs"
-								v-model="m.target"
-								:placeholder="__('To Param')"
-								:disabled="readOnly"
-								@change="saveMappings"
-							/>
-						</div>
-						<button
-							v-if="!readOnly"
-							class="btn btn-xs btn-link text-danger"
-							@click="removeMapping(idx)"
-						>
-							<i class="fa fa-trash"></i>
-						</button>
-					</div>
-				</div>
-			</div>
-
 			<!-- Available Variables -->
 			<div class="panel-section">
 				<div class="section-header">
@@ -95,9 +28,9 @@
 					</div>
 				</div>
 
-				<div class="variable-list">
+				<div class="variable-list v2-scrollbar">
 					<div v-if="loading" class="text-center p-3">
-						<div class="spinner-border spinner-border-sm text-muted text-center"></div>
+						<div class="spinner-border spinner-border-sm text-muted"></div>
 					</div>
 					<template v-else>
 						<div
@@ -121,12 +54,36 @@
 					</template>
 				</div>
 			</div>
+
+			<!-- Divider -->
+			<div class="section-divider"></div>
+
+			<!-- Configuration Guide (Integrated from V2PreviewPanel) -->
+			<div class="panel-section guide-section">
+				<h5 class="section-title">{{ __("Configuration Guide") }}</h5>
+				<div v-if="contract" class="guide-content p-3 mt-1">
+					<div class="d-flex align-items-center mb-3">
+						<div class="guide-icon-small" :style="{ background: contract.color }">
+							<i :class="contract.icon"></i>
+						</div>
+						<h6 class="mb-0 ml-2">{{ node.data?.action_type || node.type }}</h6>
+					</div>
+					<p class="guide-text-small">{{ contract.description }}</p>
+
+					<div v-if="operationDescription" class="operation-insight mt-3">
+						<label class="insight-label">{{ __("Operation Insight") }}</label>
+						<p class="insight-text italic">{{ operationDescription }}</p>
+					</div>
+				</div>
+			</div>
 		</div>
 	</div>
 </template>
 
 <script setup>
+import { ref, computed, watch, onMounted } from "vue";
 import { useStore } from "../../store";
+import { getContract } from "../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
@@ -136,8 +93,13 @@ const props = defineProps({
 const store = useStore();
 const variables = ref([]);
 const loading = ref(false);
-const mappings = ref([]);
 const searchQuery = ref("");
+const operationDescription = ref("");
+
+const contract = computed(() => {
+	const type = props.node?.data?.action_type || props.node?.type;
+	return type ? getContract(type) : null;
+});
 
 const filteredVariables = computed(() => {
 	if (!searchQuery.value) return variables.value;
@@ -149,34 +111,12 @@ const filteredVariables = computed(() => {
 
 function onDragStart(event, variable) {
 	if (event.dataTransfer) {
-		// Provide both structured data and fallback text
 		const text = `{{ ${variable.value} }}`;
 		event.dataTransfer.setData("text/plain", text);
 		event.dataTransfer.setData("application/x-flexirule-variable", variable.value);
 		event.dataTransfer.effectAllowed = "copy";
 	}
 }
-
-// Parse mappings from JSON
-watch(
-	() => props.node.data?.input_mapping,
-	(val) => {
-		if (val) {
-			try {
-				const obj = typeof val === "string" ? JSON.parse(val) : val;
-				mappings.value = Object.entries(obj).map(([source, target]) => ({
-					source,
-					target,
-				}));
-			} catch (e) {
-				mappings.value = [];
-			}
-		} else {
-			mappings.value = [];
-		}
-	},
-	{ immediate: true }
-);
 
 async function refreshVariables() {
 	if (!props.node?.id) return;
@@ -190,41 +130,31 @@ async function refreshVariables() {
 	}
 }
 
-function updateField(fieldname, value) {
-	if (props.node.data) {
-		props.node.data[fieldname] = value;
-		store.mark_dirty();
+async function loadOperationDetails() {
+	const processName = props.node?.data?.process_name;
+	const opName = props.node?.data?.operation;
+	if (processName && opName) {
+		try {
+			const ops = await store.get_process_operations(processName);
+			const op = ops.find((o) => o.func_name === opName);
+			operationDescription.value = op?.description || "";
+		} catch (e) {
+			operationDescription.value = "";
+		}
+	} else {
+		operationDescription.value = "";
 	}
 }
 
-function addMapping() {
-	mappings.value.push({ source: "", target: "" });
-}
-
-function removeMapping(idx) {
-	mappings.value.splice(idx, 1);
-	saveMappings();
-}
-
-function saveMappings() {
-	const obj = {};
-	mappings.value.forEach((m) => {
-		if (m.source && m.target) {
-			obj[m.source] = m.target;
-		}
-	});
-	updateField("input_mapping", obj);
-}
-
-function getVariableOptions() {
-	return variables.value.map((v) => ({ label: v.label, value: v.value }));
-}
+watch(
+	() => [props.node?.data?.process_name, props.node?.data?.operation],
+	() => loadOperationDetails(),
+	{ immediate: true }
+);
 
 watch(
 	() => props.node?.id,
-	() => {
-		refreshVariables();
-	},
+	() => refreshVariables(),
 	{ immediate: true }
 );
 
@@ -232,21 +162,9 @@ onMounted(() => {
 	refreshVariables();
 });
 
-function validate() {
-	const errors = [];
-	mappings.value.forEach((m, idx) => {
-		if ((m.source && !m.target) || (!m.source && m.target)) {
-			errors.push(__("Input Mapping #{0} is incomplete", [idx + 1]));
-		}
-	});
-
-	if (errors.length) {
-		return { valid: false, errors };
-	}
-	return { valid: true };
-}
-
-defineExpose({ validate });
+defineExpose({
+	validate: () => ({ valid: true }),
+});
 </script>
 
 <style scoped>
@@ -254,11 +172,13 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	background: #f8fafc;
 }
 
 .panel-header {
 	padding: 20px;
 	border-bottom: 1px solid var(--border-color);
+	background: #fff;
 }
 
 .panel-header h4 {
@@ -282,175 +202,120 @@ defineExpose({ validate });
 	gap: 12px;
 }
 
-.section-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-}
-
 .section-title {
 	margin: 0;
 	font-size: 11px;
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	color: var(--text-muted);
+	color: #64748b;
 }
 
-.source-item {
-	display: flex;
-	align-items: center;
-	padding: 12px;
-	border: 1px solid var(--border-color);
-	border-radius: 8px;
-	background: #fff;
-	gap: 12px;
-}
-
-.source-item.active {
-	border-color: var(--primary);
-	background: var(--blue-50, #f0f7ff);
-}
-
-.source-icon {
-	width: 32px;
-	height: 32px;
-	border-radius: 6px;
-	background: var(--primary);
-	color: #fff;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 14px;
-}
-
-.source-info {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-}
-
-.source-name {
-	font-size: 13px;
-	font-weight: 600;
-}
-
-.source-meta {
-	font-size: 11px;
-	color: var(--text-muted);
-}
-
-.source-check {
-	color: var(--primary);
-	font-size: 16px;
+.section-divider {
+	height: 1px;
+	background: #e2e8f0;
+	margin: 4px 0;
 }
 
 .variable-list {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
-	max-height: 200px;
+	max-height: 350px;
 	overflow-y: auto;
+	padding-right: 4px;
 }
 
 .variable-item {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 6px 10px;
-	background: #fcfcfc;
-	border: 1px solid var(--border-color);
-	border-radius: 6px;
+	padding: 8px 12px;
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
 	font-size: 11px;
 	cursor: grab;
+	transition: all 0.2s;
 }
 
-.variable-item:active {
-	cursor: grabbing;
+.variable-item:hover {
+	border-color: var(--primary);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	transform: translateX(2px);
 }
 
 .variable-label {
-	font-weight: 500;
-	color: var(--text-color);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	flex: 1;
+	font-weight: 600;
+	color: #1e293b;
 }
 
 .variable-type {
 	font-size: 9px;
-	padding: 1px 4px;
-	background: var(--gray-100);
-	border-radius: 3px;
-	color: var(--text-muted);
-	margin-left: 8px;
+	padding: 2px 6px;
+	background: #f1f5f9;
+	border-radius: 4px;
+	color: #64748b;
 }
 
-.variable-search :deep(.input-group-text) {
-	background: transparent;
-	border-right: none;
-	color: var(--text-muted);
-}
-
-.variable-search :deep(.form-control) {
-	border-left: none;
-	padding-left: 0;
-}
-
-.variable-search :deep(.form-control:focus) {
-	box-shadow: none;
-	border-color: var(--border-color);
-}
-
-.mapping-list {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.mapping-row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.mapping-inputs {
-	flex: 1;
-	display: flex;
-	align-items: center;
-	padding: 4px 8px;
-	border: 1px solid var(--border-color);
-	border-radius: 6px;
+.guide-content {
 	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
 }
 
-.mapping-inputs :deep(.autocomplete-control),
-.mapping-inputs input {
-	border: none;
-	background: transparent;
-	font-size: 12px;
-	padding: 0;
+.guide-icon-small {
+	width: 24px;
 	height: 24px;
+	border-radius: 6px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	font-size: 12px;
 }
 
-.mapping-inputs :deep(.autocomplete-control) {
-	flex: 1;
+.guide-text-small {
+	font-size: 12px;
+	line-height: 1.5;
+	color: #475569;
+	margin: 0;
+}
+
+.insight-label {
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--primary);
+	text-transform: uppercase;
+	display: block;
+	margin-bottom: 4px;
+}
+
+.insight-text {
+	font-size: 11px;
+	color: #64748b;
+	background: #f0f9ff;
+	padding: 8px;
+	border-radius: 8px;
+	border-left: 3px solid var(--primary);
+	margin: 0;
+}
+
+.v2-scrollbar::-webkit-scrollbar {
+	width: 4px;
+}
+.v2-scrollbar::-webkit-scrollbar-thumb {
+	background: #cbd5e1;
+	border-radius: 10px;
 }
 
 .empty-state {
-	padding: 16px;
+	padding: 20px;
 	text-align: center;
-	color: var(--text-muted);
+	color: #94a3b8;
 	font-size: 11px;
-	background: var(--gray-50);
-	border: 1px dashed var(--border-color);
+	background: #f8fafc;
+	border: 1px dashed #e2e8f0;
 	border-radius: 8px;
-}
-
-.input-xs {
-	height: 24px !important;
-	padding: 0 4px !important;
-	font-size: 11px !important;
 }
 </style>

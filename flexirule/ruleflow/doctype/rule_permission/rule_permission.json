@@ -1,62 +1,56 @@
 {
- "actions": [],
- "creation": "2026-03-11 00:00:00",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "role",
-  "can_execute",
-  "can_edit",
-  "can_view",
-  "can_disable"
- ],
- "fields": [
-  {
-   "fieldname": "role",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Role",
-   "options": "Role",
-   "reqd": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "can_execute",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Can Execute"
-  },
-  {
-   "default": "0",
-   "fieldname": "can_edit",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Can Edit"
-  },
-  {
-   "default": "0",
-   "fieldname": "can_view",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Can View"
-  },
-  {
-   "default": "0",
-   "fieldname": "can_disable",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "Can Disable"
-  }
- ],
- "istable": 1,
- "links": [],
- "modified": "2026-03-11 00:00:00",
- "modified_by": "Administrator",
- "module": "Ruleflow",
- "name": "Rule Permission",
- "owner": "Administrator",
- "permissions": [],
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+	"actions": [],
+	"creation": "2026-03-11 00:00:00",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": ["role", "can_execute", "can_edit", "can_view", "can_disable"],
+	"fields": [
+		{
+			"fieldname": "role",
+			"fieldtype": "Link",
+			"in_list_view": 1,
+			"label": "Role",
+			"options": "Role",
+			"reqd": 1
+		},
+		{
+			"default": "0",
+			"fieldname": "can_execute",
+			"fieldtype": "Check",
+			"in_list_view": 1,
+			"label": "Can Execute"
+		},
+		{
+			"default": "0",
+			"fieldname": "can_edit",
+			"fieldtype": "Check",
+			"in_list_view": 1,
+			"label": "Can Edit"
+		},
+		{
+			"default": "0",
+			"fieldname": "can_view",
+			"fieldtype": "Check",
+			"in_list_view": 1,
+			"label": "Can View"
+		},
+		{
+			"default": "0",
+			"fieldname": "can_disable",
+			"fieldtype": "Check",
+			"in_list_view": 1,
+			"label": "Can Disable"
+		}
+	],
+	"istable": 1,
+	"links": [],
+	"modified": "2026-03-11 00:00:00",
+	"modified_by": "Administrator",
+	"module": "Ruleflow",
+	"name": "Rule Permission",
+	"owner": "Administrator",
+	"permissions": [],
+	"sort_field": "modified",
+	"sort_order": "DESC",
+	"states": []
 }
