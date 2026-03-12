@@ -133,6 +133,13 @@
 			"label": "Transactional"
 		},
 		{
+			"default": "0",
+			"description": "Mark if operation has destructive or external side effects",
+			"fieldname": "has_side_effect",
+			"fieldtype": "Check",
+			"label": "Has Side Effects"
+		},
+		{
 			"collapsible": 1,
 			"fieldname": "section_break_targeting",
 			"fieldtype": "Section Break",

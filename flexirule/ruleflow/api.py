@@ -13,6 +13,19 @@ from frappe import _
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
 
+
+def _require_api_access():
+	"""Check if user has permission to use sensitive API endpoints"""
+	if frappe.session.user == "Administrator":
+		return
+
+	roles = frappe.get_roles(frappe.session.user)
+	if "System Manager" not in roles and "Rule Builder" not in roles:
+		frappe.throw(
+			_("Not permitted. Requires 'System Manager' or 'Rule Builder' role."), frappe.PermissionError
+		)
+
+
 # Layout fieldtypes to exclude by default
 LAYOUT_FIELDTYPES = [
 	"Tab Break",
@@ -60,7 +73,7 @@ SYSTEM_FIELDS = [
 
 
 @frappe.whitelist()
-def get_doctype_fields(doctype, filters=None):
+def get_doctype_fields(doctype: str, filters: str | dict | None = None):
 	"""
 	Get fields for DocField autocomplete - grouped by parent/child tables
 
@@ -186,6 +199,7 @@ def test_rule(
 	Test a rule against a document.
 	Supports either an existing document (by docname) or a transient document (by document_json).
 	"""
+	_require_api_access()
 
 	rule = frappe.get_doc("Rule", rule_name)
 
@@ -267,10 +281,12 @@ def test_rule(
 
 
 @frappe.whitelist()
-def execute_rule(rule_name, context=None, dry_run=True):
+def execute_rule(rule_name: str, context: str | dict | None = None, dry_run: bool | str = True):
 	"""
 	Pure execution API for a rule.
 	"""
+	_require_api_access()
+
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 	if isinstance(context, str):
@@ -297,8 +313,9 @@ def execute_rule(rule_name, context=None, dry_run=True):
 
 
 @frappe.whitelist()
-def clear_cache(doctype=None):
+def clear_cache(doctype: str | None = None):
 	"""Clear rule cache"""
+	_require_api_access()
 	try:
 		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
@@ -321,7 +338,9 @@ def get_operator_config():
 
 
 @frappe.whitelist()
-def get_schema_field_options(schema_field, parent_doctype, current_values=None):
+def get_schema_field_options(
+	schema_field: str | dict, parent_doctype: str, current_values: str | dict | None = None
+):
 	"""
 	Get options for a schema field dynamically
 	Used for dependent DocField sources
@@ -349,8 +368,9 @@ def get_schema_field_options(schema_field, parent_doctype, current_values=None):
 
 
 @frappe.whitelist()
-def get_rule_versions(rule_name, limit=20):
+def get_rule_versions(rule_name: str, limit: int | str = 20):
 	"""Get version history for a rule"""
+	_require_api_access()
 	from flexirule.ruleflow.doctype.rule.rule_version_hooks import (
 		get_rule_versions as _get_versions,
 	)
@@ -359,8 +379,9 @@ def get_rule_versions(rule_name, limit=20):
 
 
 @frappe.whitelist()
-def restore_rule_version(rule_name, version_name):
+def restore_rule_version(rule_name: str, version_name: str):
 	"""Restore a rule to a previous version"""
+	_require_api_access()
 	from flexirule.ruleflow.doctype.rule.rule_version_hooks import (
 		restore_rule_version as _restore,
 	)
@@ -369,16 +390,18 @@ def restore_rule_version(rule_name, version_name):
 
 
 @frappe.whitelist()
-def export_rule(rule_name):
+def export_rule(rule_name: str):
 	"""Export a rule to JSON"""
+	_require_api_access()
 	from flexirule.ruleflow.utils.import_export import export_rule as _export
 
 	return _export(rule_name)
 
 
 @frappe.whitelist()
-def import_rule(import_data, overwrite=False):
+def import_rule(import_data: str | dict, overwrite: bool | str = False):
 	"""Import a rule from JSON"""
+	_require_api_access()
 	from flexirule.ruleflow.utils.import_export import import_rule as _import
 
 	overwrite = frappe.parse_json(overwrite) if isinstance(overwrite, str) else overwrite
@@ -386,7 +409,7 @@ def import_rule(import_data, overwrite=False):
 
 
 @frappe.whitelist()
-def get_action_context_schema(rule_name, action_id):
+def get_action_context_schema(rule_name: str, action_id: str):
 	"""
 	Get available context variables for a specific action in rule flow.
 	Used by UI to enable context-aware field selection.
@@ -452,7 +475,7 @@ def get_action_context_schema(rule_name, action_id):
 
 
 @frappe.whitelist()
-def get_process_operations(process_name):
+def get_process_operations(process_name: str):
 	"""
 	Get enabled operations for a specific process.
 	"""
@@ -470,11 +493,12 @@ def get_process_operations(process_name):
 
 
 @frappe.whitelist()
-def clone_rule(rule_name, new_name=None):
+def clone_rule(rule_name: str, new_name: str | None = None):
 	"""
 	Clone a rule to create a new version or copy.
 	Resets status to Draft (inactive) and clears execution stats.
 	"""
+	_require_api_access()
 	try:
 		doc = frappe.get_doc("Rule", rule_name)
 
@@ -515,6 +539,7 @@ def amend_rule(rule_name: str) -> str:
 	Returns:
 	    Name of the new amended rule.
 	"""
+	_require_api_access()
 	from flexirule.ruleflow.core.rule_service import amend_rule as _amend_rule
 
 	return _amend_rule(rule_name)
@@ -522,12 +547,16 @@ def amend_rule(rule_name: str) -> str:
 
 @frappe.whitelist()
 def test_action_query(
-	rule_name: str, action_id: str, context_doc: str | dict[str, Any] | None = None
+	rule_name: str,
+	action_id: str,
+	context_doc: str | dict[str, Any] | None = None,
+	overrides: str | dict[str, Any] | None = None,
 ) -> dict[str, Any]:
 	"""
 	Execute a single action in isolation for testing.
 	Returns detected return fields for auto-populating returns_keys.
 	"""
+	_require_api_access()
 	rule = frappe.get_doc("Rule", rule_name)
 
 	# Find the action
@@ -539,6 +568,17 @@ def test_action_query(
 
 	if not action:
 		frappe.throw(_("Action {0} not found in rule {1}").format(action_id, rule_name))
+
+	# Apply overrides if provided (useful for testing UI changes without saving)
+	if overrides:
+		if isinstance(overrides, str):
+			overrides = json.loads(overrides)
+		for key, val in overrides.items():
+			if hasattr(action, key):
+				setattr(action, key, val)
+			# config might be a string in the DB but a dict in overrides
+			elif key == "config" and isinstance(val, dict):
+				action.config = json.dumps(val)
 
 	# Build a minimal context
 	doc = None
@@ -579,18 +619,33 @@ def test_action_query(
 
 		# Detect return fields
 		detected_keys = []
-		if isinstance(result, dict):
-			# Query Report returns {columns, result}
-			if "columns" in result and "result" in result:
-				columns = result.get("columns") or []
-				if columns and isinstance(columns[0], dict):
-					detected_keys = [{"key": c.get("fieldname") or c.get("label")} for c in columns]
-				elif columns and isinstance(columns[0], str):
-					detected_keys = [{"key": c} for c in columns]
-			else:
+
+		# 1. Try to detect from Action Config first (most reliable for Query List)
+		if action.action_type == "Query Records":
+			try:
+				config_data = (
+					json.loads(action.config) if isinstance(action.config, str) else (action.config or {})
+				)
+				mode = action.operation or config_data.get("operation")
+
+				if mode == "Query List":
+					fields = config_data.get("fields") or ["name"]
+					detected_keys = [{"key": f} for f in fields]
+				elif mode == "Query Report" and isinstance(result, dict) and "columns" in result:
+					columns = result.get("columns") or []
+					if columns and isinstance(columns[0], dict):
+						detected_keys = [{"key": c.get("fieldname") or c.get("label")} for c in columns]
+					elif columns and isinstance(columns[0], str):
+						detected_keys = [{"key": c} for c in columns]
+			except Exception:
+				pass
+
+		# 2. Fallback to result inspection if still empty
+		if not detected_keys:
+			if isinstance(result, dict):
 				detected_keys = [{"key": k} for k in result.keys()]
-		elif isinstance(result, list) and result and isinstance(result[0], dict):
-			detected_keys = [{"key": k} for k in result[0].keys()]
+			elif isinstance(result, list) and result and isinstance(result[0], dict):
+				detected_keys = [{"key": k} for k in result[0].keys()]
 
 		return {
 			"success": True,

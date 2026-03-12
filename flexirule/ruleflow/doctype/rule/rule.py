@@ -134,7 +134,7 @@ class Rule(Document):
 		if not self.is_active:
 			return
 
-		# 1. Enforce Reachability (No orphans)
+		# 1. Enforce Reachability (No orphans) and No cycles
 		from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
 
 		validate_graph_integrity(self)

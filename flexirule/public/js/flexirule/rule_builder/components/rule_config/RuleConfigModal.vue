@@ -5,10 +5,17 @@
 				<div class="config-modal-container">
 					<header class="config-modal-header">
 						<div class="header-left">
-							<div class="header-icon mr-2" v-if="draftNode">
-								<i :class="draftNode.data?.icon || getIcon(draftNode.type)"></i>
+							<div class="header-icon" v-if="draftNode">
+								<i
+									:class="getIcon(draftNode.data?.action_type || draftNode.type)"
+								></i>
 							</div>
-							<h3>{{ title }}</h3>
+							<div class="header-title-container">
+								<h3>{{ title }}</h3>
+								<span v-if="draftNode?.data?.action_type" class="type-badge">
+									{{ draftNode.data.action_type }}
+								</span>
+							</div>
 						</div>
 
 						<!-- Centered Navigation -->
@@ -18,6 +25,7 @@
 									class="nav-btn"
 									@click="store.prev_config_node()"
 									:title="__('Previous Node')"
+									:disabled="currentNodeIndex <= 0"
 								>
 									<i class="fa fa-chevron-left"></i>
 								</button>
@@ -28,6 +36,7 @@
 									class="nav-btn"
 									@click="store.next_config_node()"
 									:title="__('Next Node')"
+									:disabled="currentNodeIndex >= totalNodes - 1"
 								>
 									<i class="fa fa-chevron-right"></i>
 								</button>
@@ -35,14 +44,16 @@
 						</div>
 
 						<div class="header-right">
-							<button class="btn-close-modal" @click="cancel">×</button>
+							<button class="btn-close-modal" @click="cancel">
+								<i class="fa fa-times"></i>
+							</button>
 						</div>
 					</header>
 
 					<main class="config-modal-body">
-						<!-- Content based on Mode -->
+						<!-- Logic Mode (Conditions) -->
 						<template v-if="store.config_modal_mode === 'logic'">
-							<div class="conditions-view p-4">
+							<div class="conditions-view">
 								<ConditionStep
 									:node="draftNode"
 									:read-only="store.is_read_only"
@@ -51,9 +62,10 @@
 							</div>
 						</template>
 
+						<!-- Standard Action Setup -->
 						<template v-else>
-							<!-- Start Node Setup -->
-							<div v-if="draftNode?.type === 'start'" class="start-node-setup p-5">
+							<!-- Start Node Setup (Full width) -->
+							<div v-if="draftNode?.type === 'start'" class="start-node-setup">
 								<div class="setup-container">
 									<header class="section-header mb-4">
 										<h4>{{ __("Trigger Configuration") }}</h4>
@@ -72,10 +84,13 @@
 								</div>
 							</div>
 
-							<!-- Standard Action Setup -->
+							<!-- Multi-panel Action Setup -->
 							<ResizablePanel v-else-if="draftNode">
-								<!-- Left Panel: Input Selection -->
-								<div class="resizable-panel left-panel" v-if="showLeftPanel">
+								<!-- Left Panel: Reference & Variables -->
+								<div
+									class="resizable-panel left-panel reference-panel"
+									v-if="showLeftPanel"
+								>
 									<InputPanel
 										:node="draftNode"
 										:readOnly="store.is_read_only"
@@ -85,8 +100,8 @@
 
 								<div class="panel-resizer" v-if="showLeftPanel"></div>
 
-								<!-- Middle Panel: Dynamic Configuration -->
-								<div class="resizable-panel middle-panel">
+								<!-- Middle Panel: Core Configuration -->
+								<div class="resizable-panel middle-panel config-panel">
 									<ConfigurationPanel
 										:node="draftNode"
 										:readOnly="store.is_read_only"
@@ -96,8 +111,11 @@
 
 								<div class="panel-resizer" v-if="showRightPanel"></div>
 
-								<!-- Right Panel: Output/Mapping -->
-								<div class="resizable-panel right-panel" v-if="showRightPanel">
+								<!-- Right Panel: Data IO (Mappings) -->
+								<div
+									class="resizable-panel right-panel io-panel"
+									v-if="showRightPanel"
+								>
 									<OutputPanel
 										:node="draftNode"
 										:readOnly="store.is_read_only"
@@ -110,18 +128,21 @@
 
 					<footer class="config-modal-footer">
 						<div class="footer-left">
-							<!-- Optional: Status info or reset -->
+							<div v-if="store.is_dirty" class="dirty-indicator">
+								<i class="fa fa-circle mr-1"></i>
+								{{ __("Unsaved Changes") }}
+							</div>
 						</div>
 						<div class="footer-right">
-							<button class="btn btn-default" @click="cancel">
+							<button class="btn btn-default btn-sm" @click="cancel">
 								{{ store.is_read_only ? __("Close") : __("Cancel") }}
 							</button>
 							<button
 								v-if="!store.is_read_only"
-								class="btn btn-primary ml-2"
+								class="btn btn-primary btn-sm ml-2"
 								@click="save"
 							>
-								{{ __("Save Changes") }}
+								{{ __("Save Action") }}
 							</button>
 						</div>
 					</footer>
@@ -132,6 +153,7 @@
 </template>
 
 <script setup>
+import { computed } from "vue";
 import ResizablePanel from "./ResizablePanel.vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
@@ -175,29 +197,45 @@ function getIcon(type) {
 		process: "fa fa-cog",
 		condition: "fa fa-code-fork",
 		loop: "fa fa-refresh",
-		switch: "fa fa-code-fork rotate-90",
+		switch: "fa fa-random",
 		"sub-rule": "fa fa-cube",
 		wait: "fa fa-clock-o",
 		start: "fa fa-play",
 		stop: "fa fa-stop",
-		query: "fa fa-search",
-		aggregate: "fa fa-calculator",
-		createdoc: "fa fa-plus-circle",
+		"query records": "fa fa-search",
+		"aggregate records": "fa fa-calculator",
+		"create docs": "fa fa-plus-circle",
+		"set value": "fa fa-edit",
+		"raise error": "fa fa-exclamation-triangle",
+		notify: "fa fa-bell",
 	};
 	return icons[type.toLowerCase()] || "fa fa-circle";
 }
 
-// -- Dynamic Layout Logic --
+// -- Optimized Layout Logic (Maintaining 3-panel support) --
 const layoutConfig = computed(() => {
 	const type = actionType.value;
-	let config = { input: false, config: true, output: false };
+	// By default, show Ref panel and Config panel.
+	let config = { input: true, config: true, output: false };
 
-	if (type === "process") {
-		config = { input: true, config: true, output: true };
-	} else if (["condition", "set value", "raise error", "notify"].includes(type)) {
-		config = { input: true, config: true, output: false };
-	} else if (["query records", "aggregate records", "create docs"].includes(type)) {
-		config = { input: true, config: true, output: true };
+	const complexActions = [
+		"process",
+		"query records",
+		"aggregate records",
+		"create docs",
+		"set value",
+		"notify",
+		"raise error",
+	];
+
+	if (complexActions.includes(type)) {
+		config.output = true;
+	}
+
+	// Structural nodes might only need config
+	if (["loop", "switch", "wait", "sub-rule"].includes(type)) {
+		config.input = true; // Still show Reference panel
+		config.output = false;
 	}
 
 	return config;
@@ -208,85 +246,13 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 </script>
 
 <style scoped>
-/* ... (Existing styles kept) ... */
-
-/* Navigation */
-.modal-navigation {
-	display: flex;
-	align-items: center;
-	background: #f1f5f9;
-	padding: 4px;
-	border-radius: 8px;
-	gap: 8px;
-}
-
-.nav-btn {
-	width: 28px;
-	height: 28px;
-	border-radius: 6px;
-	border: none;
-	background: transparent;
-	color: #64748b;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	transition: all 0.2s;
-}
-
-.nav-btn:hover {
-	background: #fff;
-	color: var(--primary);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.nav-status {
-	font-size: 11px;
-	font-weight: 700;
-	color: #64748b;
-	min-width: 40px;
-	text-align: center;
-}
-
-.conditions-view {
-	height: 100%;
-	overflow-y: auto;
-	background: #f8fafc;
-}
-
-.start-node-setup {
-	height: 100%;
-	overflow-y: auto;
-	background: #f8fafc;
-	display: flex;
-	justify-content: center;
-}
-
-.setup-container {
-	width: 100%;
-	max-width: 600px;
-	background: #fff;
-	padding: 32px;
-	border-radius: 12px;
-	border: 1px solid var(--border-color);
-	height: fit-content;
-	margin: 20px;
-}
-
-.section-header h4 {
-	font-weight: 700;
-	margin-bottom: 4px;
-}
-</style>
-
-<style scoped>
 .config-modal-overlay {
 	position: fixed;
 	top: 0;
 	left: 0;
 	width: 100vw;
 	height: 100vh;
-	background: rgba(var(--gray-900-rgb, 0, 0, 0), 0.6);
+	background: rgba(15, 23, 42, 0.6);
 	backdrop-filter: blur(8px);
 	z-index: 2000;
 	display: flex;
@@ -300,21 +266,62 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 	width: 100%;
 	height: 100%;
 	max-width: 1600px;
-	border-radius: 12px;
-	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+	border-radius: 16px;
+	box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	border: 1px solid #e2e8f0;
 }
 
 .config-modal-header {
-	height: 64px;
+	height: 72px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 24px;
-	border-bottom: 1px solid var(--border-color);
+	border-bottom: 1px solid #e2e8f0;
 	background: #fcfcfc;
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	flex: 1;
+}
+
+.header-icon {
+	width: 40px;
+	height: 40px;
+	background: #f1f5f9;
+	border-radius: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--primary);
+	font-size: 18px;
+	border: 1px solid #e2e8f0;
+}
+
+.header-title-container {
+	display: flex;
+	flex-direction: column;
+}
+
+.header-left h3 {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 700;
+	color: #0f172a;
+}
+
+.type-badge {
+	font-size: 10px;
+	font-weight: 600;
+	color: #64748b;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
 }
 
 .header-center {
@@ -324,164 +331,163 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 }
 
 .header-right {
+	flex: 1;
+	display: flex;
+	justify-content: flex-end;
+}
+
+/* Navigation */
+.modal-navigation {
 	display: flex;
 	align-items: center;
+	background: #f1f5f9;
+	padding: 4px;
+	border-radius: 10px;
+	gap: 8px;
+	border: 1px solid #e2e8f0;
 }
 
-.header-left {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-}
-
-.header-left h3 {
-	margin: 0;
-	font-size: 18px;
-	font-weight: 600;
-	color: var(--text-color);
-}
-
-.v2-badge {
-	font-size: 10px;
-	font-weight: 700;
-	padding: 3px 6px;
-	border-radius: 4px;
-	background: var(--primary);
-	color: #fff;
-}
-
-.v2-toggle {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-}
-
-.v2-toggle-label {
-	font-size: 11px;
-	font-weight: 600;
-	color: var(--text-muted);
-}
-
-.switch-v2 {
-	position: relative;
-	display: inline-block;
+.nav-btn {
 	width: 32px;
-	height: 18px;
-}
-
-.switch-v2 input {
-	opacity: 0;
-	width: 0;
-	height: 0;
-}
-
-.slider-v2 {
-	position: absolute;
+	height: 32px;
+	border-radius: 8px;
+	border: none;
+	background: transparent;
+	color: #64748b;
 	cursor: pointer;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background-color: #ccc;
-	transition: 0.4s;
-	border-radius: 34px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s;
 }
 
-.slider-v2:before {
-	position: absolute;
-	content: "";
-	height: 14px;
-	width: 14px;
-	left: 2px;
-	bottom: 2px;
-	background-color: #fff;
-	transition: 0.4s;
-	border-radius: 50%;
+.nav-btn:hover:not(:disabled) {
+	background: #fff;
+	color: var(--primary);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-input:checked + .slider-v2 {
-	background-color: var(--primary);
+.nav-btn:disabled {
+	opacity: 0.3;
+	cursor: default;
 }
 
-input:checked + .slider-v2:before {
-	transform: translateX(14px);
+.nav-status {
+	font-size: 11px;
+	font-weight: 800;
+	color: #475569;
+	min-width: 50px;
+	text-align: center;
+}
+
+.btn-close-modal {
+	background: #f1f5f9;
+	border: none;
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	font-size: 14px;
+	color: #64748b;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s;
+}
+
+.btn-close-modal:hover {
+	background: #fee2e2;
+	color: #ef4444;
 }
 
 .config-modal-body {
 	flex: 1;
 	overflow: hidden;
+	background: #fff;
 }
 
-/* Panel Layouts */
-.resizable-panel {
+.conditions-view {
 	height: 100%;
 	overflow-y: auto;
+	background: #f8fafc;
+	padding: 24px;
+}
+
+.start-node-setup {
+	height: 100%;
+	overflow-y: auto;
+	background: #f8fafc;
+	display: flex;
+	justify-content: center;
+	padding: 40px 20px;
+}
+
+.setup-container {
+	width: 100%;
+	max-width: 700px;
 	background: #fff;
-	transition: all 0.3s ease;
+	padding: 40px;
+	border-radius: 16px;
+	border: 1px solid #e2e8f0;
+	height: fit-content;
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .config-modal-footer {
-	height: 60px;
-	border-top: 1px solid var(--border-color);
-	background: #fff;
+	height: 72px;
+	border-top: 1px solid #e2e8f0;
+	background: #fcfcfc;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 24px;
 }
 
-.footer-right {
+.dirty-indicator {
+	font-size: 11px;
+	font-weight: 600;
+	color: #f59e0b;
 	display: flex;
 	align-items: center;
 }
 
-/* Default 2-panel or 3-panel logic handled via flex */
+.dirty-indicator i {
+	font-size: 8px;
+}
+
+/* Panel Layouts */
+.resizable-panel {
+	height: 100%;
+	overflow-y: auto;
+}
+
 .left-panel {
-	flex: 0 0 20%;
-	min-width: 250px;
-	border-right: 1px solid var(--border-color);
-	background: #fcfcfc;
+	flex: 0 0 22%;
+	min-width: 280px;
+	border-right: 1px solid #e2e8f0;
 }
 
 .middle-panel {
 	flex: 1;
-	min-width: 400px;
+	min-width: 450px;
 }
 
 .right-panel {
-	flex: 0 0 20%;
-	min-width: 250px;
-	border-left: 1px solid var(--border-color);
-	background: #fcfcfc;
+	flex: 0 0 25%;
+	min-width: 320px;
+	border-left: 1px solid #e2e8f0;
 }
 
-/* Adjustments if Right Panel is HIDDEN (2-panel mode) */
-/* We rely on Vue to remove the right-panel DOM element. */
-/* If right panel is gone, Middle panel should take available space or specific ratio? */
-/* CSS Selector hacking: if right-panel is missing, middle-panel should grow. */
-/* But styling applies to classes. We can use :last-child on middle-panel? */
-.middle-panel:last-child {
-	flex: 1; /* Take remaining space if it's the last child (no right panel) */
-	border-right: none;
+.panel-resizer {
+	width: 4px;
+	cursor: col-resize;
+	background: transparent;
+	transition: background 0.2s;
+	z-index: 10;
 }
 
-/* If Left panel also missing? (Future proofing) */
-.middle-panel:first-child {
-	flex: 1;
-}
-
-.btn-close-modal {
-	background: none;
-	border: none;
-	font-size: 24px;
-	color: var(--text-muted);
-	cursor: pointer;
-	line-height: 1;
-	padding: 0;
-}
-
-.btn-close-modal:hover {
-	color: var(--text-color);
+.panel-resizer:hover {
+	background: #cbd5e1;
 }
 
 .fade-enter-active,
@@ -502,36 +508,13 @@ input:checked + .slider-v2:before {
 }
 
 @media (max-width: 992px) {
-	.config-modal-overlay {
-		padding: 12px;
-	}
-
 	.left-panel,
 	.right-panel {
-		display: none !important; /* Hide side panels on smaller screens to prioritize config */
+		display: none !important;
 	}
-
 	.middle-panel {
 		flex: 1;
 		min-width: 0;
-	}
-
-	.config-modal-container {
-		max-width: 100%;
-	}
-}
-
-@media (max-width: 768px) {
-	.config-modal-header {
-		padding: 0 12px;
-	}
-
-	.header-left h3 {
-		font-size: 14px;
-	}
-
-	.modal-navigation {
-		gap: 4px;
 	}
 }
 </style>

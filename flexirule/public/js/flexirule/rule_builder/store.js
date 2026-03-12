@@ -588,6 +588,19 @@ export const useStore = defineStore("rule-builder-store", () => {
 		is_dirty.value = false;
 	}
 
+	function serializeField(val) {
+		if (val === undefined || val === null) return null;
+		if (typeof val === "string") return val;
+		try {
+			// Handle Proxy/Reactive objects effectively
+			const plain = JSON.parse(JSON.stringify(val));
+			return JSON.stringify(plain);
+		} catch (e) {
+			console.warn("FlexiRule: Field serialization failed", e, val);
+			return null;
+		}
+	}
+
 	async function save_changes() {
 		frappe.dom.freeze(__("Saving..."));
 		try {
@@ -834,28 +847,16 @@ export const useStore = defineStore("rule-builder-store", () => {
 					is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
 					process_name: node.data?.process_name,
 					operation: node.data?.operation,
-					config:
-						node.data?.config && typeof node.data.config !== "string"
-							? JSON.stringify(node.data.config)
-							: node.data?.config,
+					config: serializeField(node.data?.config),
 					target_field: node.data?.target_field,
 					value_template: node.data?.value_template,
 					error_template: node.data?.error_template,
 					notification_template: node.data?.notification_template,
 					notification_type: node.data?.notification_type,
 					condition_expression: node.data?.condition_expression,
-					condition_json:
-						node.data?.condition_json && typeof node.data.condition_json !== "string"
-							? JSON.stringify(node.data.condition_json)
-							: node.data?.condition_json,
-					input_mapping:
-						node.data?.input_mapping && typeof node.data.input_mapping !== "string"
-							? JSON.stringify(node.data.input_mapping)
-							: node.data?.input_mapping,
-					output_mapping:
-						node.data?.output_mapping && typeof node.data.output_mapping !== "string"
-							? JSON.stringify(node.data.output_mapping)
-							: node.data?.output_mapping,
+					condition_json: serializeField(node.data?.condition_json),
+					input_mapping: serializeField(node.data?.input_mapping),
+					output_mapping: serializeField(node.data?.output_mapping),
 					on_error: node.data?.on_error || "Stop",
 					timeout: node.data?.timeout || 30,
 					priority: node.data?.priority || 0,
@@ -876,11 +877,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 					reference_docname: node.data?.reference_docname,
 					mutation_mode: node.data?.mutation_mode,
 					return_type: node.data?.return_type,
-					resolved_output_schema:
-						node.data?.resolved_output_schema &&
-						typeof node.data.resolved_output_schema !== "string"
-							? JSON.stringify(node.data.resolved_output_schema)
-							: node.data?.resolved_output_schema,
+					resolved_output_schema: serializeField(node.data?.resolved_output_schema),
 				};
 			});
 
@@ -957,6 +954,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 		// Remove the edge
 		edges.value = edges.value.filter((el) => el.id !== edgeId);
 		mark_dirty();
+	}
+
+	function touch_node(nodeId) {
+		if (!nodeId) return;
+		const idx = nodes.value.findIndex((n) => n.id === nodeId);
+		if (idx === -1) return;
+		const node = nodes.value[idx];
+		nodes.value.splice(idx, 1, {
+			...node,
+			data: { ...(node.data || {}) },
+		});
 	}
 
 	function getTopologicalSort(nodes, edges) {
@@ -1080,6 +1088,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		clear_dirty,
 		delete_node,
 		delete_edge,
+		touch_node,
 		getEffectivelyDisabledIds,
 		fetch_available_rules,
 		fetch_processes,

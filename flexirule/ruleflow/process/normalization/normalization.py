@@ -270,7 +270,7 @@ def normalize_multiple_fields(context, config):
 
 # Whitelisted API for testing/preview
 @frappe.whitelist()
-def preview_normalization(text, transformations):
+def preview_normalization(text: str, transformations: str | list):
 	"""
 	Preview normalization result without saving
 	"""

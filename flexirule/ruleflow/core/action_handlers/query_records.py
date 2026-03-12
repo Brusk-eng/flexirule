@@ -159,7 +159,7 @@ class QueryRecordsHandler(ActionHandler):
 		return bool(exists)
 
 	def _query_report(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Run a report and return results."""
+		"""Run a report and return results as a list of dicts."""
 		report_name = config.get("report_name")
 		if not report_name:
 			frappe.throw(_("report_name is required in config for Query Report mode"))
@@ -174,10 +174,63 @@ class QueryRecordsHandler(ActionHandler):
 			filters=report_filters,
 		)
 
-		return {
-			"columns": result.get("columns", []),
-			"result": result.get("result", []),
-		}
+		data = []
+		columns = []
+
+		if isinstance(result, dict):
+			data = result.get("result") or result.get("data") or []
+			columns = result.get("columns") or []
+		elif isinstance(result, (list, tuple)) and len(result) >= 2:
+			columns = result[0]
+			data = result[1]
+		elif isinstance(result, list):
+			data = result
+
+		# 2. Try to fetch columns from report definition if missing
+		if not columns and report_name:
+			try:
+				report_doc = frappe.get_doc("Report", report_name)
+				if report_doc.report_type == "Query Report":
+					# Extract columns from query
+					pass
+				elif report_doc.json:
+					report_data = json.loads(report_doc.json)
+					columns = report_data.get("columns", [])
+			except Exception:
+				pass
+
+		# 3. If data is empty, still return columns for schema detection
+		if not data:
+			return {"columns": columns, "result": []}
+
+		# 4. Transform data (List of Lists/Mixed -> List of Dicts)
+		if columns:
+			col_names = []
+			for col in columns:
+				name = None
+				if isinstance(col, dict):
+					name = col.get("fieldname") or col.get("label")
+				elif isinstance(col, str):
+					name = col
+
+				if name:
+					col_names.append(name)
+
+			if col_names:
+				new_data = []
+				for row in data:
+					if isinstance(row, (list, tuple)):
+						row_dict = {}
+						# Handle mixed length or missing columns gracefully
+						for i, val in enumerate(row):
+							if i < len(col_names):
+								row_dict[col_names[i]] = val
+						new_data.append(row_dict)
+					elif isinstance(row, dict):
+						new_data.append(row)
+				data = new_data
+
+		return {"columns": columns, "result": data}
 
 	def _query_api(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Call a whitelisted API method."""

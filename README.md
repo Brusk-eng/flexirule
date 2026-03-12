@@ -49,6 +49,7 @@ In modern enterprise systems like **Frappe / ERPNext**, business logic often evo
   width="900"
   style="border-radius:14px;"
 />
+
 <p align="center"><em>Declarative, deeply nested condition trees with deterministic evaluation.</em></p>
 
 <img
@@ -57,6 +58,7 @@ In modern enterprise systems like **Frappe / ERPNext**, business logic often evo
   width="900"
   style="border-radius:14px;"
 />
+
 <p align="center"><em>Process Operations — schema-driven configuration rendered dynamically at runtime.</em></p>
 
 </details>
@@ -68,15 +70,19 @@ In modern enterprise systems like **Frappe / ERPNext**, business logic often evo
 FlexiRule is built around three core pillars that bridge the gap between design and execution.
 
 ### 1. The Rule (The Entry Point)
-A **Rule** defines *when* logic should trigger. It maps to a DocType and an event (e.g., `Before Save`, `On Submit`). It handles the initial filtering, ensuring logic only runs for the right documents and roles.
+
+A **Rule** defines _when_ logic should trigger. It maps to a DocType and an event (e.g., `Before Save`, `On Submit`). It handles the initial filtering, ensuring logic only runs for the right documents and roles.
 
 ### 2. The Rule Action (The Node)
+
 Each node in the graph is a **Rule Action**. It represents a specific step in your business process. Actions accept structured inputs and define the next step in the flow based on their outcome (e.g., `Success` → `Next Step`, `Error` → `Rollback`).
 
 ### 3. Process & Operations (The Logic)
-A **Process** is a file-backed module (similar to Frappe Reports/Dashboards) that acts as a container for reusable logic. 
-- **File-Backed**: Logic is stored in code (`.py`) for performance and version control.
-- **Operations**: Individual functions within a process that declare their own **JSON Schema** for configuration parameters.
+
+A **Process** is a file-backed module (similar to Frappe Reports/Dashboards) that acts as a container for reusable logic.
+
+-   **File-Backed**: Logic is stored in code (`.py`) for performance and version control.
+-   **Operations**: Individual functions within a process that declare their own **JSON Schema** for configuration parameters.
 
 ---
 
@@ -103,7 +109,7 @@ graph LR
 -   **Role-Based Security**: Control which rules run for specific user roles.
 -   **Monitoring & Logs**: Full execution trace for every rule run, including input/output states and performance stats.
 -   **Safety First**: Sandboxed execution context, controlled retries, and centralized exception handling.
--   **Pure Terminology**: Evolved from *UPH → Bolton* into a clean, standardized, and scalable architecture.
+-   **Pure Terminology**: Evolved from _UPH → Bolton_ into a clean, standardized, and scalable architecture.
 
 ---
 
@@ -125,6 +131,7 @@ bench build --app flexirule
 ## 🔧 Extensibility
 
 Developers can extend FlexiRule by creating **Standard Processes**:
+
 1. Create a `Process` document and check **Is Standard**.
 2. Frappe will generate `.py` and `.js` controllers in your app.
 3. Define your logic in Python and your config UI schema in JSON.
@@ -144,6 +151,7 @@ Developers can extend FlexiRule by creating **Standard Processes**:
 FlexiRule is evolving fast. Whether you are a developer, designer, or documenter, your expertise helps shape the future of visual automation in the Frappe ecosystem.
 
 ### How You Can Help
+
 -   🐛 **Bug Reports**: Open an issue for any glitches.
 -   💡 **Feature Requests**: Suggest new Nodes or Process Operations.
 -   📖 **Documentation**: Help us clarify concepts or add examples.
