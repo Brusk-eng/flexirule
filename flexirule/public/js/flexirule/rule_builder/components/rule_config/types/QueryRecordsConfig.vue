@@ -233,23 +233,80 @@
 			</template>
 
 			<template v-else-if="mode === 'Query Report'">
-				<div v-if="reportFilters.length" class="sub-section">
-					<h6>{{ __("Report Filters") }}</h6>
-					<div class="table-rows">
+				<div v-if="reportFilters.length || loading" class="sub-section">
+					<div class="section-header">
+						<h6>{{ __("Report Filters") }}</h6>
 						<div
-							v-for="df in reportFilters"
+							v-if="loading"
+							class="spinner-border spinner-border-sm text-muted"
+						></div>
+					</div>
+					<div class="table-rows report-filter-table">
+						<div
+							v-for="df in visibleFilters"
 							:key="df.fieldname"
-							class="row-item report"
+							class="row-item report-filter-row"
 						>
-							<ControlFactory
-								:df="withReadOnly(df)"
-								:modelValue="reportFilterValues[df.fieldname]"
-								@update:modelValue="(val) => updateReportFilter(df.fieldname, val)"
-							/>
+							<div class="filter-label-group">
+								<label class="filter-label">{{ df.label }}</label>
+								<div class="filter-type-toggle">
+									<button
+										class="btn btn-xs btn-link p-0"
+										:class="{
+											active:
+												reportFilterTypes[df.fieldname] === 'Expression',
+										}"
+										@click="toggleReportFilterType(df.fieldname)"
+										:title="__('Toggle Expression')"
+									>
+										<span class="extra-small font-weight-bold">{{
+											reportFilterTypes[df.fieldname] === "Expression"
+												? "{ }"
+												: "abc"
+										}}</span>
+									</button>
+								</div>
+							</div>
+
+							<div class="filter-input-wrapper">
+								<template v-if="reportFilterTypes[df.fieldname] === 'Expression'">
+									<div class="expression-input-group">
+										<span class="expr-prefix">{</span>
+										<AutocompleteControl
+											:df="{
+												fieldtype: 'Autocomplete',
+												label: '',
+												read_only: readOnly,
+											}"
+											:modelValue="
+												stripExpression(reportFilterValues[df.fieldname])
+											"
+											:get_options="getVariableOptions"
+											:placeholder="__('variable')"
+											:read_only="readOnly"
+											@update:modelValue="
+												reportFilterValues[df.fieldname] = `{${$event}}`;
+												syncConfig();
+											"
+										/>
+										<span class="expr-suffix">}</span>
+									</div>
+								</template>
+								<template v-else>
+									<ControlFactory
+										:df="{ ...withReadOnly(df), label: '' }"
+										:modelValue="reportFilterValues[df.fieldname]"
+										@update:modelValue="
+											updateReportFilter(df.fieldname, $event)
+										"
+									/>
+								</template>
+							</div>
 						</div>
 					</div>
 				</div>
-				<div v-else class="text-muted small">
+				<div v-else class="text-muted small p-4 text-center border-dashed rounded">
+					<i class="fa fa-info-circle mb-2 d-block opacity-50"></i>
 					{{ __("Select a report to load its filters.") }}
 				</div>
 			</template>
@@ -305,17 +362,14 @@
 		</div>
 
 		<div class="config-section section-card test-section">
-			<button class="btn btn-xs btn-default" @click="testQuery" :disabled="readOnly">
-				<i class="fa fa-flask"></i> {{ __("Test Query") }}
+			<button
+				class="btn btn-xs btn-primary shadow-sm"
+				@click="testQuery"
+				:disabled="readOnly"
+			>
+				<i class="fa fa-flask mr-1"></i> {{ __("Refresh Schema (Test Query)") }}
 			</button>
-			<span v-if="testStatus" class="ml-2 text-muted">{{ testStatus }}</span>
-		</div>
-
-		<div v-if="detectedKeys.length" class="config-section section-card">
-			<h6>{{ __("Detected Return Keys") }}</h6>
-			<ul class="small text-muted">
-				<li v-for="k in detectedKeys" :key="k.key">{{ k.key }}</li>
-			</ul>
+			<span v-if="testStatus" class="ml-2 text-muted font-weight-bold">{{ testStatus }}</span>
 		</div>
 	</div>
 </template>
@@ -324,6 +378,8 @@
 import { reactive, ref, computed, watch } from "vue";
 import { useStore } from "../../../store";
 import ControlFactory from "../../../controls/ControlFactory.vue";
+import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
+import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
 
 const props = defineProps({
 	node: Object,
@@ -333,14 +389,72 @@ const props = defineProps({
 const store = useStore();
 const config = reactive({});
 const testStatus = ref("");
+const loading = ref(false);
 
 const filterRows = ref([]);
 const fieldRows = ref([]);
 const argRows = ref([]);
 const doctypeFields = ref([]);
 
+// Shim for frappe.query_report to support report JS scripts that use it
+if (!window.frappe.query_report) {
+	window.frappe.query_report = {
+		get_filter_value: (name) => reportFilterValues[name] || "",
+		set_filter_value: (name, val) => {
+			reportFilterValues[name] = val;
+			syncConfig();
+		},
+	};
+}
+
 const reportFilters = ref([]);
 const reportFilterValues = reactive({});
+const reportFilterTypes = reactive({});
+
+function evaluateDependsOn(expression, values) {
+	if (!expression) return true;
+	if (typeof expression === "boolean") return expression;
+
+	if (typeof expression === "string" && expression.startsWith("eval:")) {
+		try {
+			// Use new Function instead of direct eval for better performance and to satisfy bundlers
+			const fn = new Function("doc", "values", `return ${expression.substring(5)}`);
+			return fn(values, values);
+		} catch (e) {
+			return true;
+		}
+	} else if (typeof expression === "string") {
+		return !!values[expression];
+	}
+	return true;
+}
+
+const visibleFilters = computed(() => {
+	return reportFilters.value.filter((df) => {
+		// Hide layout breaks and fields without labels
+		if (!df.label || df.fieldtype?.includes("Break") || df.hidden) return false;
+
+		// Evaluate depends_on if present
+		if (df.depends_on) {
+			return evaluateDependsOn(df.depends_on, reportFilterValues);
+		}
+		return true;
+	});
+});
+
+function toggleReportFilterType(fieldname) {
+	const current = reportFilterTypes[fieldname];
+	const newState = current === "Expression" ? "Value" : "Expression";
+	reportFilterTypes[fieldname] = newState;
+
+	// Reset value to empty when switching to avoid weird state but keep logic
+	if (newState === "Expression") {
+		reportFilterValues[fieldname] = "{}";
+	} else {
+		reportFilterValues[fieldname] = "";
+	}
+	syncConfig();
+}
 
 const mode = computed(() => props.node?.data?.operation || "");
 const referenceDoctype = computed(() => props.node?.data?.reference_doctype || "");
@@ -627,30 +741,85 @@ async function loadReportFilters(reportName) {
 	if (!reportName) {
 		reportFilters.value = [];
 		Object.keys(reportFilterValues).forEach((k) => delete reportFilterValues[k]);
+		Object.keys(reportFilterTypes).forEach((k) => delete reportFilterTypes[k]);
 		return;
 	}
 	try {
+		loading.value = true;
+		// 1. Try to get script and DB filters via desk API
 		const res = await frappe.call({
 			method: "frappe.desk.query_report.get_script",
 			args: { report_name: reportName },
 		});
-		const filters = res.message?.filters || [];
+
+		let filters = res.message?.filters || [];
+
+		// Filter out breaks (Section Break, Column Break, etc.)
+		filters = filters.filter((f) => !f.fieldtype?.includes("Break"));
+		if (res.message?.script) {
+			try {
+				// Execute script to populate frappe.query_reports[reportName]
+				frappe.dom.eval(res.message.script);
+
+				// Wait for potential async registrations (frappe.after_ajax is often used internally)
+				await new Promise((resolve) => setTimeout(resolve, 100));
+
+				const reportSettings = frappe.query_reports[reportName] || {};
+				if (reportSettings.filters && reportSettings.filters.length) {
+					// Merge JS filters with DB filters, prioritizing JS
+					const filterMap = new Map();
+					filters.forEach((f) => filterMap.set(f.fieldname, f));
+					reportSettings.filters.forEach((f) => filterMap.set(f.fieldname, f));
+					filters = Array.from(filterMap.values());
+				}
+			} catch (e) {
+				console.warn("Failed to extract filters from report script", e);
+			}
+		}
+
+		// 3. Fallback: Check Report document directly if still empty
+		if (!filters.length) {
+			const report_doc = await frappe.db.get_doc("Report", reportName);
+			if (report_doc.filters && report_doc.filters.length) {
+				filters = report_doc.filters;
+			} else if (report_doc.json) {
+				try {
+					const data = JSON.parse(report_doc.json);
+					filters = data.filters || [];
+				} catch (e) {}
+			}
+		}
+
 		reportFilters.value = filters.map((f) => ({
+			...f,
 			fieldname: f.fieldname,
 			fieldtype: f.fieldtype || "Data",
 			label: f.label || f.fieldname,
-			options: f.options,
-			reqd: f.reqd || 0,
-			default: f.default,
 		}));
-		Object.keys(reportFilterValues).forEach((k) => delete reportFilterValues[k]);
+
+		// Preserve existing values if they are already in config
+		const existingFilters = config.filters || {};
+
 		reportFilters.value.forEach((df) => {
-			if (df.default !== undefined) reportFilterValues[df.fieldname] = df.default;
+			const val = existingFilters[df.fieldname];
+			if (val !== undefined) {
+				reportFilterValues[df.fieldname] = val;
+				reportFilterTypes[df.fieldname] =
+					parseValueType(val) === "Expression" ? "Expression" : "Value";
+			} else {
+				if (df.default !== undefined) {
+					reportFilterValues[df.fieldname] = df.default;
+				}
+				reportFilterTypes[df.fieldname] = "Value";
+			}
 		});
+
 		syncConfig();
 	} catch (e) {
 		console.error("Failed to load report filters", e);
 		reportFilters.value = [];
+	} finally {
+		loading.value = false;
 	}
 }
 
@@ -712,6 +881,16 @@ function loadConfig(val) {
 }
 
 watch(
+	() => props.node?.data?.reference_docname,
+	(val) => {
+		if (mode.value === "Query Report" && val) {
+			loadReportFilters(val);
+		}
+	},
+	{ immediate: true }
+);
+
+watch(
 	() => props.node?.data?.config,
 	(val) => loadConfig(val),
 	{ immediate: true }
@@ -733,17 +912,34 @@ watch(
 
 async function testQuery() {
 	if (!props.node?.data?.action_id || !store.rule_doc?.name) return;
-	if (store.is_dirty) {
-		frappe.msgprint(__("Please save the rule before testing."));
-		return;
-	}
+
 	try {
 		testStatus.value = __("Running...");
+
+		// Prepare overrides from current UI state
+		const overrides = {
+			operation: mode.value,
+			reference_doctype: referenceDoctype.value,
+			reference_docname: props.node.data.reference_docname,
+			input_source: props.node.data.input_source,
+			mutation_mode: props.node.data.mutation_mode,
+			config: {
+				...config,
+			},
+		};
+
+		// For Query Report, ensure report_name is in config
+		if (mode.value === "Query Report") {
+			overrides.config.report_name = props.node.data.reference_docname || config.report_name;
+			overrides.config.filters = { ...reportFilterValues };
+		}
+
 		const res = await frappe.call({
 			method: "flexirule.ruleflow.api.test_action_query",
 			args: {
 				rule_name: store.rule_doc.name,
 				action_id: props.node.data.action_id,
+				overrides: overrides,
 			},
 		});
 		const message = res.message || {};
@@ -827,8 +1023,70 @@ defineExpose({ validate });
 	margin-bottom: 0;
 }
 
-.row-item.report {
-	grid-template-columns: 1fr;
+.row-item.report-filter-row {
+	grid-template-columns: 140px 1fr;
+	align-items: center;
+	padding: 4px 10px;
+	background: #fff;
+	border-bottom: 1px solid #f1f5f9;
+}
+
+.filter-label-group {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	padding-right: 8px;
+}
+
+.filter-label {
+	font-size: 11px;
+	font-weight: 600;
+	margin: 0;
+	color: #64748b;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.filter-type-toggle .btn {
+	padding: 0;
+	opacity: 0.4;
+}
+
+.filter-type-toggle .btn.active {
+	opacity: 1;
+	color: var(--primary);
+}
+
+.filter-input-wrapper {
+	width: 100%;
+}
+
+.expression-input-group {
+	display: flex;
+	align-items: center;
+	background: #fff;
+	border: 1px solid var(--primary);
+	border-radius: 6px;
+	padding: 0 8px;
+	height: 30px;
+}
+
+.expr-prefix,
+.expr-suffix {
+	font-family: monospace;
+	font-weight: 700;
+	color: var(--primary);
+	padding: 0 4px;
+}
+
+.border-dashed {
+	border: 1px dashed #cbd5e1;
+}
+
+.extra-small {
+	font-size: 10px;
 }
 
 .test-section {

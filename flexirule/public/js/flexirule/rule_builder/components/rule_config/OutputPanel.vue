@@ -1,21 +1,97 @@
 <template>
-	<div class="output-panel">
+	<div class="output-panel data-io-center">
 		<div class="panel-header">
-			<h4>{{ __("Outputs & Results") }}</h4>
-			<p class="text-muted small">{{ __("Define what this action returns") }}</p>
+			<h4>{{ __("Data Interaction") }}</h4>
+			<p class="text-muted small">{{ __("Manage inputs, results, and assignments") }}</p>
 		</div>
 
 		<div class="panel-sections">
-			<!-- Return Variable -->
+			<!-- Input Mapping (Moved from InputPanel) -->
+			<div class="panel-section">
+				<div class="section-header">
+					<h5 class="section-title">{{ __("Input Mappings") }}</h5>
+					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addInputMapping">
+						<i class="fa fa-plus"></i> {{ __("Add") }}
+					</button>
+				</div>
+				<p class="text-muted extra-small mb-2">
+					{{ __("Map context variables to action parameters.") }}
+				</p>
+				<div class="mapping-list">
+					<div v-if="!inputMappings.length" class="empty-state">
+						{{
+							__("No input mappings. Parameters will be auto-matched if names match.")
+						}}
+					</div>
+					<div v-for="(m, idx) in inputMappings" :key="'in-' + idx" class="mapping-row">
+						<div class="mapping-inputs">
+							<AutocompleteControl
+								:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
+								:modelValue="m.source"
+								:get_options="getVariableOptions"
+								:placeholder="__('From Context')"
+								:read_only="readOnly"
+								@update:modelValue="
+									m.source = $event;
+									saveInputMappings();
+								"
+							/>
+							<i class="fa fa-arrow-right text-muted mx-1"></i>
+							<input
+								type="text"
+								class="form-control input-xs"
+								v-model="m.target"
+								:placeholder="__('To Param')"
+								:disabled="readOnly"
+								@change="saveInputMappings"
+							/>
+						</div>
+						<button
+							v-if="!readOnly"
+							class="btn btn-xs btn-link text-danger"
+							@click="removeInputMapping(idx)"
+						>
+							<i class="fa fa-trash"></i>
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="section-divider"></div>
+
+			<!-- Detected Return Keys (Schema Discovery) -->
+			<div class="panel-section">
+				<div class="section-header">
+					<h5 class="section-title">{{ __("Detected Return Keys") }}</h5>
+				</div>
+				<p class="text-muted extra-small mb-2">
+					{{ __("Keys detected via 'Test Query'. Run test to update.") }}
+				</p>
+
+				<div class="detected-keys-list mb-1">
+					<div v-if="!detectedKeys.length" class="empty-state">
+						{{ __("No keys detected yet.") }}
+					</div>
+					<div v-else class="keys-grid">
+						<div v-for="k in detectedKeys" :key="k.key" class="key-tag">
+							<i class="fa fa-tag mr-1"></i> {{ k.key }}
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="section-divider"></div>
+
+			<!-- Result Storage -->
 			<div class="panel-section">
 				<h5 class="section-title">{{ __("Execution Result") }}</h5>
-				<div class="form-group">
+				<div class="form-group mt-2">
 					<ControlFactory
 						:df="{
 							fieldname: 'return_variable',
 							fieldtype: 'Data',
 							label: __('Result Variable Name'),
-							description: __('Name of the variable to store the action output'),
+							description: __('Variable to store the full action output'),
 							read_only: readOnly,
 						}"
 						:modelValue="node.data?.return_variable"
@@ -25,24 +101,23 @@
 				</div>
 			</div>
 
-			<!-- Output Mapping (Table-like Editor for JSON) -->
+			<!-- Output Assignments -->
 			<div class="panel-section">
 				<div class="section-header">
 					<h5 class="section-title">{{ __("Variable Assignments") }}</h5>
-					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addMapping">
+					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addOutputMapping">
 						<i class="fa fa-plus"></i> {{ __("Add") }}
 					</button>
 				</div>
+				<p class="text-muted extra-small mb-2">
+					{{ __("Assign specific result keys to context variables.") }}
+				</p>
 
-				<div class="assignment-list">
-					<div v-if="!mappings.length" class="empty-state">
-						{{
-							__(
-								"No variables assigned. Use assignments to map specific response keys to context."
-							)
-						}}
+				<div class="mapping-list">
+					<div v-if="!outputMappings.length" class="empty-state">
+						{{ __("No variables assigned specifically.") }}
 					</div>
-					<div v-for="(m, idx) in mappings" :key="idx" class="mapping-row">
+					<div v-for="(m, idx) in outputMappings" :key="'out-' + idx" class="mapping-row">
 						<div class="mapping-inputs">
 							<input
 								type="text"
@@ -50,7 +125,7 @@
 								v-model="m.source"
 								:placeholder="__('Result Key')"
 								:disabled="readOnly"
-								@change="saveMappings"
+								@change="saveOutputMappings"
 							/>
 							<i class="fa fa-arrow-right text-muted mx-1"></i>
 							<AutocompleteControl
@@ -61,28 +136,18 @@
 								:read_only="readOnly"
 								@update:modelValue="
 									m.target = $event;
-									saveMappings();
+									saveOutputMappings();
 								"
 							/>
 						</div>
 						<button
 							v-if="!readOnly"
 							class="btn btn-xs btn-link text-danger"
-							@click="removeMapping(idx)"
+							@click="removeOutputMapping(idx)"
 						>
 							<i class="fa fa-trash"></i>
 						</button>
 					</div>
-				</div>
-			</div>
-
-			<!-- Preview -->
-			<div v-if="operation_metadata?.output_schema" class="panel-section">
-				<h5 class="section-title">{{ __("Output Schema") }}</h5>
-				<div class="preview-box">
-					<pre
-						class="json-preview"
-					><code>{{ operation_metadata.output_schema }}</code></pre>
 				</div>
 			</div>
 		</div>
@@ -90,9 +155,10 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../store";
 import ControlFactory from "../../controls/ControlFactory.vue";
+import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 
 const props = defineProps({
 	node: Object,
@@ -101,30 +167,97 @@ const props = defineProps({
 
 const store = useStore();
 
-// Mappings state
-const mappings = ref([]);
+const inputMappings = ref([]);
+const outputMappings = ref([]);
+const availableVariables = ref([]);
 
-// Parse mappings from JSON
+const detectedKeys = computed(() => {
+	const schema = props.node?.data?.resolved_output_schema;
+	if (Array.isArray(schema)) return schema;
+	try {
+		return typeof schema === "string" ? JSON.parse(schema) : [];
+	} catch (e) {
+		return [];
+	}
+});
+
+// -- Input Mappings Logic --
+watch(
+	() => props.node.data?.input_mapping,
+	(val) => {
+		if (val) {
+			try {
+				const obj = typeof val === "string" ? JSON.parse(val) : val;
+				inputMappings.value = Object.entries(obj).map(([source, target]) => ({
+					source,
+					target,
+				}));
+			} catch (e) {
+				inputMappings.value = [];
+			}
+		} else {
+			inputMappings.value = [];
+		}
+	},
+	{ immediate: true }
+);
+
+function addInputMapping() {
+	inputMappings.value.push({ source: "", target: "" });
+}
+
+function removeInputMapping(idx) {
+	inputMappings.value.splice(idx, 1);
+	saveInputMappings();
+}
+
+function saveInputMappings() {
+	const obj = {};
+	inputMappings.value.forEach((m) => {
+		if (m.source && m.target) obj[m.source] = m.target;
+	});
+	updateField("input_mapping", obj);
+}
+
+// -- Output Mappings Logic --
 watch(
 	() => props.node.data?.output_mapping,
 	(val) => {
 		if (val) {
 			try {
 				const obj = typeof val === "string" ? JSON.parse(val) : val;
-				mappings.value = Object.entries(obj).map(([source, target]) => ({
+				outputMappings.value = Object.entries(obj).map(([source, target]) => ({
 					source,
 					target,
 				}));
 			} catch (e) {
-				mappings.value = [];
+				outputMappings.value = [];
 			}
 		} else {
-			mappings.value = [];
+			outputMappings.value = [];
 		}
 	},
 	{ immediate: true }
 );
 
+function addOutputMapping() {
+	outputMappings.value.push({ source: "", target: "" });
+}
+
+function removeOutputMapping(idx) {
+	outputMappings.value.splice(idx, 1);
+	saveOutputMappings();
+}
+
+function saveOutputMappings() {
+	const obj = {};
+	outputMappings.value.forEach((m) => {
+		if (m.source && m.target) obj[m.source] = m.target;
+	});
+	updateField("output_mapping", obj);
+}
+
+// -- Shared Logic --
 function updateField(fieldname, value) {
 	if (props.node.data) {
 		props.node.data[fieldname] = value;
@@ -132,58 +265,36 @@ function updateField(fieldname, value) {
 	}
 }
 
-function addMapping() {
-	mappings.value.push({ source: "", target: "" });
-}
-
-function removeMapping(idx) {
-	mappings.value.splice(idx, 1);
-	saveMappings();
-}
-
-function saveMappings() {
-	const obj = {};
-	mappings.value.forEach((m) => {
-		if (m.source && m.target) {
-			obj[m.source] = m.target;
-		}
-	});
-	updateField("output_mapping", obj);
+async function refreshVariables() {
+	if (!props.node?.id) return;
+	try {
+		availableVariables.value = await store.getAvailableVariables(props.node.id);
+	} catch (e) {
+		availableVariables.value = [];
+	}
 }
 
 function getVariableOptions() {
-	// Standard variables plus any produced by prior nodes
-	return [
-		{ label: "doc (Main Document)", value: "doc" },
-		...store.doc_fields.map((f) => ({
-			label: `doc.${f.fieldname}`,
-			value: `doc.${f.fieldname}`,
-		})),
-	];
+	return availableVariables.value.map((v) => ({ label: v.label, value: v.value }));
 }
 
-const operation_metadata = computed(() => {
-	if (!props.node.data?.process_name || !props.node.data?.operation) return null;
-	const proc = store.processes.find((p) => p.name === props.node.data.process_name);
-	return proc?.operations?.find((op) => op.func_name === props.node.data.operation);
+onMounted(() => {
+	refreshVariables();
 });
 
 function validate() {
 	const errors = [];
-	mappings.value.forEach((m, idx) => {
+	inputMappings.value.forEach((m, idx) => {
 		if ((m.source && !m.target) || (!m.source && m.target)) {
-			errors.push(__("Output Mapping #{0} is incomplete", [idx + 1]));
+			errors.push(__("Input Mapping #{0} is incomplete", [idx + 1]));
 		}
 	});
-
-	// Optional: Check return variable validity?
-	// For now, let's keep it loose as Frappe handles variable names mostly,
-	// unless we want to enforce python identifier rules.
-
-	if (errors.length) {
-		return { valid: false, errors };
-	}
-	return { valid: true };
+	outputMappings.value.forEach((m, idx) => {
+		if ((m.source && !m.target) || (!m.source && m.target)) {
+			errors.push(__("Variable Assignment #{0} is incomplete", [idx + 1]));
+		}
+	});
+	return errors.length ? { valid: false, errors } : { valid: true };
 }
 
 defineExpose({ validate });
@@ -194,6 +305,7 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	background: #fff;
 }
 
 .panel-header {
@@ -219,13 +331,13 @@ defineExpose({ validate });
 .panel-section {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
 }
 
 .section-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	margin-bottom: 8px;
 }
 
 .section-title {
@@ -234,10 +346,16 @@ defineExpose({ validate });
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	color: var(--text-muted);
+	color: #64748b;
 }
 
-.assignment-list {
+.section-divider {
+	height: 1px;
+	background: #f1f5f9;
+	margin: 0;
+}
+
+.mapping-list {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
@@ -254,8 +372,14 @@ defineExpose({ validate });
 	display: flex;
 	align-items: center;
 	padding: 4px 8px;
-	border: 1px solid var(--border-color);
-	border-radius: 6px;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	background: #f8fafc;
+	transition: border-color 0.2s;
+}
+
+.mapping-inputs:focus-within {
+	border-color: var(--primary);
 	background: #fff;
 }
 
@@ -275,32 +399,40 @@ defineExpose({ validate });
 .empty-state {
 	padding: 16px;
 	text-align: center;
-	color: var(--text-muted);
+	color: #94a3b8;
 	font-size: 11px;
-	background: var(--gray-50);
-	border: 1px dashed var(--border-color);
+	background: #f8fafc;
+	border: 1px dashed #e2e8f0;
 	border-radius: 8px;
 }
 
-.preview-box {
-	background: #1e1e1e;
-	border-radius: 8px;
-	padding: 12px;
-	overflow: hidden;
-}
-
-.json-preview {
-	margin: 0;
-	font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", monospace;
-	font-size: 11px;
-	line-height: 1.5;
-	color: #dcdcdc;
-	white-space: pre-wrap;
+.extra-small {
+	font-size: 10px;
 }
 
 .input-xs {
 	height: 24px !important;
 	padding: 0 4px !important;
 	font-size: 11px !important;
+}
+
+.keys-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.key-tag {
+	font-size: 10px;
+	font-weight: 600;
+	padding: 2px 8px;
+	background: #f1f5f9;
+	color: #475569;
+	border-radius: 4px;
+	border: 1px solid #e2e8f0;
+}
+
+:deep(.control-factory) {
+	margin-bottom: 0;
 }
 </style>

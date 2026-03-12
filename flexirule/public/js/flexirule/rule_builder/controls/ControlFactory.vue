@@ -183,6 +183,16 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
+		<!-- MultiSelectList -->
+		<MultiSelectListControl
+			v-else-if="df?.fieldtype === 'MultiSelectList'"
+			:df="df"
+			:modelValue="modelValue"
+			:get_data="get_data || df?.get_data"
+			:read_only="df.read_only"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
+
 		<!-- MultiCheck -->
 		<MultiCheckControl
 			v-else-if="df?.fieldtype === 'MultiCheck'"
@@ -212,6 +222,7 @@
 
 <script setup>
 import FlexiGrid from "./FlexiGrid.vue";
+import MultiSelectListControl from "./MultiSelectListControl.vue";
 
 const props = defineProps({
 	df: Object,

@@ -658,20 +658,26 @@ class RuleEngine:
 		"""
 		cm = ContextManager(context)
 
+		# Special Case: If result is a dict with 'columns' and 'result',
+		# extract the actual data list for mapping, validation and storage.
+		validation_result = result
+		if isinstance(result, dict) and "columns" in result and "result" in result:
+			validation_result = result["result"]
+
 		# 1. Output Mapping (Result -> Context)
 		output_mapping = getattr(action, "output_mapping", None)
 		if output_mapping:
 			if getattr(action, "is_async", 0):
 				raise MethodExecutionError(_("Async actions cannot map outputs"))
-			apply_output_mapping(result, output_mapping, context)
+			apply_output_mapping(validation_result, output_mapping, context)
 
 		# 2. Return Variable + Type/Schema Validation
 		return_variable = getattr(action, "return_variable", None)
 		return_type = getattr(action, "return_type", None)
 		resolved_output_schema = getattr(action, "resolved_output_schema", None)
 
-		if return_variable and result is not None:
-			cm.set_variable(return_variable, result, return_type)
+		if return_variable and validation_result is not None:
+			cm.set_variable(return_variable, validation_result, return_type)
 
 			# Optional return keys validation
 			expected_keys = []
@@ -687,7 +693,7 @@ class RuleEngine:
 					expected_keys = []
 
 			if expected_keys:
-				cm.validate_return_keys(result, expected_keys, return_variable)
+				cm.validate_return_keys(validation_result, expected_keys, return_variable)
 
 		# 3. Mutation Mode (Result -> Doc/Context/DB)
 		mutation_mode = getattr(action, "mutation_mode", None)

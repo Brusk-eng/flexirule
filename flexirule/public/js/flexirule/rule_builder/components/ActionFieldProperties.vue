@@ -52,7 +52,15 @@ const excluded_fields = computed(() => {
 	const MODAL_TYPES = ["Query Records", "Aggregate Records", "Create Docs"];
 
 	if (MODAL_TYPES.includes(props.nodeData?.action_type)) {
-		base.push("operation", "reference_doctype", "reference_docname", "mutation_mode", "config");
+		base.push(
+			"operation",
+			"reference_doctype",
+			"reference_docname",
+			"mutation_mode",
+			"config",
+			"resolved_output_schema",
+			"return_type"
+		);
 	}
 
 	return base;
