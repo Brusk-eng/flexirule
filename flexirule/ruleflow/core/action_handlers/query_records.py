@@ -98,17 +98,6 @@ class QueryRecordsHandler(ActionHandler):
 
 		return errors
 
-	def _parse_config(self, config_str):
-		"""Safely parse config JSON."""
-		if not config_str:
-			return {}
-		if isinstance(config_str, dict):
-			return config_str
-		try:
-			return json.loads(config_str)
-		except (json.JSONDecodeError, TypeError):
-			return {}
-
 	def _query_list(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Execute frappe.get_list with configured filters, fields, etc."""
 		filters = config.get("filters", {})
@@ -249,31 +238,6 @@ class QueryRecordsHandler(ActionHandler):
 
 		result = frappe.call(method, **args)
 		return result
-
-	def _resolve_filters(self, filters, context):
-		"""
-		Resolve template expressions in filter values.
-		Supports {doc.fieldname} and {vars.varname} syntax.
-		"""
-		if not isinstance(filters, dict):
-			return filters
-
-		resolved = {}
-		for key, value in filters.items():
-			if isinstance(value, str) and "{" in value:
-				try:
-					resolved[key] = self._safe_eval(value.replace("{", "").replace("}", ""), context)
-				except Exception:
-					resolved[key] = value
-			else:
-				resolved[key] = value
-
-		return resolved
-
-	def _safe_eval(self, expression, context):
-		"""Evaluate expressions using SafeFrappeAPI from context."""
-		safe_frappe = context.get("frappe") or frappe
-		return frappe.safe_eval(expression, eval_globals={"frappe": safe_frappe}, eval_locals=context)
 
 
 # Register handler

@@ -1,73 +1,73 @@
 <template>
 	<div class="notify-config">
-		<div class="config-section">
+		<div class="config-section section-card">
 			<h5>{{ __("Notify Configuration") }}</h5>
+			<p class="text-muted small">
+				{{ __("Configure notification type, message template and recipients.") }}
+			</p>
+		</div>
 
+		<div class="config-section section-card">
 			<div class="form-group mb-3">
 				<label class="form-label">{{ __("Notification Type") }}</label>
-				<select v-model="notificationType" class="form-control form-select">
-					<option value="toast">{{ __("Toast Message") }}</option>
-					<option value="alert">{{ __("Alert Dialog") }}</option>
-					<option value="realtime">{{ __("Realtime Push") }}</option>
-					<option value="email">{{ __("Email") }}</option>
-				</select>
+				<ControlFactory
+					:df="with_read_only(notificationTypeField)"
+					:modelValue="props.node?.data?.notification_type || 'toast'"
+					@update:modelValue="(val) => update_action_field('notification_type', val)"
+				/>
 			</div>
 
 			<div class="form-group mb-3">
 				<label class="form-label"
 					>{{ __("Message Template") }} <span class="text-danger">*</span></label
 				>
-				<CodeControl
-					v-model="notificationTemplate"
-					:language="'jinja'"
-					:placeholder="__('Enter notification message template')"
-					:rows="4"
+				<ControlFactory
+					:df="with_read_only(notificationTemplateField)"
+					:modelValue="props.node?.data?.notification_template"
+					@update:modelValue="(val) => update_action_field('notification_template', val)"
 				/>
 				<small class="text-muted">
 					{{
 						__("Jinja template for message. Use {0}, {1}, etc.", [
-							doubleLeft + " doc.name " + doubleRight,
-							doubleLeft + " vars.result " + doubleRight,
+							double_left + " doc.name " + double_right,
+							double_left + " vars.result " + double_right,
 						])
 					}}
 				</small>
 			</div>
 
-			<div class="form-group mb-3" v-if="notificationType === 'email'">
+			<div class="form-group mb-3" v-if="props.node?.data?.notification_type === 'email'">
 				<label class="form-label">{{ __("Recipients") }}</label>
-				<DataControl
-					v-model="recipients"
-					:placeholder="__('Comma-separated emails or Jinja template')"
+				<ControlFactory
+					:df="with_read_only(recipientsField)"
+					:modelValue="props.node?.data?.recipients"
+					@update:modelValue="(val) => update_action_field('recipients', val)"
 				/>
 			</div>
 
 			<div class="template-helpers">
 				<span class="helper-label">{{ __("Quick Insert:") }}</span>
 				<button
+					v-for="helper in helpers"
+					:key="helper.label"
 					class="btn btn-xs btn-outline-secondary"
-					@click="insertTemplate('{{ doc.name }}')"
+					:disabled="readOnly"
+					@click="insert_template(helper.value)"
 				>
-					doc.name
-				</button>
-				<button
-					class="btn btn-xs btn-outline-secondary"
-					@click="insertTemplate('{{ doc.owner }}')"
-				>
-					owner
-				</button>
-				<button
-					class="btn btn-xs btn-outline-secondary"
-					@click="insertTemplate('{{ frappe.session.user }}')"
-				>
-					user
+					{{ helper.label }}
 				</button>
 			</div>
 
-			<div class="preview-section mt-3" v-if="notificationTemplate">
-				<label class="form-label">{{ __("Preview") }}</label>
-				<div class="notify-preview" :class="'type-' + notificationType">
-					<i :class="previewIcon"></i>
-					<span>{{ previewText }}</span>
+			<div class="preview-section mt-4" v-if="props.node?.data?.notification_template">
+				<label class="form-label text-muted small uppercase font-weight-bold">{{
+					__("Preview")
+				}}</label>
+				<div
+					class="notify-preview"
+					:class="'type-' + (props.node?.data?.notification_type || 'toast')"
+				>
+					<i :class="preview_icon"></i>
+					<span>{{ preview_text }}</span>
 				</div>
 			</div>
 		</div>
@@ -76,66 +76,72 @@
 
 <script setup>
 import { computed } from "vue";
+import { useActionConfig } from "../../../composables/useActionConfig";
+import ControlFactory from "../../../controls/ControlFactory.vue";
 
 const props = defineProps({
 	node: Object,
+	readOnly: Boolean,
 });
 
-// Define variables to avoid parsing issues with {{ }}
-const doubleLeft = String.fromCharCode(123, 123); // {{
-const doubleRight = String.fromCharCode(125, 125); // }}
+const { with_read_only, update_action_field } = useActionConfig(props);
 
-const notificationType = computed({
-	get: () => props.node?.data?.notification_type || "toast",
-	set: (val) => {
-		if (props.node?.data) {
-			props.node.data.notification_type = val;
-		}
-	},
-});
+const double_left = "{{";
+const double_right = "}}";
 
-const notificationTemplate = computed({
-	get: () => props.node?.data?.notification_template || "",
-	set: (val) => {
-		if (props.node?.data) {
-			props.node.data.notification_template = val;
-		}
-	},
-});
+const notificationTypeField = {
+	fieldname: "notification_type",
+	fieldtype: "Select",
+	label: "",
+	options: "toast\nalert\nrealtime\nemail",
+};
 
-const recipients = computed({
-	get: () => props.node?.data?.recipients || "",
-	set: (val) => {
-		if (props.node?.data) {
-			props.node.data.recipients = val;
-		}
-	},
-});
+const notificationTemplateField = {
+	fieldname: "notification_template",
+	fieldtype: "Code",
+	label: "",
+	options: "Jinja",
+	rows: 4,
+};
 
-const previewIcon = computed(() => {
+const recipientsField = {
+	fieldname: "recipients",
+	fieldtype: "Data",
+	label: "",
+	placeholder: __("Comma-separated emails or Jinja template"),
+};
+
+const helpers = [
+	{ label: "doc.name", value: "{{ doc.name }}" },
+	{ label: "owner", value: "{{ doc.owner }}" },
+	{ label: "user", value: "{{ frappe.session.user }}" },
+];
+
+const preview_icon = computed(() => {
 	const icons = {
 		toast: "fa fa-check-circle",
 		alert: "fa fa-info-circle",
 		realtime: "fa fa-bell",
 		email: "fa fa-envelope",
 	};
-	return icons[notificationType.value] || "fa fa-bell";
+	return icons[props.node?.data?.notification_type || "toast"] || "fa fa-bell";
 });
 
-const previewText = computed(() => {
-	return notificationTemplate.value?.replace(/\{\{[^}]+\}\}/g, "[...]") || "";
+const preview_text = computed(() => {
+	return props.node?.data?.notification_template?.replace(/\{\{[^}]+\}\}/g, "[...]") || "";
 });
 
-function insertTemplate(text) {
-	notificationTemplate.value = (notificationTemplate.value || "") + text;
+function insert_template(text) {
+	const current = props.node?.data?.notification_template || "";
+	update_action_field("notification_template", current + text);
 }
 
 function validate() {
 	const errors = [];
-	if (!notificationTemplate.value) {
+	if (!props.node?.data?.notification_template) {
 		errors.push(__("Notification Message Template is required"));
 	}
-	if (notificationType.value === "email" && !recipients.value) {
+	if (props.node?.data?.notification_type === "email" && !props.node?.data?.recipients) {
 		errors.push(__("Recipients are required for email notifications"));
 	}
 	return { valid: errors.length === 0, errors };
@@ -146,25 +152,30 @@ defineExpose({ validate });
 
 <style scoped>
 .notify-config {
-	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
 }
 
-.config-section h5 {
-	margin-bottom: 16px;
-	font-weight: 600;
-	color: var(--heading-color);
+.section-card {
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 16px;
+	background: var(--bg-light, #fff);
 }
 
 .form-label {
 	font-weight: 500;
 	margin-bottom: 6px;
 	display: block;
+	font-size: 13px;
 }
 
 .template-helpers {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	margin-top: 12px;
 	flex-wrap: wrap;
 }
 
@@ -173,17 +184,13 @@ defineExpose({ validate });
 	color: var(--text-muted);
 }
 
-.btn-xs {
-	font-size: 11px;
-	padding: 2px 8px;
-}
-
 .notify-preview {
 	border-radius: 6px;
 	padding: 12px;
 	display: flex;
 	align-items: flex-start;
 	gap: 10px;
+	font-size: 13px;
 }
 
 .notify-preview.type-toast {
@@ -212,5 +219,10 @@ defineExpose({ validate });
 
 .notify-preview i {
 	margin-top: 2px;
+}
+
+.uppercase {
+	text-transform: uppercase;
+	letter-spacing: 0.025em;
 }
 </style>

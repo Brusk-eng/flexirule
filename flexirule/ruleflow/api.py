@@ -574,11 +574,18 @@ def test_action_query(
 		if isinstance(overrides, str):
 			overrides = json.loads(overrides)
 		for key, val in overrides.items():
-			if hasattr(action, key):
+			# Config and mapping fields might be strings in DB but dicts/lists in overrides
+			json_fields = [
+				"config",
+				"condition_json",
+				"input_mapping",
+				"output_mapping",
+				"resolved_output_schema",
+			]
+			if key in json_fields and not isinstance(val, str):
+				setattr(action, key, json.dumps(val))
+			elif hasattr(action, key):
 				setattr(action, key, val)
-			# config might be a string in the DB but a dict in overrides
-			elif key == "config" and isinstance(val, dict):
-				action.config = json.dumps(val)
 
 	# Build a minimal context
 	doc = None
@@ -618,7 +625,7 @@ def test_action_query(
 		duration = time.time() - start
 
 		# Detect return fields
-		detected_keys = []
+		schema = []
 
 		# 1. Try to detect from Action Config first (most reliable for Query List)
 		if action.action_type == "Query Records":
@@ -630,28 +637,63 @@ def test_action_query(
 
 				if mode == "Query List":
 					fields = config_data.get("fields") or ["name"]
-					detected_keys = [{"key": f} for f in fields]
+					meta = frappe.get_meta(action.reference_doctype)
+					for f in fields:
+						df = meta.get_field(f)
+						schema.append(
+							{
+								"fieldname": f,
+								"label": df.label if df else f,
+								"fieldtype": df.fieldtype if df else "Data",
+								"options": df.options if df else None,
+								"mandatory": df.reqd if df else 0,
+							}
+						)
 				elif mode == "Query Report" and isinstance(result, dict) and "columns" in result:
 					columns = result.get("columns") or []
-					if columns and isinstance(columns[0], dict):
-						detected_keys = [{"key": c.get("fieldname") or c.get("label")} for c in columns]
-					elif columns and isinstance(columns[0], str):
-						detected_keys = [{"key": c} for c in columns]
+					for c in columns:
+						if isinstance(c, dict):
+							schema.append(
+								{
+									"fieldname": c.get("fieldname") or c.get("label"),
+									"label": c.get("label") or c.get("fieldname"),
+									"fieldtype": c.get("fieldtype") or "Data",
+									"options": c.get("options"),
+									"mandatory": c.get("mandatory", 0),
+								}
+							)
+						elif isinstance(c, str):
+							schema.append(
+								{
+									"fieldname": c,
+									"label": c,
+									"fieldtype": "Data",
+									"options": None,
+									"mandatory": 0,
+								}
+							)
 			except Exception:
 				pass
 
 		# 2. Fallback to result inspection if still empty
-		if not detected_keys:
+		if not schema:
 			if isinstance(result, dict):
-				detected_keys = [{"key": k} for k in result.keys()]
+				for k in result.keys():
+					schema.append(
+						{"fieldname": k, "label": k, "fieldtype": "Data", "options": None, "mandatory": 0}
+					)
 			elif isinstance(result, list) and result and isinstance(result[0], dict):
-				detected_keys = [{"key": k} for k in result[0].keys()]
+				for k in result[0].keys():
+					schema.append(
+						{"fieldname": k, "label": k, "fieldtype": "Data", "options": None, "mandatory": 0}
+					)
 
 		return {
 			"success": True,
 			"result": result,
-			"detected_keys": detected_keys,
+			"schema": schema,
 			"duration": round(duration, 4),
 		}
 	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), _("Test Query Failed"))
 		return {"success": False, "error": str(e)}

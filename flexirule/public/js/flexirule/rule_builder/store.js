@@ -1023,8 +1023,37 @@ export const useStore = defineStore("rule-builder-store", () => {
 			context_vars.push({
 				label: data.return_variable,
 				value: data.return_variable,
-				type: "Data", // In the future, we can resolve actual type
+				type:
+					data.return_type === "Boolean"
+						? "Check"
+						: data.return_type === "List"
+						? "Table"
+						: "Data",
 			});
+
+			if (data.resolved_output_schema && !["Boolean", "List"].includes(data.return_type)) {
+				let schema = data.resolved_output_schema;
+				if (typeof schema === "string") {
+					try {
+						schema = JSON.parse(schema);
+					} catch (e) {
+						schema = [];
+					}
+				}
+				if (Array.isArray(schema)) {
+					schema.forEach((field) => {
+						if (field.fieldname) {
+							context_vars.push({
+								label: `${data.return_variable}.${field.fieldname} (${
+									field.label || field.fieldname
+								})`,
+								value: `${data.return_variable}.${field.fieldname}`,
+								type: field.fieldtype || "Data",
+							});
+						}
+					});
+				}
+			}
 		}
 
 		return await flexirule.utils.get_combined_fields(doctype, context_vars, "doc");

@@ -30,6 +30,9 @@ class RuleAction(Document):
 			"Set Value",
 			"Raise Error",
 			"Notify",
+			"Query Records",
+			"Aggregate Records",
+			"Create Docs",
 		]
 		condition_expression: DF.Code | None
 		condition_json: DF.Code | None
@@ -37,8 +40,17 @@ class RuleAction(Document):
 		description: DF.Text | None
 		error_template: DF.Code | None
 		input_mapping: DF.Code | None
+		input_source: DF.Literal["Context Doc", "Context Variable", "Both"]
 		is_async: DF.Check
 		is_enabled: DF.Check
+		mutation_mode: DF.Literal[
+			"Set Doc Field",
+			"Update Doc Field",
+			"Set Context Variable",
+			"Update Context Variable",
+			"Append to Context Variable",
+			"Batch Database Set",
+		]
 		next_step_if_false: DF.Data | None
 		next_step_if_true: DF.Autocomplete | None
 		notification_template: DF.Code | None
@@ -51,10 +63,12 @@ class RuleAction(Document):
 		parenttype: DF.Data
 		position_x: DF.Int
 		position_y: DF.Int
-		priority: DF.Int
 		process_name: DF.Link | None
+		reference_docname: DF.DynamicLink | None
+		reference_doctype: DF.Link | None
 		resolved_output_schema: DF.Code | None
 		retry_count: DF.Int
+		return_type: DF.Literal["", "Boolean", "Dict", "List", "List of Dict", "Doc as Dict"]
 		return_variable: DF.Data | None
 		rule: DF.Link | None
 		skip_conditions: DF.Check
