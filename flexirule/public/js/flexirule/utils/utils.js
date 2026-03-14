@@ -79,18 +79,16 @@ flexirule.utils.get_doctype_fields = async function (doctype, prefix = "") {
 				seen_fields.add(fieldname);
 			};
 
-			// 1. Standard Fields (if it's the main doctype and has doc prefix)
-			if (prefix === "doc") {
-				const stdFields = [
-					{ label: "Name", fieldname: "name", fieldtype: "Data" },
-					{ label: "Owner", fieldname: "owner", fieldtype: "Data" },
-					{ label: "Creation", fieldname: "creation", fieldtype: "Datetime" },
-					{ label: "Modified", fieldname: "modified", fieldtype: "Datetime" },
-					{ label: "Modified By", fieldname: "modified_by", fieldtype: "Data" },
-					{ label: "DocStatus", fieldname: "docstatus", fieldtype: "Int" },
-				];
-				stdFields.forEach((f) => add_option(f, doctype));
-			}
+			// 1. Standard Fields
+			const stdFields = [
+				{ label: __("Name"), fieldname: "name", fieldtype: "Data" },
+				{ label: __("Owner"), fieldname: "owner", fieldtype: "Data" },
+				{ label: __("Creation"), fieldname: "creation", fieldtype: "Datetime" },
+				{ label: __("Modified"), fieldname: "modified", fieldtype: "Datetime" },
+				{ label: __("Modified By"), fieldname: "modified_by", fieldtype: "Data" },
+				{ label: __("DocStatus"), fieldname: "docstatus", fieldtype: "Int" },
+			];
+			stdFields.forEach((f) => add_option(f, doctype));
 
 			// 2. Main Table Fields
 			const fields = meta.fields || [];

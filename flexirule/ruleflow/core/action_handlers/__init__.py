@@ -62,13 +62,99 @@ class ActionHandler(ABC):
 		Override this method to add pre-execution validation.
 
 		Args:
-		    action: The Rule Action row
-		    context: Execution context
+			action: The Rule Action row
+			context: Execution context
 
 		Returns:
-		    List of error message strings (empty if valid)
+			List of error message strings (empty if valid)
 		"""
 		return []
+
+	def _parse_config(self, config_str):
+		"""Safely parse config JSON."""
+		if not config_str:
+			return {}
+		if isinstance(config_str, dict):
+			return config_str
+		try:
+			import json
+
+			return json.loads(config_str)
+		except (json.JSONDecodeError, TypeError):
+			return {}
+
+	def _resolve_filters(self, filters, context):
+		"""
+		Resolve template expressions in filter values.
+		Supports dict, list of lists, and the new unified list of dicts format.
+		"""
+		if not filters:
+			return filters
+
+		if isinstance(filters, list):
+			resolved_list = []
+			for item in filters:
+				if isinstance(item, dict) and ("field" in item or "fieldname" in item):
+					# New unified format detection
+					res_row = {k: self._resolve_value_expression(v, context) for k, v in item.items()}
+					fname = res_row.get("field") or res_row.get("fieldname")
+					fop = res_row.get("operator") or res_row.get("op") or "="
+					fval = res_row.get("value")
+					fdt = res_row.get("doctype")
+
+					if fdt:
+						resolved_list.append([fdt, fname, fop, fval])
+					else:
+						resolved_list.append([fname, fop, fval])
+				elif isinstance(item, (list, dict)):
+					# Recurse for nested structures
+					resolved_list.append(self._resolve_filters(item, context))
+				else:
+					resolved_list.append(self._resolve_value_expression(item, context))
+			return resolved_list
+
+		if isinstance(filters, dict):
+			resolved = {}
+			for key, value in filters.items():
+				resolved[key] = self._resolve_value_expression(value, context)
+			return resolved
+
+		# Handle individual values
+		return self._resolve_value_expression(filters, context)
+
+	def _resolve_value_expression(self, value, context):
+		"""Helper to resolve a single value (or list of values) if it contains a template expression."""
+		if isinstance(value, list):
+			return [self._resolve_value_expression(v, context) for v in value]
+
+		if isinstance(value, str) and "{" in value:
+			try:
+				# Support multiple expressions in one string or just one wrapped in {}
+				if value.startswith("{") and value.endswith("}") and value.count("{") == 1:
+					inner_expr = value[1 : len(value) - 1]
+					return self._safe_eval(inner_expr, context)
+
+				# Fallback: template-like replacement for embedded {vars}
+				import re
+
+				def replace(match):
+					expr = match.group(1)
+					try:
+						return str(self._safe_eval(expr, context))
+					except Exception:
+						return match.group(0)
+
+				return re.sub(r"{(.*?)}", replace, value)
+			except Exception:
+				return value
+		return value
+
+	def _safe_eval(self, expression, context):
+		"""Evaluate expressions using frappe.safe_eval."""
+		import frappe
+
+		safe_frappe = context.get("frappe") or frappe
+		return frappe.safe_eval(expression, eval_globals={"frappe": safe_frappe}, eval_locals=context)
 
 	def __repr__(self):
 		return f"<{self.__class__.__name__}(action_type='{self.action_type}')>"

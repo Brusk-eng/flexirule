@@ -574,11 +574,18 @@ def test_action_query(
 		if isinstance(overrides, str):
 			overrides = json.loads(overrides)
 		for key, val in overrides.items():
-			if hasattr(action, key):
+			# Config and mapping fields might be strings in DB but dicts/lists in overrides
+			json_fields = [
+				"config",
+				"condition_json",
+				"input_mapping",
+				"output_mapping",
+				"resolved_output_schema",
+			]
+			if key in json_fields and not isinstance(val, str):
+				setattr(action, key, json.dumps(val))
+			elif hasattr(action, key):
 				setattr(action, key, val)
-			# config might be a string in the DB but a dict in overrides
-			elif key == "config" and isinstance(val, dict):
-				action.config = json.dumps(val)
 
 	# Build a minimal context
 	doc = None
@@ -630,8 +637,18 @@ def test_action_query(
 
 				if mode == "Query List":
 					fields = config_data.get("fields") or ["name"]
+					meta = frappe.get_meta(action.reference_doctype)
 					for f in fields:
-						schema.append({"fieldname": f, "label": f, "fieldtype": "Data"})
+						df = meta.get_field(f)
+						schema.append(
+							{
+								"fieldname": f,
+								"label": df.label if df else f,
+								"fieldtype": df.fieldtype if df else "Data",
+								"options": df.options if df else None,
+								"mandatory": df.reqd if df else 0,
+							}
+						)
 				elif mode == "Query Report" and isinstance(result, dict) and "columns" in result:
 					columns = result.get("columns") or []
 					for c in columns:
@@ -641,10 +658,20 @@ def test_action_query(
 									"fieldname": c.get("fieldname") or c.get("label"),
 									"label": c.get("label") or c.get("fieldname"),
 									"fieldtype": c.get("fieldtype") or "Data",
+									"options": c.get("options"),
+									"mandatory": c.get("mandatory", 0),
 								}
 							)
 						elif isinstance(c, str):
-							schema.append({"fieldname": c, "label": c, "fieldtype": "Data"})
+							schema.append(
+								{
+									"fieldname": c,
+									"label": c,
+									"fieldtype": "Data",
+									"options": None,
+									"mandatory": 0,
+								}
+							)
 			except Exception:
 				pass
 
@@ -652,10 +679,14 @@ def test_action_query(
 		if not schema:
 			if isinstance(result, dict):
 				for k in result.keys():
-					schema.append({"fieldname": k, "label": k, "fieldtype": "Data"})
+					schema.append(
+						{"fieldname": k, "label": k, "fieldtype": "Data", "options": None, "mandatory": 0}
+					)
 			elif isinstance(result, list) and result and isinstance(result[0], dict):
 				for k in result[0].keys():
-					schema.append({"fieldname": k, "label": k, "fieldtype": "Data"})
+					schema.append(
+						{"fieldname": k, "label": k, "fieldtype": "Data", "options": None, "mandatory": 0}
+					)
 
 		return {
 			"success": True,
@@ -664,4 +695,5 @@ def test_action_query(
 			"duration": round(duration, 4),
 		}
 	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), _("Test Query Failed"))
 		return {"success": False, "error": str(e)}

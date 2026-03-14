@@ -4,9 +4,25 @@ import { useStore } from "../store";
 export function useActionConfig(props) {
 	const store = useStore();
 	const config = reactive({});
+	const docMeta = ref(null);
 	const doctype_fields = ref([]);
 	const variable_options = ref([]);
 	const loading = ref(false);
+
+	// Fetch metadata if needed
+	const loadDocMeta = async (dt) => {
+		if (!dt) {
+			docMeta.value = null;
+			return;
+		}
+		loading.value = true;
+		try {
+			await frappe.model.with_doctype(dt);
+			docMeta.value = frappe.get_meta(dt);
+		} finally {
+			loading.value = false;
+		}
+	};
 
 	const mode = computed(() => props.node?.data?.operation || "");
 	const reference_doctype = computed(
@@ -129,9 +145,11 @@ export function useActionConfig(props) {
 		doctype_fields,
 		variable_options,
 		loading,
+		docMeta,
 		mode,
 		reference_doctype,
 		with_read_only,
+		loadDocMeta,
 		load_doctype_fields,
 		refresh_variables,
 		parse_value_type,

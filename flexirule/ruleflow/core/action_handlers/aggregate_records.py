@@ -95,17 +95,6 @@ class AggregateRecordsHandler(ActionHandler):
 
 		return errors
 
-	def _parse_config(self, config_str):
-		"""Safely parse config JSON."""
-		if not config_str:
-			return {}
-		if isinstance(config_str, dict):
-			return config_str
-		try:
-			return json.loads(config_str)
-		except (json.JSONDecodeError, TypeError):
-			return {}
-
 	def _count(self, doctype, filters, ignore_permissions):
 		"""Count records matching filters."""
 		return frappe.db.count(doctype, filters=filters)
@@ -128,24 +117,7 @@ class AggregateRecordsHandler(ActionHandler):
 		query = frappe.qb.from_(table).select(agg_fn(table[field]).as_("result"))
 
 		# Apply filters
-		for filter_field, filter_value in filters.items():
-			if isinstance(filter_value, list) and len(filter_value) == 2:
-				# Operator-style filter: [">=", 100]
-				op, val = filter_value
-				if op == "=":
-					query = query.where(table[filter_field] == val)
-				elif op == "!=":
-					query = query.where(table[filter_field] != val)
-				elif op == ">":
-					query = query.where(table[filter_field] > val)
-				elif op == ">=":
-					query = query.where(table[filter_field] >= val)
-				elif op == "<":
-					query = query.where(table[filter_field] < val)
-				elif op == "<=":
-					query = query.where(table[filter_field] <= val)
-			else:
-				query = query.where(table[filter_field] == filter_value)
+		query = self._apply_qb_filters(query, table, filters)
 
 		result = query.run(as_dict=True)
 		return result[0]["result"] if result else 0
@@ -173,39 +145,58 @@ class AggregateRecordsHandler(ActionHandler):
 		)
 
 		# Apply filters
-		for filter_field, filter_value in filters.items():
-			if isinstance(filter_value, list) and len(filter_value) == 2:
-				op, val = filter_value
-				if op == "=":
-					query = query.where(table[filter_field] == val)
-				elif op == "!=":
-					query = query.where(table[filter_field] != val)
-			else:
-				query = query.where(table[filter_field] == filter_value)
+		query = self._apply_qb_filters(query, table, filters)
 
 		return query.run(as_dict=True)
 
-	def _resolve_filters(self, filters, context):
-		"""Resolve template expressions in filter values."""
-		if not isinstance(filters, dict):
-			return filters
+	def _apply_qb_filters(self, query, table, filters):
+		"""Helper to apply filters (dict or list) to a query builder object."""
+		if isinstance(filters, dict):
+			for field, val in filters.items():
+				query = self._apply_single_qb_filter(query, table, field, val)
+		elif isinstance(filters, list):
+			for f in filters:
+				if len(f) == 4:
+					# [dt, field, op, val]
+					_dt, field, op, val = f
+					query = self._apply_single_qb_filter(query, table, field, [op, val])
+				elif len(f) == 3:
+					# [field, op, val]
+					field, op, val = f
+					query = self._apply_single_qb_filter(query, table, field, [op, val])
+				elif len(f) == 2:
+					# [field, val] or [field, [op, val]]
+					field, val = f
+					query = self._apply_single_qb_filter(query, table, field, val)
+		return query
 
-		resolved = {}
-		for key, value in filters.items():
-			if isinstance(value, str) and "{" in value:
-				try:
-					resolved[key] = self._safe_eval(value.replace("{", "").replace("}", ""), context)
-				except Exception:
-					resolved[key] = value
-			else:
-				resolved[key] = value
+	def _apply_single_qb_filter(self, query, table, field, value):
+		"""Apply a single filter field/value to the query."""
+		if isinstance(value, list) and len(value) == 2:
+			op, val = value
+			if op == "=":
+				return query.where(table[field] == val)
+			if op == "!=":
+				return query.where(table[field] != val)
+			if op == ">":
+				return query.where(table[field] > val)
+			if op == ">=":
+				return query.where(table[field] >= val)
+			if op == "<":
+				return query.where(table[field] < val)
+			if op == "<=":
+				return query.where(table[field] <= val)
+			if op == "like":
+				return query.where(table[field].like(val))
+			if op == "not like":
+				return query.where(table[field].not_like(val))
+			if op == "in":
+				return query.where(table[field].isin(val))
+			if op == "not in":
+				return query.where(table[field].notin(val))
 
-		return resolved
-
-	def _safe_eval(self, expression, context):
-		"""Evaluate expressions using SafeFrappeAPI from context."""
-		safe_frappe = context.get("frappe") or frappe
-		return frappe.safe_eval(expression, eval_globals={"frappe": safe_frappe}, eval_locals=context)
+		# Default equality
+		return query.where(table[field] == value)
 
 
 # Register handler
