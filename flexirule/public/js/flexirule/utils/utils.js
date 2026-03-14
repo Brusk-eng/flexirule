@@ -35,7 +35,11 @@ flexirule.utils.get_doctype_fields = async function (doctype, prefix = "") {
 			 * Internal helper to add a field option with FieldSelect-style labels.
 			 */
 			const add_option = (df, parent_table, table_prefix = "") => {
-				if (frappe.model.no_value_type.includes(df.fieldtype)) return;
+				if (
+					frappe.model.no_value_type.includes(df.fieldtype) &&
+					!["Table", "Table MultiSelect"].includes(df.fieldtype)
+				)
+					return;
 				if (df.is_virtual) return;
 
 				let fieldname = df.fieldname;

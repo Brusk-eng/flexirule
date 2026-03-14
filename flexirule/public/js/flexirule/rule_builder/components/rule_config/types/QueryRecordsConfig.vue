@@ -299,6 +299,7 @@ onMounted(async () => {
 		await loadDocMeta(reference_doctype.value);
 	}
 	await refresh_variables();
+	update_resolved_schema();
 });
 
 // Watch for external config changes
@@ -378,6 +379,138 @@ function toggle_report_filter_type(fieldname) {
 		report_filter_values[fieldname] = "";
 	}
 	sync_local_config();
+}
+
+const SYSTEM_FIELDS = [
+	{ fieldname: "name", label: __("ID (name)"), fieldtype: "Data" },
+	{ fieldname: "owner", label: __("Created By (owner)"), fieldtype: "Link", options: "User" },
+	{ fieldname: "creation", label: __("Created On (creation)"), fieldtype: "Datetime" },
+	{ fieldname: "modified", label: __("Modified On (modified)"), fieldtype: "Datetime" },
+	{
+		fieldname: "modified_by",
+		label: __("Modified By (modified_by)"),
+		fieldtype: "Link",
+		options: "User",
+	},
+	{ fieldname: "docstatus", label: __("Document Status (docstatus)"), fieldtype: "Int" },
+];
+
+async function update_resolved_schema() {
+	if (!props.node?.data) return;
+
+	if (mode.value === "Query List" || mode.value === "Query Doc") {
+		const fields = field_rows.value.map((r) => r.field).filter((f) => f);
+		if (!fields.length) {
+			props.node.data.resolved_output_schema = [];
+			return;
+		}
+
+		const schema = [];
+		const meta = await flexirule.utils.get_doctype_meta(reference_doctype.value);
+		if (!meta) return;
+
+		for (const f of fields) {
+			if (f.includes(".")) {
+				const [table, field] = f.split(".");
+				const table_df = meta.fields.find((d) => d.fieldname === table);
+				if (table_df && table_df.options) {
+					const child_meta = await flexirule.utils.get_doctype_meta(table_df.options);
+					const df =
+						child_meta.fields.find((d) => d.fieldname === field) ||
+						SYSTEM_FIELDS.find((sf) => sf.fieldname === field);
+					if (df) {
+						schema.push({
+							label: `${table_df.label}: ${df.label}`,
+							fieldname: f,
+							fieldtype: df.fieldtype,
+							options: df.options,
+						});
+					}
+				}
+			} else {
+				const df =
+					meta.fields.find((d) => d.fieldname === f) ||
+					SYSTEM_FIELDS.find((sf) => sf.fieldname === f);
+				if (df) {
+					if (["Table", "Table MultiSelect"].includes(df.fieldtype) && df.options) {
+						// Expand child table fields
+						const child_meta = await flexirule.utils.get_doctype_meta(df.options);
+						if (child_meta) {
+							child_meta.fields.forEach((cf) => {
+								if (!frappe.model.no_value_type.includes(cf.fieldtype)) {
+									schema.push({
+										label: `${df.label}: ${cf.label}`,
+										fieldname: `${df.fieldname}.${cf.fieldname}`,
+										fieldtype: cf.fieldtype,
+										options: cf.options,
+									});
+								}
+							});
+						}
+					} else {
+						schema.push({
+							label: df.label,
+							fieldname: f,
+							fieldtype: df.fieldtype,
+							options: df.options,
+						});
+					}
+				}
+			}
+		}
+
+		props.node.data.resolved_output_schema = schema;
+		store.mark_dirty();
+	} else if (mode.value === "Query Report" && props.node?.data?.reference_docname) {
+		await update_report_columns();
+	}
+}
+
+async function update_report_columns() {
+	if (mode.value !== "Query Report" || !props.node?.data?.reference_docname) return;
+
+	try {
+		const report_name = props.node.data.reference_docname;
+		const res = await frappe.call({
+			method: "frappe.desk.query_report.run",
+			args: {
+				report_name: report_name,
+				filters: report_filter_values,
+				are_default_filters: false,
+			},
+		});
+
+		if (res.message && res.message.columns) {
+			const schema = res.message.columns.map((c) => {
+				if (typeof c === "string") {
+					const parts = c.split(":");
+					let fieldtype = parts[1] || "Data";
+					let options = parts[2];
+
+					if (fieldtype.includes("/")) {
+						[fieldtype, options] = fieldtype.split("/");
+					}
+
+					return {
+						label: parts[0],
+						fieldname: parts[0],
+						fieldtype: fieldtype,
+						options: options,
+					};
+				}
+				return {
+					label: c.label || c.fieldname,
+					fieldname: c.fieldname,
+					fieldtype: c.fieldtype || "Data",
+					options: c.options,
+				};
+			});
+			props.node.data.resolved_output_schema = schema;
+			store.mark_dirty();
+		}
+	} catch (e) {
+		console.warn("Failed to update report columns", e);
+	}
 }
 
 const operators = ["=", "!=", ">", ">=", "<", "<=", "in", "not in"];
@@ -679,6 +812,15 @@ watch(
 	() => [field_rows.value, arg_rows.value, config],
 	() => {
 		sync_local_config();
+		update_resolved_schema();
+	},
+	{ deep: true }
+);
+
+watch(
+	() => report_filter_values,
+	() => {
+		update_resolved_schema();
 	},
 	{ deep: true }
 );

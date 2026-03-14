@@ -73,8 +73,14 @@
 						{{ __("No keys detected yet.") }}
 					</div>
 					<div v-else class="keys-grid">
-						<div v-for="k in detectedKeys" :key="k.key" class="key-tag">
-							<i class="fa fa-tag mr-1"></i> {{ k.key }}
+						<div
+							v-for="k in detectedKeys"
+							:key="k.fieldname || k.key"
+							class="key-tag"
+							:title="`${k.fieldname || k.key} (${k.fieldtype || 'Data'})`"
+						>
+							<i class="fa fa-info-circle mr-1 opacity-70"></i>
+							{{ k.label || k.fieldname || k.key }}
 						</div>
 					</div>
 				</div>
