@@ -108,10 +108,7 @@ onMounted(() => {
 		</div>
 
 		<!-- timezone for datetime field -->
-		<div
-			v-if="time_zone"
-			:class="['time-zone', !df.description ? 'mt-2' : '']"
-		>
+		<div v-if="time_zone" :class="['time-zone', !df.description ? 'mt-2' : '']">
 			{{ time_zone }}
 		</div>
 
@@ -119,17 +116,9 @@ onMounted(() => {
 		<div class="selected-color no-value" />
 
 		<!-- icon selector icon -->
-		<div
-			v-if="df.fieldtype == 'Icon'"
-			class="selected-icon no-value"
-			ref="icon_ref"
-		></div>
+		<div v-if="df.fieldtype == 'Icon'" class="selected-icon no-value" ref="icon_ref"></div>
 		<!-- phone selector icon -->
-		<div
-			v-if="df.fieldtype == 'Phone'"
-			class="selected-phone no-value"
-			ref="phone_ref"
-		></div>
+		<div v-if="df.fieldtype == 'Phone'" class="selected-phone no-value" ref="phone_ref"></div>
 	</div>
 </template>
 
