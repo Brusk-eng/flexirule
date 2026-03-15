@@ -465,8 +465,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 				id: nodeId,
 				type: type,
 				position: {
-					x: (isRoot ? 50 : 300),
-					y: (isRoot ? 250 : 150 + index * 120),
+					x: isRoot ? 50 : 300,
+					y: isRoot ? 250 : 150 + index * 120,
 				},
 				label: nodeLabel,
 				data: nodeData,

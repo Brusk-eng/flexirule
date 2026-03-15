@@ -10,7 +10,6 @@
 		<div v-else class="config-container">
 			<!-- Configuration based on selected Mode -->
 			<template v-if="mode === 'Query List'">
-
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup

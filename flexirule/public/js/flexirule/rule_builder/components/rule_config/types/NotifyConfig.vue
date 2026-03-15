@@ -82,7 +82,6 @@ const { with_read_only, update_action_field } = useActionConfig(props);
 const double_left = "{{";
 const double_right = "}}";
 
-
 const valueTemplateField = {
 	fieldname: "value_template",
 	fieldtype: "Code",

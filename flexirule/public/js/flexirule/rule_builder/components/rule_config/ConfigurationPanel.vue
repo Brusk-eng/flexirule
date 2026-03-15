@@ -37,7 +37,6 @@
 	</div>
 </template>
 
-
 <script setup>
 import { computed, ref } from "vue";
 import { useStore } from "../../store";

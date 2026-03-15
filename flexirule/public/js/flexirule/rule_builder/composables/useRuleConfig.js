@@ -59,13 +59,20 @@ export function useRuleConfig(props, emit) {
 
 		// 1. Contract-based Mandatory Field Validation
 		if (contract && contract.mandatory_fields) {
-			const reqFields = contract.mandatory_fields[operation] || contract.mandatory_fields["*"] || [];
+			const reqFields =
+				contract.mandatory_fields[operation] || contract.mandatory_fields["*"] || [];
 			reqFields.forEach((f) => {
 				const val = draftNode.value.data?.[f];
 				if (val === undefined || val === null || val === "") {
 					// Use a descriptive label for the error message
-					const fieldLabel = f.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-					errors.push(__("{0} is required for {1}").replace("{0}", fieldLabel).replace("{1}", operation || actionType));
+					const fieldLabel = f
+						.replace(/_/g, " ")
+						.replace(/\b\w/g, (c) => c.toUpperCase());
+					errors.push(
+						__("{0} is required for {1}")
+							.replace("{0}", fieldLabel)
+							.replace("{1}", operation || actionType)
+					);
 				}
 			});
 		}

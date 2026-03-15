@@ -17,7 +17,6 @@
 						@update:modelValue="updateField('operation', $event)"
 					/>
 
-
 					<!-- Core Identity Fields -->
 					<ControlFactory
 						v-if="showReferenceDoctype"
@@ -66,7 +65,11 @@
 			<div class="panel-section variables-section">
 				<div class="section-header">
 					<h5 class="section-title">
-						{{ mode === "variables" ? __("Available Variables") : __("Context Variables") }}
+						{{
+							mode === "variables"
+								? __("Available Variables")
+								: __("Context Variables")
+						}}
 					</h5>
 					<button class="btn btn-xs btn-link" @click="refreshVariables">
 						<i class="fa fa-refresh"></i>
@@ -118,7 +121,9 @@
 				v-if="mode === 'config' && node.data?.reference_doctype"
 				class="panel-section doctype-fields-section"
 			>
-				<h5 class="section-title">{{ __("{0} Fields").replace("{0}", node.data.reference_doctype) }}</h5>
+				<h5 class="section-title">
+					{{ __("{0} Fields").replace("{0}", node.data.reference_doctype) }}
+				</h5>
 				<div class="variable-list v2-scrollbar mt-2">
 					<div v-if="loadingFields" class="text-center p-2">
 						<div class="spinner-border spinner-border-sm text-muted"></div>
@@ -169,7 +174,10 @@ const contract = computed(() => {
 const showReferenceDoctype = computed(() => {
 	if (!contract.value) return false;
 	const fields = contract.value.required_fields || [];
-	return fields.includes("reference_doctype") || ["Process", "Set Value", "Notify"].includes(props.node.data?.action_type);
+	return (
+		fields.includes("reference_doctype") ||
+		["Process", "Set Value", "Notify"].includes(props.node.data?.action_type)
+	);
 });
 
 const showProcessName = computed(() => {
@@ -207,7 +215,9 @@ const showReferenceDocname = computed(() => {
 
 const showInputSource = computed(() => {
 	if (!contract.value) return false;
-	return ["Query Records", "Aggregate Records", "Create Docs"].includes(props.node.data?.action_type);
+	return ["Query Records", "Aggregate Records", "Create Docs"].includes(
+		props.node.data?.action_type
+	);
 });
 
 // -- Field Definitions --
@@ -291,7 +301,10 @@ function onDragStart(event, item, isField = false) {
 	if (event.dataTransfer) {
 		const text = isField ? `{{ doc.${item.fieldname} }}` : `{{ ${item.value} }}`;
 		event.dataTransfer.setData("text/plain", text);
-		event.dataTransfer.setData("application/x-flexirule-variable", isField ? `doc.${item.fieldname}` : item.value);
+		event.dataTransfer.setData(
+			"application/x-flexirule-variable",
+			isField ? `doc.${item.fieldname}` : item.value
+		);
 		event.dataTransfer.effectAllowed = "copy";
 	}
 }
@@ -351,7 +364,6 @@ defineExpose({
 	validate: () => ({ valid: true }),
 });
 </script>
-
 
 <style scoped>
 .input-panel {

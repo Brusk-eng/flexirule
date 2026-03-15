@@ -341,7 +341,10 @@ function toggle_action_fields(frm, cdt, cdn) {
 	}
 
 	// Always show operation if it has options or is for specific types
-	if (contract.operation_options || ["Process", "Query Records", "Aggregate Records", "Create Docs"].includes(type)) {
+	if (
+		contract.operation_options ||
+		["Process", "Query Records", "Aggregate Records", "Create Docs"].includes(type)
+	) {
 		fields_to_show.push("operation");
 	}
 

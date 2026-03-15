@@ -31,7 +31,8 @@
 								:read_only="readOnly"
 								:class="{
 									'border-warning':
-										config.field && !is_field_valid(config.field, doctype_fields),
+										config.field &&
+										!is_field_valid(config.field, doctype_fields),
 								}"
 								@update:modelValue="(val) => update_config_key('field', val)"
 							/>
@@ -55,7 +56,9 @@
 										config.group_by_field &&
 										!is_field_valid(config.group_by_field, doctype_fields),
 								}"
-								@update:modelValue="(val) => update_config_key('group_by_field', val)"
+								@update:modelValue="
+									(val) => update_config_key('group_by_field', val)
+								"
 							/>
 							<i
 								v-if="
@@ -170,7 +173,6 @@ const field_map = computed(() => {
 const variable_set = computed(() => {
 	return new Set((variable_options.value || []).map((v) => v.value));
 });
-
 
 function update_config_key(key, value) {
 	config[key] = value;

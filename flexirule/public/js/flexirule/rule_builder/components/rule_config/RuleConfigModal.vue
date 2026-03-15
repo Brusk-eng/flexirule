@@ -18,7 +18,10 @@
 								:style="{ background: contract?.css?.color + '20' }"
 							>
 								<i
-									:class="contract?.css?.icon || getIcon(draftNode.data?.action_type || draftNode.type)"
+									:class="
+										contract?.css?.icon ||
+										getIcon(draftNode.data?.action_type || draftNode.type)
+									"
 									:style="{ color: contract?.css?.color }"
 								></i>
 							</div>
@@ -580,7 +583,8 @@ function getIcon(type) {
 	box-shadow: inset 0 -4px 12px rgba(0, 0, 0, 0.02);
 }
 
-.conditions-view, .start-node-setup {
+.conditions-view,
+.start-node-setup {
 	width: 100%;
 	height: 100%;
 	overflow-y: auto;
@@ -623,4 +627,3 @@ function getIcon(type) {
 	opacity: 0;
 }
 </style>
-

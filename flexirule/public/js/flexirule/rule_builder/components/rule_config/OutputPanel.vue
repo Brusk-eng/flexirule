@@ -108,7 +108,10 @@
 					</div>
 				</div>
 
-				<div class="form-group mt-3" v-if="node.data?.return_type && node.data?.return_type !== 'Boolean'">
+				<div
+					class="form-group mt-3"
+					v-if="node.data?.return_type && node.data?.return_type !== 'Boolean'"
+				>
 					<label class="section-title mini">{{ __("Manual Schema (JSON)") }}</label>
 					<ControlFactory
 						:df="resolvedSchemaField"
@@ -138,7 +141,9 @@ const outputMappings = ref([]);
 const availableVariables = ref([]);
 
 const showMutationMode = computed(() => {
-	return ["Process", "Query Records", "Aggregate Records", "Create Docs"].includes(props.node.data?.action_type);
+	return ["Process", "Query Records", "Aggregate Records", "Create Docs"].includes(
+		props.node.data?.action_type
+	);
 });
 
 // -- Field Definitions --
@@ -269,7 +274,6 @@ function validate() {
 
 defineExpose({ validate });
 </script>
-
 
 <script setup>
 import { ref, watch, onMounted, computed } from "vue";

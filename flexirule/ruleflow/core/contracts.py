@@ -143,7 +143,6 @@ ACTION_TYPE_CONTRACT = {
 }
 
 
-
 def get_contract(action_type: str) -> dict:
 	"""Get contract for an action type, with defaults for unknown types"""
 	return ACTION_TYPE_CONTRACT.get(
