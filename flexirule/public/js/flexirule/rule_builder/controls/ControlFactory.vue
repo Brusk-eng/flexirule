@@ -237,6 +237,25 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
+onMounted(() => {
+	check_default();
+});
+
+watch(
+	() => props.df?.default,
+	() => {
+		check_default();
+	}
+);
+
+function check_default() {
+	if (props.modelValue === undefined || props.modelValue === null || props.modelValue === "") {
+		if (props.df?.default !== undefined && props.df?.default !== null) {
+			emit("update:modelValue", props.df.default);
+		}
+	}
+}
+
 function onDrop(event) {
 	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
 	if (variable) {

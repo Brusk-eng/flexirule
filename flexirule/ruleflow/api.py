@@ -638,15 +638,37 @@ def test_action_query(
 				if mode == "Query List":
 					fields = config_data.get("fields") or ["name"]
 					meta = frappe.get_meta(action.reference_doctype)
+					system_fields = {f["value"]: f for f in SYSTEM_FIELDS}
+
 					for f in fields:
-						df = meta.get_field(f)
+						df = None
+						label = f
+						if "." in f:
+							table_fn, field_fn = f.split(".", 1)
+							table_df = meta.get_field(table_fn)
+							if table_df and table_df.fieldtype in ["Table", "Table MultiSelect"]:
+								child_meta = frappe.get_meta(table_df.options)
+								df = child_meta.get_field(field_fn)
+								if not df and field_fn in system_fields:
+									df = frappe._dict(system_fields[field_fn])
+
+								if df:
+									label = f"{table_df.label}: {df.label or df.fieldname}"
+						else:
+							df = meta.get_field(f)
+							if not df and f in system_fields:
+								df = frappe._dict(system_fields[f])
+
+							if df:
+								label = df.label or df.fieldname
+
 						schema.append(
 							{
 								"fieldname": f,
-								"label": df.label if df else f,
+								"label": label,
 								"fieldtype": df.fieldtype if df else "Data",
 								"options": df.options if df else None,
-								"mandatory": df.reqd if df else 0,
+								"mandatory": df.reqd if df and hasattr(df, "reqd") else 0,
 							}
 						)
 				elif mode == "Query Report" and isinstance(result, dict) and "columns" in result:

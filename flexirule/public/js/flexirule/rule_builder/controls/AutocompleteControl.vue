@@ -11,6 +11,7 @@ const props = defineProps({
 	doc: { type: Object, default: null },
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
+	showOnFocus: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -69,6 +70,16 @@ async function init_control() {
 			}
 		},
 	};
+
+	if (props.showOnFocus) {
+		control_df.on_focus = () => {
+			if (frappe_control && frappe_control.awesomplete) {
+				frappe_control.awesomplete.minChars = 0;
+				frappe_control.awesomplete.evaluate();
+				frappe_control.awesomplete.open();
+			}
+		};
+	}
 
 	const ControlClass = frappe.ui.form.ControlAutocomplete;
 	frappe_control = new ControlClass({

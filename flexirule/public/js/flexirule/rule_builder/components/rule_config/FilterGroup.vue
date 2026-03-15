@@ -22,14 +22,26 @@
 
 					<!-- Field Picker -->
 					<div class="filter-col field-col">
-						<FieldPickerControl
-							:df="{ label: '' }"
-							:fields="getFieldsForDoctype(row.doctype || doctype)"
-							:documentType="row.doctype || doctype"
-							:modelValue="row.field"
-							:read_only="readOnly"
-							@update:modelValue="(val) => updateRow(idx, { field: val })"
-						/>
+						<div class="field-picker-container">
+							<FieldPickerControl
+								:df="{ label: '' }"
+								:fields="getFieldsForDoctype(row.doctype || doctype)"
+								:documentType="row.doctype || doctype"
+								:modelValue="row.field"
+								:read_only="readOnly"
+								:class="{
+									'border-warning':
+										row.field &&
+										!isFieldValid(row.field, row.doctype || doctype),
+								}"
+								@update:modelValue="(val) => updateRow(idx, { field: val })"
+							/>
+							<i
+								v-if="row.field && !isFieldValid(row.field, row.doctype || doctype)"
+								class="fa fa-warning text-warning field-warning-icon"
+								:title="__('Field not found in DocType')"
+							></i>
+						</div>
 					</div>
 
 					<!-- Operator -->
@@ -395,8 +407,12 @@ const toggleValueType = (idx, type) => {
 	emitUpdate();
 };
 
-const emitUpdate = () => {
-	emit("update:modelValue", JSON.parse(JSON.stringify(filters.value)));
+const isFieldValid = (fieldname, dt) => {
+	const fields = getFieldsForDoctype(dt || props.doctype);
+	if (!fields || !fields.length) return true;
+	if (!fieldname) return true;
+	if (typeof fieldname === "string" && fieldname.startsWith("{")) return true;
+	return fields.some((f) => f.value === fieldname);
 };
 
 watch(() => props.modelValue, syncFromProps, { deep: true });
@@ -453,6 +469,26 @@ onMounted(syncFromProps);
 }
 .type-col {
 	min-width: 90px;
+}
+
+.field-picker-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+	width: 100%;
+}
+
+.field-warning-icon {
+	position: absolute;
+	right: 18px;
+	z-index: 5;
+	pointer-events: all;
+	cursor: help;
+}
+
+:deep(.border-warning .form-control) {
+	border-color: var(--orange-500, #ff9800) !important;
+	background-color: #fff8f1 !important;
 }
 
 .value-input-group {

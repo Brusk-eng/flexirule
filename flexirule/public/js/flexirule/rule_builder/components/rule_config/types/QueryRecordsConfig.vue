@@ -31,6 +31,14 @@
 		<div v-else class="config-section section-card">
 			<template v-if="mode === 'Query List'">
 				<div class="sub-section section-subcard">
+					<ControlFactory
+						:df="with_read_only(referenceDoctypeField)"
+						:modelValue="props.node?.data?.reference_doctype"
+						@update:modelValue="(val) => update_action_field('reference_doctype', val)"
+					/>
+				</div>
+
+				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						:doctype="reference_doctype"
@@ -44,15 +52,28 @@
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Fields") }}</h6>
 					<div class="table-rows">
-						<div v-for="(row, idx) in field_rows" :key="idx" class="row-item">
-							<FieldPickerControl
-								:df="{ label: '' }"
-								:fields="doctype_fields"
-								:documentType="reference_doctype"
-								:modelValue="row.field"
-								:read_only="readOnly"
-								@update:modelValue="(val) => (row.field = val)"
-							/>
+						<div v-for="(row, idx) in field_rows" :key="idx" class="row-item field-row">
+							<div class="field-picker-container">
+								<FieldPickerControl
+									:df="{ label: '' }"
+									:fields="doctype_fields"
+									:documentType="reference_doctype"
+									:modelValue="row.field"
+									:read_only="readOnly"
+									:class="{
+										'border-warning': !is_field_valid(
+											row.field,
+											doctype_fields
+										),
+									}"
+									@update:modelValue="(val) => (row.field = val)"
+								/>
+								<i
+									v-if="row.field && !is_field_valid(row.field, doctype_fields)"
+									class="fa fa-warning text-warning field-warning-icon"
+									:title="__('Field not found in DocType')"
+								></i>
+							</div>
 							<button
 								v-if="!readOnly"
 								class="btn btn-xs btn-link text-danger"
@@ -64,6 +85,110 @@
 						<button v-if="!readOnly" class="btn btn-xs btn-link" @click="add_field">
 							<i class="fa fa-plus"></i> {{ __("Add Field") }}
 						</button>
+						<button
+							v-if="!readOnly"
+							class="btn btn-xs btn-link text-primary"
+							@click="show_field_selector = !show_field_selector"
+						>
+							<i class="fa fa-list"></i>
+							{{
+								show_field_selector
+									? __("Hide Field Selector")
+									: __("Select Fields")
+							}}
+						</button>
+					</div>
+
+					<!-- Inline Field Selector -->
+					<div
+						v-if="show_field_selector"
+						class="field-selector-inline mt-2 p-2 border rounded bg-white"
+					>
+						<div class="d-flex align-items-center mb-2 gap-2">
+							<input
+								type="text"
+								class="form-control input-xs"
+								:placeholder="__('Search fields...')"
+								v-model="field_search_query"
+							/>
+							<button
+								class="btn btn-xs btn-default"
+								@click="toggle_all_visible_fields"
+							>
+								{{
+									is_all_visible_selected ? __("Unselect All") : __("Select All")
+								}}
+							</button>
+						</div>
+						<div
+							class="fields-list-scrollable"
+							style="max-height: 250px; overflow-y: auto"
+						>
+							<div
+								v-for="f in filtered_selector_fields"
+								:key="f.value"
+								class="field-option-item d-flex align-items-center p-1"
+							>
+								<input
+									type="checkbox"
+									:checked="is_field_selected(f.value)"
+									@change="toggle_field_selection(f.value)"
+									class="mr-2"
+								/>
+								<span class="small">{{ f.label }}</span>
+								<span class="extra-small text-muted ml-1">({{ f.value }})</span>
+							</div>
+							<div
+								v-if="!filtered_selector_fields.length"
+								class="text-center p-2 text-muted small"
+							>
+								{{ __("No fields found") }}
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="sub-section section-subcard">
+					<h6>{{ __("Order By") }}</h6>
+					<div class="table-rows">
+						<div
+							v-for="(row, idx) in order_by_rows"
+							:key="idx"
+							class="row-item field-row"
+						>
+							<FieldPickerControl
+								:df="{ label: '' }"
+								:fields="doctype_fields"
+								:documentType="reference_doctype"
+								:modelValue="row.field"
+								:read_only="readOnly"
+								class="flex-1"
+								:class="{
+									'border-warning':
+										row.field && !is_field_valid(row.field, doctype_fields),
+								}"
+								@update:modelValue="(val) => (row.field = val)"
+							/>
+							<select
+								class="form-control input-xs ml-2"
+								style="width: 80px"
+								v-model="row.direction"
+								:disabled="readOnly"
+							>
+								<option value="asc">{{ __("ASC") }}</option>
+								<option value="desc">{{ __("DESC") }}</option>
+							</select>
+							<button
+								v-if="!readOnly"
+								class="btn btn-xs btn-link text-danger"
+								@click="remove_order_by(idx)"
+							>
+								<i class="fa fa-trash"></i>
+							</button>
+						</div>
+						<button v-if="!readOnly" class="btn btn-xs btn-link" @click="add_order_by">
+							<i class="fa fa-plus"></i> {{ __("Add Sort Criteria") }}
+						</button>
 					</div>
 				</div>
 
@@ -73,19 +198,17 @@
 						:modelValue="config.limit"
 						@update:modelValue="(val) => update_config_key('limit', val)"
 					/>
-					<ControlFactory
-						:df="with_read_only(orderByField)"
-						:modelValue="config.order_by"
-						@update:modelValue="(val) => update_config_key('order_by', val)"
-					/>
-					<FieldPickerControl
-						:df="groupByField"
-						:fields="doctype_fields"
-						:documentType="reference_doctype"
-						:modelValue="config.group_by"
-						:read_only="readOnly"
-						@update:modelValue="(val) => update_config_key('group_by', val)"
-					/>
+					<div class="sub-section">
+						<label class="control-label small">{{ __("Group By") }}</label>
+						<AutocompleteControl
+							:df="{ label: '', fieldtype: 'Autocomplete' }"
+							:modelValue="config.group_by"
+							:get_options="get_group_by_options"
+							:read_only="readOnly"
+							:showOnFocus="true"
+							@update:modelValue="update_config_key('group_by', $event)"
+						/>
+					</div>
 				</div>
 			</template>
 
@@ -288,6 +411,8 @@ const {
 	encode_value,
 	parse_value_type,
 	sync_config,
+	is_field_valid,
+	refresh_variables,
 } = useActionConfig(props);
 
 const test_status = ref("");
@@ -299,6 +424,7 @@ onMounted(async () => {
 		await loadDocMeta(reference_doctype.value);
 	}
 	await refresh_variables();
+	update_resolved_schema();
 });
 
 // Watch for external config changes
@@ -311,7 +437,11 @@ watch(
 watch(
 	() => reference_doctype.value,
 	async (val) => {
-		if (val) await loadDocMeta(val);
+		if (val) {
+			await loadDocMeta(val);
+			await load_doctype_fields(val);
+			sync_local_config();
+		}
 	}
 );
 
@@ -323,7 +453,51 @@ watch(
 );
 
 const field_rows = ref([]);
+const order_by_rows = ref([]);
 const arg_rows = ref([]);
+
+const show_field_selector = ref(false);
+const field_search_query = ref("");
+
+const filtered_selector_fields = computed(() => {
+	const query = field_search_query.value.toLowerCase();
+	return doctype_fields.value.filter(
+		(f) => f.label.toLowerCase().includes(query) || f.value.toLowerCase().includes(query)
+	);
+});
+
+const is_all_visible_selected = computed(() => {
+	if (!filtered_selector_fields.value.length) return false;
+	return filtered_selector_fields.value.every((f) => is_field_selected(f.value));
+});
+
+function is_field_selected(f) {
+	return field_rows.value.some((r) => r.field === f);
+}
+
+function toggle_field_selection(f) {
+	const idx = field_rows.value.findIndex((r) => r.field === f);
+	if (idx > -1) {
+		field_rows.value.splice(idx, 1);
+	} else {
+		field_rows.value.push({ field: f });
+	}
+	sync_local_config();
+}
+
+function toggle_all_visible_fields() {
+	const select = !is_all_visible_selected.value;
+	filtered_selector_fields.value.forEach((f) => {
+		const selected = is_field_selected(f.value);
+		if (select && !selected) {
+			field_rows.value.push({ field: f.value });
+		} else if (!select && selected) {
+			const idx = field_rows.value.findIndex((r) => r.field === f.value);
+			if (idx > -1) field_rows.value.splice(idx, 1);
+		}
+	});
+	sync_local_config();
+}
 
 // Shim for frappe.query_report to support report JS scripts that use it
 if (!window.frappe.query_report) {
@@ -380,6 +554,138 @@ function toggle_report_filter_type(fieldname) {
 	sync_local_config();
 }
 
+const SYSTEM_FIELDS = [
+	{ fieldname: "name", label: __("ID (name)"), fieldtype: "Data" },
+	{ fieldname: "owner", label: __("Created By (owner)"), fieldtype: "Link", options: "User" },
+	{ fieldname: "creation", label: __("Created On (creation)"), fieldtype: "Datetime" },
+	{ fieldname: "modified", label: __("Modified On (modified)"), fieldtype: "Datetime" },
+	{
+		fieldname: "modified_by",
+		label: __("Modified By (modified_by)"),
+		fieldtype: "Link",
+		options: "User",
+	},
+	{ fieldname: "docstatus", label: __("Document Status (docstatus)"), fieldtype: "Int" },
+];
+
+async function update_resolved_schema() {
+	if (!props.node?.data) return;
+
+	if (mode.value === "Query List" || mode.value === "Query Doc") {
+		const fields = field_rows.value.map((r) => r.field).filter((f) => f);
+		if (!fields.length) {
+			props.node.data.resolved_output_schema = [];
+			return;
+		}
+
+		const schema = [];
+		const meta = await flexirule.utils.get_doctype_meta(reference_doctype.value);
+		if (!meta) return;
+
+		for (const f of fields) {
+			if (f.includes(".")) {
+				const [table, field] = f.split(".");
+				const table_df = meta.fields.find((d) => d.fieldname === table);
+				if (table_df && table_df.options) {
+					const child_meta = await flexirule.utils.get_doctype_meta(table_df.options);
+					const df =
+						child_meta.fields.find((d) => d.fieldname === field) ||
+						SYSTEM_FIELDS.find((sf) => sf.fieldname === field);
+					if (df) {
+						schema.push({
+							label: `${table_df.label}: ${df.label}`,
+							fieldname: f,
+							fieldtype: df.fieldtype,
+							options: df.options,
+						});
+					}
+				}
+			} else {
+				const df =
+					meta.fields.find((d) => d.fieldname === f) ||
+					SYSTEM_FIELDS.find((sf) => sf.fieldname === f);
+				if (df) {
+					if (["Table", "Table MultiSelect"].includes(df.fieldtype) && df.options) {
+						// Expand child table fields
+						const child_meta = await flexirule.utils.get_doctype_meta(df.options);
+						if (child_meta) {
+							child_meta.fields.forEach((cf) => {
+								if (!frappe.model.no_value_type.includes(cf.fieldtype)) {
+									schema.push({
+										label: `${df.label}: ${cf.label}`,
+										fieldname: `${df.fieldname}.${cf.fieldname}`,
+										fieldtype: cf.fieldtype,
+										options: cf.options,
+									});
+								}
+							});
+						}
+					} else {
+						schema.push({
+							label: df.label,
+							fieldname: f,
+							fieldtype: df.fieldtype,
+							options: df.options,
+						});
+					}
+				}
+			}
+		}
+
+		props.node.data.resolved_output_schema = schema;
+		store.mark_dirty();
+	} else if (mode.value === "Query Report" && props.node?.data?.reference_docname) {
+		await update_report_columns();
+	}
+}
+
+async function update_report_columns() {
+	if (mode.value !== "Query Report" || !props.node?.data?.reference_docname) return;
+
+	try {
+		const report_name = props.node.data.reference_docname;
+		const res = await frappe.call({
+			method: "frappe.desk.query_report.run",
+			args: {
+				report_name: report_name,
+				filters: report_filter_values,
+				are_default_filters: false,
+			},
+		});
+
+		if (res.message && res.message.columns) {
+			const schema = res.message.columns.map((c) => {
+				if (typeof c === "string") {
+					const parts = c.split(":");
+					let fieldtype = parts[1] || "Data";
+					let options = parts[2];
+
+					if (fieldtype.includes("/")) {
+						[fieldtype, options] = fieldtype.split("/");
+					}
+
+					return {
+						label: parts[0],
+						fieldname: parts[0],
+						fieldtype: fieldtype,
+						options: options,
+					};
+				}
+				return {
+					label: c.label || c.fieldname,
+					fieldname: c.fieldname,
+					fieldtype: c.fieldtype || "Data",
+					options: c.options,
+				};
+			});
+			props.node.data.resolved_output_schema = schema;
+			store.mark_dirty();
+		}
+	} catch (e) {
+		console.warn("Failed to update report columns", e);
+	}
+}
+
 const operators = ["=", "!=", ">", ">=", "<", "<=", "in", "not in"];
 
 const modeField = computed(() => ({
@@ -390,12 +696,22 @@ const modeField = computed(() => ({
 	read_only: props.readOnly,
 }));
 
-const reportLinkField = {
+const reportLinkField = computed(() => ({
 	fieldname: "reference_docname",
 	fieldtype: "Link",
 	label: __("Report"),
 	options: "Report",
-};
+	read_only: props.readOnly,
+}));
+
+const referenceDoctypeField = computed(() => ({
+	fieldname: "reference_doctype",
+	fieldtype: "Link",
+	label: __("Reference DocType"),
+	options: "DocType",
+	default: store.rule_doc?.document_type,
+	read_only: props.readOnly,
+}));
 
 const limitField = {
 	fieldname: "limit",
@@ -465,6 +781,15 @@ function add_field() {
 	field_rows.value.push({ field: "" });
 }
 
+function add_order_by() {
+	order_by_rows.value.push({ field: "", direction: "asc" });
+}
+
+function remove_order_by(idx) {
+	order_by_rows.value.splice(idx, 1);
+	sync_local_config();
+}
+
 function remove_field(idx) {
 	field_rows.value.splice(idx, 1);
 	sync_local_config();
@@ -492,6 +817,29 @@ function build_args() {
 	return args;
 }
 
+function get_order_by_options() {
+	return doctype_fields.value.map((f) => ({ label: f.label, value: f.value }));
+}
+
+function get_group_by_options() {
+	const current = config.group_by || "";
+	const parts = current.split(",").map((p) => p.trim());
+	// const last_part = parts[parts.length - 1]; // not used yet but good for logic
+	const prefix = parts.length > 1 ? parts.slice(0, -1).join(", ") + ", " : "";
+
+	return doctype_fields.value.map((f) => ({
+		label: `${prefix}${f.label}`,
+		value: `${prefix}${f.value}`,
+	}));
+}
+
+function build_order_by() {
+	return order_by_rows.value
+		.filter((r) => r.field)
+		.map((r) => `${r.field} ${r.direction || "asc"}`)
+		.join(", ");
+}
+
 function sync_local_config() {
 	const new_config = {};
 	Object.keys(config).forEach((k) => {
@@ -502,6 +850,9 @@ function sync_local_config() {
 	if (mode.value === "Query List") {
 		const fields = build_fields();
 		if (fields.length) new_config.fields = fields;
+
+		const order_by = build_order_by();
+		if (order_by) new_config.order_by = order_by;
 	}
 
 	if (mode.value === "Query API") {
@@ -637,9 +988,14 @@ function load_local_config(val) {
 	Object.keys(config).forEach((k) => delete config[k]);
 	Object.assign(config, parsed);
 
-	const filters = parsed.filters || [];
+	if (!config.filters) {
+		config.filters = mode.value === "Query Report" ? {} : [];
+	}
+	if (!config.limit && mode.value === "Query List") config.limit = 20;
+
 	if (mode.value === "Query Report") {
-		Object.entries(filters).forEach(([k, v]) => {
+		const r_filters = parsed.filters || {};
+		Object.entries(r_filters).forEach(([k, v]) => {
 			report_filter_values[k] = v;
 			report_filter_types[k] = parse_value_type(v);
 		});
@@ -647,6 +1003,19 @@ function load_local_config(val) {
 
 	const fields = parsed.fields || [];
 	field_rows.value = Array.isArray(fields) ? fields.map((f) => ({ field: f })) : [];
+
+	const order_by = parsed.order_by || "";
+	if (order_by) {
+		order_by_rows.value = order_by.split(",").map((s) => {
+			const parts = s.trim().split(/\s+/);
+			return {
+				field: parts[0],
+				direction: (parts[1] || "asc").toLowerCase(),
+			};
+		});
+	} else {
+		order_by_rows.value = [];
+	}
 
 	const args = parsed.args || {};
 	arg_rows.value = Object.entries(args).map(([key, value]) => ({
@@ -676,9 +1045,18 @@ watch(
 );
 
 watch(
-	() => [field_rows.value, arg_rows.value, config],
+	() => [field_rows.value, order_by_rows.value, arg_rows.value, config],
 	() => {
 		sync_local_config();
+		update_resolved_schema();
+	},
+	{ deep: true }
+);
+
+watch(
+	() => report_filter_values,
+	() => {
+		update_resolved_schema();
 	},
 	{ deep: true }
 );
@@ -765,5 +1143,30 @@ defineExpose({
 .expr-suffix {
 	font-weight: bold;
 	color: #ffa000;
+}
+.field-picker-container {
+	position: relative;
+	flex: 1;
+	display: flex;
+	align-items: center;
+}
+
+.field-warning-icon {
+	position: absolute;
+	right: 30px;
+	z-index: 5;
+	pointer-events: all;
+	cursor: help;
+}
+
+:deep(.border-warning .form-control) {
+	border-color: var(--orange-500, #ff9800) !important;
+	background-color: #fff8f1 !important;
+}
+
+.field-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 </style>
