@@ -62,9 +62,6 @@ input {
 	justify-content: flex-start; /* Align left usually, or center for grid? */
 }
 
-.fake-check-input {
-	/* If using custom styling later */
-}
 
 .control.no-label {
 	display: flex;
