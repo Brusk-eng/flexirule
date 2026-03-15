@@ -15,7 +15,7 @@
 				<FieldPickerControl
 					:df="with_read_only({ label: '' })"
 					:fields="doctype_fields"
-					:documentType="reference_doctype || store.rule_doc?.document_type"
+					:documentType="reference_doctype"
 					:modelValue="props.node?.data?.target_field"
 					:read_only="readOnly"
 					@update:modelValue="(val) => update_action_field('target_field', val)"

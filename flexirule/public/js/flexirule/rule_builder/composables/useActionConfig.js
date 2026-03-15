@@ -25,9 +25,14 @@ export function useActionConfig(props) {
 	};
 
 	const mode = computed(() => props.node?.data?.operation || "");
-	const reference_doctype = computed(
-		() => props.node?.data?.reference_doctype || props.node?.data?.doctype || ""
-	);
+	const reference_doctype = computed(() => {
+		return (
+			props.node?.data?.reference_doctype ||
+			props.node?.data?.doctype ||
+			store.rule_doc?.document_type ||
+			""
+		);
+	});
 	const reference_docname = computed(
 		() => props.node?.data?.reference_docname || props.node?.data?.docname || ""
 	);
@@ -139,6 +144,16 @@ export function useActionConfig(props) {
 		{ immediate: true }
 	);
 
+	function is_field_valid(fieldname, dt_fields) {
+		if (!dt_fields || !dt_fields.length) return true;
+		if (!fieldname) return true;
+		// Allow expressions and variables
+		if (typeof fieldname === "string" && fieldname.startsWith("{")) return true;
+
+		const field_set = new Set(dt_fields.map((f) => f.value));
+		return field_set.has(fieldname);
+	}
+
 	return {
 		store,
 		config,
@@ -157,5 +172,6 @@ export function useActionConfig(props) {
 		encode_value,
 		sync_config,
 		update_action_field,
+		is_field_valid,
 	};
 }
