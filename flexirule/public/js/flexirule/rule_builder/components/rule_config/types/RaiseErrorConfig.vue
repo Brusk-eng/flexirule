@@ -20,9 +20,9 @@
 					>{{ __("Error Message Template") }} <span class="text-danger">*</span></label
 				>
 				<ControlFactory
-					:df="with_read_only(errorTemplateField)"
-					:modelValue="props.node?.data?.error_template"
-					@update:modelValue="(val) => update_action_field('error_template', val)"
+					:df="with_read_only(valueTemplateField)"
+					:modelValue="props.node?.data?.value_template"
+					@update:modelValue="(val) => update_action_field('value_template', val)"
 				/>
 				<small class="text-muted">
 					{{
@@ -47,7 +47,7 @@
 				</button>
 			</div>
 
-			<div class="preview-section mt-4" v-if="props.node?.data?.error_template">
+			<div class="preview-section mt-4" v-if="props.node?.data?.value_template">
 				<label class="form-label text-muted small uppercase font-weight-bold">{{
 					__("Preview")
 				}}</label>
@@ -75,12 +75,13 @@ const { with_read_only, update_action_field } = useActionConfig(props);
 const double_left = "{{";
 const double_right = "}}";
 
-const errorTemplateField = {
-	fieldname: "error_template",
+const valueTemplateField = {
+	fieldname: "value_template",
 	fieldtype: "Code",
 	label: "",
 	options: "Jinja",
 	rows: 5,
+	reqd: 1,
 };
 
 const helpers = [
@@ -90,17 +91,17 @@ const helpers = [
 ];
 
 const preview_text = computed(() => {
-	return props.node?.data?.error_template?.replace(/\{\{[^}]+\}\}/g, "[...]") || "";
+	return props.node?.data?.value_template?.replace(/\{\{[^}]+\}\}/g, "[...]") || "";
 });
 
 function insert_template(text) {
-	const current = props.node?.data?.error_template || "";
-	update_action_field("error_template", current + text);
+	const current = props.node?.data?.value_template || "";
+	update_action_field("value_template", current + text);
 }
 
 function validate() {
 	const errors = [];
-	if (!props.node?.data?.error_template) {
+	if (!props.node?.data?.value_template) {
 		errors.push(__("Error Message Template is required"));
 	}
 	return { valid: errors.length === 0, errors };

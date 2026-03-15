@@ -465,8 +465,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 				id: nodeId,
 				type: type,
 				position: {
-					x: action.position_x || (isRoot ? 50 : 300),
-					y: action.position_y || (isRoot ? 250 : 150 + index * 120),
+					x: (isRoot ? 50 : 300),
+					y: (isRoot ? 250 : 150 + index * 120),
 				},
 				label: nodeLabel,
 				data: nodeData,
@@ -869,8 +869,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 					skip_permissions: node.data?.skip_permissions || 0,
 					next_step_if_true: true_edge?.target || null,
 					next_step_if_false: false_edge?.target || null,
-					position_x: Math.round(node.position.x),
-					position_y: Math.round(node.position.y),
 					// New RC fields
 					input_source: node.data?.input_source,
 					reference_doctype: node.data?.reference_doctype,

@@ -1,5 +1,6 @@
 import { ref, reactive, computed, watch } from "vue";
 import { useStore } from "../store";
+import { getContract } from "../../core/contracts.js";
 
 /**
  * useRuleConfig
@@ -52,19 +53,35 @@ export function useRuleConfig(props, emit) {
 	 */
 	async function validate() {
 		const errors = [];
+		const actionType = draftNode.value?.data?.action_type || draftNode.value?.type;
+		const contract = actionType ? getContract(actionType) : null;
+		const operation = draftNode.value?.data?.operation;
 
-		// 1. Basic node data validation (action_label)
-		if (!draftNode.value?.label && !draftNode.value?.data?.action_label) {
-			// errors.push("Action label is required");
+		// 1. Contract-based Mandatory Field Validation
+		if (contract && contract.mandatory_fields) {
+			const reqFields = contract.mandatory_fields[operation] || contract.mandatory_fields["*"] || [];
+			reqFields.forEach((f) => {
+				const val = draftNode.value.data?.[f];
+				if (val === undefined || val === null || val === "") {
+					// Use a descriptive label for the error message
+					const fieldLabel = f.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+					errors.push(__("{0} is required for {1}").replace("{0}", fieldLabel).replace("{1}", operation || actionType));
+				}
+			});
 		}
 
-		// 2. Panel-specific validation
+		// 2. Action Label is always good to have
+		if (!draftNode.value?.data?.action_label) {
+			// errors.push(__("Action Label is required"));
+		}
+
+		// 3. Panel-specific validation
 		for (const [name, panelRef] of Object.entries(panelRefs)) {
 			if (panelRef.value && typeof panelRef.value.validate === "function") {
 				const res = await panelRef.value.validate();
 				if (!res.valid) {
 					if (res.errors) errors.push(...res.errors);
-					if (res.message) errors.push(res.message);
+					else if (res.message) errors.push(res.message);
 				}
 			}
 		}

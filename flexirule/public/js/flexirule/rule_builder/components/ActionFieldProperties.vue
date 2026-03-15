@@ -41,8 +41,6 @@ const CONFIG_MODAL_TYPES = new Set([
 const excluded_fields = computed(() => {
 	const base = [
 		"action_id", // Auto-generated
-		"position_x", // Visual metadata
-		"position_y", // Visual metadata
 		"condition_json", // Managed by V2 modal
 		"input_mapping", // Managed by V2 modal
 		"output_mapping", // Managed by V2 modal

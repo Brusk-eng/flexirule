@@ -2,44 +2,92 @@
 	<Teleport to="body">
 		<transition name="fade">
 			<div v-if="modelValue" class="config-modal-overlay" @click.self="cancel">
-				<div class="config-modal-container">
+				<div
+					class="config-modal-container"
+					:class="{
+						'show-context-sidebar': showContextSidebar,
+						'show-guide-sidebar': showGuideSidebar,
+						'show-settings-bar': showSettingsBar,
+					}"
+				>
 					<header class="config-modal-header">
 						<div class="header-left">
-							<div class="header-icon" v-if="draftNode">
+							<div
+								class="header-icon"
+								v-if="draftNode"
+								:style="{ background: contract?.css?.color + '20' }"
+							>
 								<i
-									:class="getIcon(draftNode.data?.action_type || draftNode.type)"
+									:class="contract?.css?.icon || getIcon(draftNode.data?.action_type || draftNode.type)"
+									:style="{ color: contract?.css?.color }"
 								></i>
 							</div>
 							<div class="header-title-container">
 								<h3>{{ title }}</h3>
-								<span v-if="draftNode?.data?.action_type" class="type-badge">
+								<span
+									v-if="draftNode?.data?.action_type"
+									class="type-badge"
+									:style="{ color: contract?.css?.color }"
+								>
 									{{ draftNode.data.action_type }}
 								</span>
 							</div>
 						</div>
 
-						<!-- Centered Navigation -->
+						<!-- Centered Navigation & Toggles -->
 						<div class="header-center">
-							<div class="modal-navigation">
-								<button
-									class="nav-btn"
-									@click="store.prev_config_node()"
-									:title="__('Previous Node')"
-									:disabled="currentNodeIndex <= 0"
-								>
-									<i class="fa fa-chevron-left"></i>
-								</button>
-								<div class="nav-status">
-									{{ currentNodeIndex + 1 }} / {{ totalNodes }}
+							<div class="header-actions">
+								<div class="toggle-group">
+									<button
+										class="toggle-btn"
+										:class="{ active: showContextSidebar }"
+										@click="showContextSidebar = !showContextSidebar"
+										:title="__('Context Variables')"
+									>
+										<i class="fa fa-database"></i>
+										<span>{{ __("Variables") }}</span>
+									</button>
+									<button
+										class="toggle-btn"
+										:class="{ active: showSettingsBar }"
+										@click="showSettingsBar = !showSettingsBar"
+										:title="__('Action Settings')"
+									>
+										<i class="fa fa-sliders"></i>
+										<span>{{ __("Settings") }}</span>
+									</button>
+									<button
+										class="toggle-btn"
+										:class="{ active: showGuideSidebar }"
+										@click="showGuideSidebar = !showGuideSidebar"
+										:title="__('Guide')"
+									>
+										<i class="fa fa-life-ring"></i>
+										<span>{{ __("Guide") }}</span>
+									</button>
 								</div>
-								<button
-									class="nav-btn"
-									@click="store.next_config_node()"
-									:title="__('Next Node')"
-									:disabled="currentNodeIndex >= totalNodes - 1"
-								>
-									<i class="fa fa-chevron-right"></i>
-								</button>
+
+								<div class="modal-navigation ml-4">
+									<button
+										class="nav-btn"
+										@click="store.prev_config_node()"
+										:title="__('Previous Node')"
+										:disabled="currentNodeIndex <= 0"
+									>
+										<i class="fa fa-chevron-left"></i>
+									</button>
+									<div class="nav-status">
+										{{ currentNodeIndex + 1 }} / {{ totalNodes }}
+									</div>
+									<button
+										class="nav-btn"
+										@click="store.next_config_node()"
+										:title="__('Next Node')"
+										:disabled="currentNodeIndex >= totalNodes - 1"
+									>
+										<i class="fa fa-chevron-right"></i>
+									</button>
+								</div>
 							</div>
 						</div>
 
@@ -85,44 +133,70 @@
 							</div>
 
 							<!-- Multi-panel Action Setup -->
-							<ResizablePanel v-else-if="draftNode">
-								<!-- Left Panel: Reference & Variables -->
-								<div
-									class="resizable-panel left-panel reference-panel"
-									v-if="showLeftPanel"
-								>
+							<div v-else-if="draftNode" class="panels-container">
+								<!-- Context Variable Sidebar (Left Sliding) -->
+								<aside class="sidebar context-sidebar" v-if="showContextSidebar">
 									<InputPanel
 										:node="draftNode"
 										:readOnly="store.is_read_only"
-										:ref="panelRefs.input"
+										mode="variables"
 									/>
-								</div>
+								</aside>
 
-								<div class="panel-resizer" v-if="showLeftPanel"></div>
+								<ResizablePanel class="main-resizable-panels">
+									<!-- Left Panel: Reference & Input -->
+									<div class="resizable-panel left-panel reference-panel">
+										<InputPanel
+											:node="draftNode"
+											:readOnly="store.is_read_only"
+											:ref="panelRefs.input"
+											mode="config"
+										/>
+									</div>
 
-								<!-- Middle Panel: Core Configuration -->
-								<div class="resizable-panel middle-panel config-panel">
-									<ConfigurationPanel
-										:node="draftNode"
-										:readOnly="store.is_read_only"
-										:ref="panelRefs.config"
-									/>
-								</div>
+									<div class="panel-resizer"></div>
 
-								<div class="panel-resizer" v-if="showRightPanel"></div>
+									<!-- Middle Panel: Core Dynamic Configuration -->
+									<div class="resizable-panel middle-panel config-panel">
+										<!-- Top Sliding Settings Bar -->
+										<div class="action-settings-bar" v-if="showSettingsBar">
+											<ActionSettings
+												:node="draftNode"
+												:readOnly="store.is_read_only"
+												@update:field="on_update_action_field"
+											/>
+										</div>
 
-								<!-- Right Panel: Data IO (Mappings) -->
-								<div
-									class="resizable-panel right-panel io-panel"
-									v-if="showRightPanel"
-								>
-									<OutputPanel
-										:node="draftNode"
-										:readOnly="store.is_read_only"
-										:ref="panelRefs.output"
-									/>
-								</div>
-							</ResizablePanel>
+										<ConfigurationPanel
+											:node="draftNode"
+											:readOnly="store.is_read_only"
+											:ref="panelRefs.config"
+										/>
+									</div>
+
+									<div class="panel-resizer"></div>
+
+									<!-- Right Panel: Output & Mutation -->
+									<div class="resizable-panel right-panel mapping-panel">
+										<OutputPanel
+											:node="draftNode"
+											:readOnly="store.is_read_only"
+											:ref="panelRefs.output"
+										/>
+									</div>
+								</ResizablePanel>
+
+								<!-- Guide Sidebar (Right Sliding) -->
+								<aside class="sidebar guide-sidebar" v-if="showGuideSidebar">
+									<div class="guide-panel p-4">
+										<h5>{{ __("Action Guide") }}</h5>
+										<div class="guide-content mt-3" v-if="contract">
+											<p>{{ contract.description }}</p>
+											<!-- Operation specific guide could go here -->
+										</div>
+									</div>
+								</aside>
+							</div>
 						</template>
 					</main>
 
@@ -153,15 +227,17 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed } from "vue";
 import ResizablePanel from "./ResizablePanel.vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
 import OutputPanel from "./OutputPanel.vue";
+import ActionSettings from "./ActionSettings.vue";
 import ConditionStep from "./types/ConditionStep.vue";
 import StartNodeProperties from "../StartNodeProperties.vue";
 import { useStore } from "../../store";
 import { useRuleConfig } from "../../composables/useRuleConfig";
+import { getContract } from "../../../core/contracts.js";
 
 const props = defineProps({
 	modelValue: Boolean,
@@ -173,9 +249,15 @@ const store = useStore();
 
 const { draftNode, panelRefs, save, cancel } = useRuleConfig(props, emit);
 
-const actionType = computed(() =>
-	(draftNode.value?.data?.action_type || draftNode.value?.type)?.toLowerCase()
-);
+// -- Sidebar / Slide States --
+const showContextSidebar = ref(false);
+const showGuideSidebar = ref(false);
+const showSettingsBar = ref(false);
+
+const contract = computed(() => {
+	const type = draftNode.value?.data?.action_type || draftNode.value?.type;
+	return type ? getContract(type) : null;
+});
 
 const totalNodes = computed(() => store.nodes.length);
 const currentNodeIndex = computed(() => {
@@ -190,6 +272,12 @@ const title = computed(() => {
 	let suffix = store.config_modal_mode === "logic" ? ` [${__("Logic")}]` : "";
 	return baseTitle + suffix;
 });
+
+function on_update_action_field({ fieldname, value }) {
+	if (!draftNode.value?.data) return;
+	draftNode.value.data[fieldname] = value;
+	store.mark_dirty();
+}
 
 function getIcon(type) {
 	if (!type) return "fa fa-circle";
@@ -211,38 +299,6 @@ function getIcon(type) {
 	};
 	return icons[type.toLowerCase()] || "fa fa-circle";
 }
-
-// -- Optimized Layout Logic (Maintaining 3-panel support) --
-const layoutConfig = computed(() => {
-	const type = actionType.value;
-	// By default, show Ref panel and Config panel.
-	let config = { input: true, config: true, output: false };
-
-	const complexActions = [
-		"process",
-		"query records",
-		"aggregate records",
-		"create docs",
-		"set value",
-		"notify",
-		"raise error",
-	];
-
-	if (complexActions.includes(type)) {
-		config.output = true;
-	}
-
-	// Structural nodes might only need config
-	if (["loop", "switch", "wait", "sub-rule"].includes(type)) {
-		config.input = true; // Still show Reference panel
-		config.output = false;
-	}
-
-	return config;
-});
-
-const showLeftPanel = computed(() => layoutConfig.value.input);
-const showRightPanel = computed(() => layoutConfig.value.output);
 </script>
 
 <style scoped>
@@ -252,8 +308,8 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 	left: 0;
 	width: 100vw;
 	height: 100vh;
-	background: rgba(15, 23, 42, 0.6);
-	backdrop-filter: blur(8px);
+	background: rgba(15, 23, 42, 0.4);
+	backdrop-filter: blur(12px);
 	z-index: 2000;
 	display: flex;
 	justify-content: center;
@@ -265,43 +321,42 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 	background: #fff;
 	width: 100%;
 	height: 100%;
-	max-width: 1600px;
-	border-radius: 16px;
-	box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+	max-width: 1800px;
+	border-radius: 20px;
+	box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.3);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
 	border: 1px solid #e2e8f0;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .config-modal-header {
-	height: 72px;
+	height: 80px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0 24px;
+	padding: 0 32px;
 	border-bottom: 1px solid #e2e8f0;
-	background: #fcfcfc;
+	background: #fff;
 }
 
 .header-left {
 	display: flex;
 	align-items: center;
 	gap: 16px;
-	flex: 1;
+	min-width: 300px;
 }
 
 .header-icon {
-	width: 40px;
-	height: 40px;
-	background: #f1f5f9;
-	border-radius: 10px;
+	width: 48px;
+	height: 48px;
+	border-radius: 12px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--primary);
-	font-size: 18px;
-	border: 1px solid #e2e8f0;
+	font-size: 20px;
+	border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .header-title-container {
@@ -311,17 +366,18 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 
 .header-left h3 {
 	margin: 0;
-	font-size: 16px;
-	font-weight: 700;
+	font-size: 18px;
+	font-weight: 800;
 	color: #0f172a;
+	letter-spacing: -0.02em;
 }
 
 .type-badge {
 	font-size: 10px;
-	font-weight: 600;
-	color: #64748b;
+	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
+	letter-spacing: 0.1em;
+	opacity: 0.8;
 }
 
 .header-center {
@@ -330,26 +386,64 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 	justify-content: center;
 }
 
-.header-right {
-	flex: 1;
+.header-actions {
 	display: flex;
-	justify-content: flex-end;
+	align-items: center;
+	gap: 24px;
 }
 
-/* Navigation */
+/* Toggle Buttons */
+.toggle-group {
+	display: flex;
+	background: #f1f5f9;
+	padding: 4px;
+	border-radius: 12px;
+	border: 1px solid #e2e8f0;
+}
+
+.toggle-btn {
+	padding: 8px 16px;
+	border-radius: 8px;
+	border: none;
+	background: transparent;
+	color: #64748b;
+	font-size: 13px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.toggle-btn i {
+	font-size: 14px;
+}
+
+.toggle-btn:hover {
+	background: rgba(255, 255, 255, 0.5);
+	color: #1e293b;
+}
+
+.toggle-btn.active {
+	background: #fff;
+	color: var(--primary);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 .modal-navigation {
 	display: flex;
 	align-items: center;
-	background: #f1f5f9;
+	background: #f8fafc;
 	padding: 4px;
-	border-radius: 10px;
+	border-radius: 12px;
 	gap: 8px;
 	border: 1px solid #e2e8f0;
 }
 
 .nav-btn {
-	width: 32px;
-	height: 32px;
+	width: 36px;
+	height: 36px;
 	border-radius: 8px;
 	border: none;
 	background: transparent;
@@ -364,7 +458,7 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 .nav-btn:hover:not(:disabled) {
 	background: #fff;
 	color: var(--primary);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .nav-btn:disabled {
@@ -373,20 +467,26 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 }
 
 .nav-status {
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 800;
 	color: #475569;
-	min-width: 50px;
+	min-width: 60px;
 	text-align: center;
+}
+
+.header-right {
+	min-width: 300px;
+	display: flex;
+	justify-content: flex-end;
 }
 
 .btn-close-modal {
 	background: #f1f5f9;
 	border: none;
-	width: 32px;
-	height: 32px;
-	border-radius: 8px;
-	font-size: 14px;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	font-size: 16px;
 	color: #64748b;
 	cursor: pointer;
 	display: flex;
@@ -403,91 +503,114 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 .config-modal-body {
 	flex: 1;
 	overflow: hidden;
+	display: flex;
 	background: #fff;
 }
 
-.conditions-view {
-	height: 100%;
-	overflow-y: auto;
+.panels-container {
+	display: flex;
+	flex: 1;
+	overflow: hidden;
+}
+
+.sidebar {
+	width: 300px;
 	background: #f8fafc;
-	padding: 24px;
-}
-
-.start-node-setup {
-	height: 100%;
+	border-right: 1px solid #e2e8f0;
 	overflow-y: auto;
-	background: #f8fafc;
+}
+
+.guide-sidebar {
+	border-right: none;
+	border-left: 1px solid #e2e8f0;
+}
+
+.main-resizable-panels {
+	flex: 1;
 	display: flex;
-	justify-content: center;
-	padding: 40px 20px;
-}
-
-.setup-container {
-	width: 100%;
-	max-width: 700px;
-	background: #fff;
-	padding: 40px;
-	border-radius: 16px;
-	border: 1px solid #e2e8f0;
-	height: fit-content;
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.config-modal-footer {
-	height: 72px;
-	border-top: 1px solid #e2e8f0;
-	background: #fcfcfc;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0 24px;
-}
-
-.dirty-indicator {
-	font-size: 11px;
-	font-weight: 600;
-	color: #f59e0b;
-	display: flex;
-	align-items: center;
-}
-
-.dirty-indicator i {
-	font-size: 8px;
 }
 
 /* Panel Layouts */
 .resizable-panel {
 	height: 100%;
 	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
 }
 
 .left-panel {
-	flex: 0 0 22%;
-	min-width: 280px;
-	border-right: 1px solid #e2e8f0;
+	flex: 0 0 25%;
+	min-width: 300px;
+	background: #f8fafc;
 }
 
 .middle-panel {
 	flex: 1;
-	min-width: 450px;
+	min-width: 500px;
+	background: #fff;
+	display: flex;
+	flex-direction: column;
 }
 
 .right-panel {
 	flex: 0 0 25%;
-	min-width: 320px;
+	min-width: 350px;
+	background: #fff;
 	border-left: 1px solid #e2e8f0;
 }
 
 .panel-resizer {
-	width: 4px;
+	width: 6px;
 	cursor: col-resize;
 	background: transparent;
-	transition: background 0.2s;
+	transition: all 0.2s;
 	z-index: 10;
 }
 
 .panel-resizer:hover {
-	background: #cbd5e1;
+	background: rgba(var(--primary-rgb), 0.1);
+	border-left: 1px solid rgba(var(--primary-rgb), 0.2);
+	border-right: 1px solid rgba(var(--primary-rgb), 0.2);
+}
+
+.action-settings-bar {
+	background: #fcfcfc;
+	border-bottom: 1px solid #e2e8f0;
+	padding: 20px 32px;
+	box-shadow: inset 0 -4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.conditions-view, .start-node-setup {
+	width: 100%;
+	height: 100%;
+	overflow-y: auto;
+	background: #f8fafc;
+}
+
+.config-modal-footer {
+	height: 80px;
+	border-top: 1px solid #e2e8f0;
+	background: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 32px;
+}
+
+.dirty-indicator {
+	font-size: 12px;
+	font-weight: 700;
+	color: #f59e0b;
+	display: flex;
+	align-items: center;
+	background: #fffbeb;
+	padding: 6px 12px;
+	border-radius: 8px;
+	border: 1px solid #fef3c7;
+}
+
+.dirty-indicator i {
+	font-size: 8px;
 }
 
 .fade-enter-active,
@@ -499,22 +622,5 @@ const showRightPanel = computed(() => layoutConfig.value.output);
 .fade-leave-to {
 	opacity: 0;
 }
-
-@media (max-width: 1200px) {
-	.left-panel,
-	.right-panel {
-		flex: 0 0 25%;
-	}
-}
-
-@media (max-width: 992px) {
-	.left-panel,
-	.right-panel {
-		display: none !important;
-	}
-	.middle-panel {
-		flex: 1;
-		min-width: 0;
-	}
-}
 </style>
+

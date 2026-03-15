@@ -275,8 +275,6 @@ class Rule(Document):
 					"action_label": _(self.trigger_event or "Start"),
 					"action_id": "root",
 					"is_enabled": 1,
-					"position_x": 50,
-					"position_y": 250,
 					"next_step_if_true": first_action_id,  # Link to first existing action
 				},
 			)

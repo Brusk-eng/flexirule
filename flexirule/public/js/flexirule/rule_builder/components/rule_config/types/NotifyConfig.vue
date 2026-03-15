@@ -1,73 +1,66 @@
 <template>
 	<div class="notify-config">
-		<div class="config-section section-card">
-			<h5>{{ __("Notify Configuration") }}</h5>
-			<p class="text-muted small">
-				{{ __("Configure notification type, message template and recipients.") }}
+		<div v-if="!props.node?.data?.operation" class="empty-mode-state text-center p-5">
+			<i class="fa fa-bell fa-3x text-muted mb-3 opacity-20"></i>
+			<p class="text-muted">
+				{{ __("Please select a Notification Type in the Setup panel to proceed.") }}
 			</p>
 		</div>
 
-		<div class="config-section section-card">
-			<div class="form-group mb-3">
-				<label class="form-label">{{ __("Notification Type") }}</label>
-				<ControlFactory
-					:df="with_read_only(notificationTypeField)"
-					:modelValue="props.node?.data?.notification_type || 'toast'"
-					@update:modelValue="(val) => update_action_field('notification_type', val)"
-				/>
-			</div>
+		<div v-else class="config-container">
+			<div class="config-section section-card">
+				<div class="form-group mb-3">
+					<label class="form-label"
+						>{{ __("Message Template") }} <span class="text-danger">*</span></label
+					>
+					<ControlFactory
+						:df="with_read_only(valueTemplateField)"
+						:modelValue="props.node?.data?.value_template"
+						@update:modelValue="(val) => update_action_field('value_template', val)"
+					/>
+					<small class="text-muted">
+						{{
+							__("Jinja template for message. Use {0}, {1}, etc.", [
+								double_left + " doc.name " + double_right,
+								double_left + " vars.result " + double_right,
+							])
+						}}
+					</small>
+				</div>
 
-			<div class="form-group mb-3">
-				<label class="form-label"
-					>{{ __("Message Template") }} <span class="text-danger">*</span></label
-				>
-				<ControlFactory
-					:df="with_read_only(notificationTemplateField)"
-					:modelValue="props.node?.data?.notification_template"
-					@update:modelValue="(val) => update_action_field('notification_template', val)"
-				/>
-				<small class="text-muted">
-					{{
-						__("Jinja template for message. Use {0}, {1}, etc.", [
-							double_left + " doc.name " + double_right,
-							double_left + " vars.result " + double_right,
-						])
-					}}
-				</small>
-			</div>
+				<div class="form-group mb-3" v-if="props.node?.data?.operation === 'email'">
+					<label class="form-label">{{ __("Recipients") }}</label>
+					<ControlFactory
+						:df="with_read_only(recipientsField)"
+						:modelValue="props.node?.data?.recipients"
+						@update:modelValue="(val) => update_action_field('recipients', val)"
+					/>
+				</div>
 
-			<div class="form-group mb-3" v-if="props.node?.data?.notification_type === 'email'">
-				<label class="form-label">{{ __("Recipients") }}</label>
-				<ControlFactory
-					:df="with_read_only(recipientsField)"
-					:modelValue="props.node?.data?.recipients"
-					@update:modelValue="(val) => update_action_field('recipients', val)"
-				/>
-			</div>
+				<div class="template-helpers">
+					<span class="helper-label">{{ __("Quick Insert:") }}</span>
+					<button
+						v-for="helper in helpers"
+						:key="helper.label"
+						class="btn btn-xs btn-outline-secondary"
+						:disabled="readOnly"
+						@click="insert_template(helper.value)"
+					>
+						{{ helper.label }}
+					</button>
+				</div>
 
-			<div class="template-helpers">
-				<span class="helper-label">{{ __("Quick Insert:") }}</span>
-				<button
-					v-for="helper in helpers"
-					:key="helper.label"
-					class="btn btn-xs btn-outline-secondary"
-					:disabled="readOnly"
-					@click="insert_template(helper.value)"
-				>
-					{{ helper.label }}
-				</button>
-			</div>
-
-			<div class="preview-section mt-4" v-if="props.node?.data?.notification_template">
-				<label class="form-label text-muted small uppercase font-weight-bold">{{
-					__("Preview")
-				}}</label>
-				<div
-					class="notify-preview"
-					:class="'type-' + (props.node?.data?.notification_type || 'toast')"
-				>
-					<i :class="preview_icon"></i>
-					<span>{{ preview_text }}</span>
+				<div class="preview-section mt-4" v-if="props.node?.data?.value_template">
+					<label class="form-label text-muted small uppercase font-weight-bold">{{
+						__("Preview")
+					}}</label>
+					<div
+						class="notify-preview"
+						:class="'type-' + (props.node?.data?.operation || 'toast')"
+					>
+						<i :class="preview_icon"></i>
+						<span>{{ preview_text }}</span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -89,19 +82,14 @@ const { with_read_only, update_action_field } = useActionConfig(props);
 const double_left = "{{";
 const double_right = "}}";
 
-const notificationTypeField = {
-	fieldname: "notification_type",
-	fieldtype: "Select",
-	label: "",
-	options: "toast\nalert\nrealtime\nemail",
-};
 
-const notificationTemplateField = {
-	fieldname: "notification_template",
+const valueTemplateField = {
+	fieldname: "value_template",
 	fieldtype: "Code",
-	label: "",
+	label: __("Message Template"),
 	options: "Jinja",
 	rows: 4,
+	reqd: 1,
 };
 
 const recipientsField = {
@@ -124,7 +112,7 @@ const preview_icon = computed(() => {
 		realtime: "fa fa-bell",
 		email: "fa fa-envelope",
 	};
-	return icons[props.node?.data?.notification_type || "toast"] || "fa fa-bell";
+	return icons[props.node?.data?.operation || "toast"] || "fa fa-bell";
 });
 
 const preview_text = computed(() => {
