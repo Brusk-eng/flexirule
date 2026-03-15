@@ -37,15 +37,13 @@ const showTooltip = ref(false);
 		<!-- Tooltip Popup for Grid / Hidden Label Mode -->
 		<div v-if="hideLabel && showTooltip && (df.label || df.description)" class="check-tooltip">
 			<div class="tooltip-header" v-if="df.label">{{ __(df.label) }}</div>
-			<div class="tooltip-body" v-if="df.description" v-html="__(df.description)"></div>
+			<div class="tooltip-body" v-if="df.description">{{ __(df.description) }}</div>
 		</div>
 
 		<!-- standard description -->
-		<div
-			v-if="df.description && !hideLabel"
-			class="mt-2 description"
-			v-html="__(df.description)"
-		></div>
+		<div v-if="df.description && !hideLabel" class="mt-2 description">
+			{{ __(df.description) }}
+		</div>
 	</div>
 </template>
 

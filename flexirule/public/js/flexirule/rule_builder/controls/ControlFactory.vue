@@ -68,11 +68,9 @@
 					)
 				"
 			/>
-			<div
-				v-if="df.description"
-				class="description text-muted mt-1"
-				v-html="__(df.description)"
-			></div>
+			<div v-if="df.description" class="description text-muted mt-1">
+				{{ __(df.description) }}
+			</div>
 		</div>
 
 		<!-- Date / Datetime -->
@@ -94,11 +92,9 @@
 				:disabled="df.read_only"
 				@input="$emit('update:modelValue', $event.target.value)"
 			/>
-			<div
-				v-if="df.description"
-				class="description text-muted mt-1"
-				v-html="__(df.description)"
-			></div>
+			<div v-if="df.description" class="description text-muted mt-1">
+				{{ __(df.description) }}
+			</div>
 		</div>
 
 		<!-- Time -->
@@ -118,11 +114,9 @@
 				:disabled="df.read_only"
 				@input="$emit('update:modelValue', $event.target.value)"
 			/>
-			<div
-				v-if="df.description"
-				class="description text-muted mt-1"
-				v-html="__(df.description)"
-			></div>
+			<div v-if="df.description" class="description text-muted mt-1">
+				{{ __(df.description) }}
+			</div>
 		</div>
 
 		<!-- Text / Code / multiline -->
@@ -156,11 +150,9 @@
 				@dragover.prevent
 				@drop="onDrop"
 			></textarea>
-			<div
-				v-if="df.description"
-				class="description text-muted mt-1"
-				v-html="__(df.description)"
-			></div>
+			<div v-if="df.description" class="description text-muted mt-1">
+				{{ __(df.description) }}
+			</div>
 		</div>
 
 		<!-- Table -->
