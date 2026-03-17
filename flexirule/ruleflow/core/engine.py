@@ -395,7 +395,7 @@ class RuleEngine:
 		"""Execute action graph with cycle detection and loop support"""
 
 		# Change strict cycle detection to visit counting for loops
-		node_visits = {}  # node_id -> count
+		node_visits: dict[str, int] = {}  # node_id -> count
 		max_visits_per_node = 100  # Safety for infinite loops
 
 		execution_path = []
@@ -941,7 +941,7 @@ class RuleEngine:
 				context_snapshot = {
 					k: v
 					for k, v in active_context.get("vars", {}).items()
-					if isinstance(v, (str, int, float, bool, list, dict, type(None)))
+					if isinstance(v, str | int | float | bool | list | dict | type(None))
 				}
 
 				# Add document snapshot for debugging

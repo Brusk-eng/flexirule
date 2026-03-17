@@ -62,7 +62,6 @@ input {
 	justify-content: flex-start; /* Align left usually, or center for grid? */
 }
 
-
 .control.no-label {
 	display: flex;
 	justify-content: center; /* Center checkbox in grid cell */

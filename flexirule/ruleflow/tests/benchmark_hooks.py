@@ -66,7 +66,7 @@ def test_benchmark_hooks():
 
 
 def measure_save(doctype, iterations=10):
-	total_time = 0
+	total_time: float = 0.0
 	for i in range(iterations):
 		doc = frappe.new_doc(doctype)
 		doc.description = f"Benchmark {i}"

@@ -144,7 +144,7 @@ class FieldResolver:
 
 		# Filter numeric values for numeric functions
 		if func in ["sum", "avg", "max", "min"]:
-			values = [v for v in values if isinstance(v, (int, float))]
+			values = [v for v in values if isinstance(v, int | float)]
 
 		# Apply function
 		if func == "sum":
@@ -183,17 +183,10 @@ class FieldResolver:
 	def get_field_type(doctype: str, fieldname: str) -> str:
 		"""
 		Get field type for a field
-
-		Args:
-		        doctype: DocType name
-		        fieldname: Field name
-
-		Returns:
-		        Field type
 		"""
 		meta = frappe.get_meta(doctype)
 		field = meta.get_field(fieldname)
-		return field.fieldtype if field else None
+		return str(field.fieldtype) if field else ""
 
 	@staticmethod
 	def get_all_fields(doctype: str, include_child_tables: bool = False) -> list[dict]:

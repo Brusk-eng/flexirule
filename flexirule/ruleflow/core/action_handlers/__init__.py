@@ -36,7 +36,7 @@ class ActionHandler(ABC):
 	Handlers are stateless singletons registered with the HandlerRegistry.
 	"""
 
-	action_type: str = None  # Must be set by subclass
+	action_type: str | None = None  # Must be set by subclass
 
 	@abstractmethod
 	def execute(self, action, context: dict, engine: "RuleEngine") -> tuple[Any, str | None]:
@@ -106,7 +106,7 @@ class ActionHandler(ABC):
 						resolved_list.append([fdt, fname, fop, fval])
 					else:
 						resolved_list.append([fname, fop, fval])
-				elif isinstance(item, (list, dict)):
+				elif isinstance(item, list | dict):
 					# Recurse for nested structures
 					resolved_list.append(self._resolve_filters(item, context))
 				else:

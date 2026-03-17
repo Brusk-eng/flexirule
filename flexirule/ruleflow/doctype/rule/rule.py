@@ -653,7 +653,7 @@ class Rule(Document):
 			return None
 
 		# Start DFS from this rule
-		globally_visited = set()
+		globally_visited: set[str] = set()
 		initial_path = [self.name]
 
 		for sub_rule in sub_rules:

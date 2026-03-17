@@ -144,8 +144,14 @@ def test_normalization(text: str, transformations: str | list):
 	Returns:
 	        Normalized text
 	"""
-	if isinstance(transformations, str):
-		transformations = json.loads(transformations)
-
 	pipeline = NormalizationPipeline()
-	return pipeline.apply_transformations(text, transformations)
+	# Ensure transformations is a list[str] for mypy
+	if isinstance(transformations, str):
+		transform_list = json.loads(transformations)
+	else:
+		transform_list = transformations
+
+	if not isinstance(transform_list, list):
+		transform_list = [str(transform_list)]
+
+	return pipeline.apply_transformations(text, [str(t) for t in transform_list])

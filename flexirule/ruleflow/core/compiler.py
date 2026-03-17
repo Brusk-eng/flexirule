@@ -156,7 +156,7 @@ class ConditionCompiler:
 		if default_op not in ["and", "or"]:
 			default_op = "and"
 
-		result_parts = []
+		result_parts: list[str] = []
 		for i, sub in enumerate(subs):
 			compiled_sub = self._compile_node(sub, scopes)
 			if not compiled_sub:
@@ -216,7 +216,7 @@ class ConditionCompiler:
 		# _compile_operand returns repr(list) for our tuples, so it looks like "['DocType', 'Value']"
 		# We need to distinguish between ['DocType', 'Value'] and ['Val1', 'Val2']
 		if (
-			isinstance(right.get("value"), (list, tuple))
+			isinstance(right.get("value"), list | tuple)
 			and len(right.get("value")) == 2
 			and isinstance(right.get("value")[0], str)
 		):
@@ -224,7 +224,7 @@ class ConditionCompiler:
 			is_link_tuple = False
 			if op in ["==", "!="]:
 				is_link_tuple = True
-			elif op in ["in", "not in", "not_in"] and isinstance(val[1], (list, tuple)):
+			elif op in ["in", "not in", "not_in"] and isinstance(val[1], list | tuple):
 				is_link_tuple = True
 
 			if is_link_tuple:
@@ -332,7 +332,7 @@ class ConditionCompiler:
 				return "0"
 
 			# Handle Link Tuples (List/Tuple)
-			if isinstance(val, (list, tuple)):
+			if isinstance(val, list | tuple):
 				return repr(val)
 
 			# For strings use repr, for numbers use direct

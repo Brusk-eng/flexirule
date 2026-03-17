@@ -55,6 +55,7 @@ class QueryRecordsHandler(ActionHandler):
 		handler_fn = mode_handlers.get(mode)
 		if not handler_fn:
 			frappe.throw(_("Unknown Query Records mode: {0}").format(mode))
+			raise ValueError("Unknown mode for mypy")
 
 		result = handler_fn(
 			reference_doctype=reference_doctype,
@@ -163,13 +164,13 @@ class QueryRecordsHandler(ActionHandler):
 			filters=report_filters,
 		)
 
-		data = []
-		columns = []
+		data: list = []
+		columns: list = []
 
 		if isinstance(result, dict):
 			data = result.get("result") or result.get("data") or []
 			columns = result.get("columns") or []
-		elif isinstance(result, (list, tuple)) and len(result) >= 2:
+		elif isinstance(result, list | tuple) and len(result) >= 2:
 			columns = result[0]
 			data = result[1]
 		elif isinstance(result, list):
@@ -208,7 +209,7 @@ class QueryRecordsHandler(ActionHandler):
 			if col_names:
 				new_data = []
 				for row in data:
-					if isinstance(row, (list, tuple)):
+					if isinstance(row, list | tuple):
 						row_dict = {}
 						# Handle mixed length or missing columns gracefully
 						for i, val in enumerate(row):

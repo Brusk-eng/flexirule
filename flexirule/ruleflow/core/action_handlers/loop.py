@@ -53,7 +53,7 @@ class LoopHandler(ActionHandler):
 			# Resolve iterator expression
 			items = engine._evaluate_python_condition(iterator_name, context)
 
-		if not isinstance(items, (list, tuple)):
+		if not isinstance(items, list | tuple):
 			engine._log(
 				"WARNING",
 				_("Loop iterator {0} is not a list/tuple. Got {1}").format(iterator_name, type(items)),

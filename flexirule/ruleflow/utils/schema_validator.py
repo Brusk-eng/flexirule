@@ -66,7 +66,7 @@ def get_custom_validator(schema):
 	# Redefine the boolean type checker to allow 0 and 1 (Frappe convention)
 	type_checker = DefaultValidator.TYPE_CHECKER.redefine(
 		"boolean",
-		lambda checker, instance: isinstance(instance, (bool, int)) and instance in (True, False, 0, 1),
+		lambda checker, instance: isinstance(instance, bool | int) and instance in (True, False, 0, 1),
 	)
 
 	return validators.extend(DefaultValidator, type_checker=type_checker)
@@ -81,7 +81,7 @@ def _parse_json(data):
 	return data or {}
 
 
-def frappe_fields_to_json_schema(frappe_schema):
+def frappe_fields_to_json_schema(frappe_schema: dict):
 	"""
 	Convert Frappe-style 'fields' schema to JSON Schema
 	"""
@@ -98,7 +98,7 @@ def frappe_fields_to_json_schema(frappe_schema):
 			continue
 
 		ftype = field.get("fieldtype")
-		js_type = "string"
+		js_type: str | list[str] = "string"
 
 		if ftype in ["Int", "Check"]:
 			js_type = "integer"

@@ -36,7 +36,7 @@ class TestMapping(unittest.TestCase):
 		self.assertEqual(result["threshold"], 100)  # Should preserve config if missing
 
 	def test_apply_output_mapping(self):
-		context = {"vars": {}}
+		context: dict = {"vars": {}}
 		result = {"score": 90, "details": "Approved"}
 
 		# Test standard mapping

@@ -11,5 +11,5 @@ def execute(context, operation=None, config=None):
 	:param context: Execution context (frappe._dict)
 	:param operation: The operation to execute
 	"""
-	data = []
+	data: list[dict] = []
 	return data
