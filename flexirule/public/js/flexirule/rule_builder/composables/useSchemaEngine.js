@@ -77,10 +77,7 @@ export function useSchemaEngine(options = {}) {
 			try {
 				return await getter(doc, evalContext, context.doc_meta);
 			} catch (e) {
-				console.warn(
-					`useSchemaEngine: Failed to resolve options for ${field.fieldname}`,
-					e
-				);
+				console.warn("useSchemaEngine: Failed to resolve options for", field.fieldname, e);
 				return [];
 			}
 		}

@@ -3,21 +3,14 @@
 		<div v-if="node" class="panel-content">
 			<div class="panel-header">
 				<div class="header-text">
-					<h4>{{ __("Configuration") }}</h4>
+					<h4>{{ __("Dynamic Configuration") }}</h4>
 					<p class="text-muted small">
-						{{ node.data?.action_type || node.type || __("Action") }}
+						{{ node.data?.action_type || node.type }}
 					</p>
 				</div>
 			</div>
 			<div class="panel-sections">
-				<!-- Universal Action Settings (except for Start node) -->
-				<ActionSettings
-					v-if="node.type !== 'start'"
-					:node="node"
-					:readOnly="readOnly"
-					@update:field="on_update_action_field"
-				/>
-
+				<!-- Core Action Specific UI -->
 				<component
 					:is="configComponent"
 					v-if="configComponent"
@@ -29,9 +22,9 @@
 					<i class="fa fa-sliders fa-3x text-muted mb-3"></i>
 					<p class="text-muted">
 						{{
-							__("No configuration UI available for this node type ({0})").replace(
+							__("No configuration UI available for '{0}'").replace(
 								"{0}",
-								node.type
+								node.data?.action_type || node.type
 							)
 						}}
 					</p>
@@ -39,7 +32,7 @@
 			</div>
 		</div>
 		<div v-else class="panel-content empty-state text-center">
-			<p class="text-muted">{{ __("Select a node to configure") }}</p>
+			<p class="text-muted">{{ __("Select an action node to configure") }}</p>
 		</div>
 	</div>
 </template>

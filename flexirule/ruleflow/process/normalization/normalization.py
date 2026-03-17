@@ -3,6 +3,7 @@
 
 import re
 import unicodedata
+from collections.abc import Callable
 from typing import Any
 
 import frappe
@@ -46,7 +47,7 @@ TRANSLATION_TABLE = str.maketrans(
 # TRANSFORMATIONS (single-arg, stateless)
 # =============================================================================
 
-TRANSFORMATIONS: dict[str, callable] = {
+TRANSFORMATIONS: dict[str, Callable] = {
 	"trim": lambda x: x.strip() if isinstance(x, str) else x,
 	"lowercase": lambda x: x.lower() if isinstance(x, str) else x,
 	"uppercase": lambda x: x.upper() if isinstance(x, str) else x,
@@ -278,11 +279,16 @@ def preview_normalization(text: str, transformations: str | list):
 
 	if isinstance(transformations, str):
 		try:
-			transformations = json.loads(transformations)
+			transformations_parsed = json.loads(transformations)
 		except Exception:
-			transformations = [t.strip() for t in transformations.split(",")]
+			transformations_parsed = [t.strip() for t in transformations.split(",")]
+	else:
+		transformations_parsed = transformations
 
-	return apply_transformations(text, transformations)
+	if isinstance(text, list):
+		return [apply_transformations(t, transformations_parsed) for t in text]
+
+	return apply_transformations(text, transformations_parsed)
 
 
 # ============================================================

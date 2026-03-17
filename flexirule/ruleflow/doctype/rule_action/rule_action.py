@@ -38,7 +38,6 @@ class RuleAction(Document):
 		condition_json: DF.Code | None
 		config: DF.Code | None
 		description: DF.Text | None
-		error_template: DF.Code | None
 		input_mapping: DF.Code | None
 		input_source: DF.Literal["Context Doc", "Context Variable", "Both"]
 		is_async: DF.Check
@@ -53,16 +52,12 @@ class RuleAction(Document):
 		]
 		next_step_if_false: DF.Data | None
 		next_step_if_true: DF.Autocomplete | None
-		notification_template: DF.Code | None
-		notification_type: DF.Literal["Toast", "System", "Email"]
 		on_error: DF.Literal["Stop", "Continue", "Retry", "Rollback", "Escalate"]
 		operation: DF.Autocomplete | None
 		output_mapping: DF.Code | None
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data
-		position_x: DF.Int
-		position_y: DF.Int
 		process_name: DF.Link | None
 		reference_docname: DF.DynamicLink | None
 		reference_doctype: DF.Link | None

@@ -1,37 +1,23 @@
 <template>
 	<div class="create-docs-config">
-		<div class="config-section section-card">
-			<h5>{{ __("Create Docs") }}</h5>
-			<p class="text-muted small">
-				{{ __("Configure document creation or update mapping.") }}
+		<div v-if="!mode" class="empty-mode-state text-center p-5">
+			<i class="fa fa-plus-circle fa-3x text-muted mb-3 opacity-20"></i>
+			<p class="text-muted">
+				{{ __("Please select a Creation Mode in the Setup panel to proceed.") }}
 			</p>
 		</div>
 
-		<div class="config-section section-card">
-			<ControlFactory
-				:df="modeField"
-				:modelValue="mode"
-				:hideDescription="true"
-				@update:modelValue="update_mode"
-			/>
-		</div>
-
-		<div v-if="!mode" class="alert alert-warning mt-3">
-			{{ __("Select a mode to configure parameters.") }}
-		</div>
-
-		<div v-else class="config-section section-card">
+		<div v-else class="config-container">
 			<template v-if="mode === 'Update Existing'">
-				<ControlFactory
-					:df="with_read_only(docnameField)"
-					:modelValue="config.docname"
-					@update:modelValue="(val) => update_config_key('docname', val)"
-				/>
 				<ControlFactory
 					:df="with_read_only(docnameExprField)"
 					:modelValue="config.docname_expression"
 					@update:modelValue="(val) => update_config_key('docname_expression', val)"
 				/>
+				<div class="alert alert-info py-2 px-3 small mt-2">
+					<i class="fa fa-info-circle"></i>
+					{{ __("Reference DocName is managed in the Setup & Input panel.") }}
+				</div>
 			</template>
 
 			<div class="sub-section section-subcard">
@@ -168,20 +154,6 @@ const mapping_rows = ref([]);
 
 const value_types = ["Value", "Number", "Boolean", "Variable", "Expression"];
 
-const modeField = computed(() => ({
-	fieldname: "operation",
-	fieldtype: "Select",
-	label: __("Mode"),
-	options: "Create New\nUpdate Existing",
-	read_only: props.readOnly,
-}));
-
-const docnameField = {
-	fieldname: "docname",
-	fieldtype: "Data",
-	label: __("Document Name"),
-};
-
 const docnameExprField = {
 	fieldname: "docname_expression",
 	fieldtype: "Code",
@@ -200,12 +172,6 @@ const field_map = computed(() => {
 const variable_set = computed(() => {
 	return new Set((variable_options.value || []).map((v) => v.value));
 });
-
-function update_mode(value) {
-	if (!props.node?.data) return;
-	props.node.data.operation = value;
-	store.mark_dirty();
-}
 
 function update_config_key(key, value) {
 	config[key] = value;

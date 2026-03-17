@@ -229,8 +229,8 @@ class RuleScheduler(Document):
 def execute_now(doc: str):
 	"""Server action: Execute scheduler immediately."""
 	frappe.only_for("System Manager")
-	doc = json.loads(doc)
-	scheduler = frappe.get_doc("Rule Scheduler", doc.get("name"))
+	doc_dict = json.loads(doc)
+	scheduler = frappe.get_doc("Rule Scheduler", doc_dict.get("name"))
 	scheduler.enqueue(force=True)
 	frappe.msgprint(_("Scheduler enqueued for execution"))
-	return doc
+	return doc_dict

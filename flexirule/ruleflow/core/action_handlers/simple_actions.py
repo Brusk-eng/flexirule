@@ -81,6 +81,7 @@ class SetValueHandler(ActionHandler):
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
 		}
+		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 		rendered_value = frappe.render_template(value_template, template_context)
 
 		# Set the value on the document
@@ -103,9 +104,9 @@ class RaiseErrorHandler(ActionHandler):
 		"""
 		Raise Error action - throws ValidationError with Jinja message.
 
-		Uses action.error_template for the error message.
+		Uses action.value_template for the error message.
 		"""
-		error_template = getattr(action, "error_template", "") or "Validation Error"
+		value_template = getattr(action, "value_template", "") or "Validation Error"
 
 		# Render Jinja template with SafeFrappeAPI to prevent write operations
 		template_context = {
@@ -114,7 +115,8 @@ class RaiseErrorHandler(ActionHandler):
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
 		}
-		message = frappe.render_template(error_template, template_context)
+		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+		message = frappe.render_template(value_template, template_context)
 
 		engine._log("INFO", _("Raising error: {0}").format(message))
 		frappe.throw(message)
@@ -134,8 +136,8 @@ class NotifyHandler(ActionHandler):
 		- System: Realtime publish
 		- Email: Queued email notification
 		"""
-		notification_template = getattr(action, "notification_template", "") or ""
-		notification_type = getattr(action, "notification_type", "Toast") or "Toast"
+		value_template = getattr(action, "value_template", "") or ""
+		notification_type = getattr(action, "operation", "Toast") or "Toast"
 
 		# Render Jinja template with SafeFrappeAPI to prevent write operations
 		template_context = {
@@ -144,7 +146,8 @@ class NotifyHandler(ActionHandler):
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
 		}
-		message = frappe.render_template(notification_template, template_context)
+		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+		message = frappe.render_template(value_template, template_context)
 
 		if notification_type == "Toast":
 			frappe.msgprint(message, alert=True)

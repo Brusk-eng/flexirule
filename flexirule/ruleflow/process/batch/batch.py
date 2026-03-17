@@ -43,7 +43,7 @@ def execute_for_documents(context, config):
 
 	batch_id = f"BATCH-PROC-{frappe.utils.now_datetime().strftime('%Y%m%d%H%M%S')}"
 
-	results = {"success": 0, "failed": 0, "batch_id": batch_id, "errors": []}
+	results: dict = {"success": 0, "failed": 0, "batch_id": batch_id, "errors": []}
 
 	for i, doc_name in enumerate(documents):
 		try:

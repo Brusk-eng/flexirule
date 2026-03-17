@@ -189,11 +189,9 @@ function onDrop(event) {
 		<div ref="link" @dragover.prevent @drop="onDrop"></div>
 
 		<!-- description -->
-		<div
-			v-if="df.description && !hideDescription"
-			class="mt-2 description"
-			v-html="__(df.description)"
-		/>
+		<div v-if="df.description && !hideDescription" class="mt-2 description">
+			{{ __(df.description) }}
+		</div>
 	</div>
 	<div v-else ref="link" @dragover.prevent @drop="onDrop"></div>
 </template>

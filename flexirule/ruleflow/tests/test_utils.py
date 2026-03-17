@@ -289,7 +289,7 @@ class TestMappingUtils(FrappeTestCase):
 
 	def test_update_context_create_path(self):
 		"""Test updating context creating new path"""
-		context = {"doc": {}}
+		context: dict = {"doc": {}}
 		update_context(context, "doc.new_field", "new_value")
 		self.assertEqual(context["doc"]["new_field"], "new_value")
 
@@ -333,7 +333,7 @@ class TestMappingUtils(FrappeTestCase):
 	def test_apply_output_mapping_simple(self):
 		"""Test applying simple output mapping"""
 		result = {"status": "processed", "count": 5}
-		context = {"vars": {}}
+		context: dict = {"vars": {}}
 
 		# The function expects mapping to be a JSON string, not a dict
 		mapping_str = '{"status": "vars.process_status", "count": "vars.item_count"}'
@@ -346,7 +346,7 @@ class TestMappingUtils(FrappeTestCase):
 		result = {"id": 123, "name": "test"}
 		# The function expects mapping to be a JSON string, not a dict
 		mapping_str = '{"id": "vars.metadata.id", "name": "vars.metadata.name"}'
-		context = {"vars": {"metadata": {}}}
+		context: dict = {"vars": {"metadata": {}}}
 
 		apply_output_mapping(result, mapping_str, context)
 		self.assertEqual(context["vars"]["metadata"]["id"], 123)
@@ -525,7 +525,7 @@ class TestSchemaValidatorUtils(FrappeTestCase):
 	def test_frappe_fields_to_json_schema_empty_input(self):
 		"""Test converting empty fields list to JSON schema"""
 		# The function expects a dict with a "fields" key
-		frappe_schema = {"fields": []}
+		frappe_schema: dict = {"fields": []}
 		schema = frappe_fields_to_json_schema(frappe_schema)
 		self.assertIsInstance(schema, dict)
 		self.assertIn("type", schema)

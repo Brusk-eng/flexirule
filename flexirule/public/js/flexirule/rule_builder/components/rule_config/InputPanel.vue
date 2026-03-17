@@ -1,15 +1,76 @@
 <template>
-	<div class="input-panel reference-utility">
-		<div class="panel-header">
-			<h4>{{ __("Reference & Variables") }}</h4>
-			<p class="text-muted small">{{ __("Explore available data and action guide") }}</p>
+	<div class="input-panel" :class="mode">
+		<div class="panel-header" v-if="mode === 'config'">
+			<h4>{{ __("Setup & Input") }}</h4>
+			<p class="text-muted small">{{ __("Define reference and operation") }}</p>
 		</div>
 
 		<div class="panel-sections">
-			<!-- Available Variables -->
-			<div class="panel-section">
+			<!-- Configuration Section (Only for 'config' mode) -->
+			<div v-if="mode === 'config'" class="panel-section setup-section">
+				<div class="setup-controls">
+					<ControlFactory
+						v-if="showOperation"
+						:df="dynamicOperationField"
+						:modelValue="node.data?.operation"
+						:read_only="readOnly"
+						@update:modelValue="updateField('operation', $event)"
+					/>
+
+					<!-- Core Identity Fields -->
+					<ControlFactory
+						v-if="showReferenceDoctype"
+						:df="referenceDoctypeField"
+						:modelValue="node.data?.reference_doctype"
+						:read_only="readOnly"
+						@update:modelValue="updateField('reference_doctype', $event)"
+					/>
+
+					<ControlFactory
+						v-if="showProcessName"
+						:df="processNameField"
+						:modelValue="node.data?.process_name"
+						:read_only="readOnly"
+						@update:modelValue="updateField('process_name', $event)"
+					/>
+
+					<ControlFactory
+						v-if="showRuleField"
+						:df="ruleField"
+						:modelValue="node.data?.rule"
+						:read_only="readOnly"
+						@update:modelValue="updateField('rule', $event)"
+					/>
+
+					<!-- Secondary Setup -->
+					<ControlFactory
+						v-if="showReferenceDocname"
+						:df="referenceDocnameField"
+						:modelValue="node.data?.reference_docname"
+						:read_only="readOnly"
+						@update:modelValue="updateField('reference_docname', $event)"
+					/>
+
+					<ControlFactory
+						v-if="showInputSource"
+						:df="inputSourceField"
+						:modelValue="node.data?.input_source"
+						:read_only="readOnly"
+						@update:modelValue="updateField('input_source', $event)"
+					/>
+				</div>
+			</div>
+
+			<!-- Available Variables (Always shown in 'variables' mode, optional in 'config') -->
+			<div class="panel-section variables-section">
 				<div class="section-header">
-					<h5 class="section-title">{{ __("Available Variables") }}</h5>
+					<h5 class="section-title">
+						{{
+							mode === "variables"
+								? __("Available Variables")
+								: __("Context Variables")
+						}}
+					</h5>
 					<button class="btn btn-xs btn-link" @click="refreshVariables">
 						<i class="fa fa-refresh"></i>
 					</button>
@@ -55,25 +116,31 @@
 				</div>
 			</div>
 
-			<!-- Divider -->
-			<div class="section-divider"></div>
-
-			<!-- Configuration Guide (Integrated from V2PreviewPanel) -->
-			<div class="panel-section guide-section">
-				<h5 class="section-title">{{ __("Configuration Guide") }}</h5>
-				<div v-if="contract" class="guide-content p-3 mt-1">
-					<div class="d-flex align-items-center mb-3">
-						<div class="guide-icon-small" :style="{ background: contract.color }">
-							<i :class="contract.icon"></i>
+			<!-- DocType Fields (Only in 'config' mode when a DocType is selected) -->
+			<div
+				v-if="mode === 'config' && node.data?.reference_doctype"
+				class="panel-section doctype-fields-section"
+			>
+				<h5 class="section-title">
+					{{ __("{0} Fields").replace("{0}", node.data.reference_doctype) }}
+				</h5>
+				<div class="variable-list v2-scrollbar mt-2">
+					<div v-if="loadingFields" class="text-center p-2">
+						<div class="spinner-border spinner-border-sm text-muted"></div>
+					</div>
+					<template v-else>
+						<div
+							v-for="f in doctypeFields"
+							:key="f.fieldname"
+							class="variable-item field-item"
+							:title="f.label"
+							draggable="true"
+							@dragstart="onDragStart($event, f, true)"
+						>
+							<span class="variable-label">{{ f.label }}</span>
+							<span class="variable-type">{{ f.fieldtype }}</span>
 						</div>
-						<h6 class="mb-0 ml-2">{{ node.data?.action_type || node.type }}</h6>
-					</div>
-					<p class="guide-text-small">{{ contract.description }}</p>
-
-					<div v-if="operationDescription" class="operation-insight mt-3">
-						<label class="insight-label">{{ __("Operation Insight") }}</label>
-						<p class="insight-text italic">{{ operationDescription }}</p>
-					</div>
+					</template>
 				</div>
 			</div>
 		</div>
@@ -84,21 +151,142 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useStore } from "../../store";
 import { getContract } from "../../../core/contracts.js";
+import ControlFactory from "../../controls/ControlFactory.vue";
 
 const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
+	mode: { type: String, default: "config" }, // 'config' or 'variables'
 });
 
 const store = useStore();
 const variables = ref([]);
+const doctypeFields = ref([]);
 const loading = ref(false);
+const loadingFields = ref(false);
 const searchQuery = ref("");
-const operationDescription = ref("");
 
 const contract = computed(() => {
 	const type = props.node?.data?.action_type || props.node?.type;
 	return type ? getContract(type) : null;
+});
+
+const showReferenceDoctype = computed(() => {
+	if (!contract.value) return false;
+	const fields = contract.value.required_fields || [];
+	return (
+		fields.includes("reference_doctype") ||
+		["Process", "Set Value", "Notify"].includes(props.node.data?.action_type)
+	);
+});
+
+const showProcessName = computed(() => {
+	return props.node.data?.action_type === "Process";
+});
+
+const showRuleField = computed(() => {
+	return props.node.data?.action_type === "Sub-Rule";
+});
+
+const showOperation = computed(() => {
+	if (!contract.value) return false;
+	return (
+		contract.value.operation_options ||
+		["Notify", "Process", "Query Records", "Aggregate Records", "Create Docs"].includes(
+			props.node.data?.action_type
+		)
+	);
+});
+
+const showReferenceDocname = computed(() => {
+	const type = props.node.data?.action_type;
+	const op = props.node.data?.operation;
+
+	if (type === "Query Records") {
+		return ["Query Doc", "Query Report"].includes(op);
+	}
+	if (type === "Create Docs") {
+		return op === "Update Existing";
+	}
+	if (type === "Process" && op?.includes("Doc")) return true;
+
+	return false;
+});
+
+const showInputSource = computed(() => {
+	if (!contract.value) return false;
+	return ["Query Records", "Aggregate Records", "Create Docs"].includes(
+		props.node.data?.action_type
+	);
+});
+
+// -- Field Definitions --
+const referenceDoctypeField = {
+	fieldname: "reference_doctype",
+	fieldtype: "Link",
+	label: __("Reference DocType"),
+	options: "DocType",
+	reqd: 1,
+};
+
+const processNameField = {
+	fieldname: "process_name",
+	fieldtype: "Link",
+	label: __("Process"),
+	options: "Rule Process",
+	reqd: 1,
+};
+
+const ruleField = {
+	fieldname: "rule",
+	fieldtype: "Link",
+	label: __("Sub-Rule"),
+	options: "Rule",
+	reqd: 1,
+};
+
+const referenceDocnameField = {
+	fieldname: "reference_docname",
+	fieldtype: "Data",
+	label: __("Reference Name"),
+	description: __("The document name or ID"),
+};
+
+const inputSourceField = {
+	fieldname: "input_source",
+	fieldtype: "Select",
+	label: __("Input Source"),
+	options: "Context Doc\nContext Variable\nBoth",
+};
+
+const dynamicOperationField = computed(() => {
+	const label = contract.value?.operation_label || __("Operation / Mode");
+	const options = contract.value?.operation_options;
+
+	return {
+		fieldname: "operation",
+		fieldtype: options ? "Select" : "Autocomplete",
+		label: label,
+		options: options ? options.join("\n") : "",
+		reqd: 1,
+		get_options: async () => {
+			if (props.node.data?.action_type === "Process" && props.node.data?.process_name) {
+				const ops = await store.get_process_operations(props.node.data.process_name);
+				return ops.map((o) => ({ label: o.label || o.func_name, value: o.func_name }));
+			}
+			// For now, assume dynamic or fixed
+			if (props.node.data?.action_type === "Query Records") {
+				return [
+					{ label: __("Query List"), value: "Query List" },
+					{ label: __("Query Doc"), value: "Query Doc" },
+					{ label: __("Exist Record"), value: "Exist Record" },
+					{ label: __("Query Report"), value: "Query Report" },
+					{ label: __("Query API"), value: "Query API" },
+				];
+			}
+			return [];
+		},
+	};
 });
 
 const filteredVariables = computed(() => {
@@ -109,11 +297,14 @@ const filteredVariables = computed(() => {
 	);
 });
 
-function onDragStart(event, variable) {
+function onDragStart(event, item, isField = false) {
 	if (event.dataTransfer) {
-		const text = `{{ ${variable.value} }}`;
+		const text = isField ? `{{ doc.${item.fieldname} }}` : `{{ ${item.value} }}`;
 		event.dataTransfer.setData("text/plain", text);
-		event.dataTransfer.setData("application/x-flexirule-variable", variable.value);
+		event.dataTransfer.setData(
+			"application/x-flexirule-variable",
+			isField ? `doc.${item.fieldname}` : item.value
+		);
 		event.dataTransfer.effectAllowed = "copy";
 	}
 }
@@ -130,25 +321,32 @@ async function refreshVariables() {
 	}
 }
 
-async function loadOperationDetails() {
-	const processName = props.node?.data?.process_name;
-	const opName = props.node?.data?.operation;
-	if (processName && opName) {
-		try {
-			const ops = await store.get_process_operations(processName);
-			const op = ops.find((o) => o.func_name === opName);
-			operationDescription.value = op?.description || "";
-		} catch (e) {
-			operationDescription.value = "";
-		}
-	} else {
-		operationDescription.value = "";
+async function loadDoctypeFields() {
+	const dt = props.node?.data?.reference_doctype;
+	if (!dt) {
+		doctypeFields.value = [];
+		return;
+	}
+	loadingFields.value = true;
+	try {
+		doctypeFields.value = await flexirule.utils.get_doctype_fields(dt);
+	} catch (e) {
+		doctypeFields.value = [];
+	} finally {
+		loadingFields.value = false;
+	}
+}
+
+function updateField(fieldname, value) {
+	if (props.node?.data) {
+		props.node.data[fieldname] = value;
+		store.mark_dirty();
 	}
 }
 
 watch(
-	() => [props.node?.data?.process_name, props.node?.data?.operation],
-	() => loadOperationDetails(),
+	() => props.node?.data?.reference_doctype,
+	() => loadDoctypeFields(),
 	{ immediate: true }
 );
 

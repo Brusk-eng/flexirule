@@ -198,11 +198,9 @@ onBeforeUnmount(() => {
 			<div class="control-wrapper" ref="wrapper"></div>
 		</template>
 
-		<div
-			v-if="df.description && !hideLabel"
-			class="description text-muted mt-1"
-			v-html="__(df.description)"
-		></div>
+		<div v-if="df.description && !hideLabel" class="description text-muted mt-1">
+			{{ __(df.description) }}
+		</div>
 	</div>
 </template>
 

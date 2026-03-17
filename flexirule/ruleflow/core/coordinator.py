@@ -110,7 +110,7 @@ class RuleCoordinator:
 	@staticmethod
 	def _build_rule_map() -> dict:
 		"""Build complete rule map from database"""
-		rule_map = {}
+		rule_map: dict = {}
 
 		# Fetch all active rules with priority ordering
 		active_rules = frappe.get_all(

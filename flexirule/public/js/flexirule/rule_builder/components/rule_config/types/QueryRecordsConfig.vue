@@ -1,43 +1,15 @@
 <template>
 	<div class="query-config">
-		<div class="config-section section-card">
-			<h5>{{ __("Query Records") }}</h5>
-			<p class="text-muted small">
-				{{ __("Configure the query mode and parameters.") }}
+		<div v-if="!mode" class="empty-mode-state text-center p-5">
+			<i class="fa fa-mouse-pointer fa-3x text-muted mb-3 opacity-20"></i>
+			<p class="text-muted">
+				{{ __("Please select a Query Mode in the Setup panel to proceed.") }}
 			</p>
 		</div>
 
-		<div class="config-section section-card">
-			<ControlFactory
-				:df="modeField"
-				:modelValue="mode"
-				:hideDescription="true"
-				@update:modelValue="update_mode"
-			/>
-		</div>
-
-		<div v-if="mode === 'Query Report'" class="config-section section-card">
-			<ControlFactory
-				:df="with_read_only(reportLinkField)"
-				:modelValue="props.node?.data?.reference_docname"
-				@update:modelValue="(val) => on_select_report(val)"
-			/>
-		</div>
-
-		<div v-if="!mode" class="alert alert-warning mt-3">
-			{{ __("Select a query mode to configure its parameters.") }}
-		</div>
-
-		<div v-else class="config-section section-card">
+		<div v-else class="config-container">
+			<!-- Configuration based on selected Mode -->
 			<template v-if="mode === 'Query List'">
-				<div class="sub-section section-subcard">
-					<ControlFactory
-						:df="with_read_only(referenceDoctypeField)"
-						:modelValue="props.node?.data?.reference_doctype"
-						@update:modelValue="(val) => update_action_field('reference_doctype', val)"
-					/>
-				</div>
-
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
@@ -213,16 +185,17 @@
 			</template>
 
 			<template v-else-if="mode === 'Query Doc'">
-				<ControlFactory
-					:df="with_read_only(docnameField)"
-					:modelValue="config.docname"
-					@update:modelValue="(val) => update_config_key('docname', val)"
-				/>
-				<ControlFactory
-					:df="with_read_only(docnameExprField)"
-					:modelValue="config.docname_expression"
-					@update:modelValue="(val) => update_config_key('docname_expression', val)"
-				/>
+				<div class="sub-section section-subcard">
+					<ControlFactory
+						:df="with_read_only(docnameExprField)"
+						:modelValue="config.docname_expression"
+						@update:modelValue="(val) => update_config_key('docname_expression', val)"
+					/>
+					<div class="alert alert-info py-2 px-3 small mt-2">
+						<i class="fa fa-info-circle"></i>
+						{{ __("Reference DocName is managed in the Setup & Input panel.") }}
+					</div>
+				</div>
 			</template>
 
 			<template v-else-if="mode === 'Exist Record'">
@@ -688,31 +661,6 @@ async function update_report_columns() {
 
 const operators = ["=", "!=", ">", ">=", "<", "<=", "in", "not in"];
 
-const modeField = computed(() => ({
-	fieldname: "operation",
-	fieldtype: "Select",
-	label: __("Mode"),
-	options: "Query List\nQuery Doc\nExist Record\nQuery Report\nQuery API",
-	read_only: props.readOnly,
-}));
-
-const reportLinkField = computed(() => ({
-	fieldname: "reference_docname",
-	fieldtype: "Link",
-	label: __("Report"),
-	options: "Report",
-	read_only: props.readOnly,
-}));
-
-const referenceDoctypeField = computed(() => ({
-	fieldname: "reference_doctype",
-	fieldtype: "Link",
-	label: __("Reference DocType"),
-	options: "DocType",
-	default: store.rule_doc?.document_type,
-	read_only: props.readOnly,
-}));
-
 const limitField = {
 	fieldname: "limit",
 	fieldtype: "Int",
@@ -734,12 +682,6 @@ const groupByField = {
 	description: __("Optional group by field."),
 };
 
-const docnameField = {
-	fieldname: "docname",
-	fieldtype: "Data",
-	label: __("Document Name"),
-};
-
 const docnameExprField = {
 	fieldname: "docname_expression",
 	fieldtype: "Code",
@@ -753,29 +695,39 @@ const methodField = {
 	label: __("Whitelisted Method"),
 };
 
-function update_mode(value) {
-	if (!props.node?.data) return;
-	props.node.data.operation = value;
-	if (value === "Query Report") {
-		props.node.data.reference_doctype = "Report";
-	}
-	store.mark_dirty();
-}
-
-async function on_select_report(val) {
-	if (!props.node?.data) return;
-	props.node.data.reference_doctype = "Report";
-	props.node.data.reference_docname = val;
-	store.mark_dirty();
-	// Clear metadata when switching to report
-	docMeta.value = null;
-	await load_report_filters(val);
-}
+const reportLinkField = computed(() => ({
+	fieldname: "reference_docname",
+	fieldtype: "Link",
+	label: __("Report Name"),
+	options: "Report",
+	read_only: props.readOnly,
+	reqd: 1,
+}));
 
 function update_config_key(key, value) {
 	config[key] = value;
 	sync_local_config();
 }
+
+// Watch for operation changes directly to handle Report special case
+watch(
+	() => mode.value,
+	(newMode) => {
+		if (newMode === "Query Report") {
+			props.node.data.reference_doctype = "Report";
+		}
+	}
+);
+
+// Watch for report docname changes to load filters
+watch(
+	() => props.node?.data?.reference_docname,
+	(newVal) => {
+		if (mode.value === "Query Report" && newVal) {
+			load_report_filters(newVal);
+		}
+	}
+);
 
 function add_field() {
 	field_rows.value.push({ field: "" });

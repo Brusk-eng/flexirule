@@ -1,127 +1,56 @@
 <template>
-	<div class="output-panel data-io-center">
+	<div class="output-panel">
 		<div class="panel-header">
-			<h4>{{ __("Data Interaction") }}</h4>
-			<p class="text-muted small">{{ __("Manage inputs, results, and assignments") }}</p>
+			<h4>{{ __("Output & Mutation") }}</h4>
+			<p class="text-muted small">{{ __("Manage results and data storage") }}</p>
 		</div>
 
 		<div class="panel-sections">
-			<!-- Input Mapping (Moved from InputPanel) -->
-			<div class="panel-section">
-				<div class="section-header">
-					<h5 class="section-title">{{ __("Input Mappings") }}</h5>
-					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addInputMapping">
-						<i class="fa fa-plus"></i> {{ __("Add") }}
-					</button>
-				</div>
-				<p class="text-muted extra-small mb-2">
-					{{ __("Map context variables to action parameters.") }}
-				</p>
-				<div class="mapping-list">
-					<div v-if="!inputMappings.length" class="empty-state">
-						{{
-							__("No input mappings. Parameters will be auto-matched if names match.")
-						}}
-					</div>
-					<div v-for="(m, idx) in inputMappings" :key="'in-' + idx" class="mapping-row">
-						<div class="mapping-inputs">
-							<AutocompleteControl
-								:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
-								:modelValue="m.source"
-								:get_options="getVariableOptions"
-								:placeholder="__('From Context')"
-								:read_only="readOnly"
-								@update:modelValue="
-									m.source = $event;
-									saveInputMappings();
-								"
-							/>
-							<i class="fa fa-arrow-right text-muted mx-1"></i>
-							<input
-								type="text"
-								class="form-control input-xs"
-								v-model="m.target"
-								:placeholder="__('To Param')"
-								:disabled="readOnly"
-								@change="saveInputMappings"
-							/>
-						</div>
-						<button
-							v-if="!readOnly"
-							class="btn btn-xs btn-link text-danger"
-							@click="removeInputMapping(idx)"
-						>
-							<i class="fa fa-trash"></i>
-						</button>
-					</div>
-				</div>
-			</div>
-
-			<div class="section-divider"></div>
-
-			<!-- Detected Return Keys (Schema Discovery) -->
-			<div class="panel-section">
-				<div class="section-header">
-					<h5 class="section-title">{{ __("Detected Return Keys") }}</h5>
-				</div>
-				<p class="text-muted extra-small mb-2">
-					{{ __("Keys detected via 'Test Query'. Run test to update.") }}
-				</p>
-
-				<div class="detected-keys-list mb-1">
-					<div v-if="!detectedKeys.length" class="empty-state">
-						{{ __("No keys detected yet.") }}
-					</div>
-					<div v-else class="keys-grid">
-						<div
-							v-for="k in detectedKeys"
-							:key="k.fieldname || k.key"
-							class="key-tag"
-							:title="`${k.fieldname || k.key} (${k.fieldtype || 'Data'})`"
-						>
-							<i class="fa fa-info-circle mr-1 opacity-70"></i>
-							{{ k.label || k.fieldname || k.key }}
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<div class="section-divider"></div>
-
-			<!-- Result Storage -->
-			<div class="panel-section">
-				<h5 class="section-title">{{ __("Execution Result") }}</h5>
-				<div class="form-group mt-2">
+			<!-- Result Storage Configuration -->
+			<div class="panel-section storage-section">
+				<h5 class="section-title">{{ __("Result Storage") }}</h5>
+				<div class="storage-controls mt-2">
 					<ControlFactory
-						:df="{
-							fieldname: 'return_variable',
-							fieldtype: 'Data',
-							label: __('Result Variable Name'),
-							description: __('Variable to store the full action output'),
-							read_only: readOnly,
-						}"
+						:df="returnTypeField"
+						:modelValue="node.data?.return_type"
+						:read_only="readOnly"
+						@update:modelValue="updateField('return_type', $event)"
+					/>
+
+					<ControlFactory
+						:df="returnVariableField"
 						:modelValue="node.data?.return_variable"
 						:read_only="readOnly"
 						@update:modelValue="updateField('return_variable', $event)"
 					/>
+
+					<ControlFactory
+						v-if="showMutationMode"
+						:df="mutationModeField"
+						:modelValue="node.data?.mutation_mode"
+						:read_only="readOnly"
+						@update:modelValue="updateField('mutation_mode', $event)"
+					/>
 				</div>
 			</div>
 
-			<!-- Output Assignments -->
-			<div class="panel-section">
+			<div class="section-divider"></div>
+
+			<!-- Output Mapping / Variable Assignments -->
+			<div class="panel-section mapping-section">
 				<div class="section-header">
-					<h5 class="section-title">{{ __("Variable Assignments") }}</h5>
+					<h5 class="section-title">{{ __("Key Assignments") }}</h5>
 					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addOutputMapping">
 						<i class="fa fa-plus"></i> {{ __("Add") }}
 					</button>
 				</div>
 				<p class="text-muted extra-small mb-2">
-					{{ __("Assign specific result keys to context variables.") }}
+					{{ __("Map specific result keys to context variables.") }}
 				</p>
 
 				<div class="mapping-list">
 					<div v-if="!outputMappings.length" class="empty-state">
-						{{ __("No variables assigned specifically.") }}
+						{{ __("No specific assignments.") }}
 					</div>
 					<div v-for="(m, idx) in outputMappings" :key="'out-' + idx" class="mapping-row">
 						<div class="mapping-inputs">
@@ -138,7 +67,7 @@
 								:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
 								:modelValue="m.target"
 								:get_options="getVariableOptions"
-								:placeholder="__('Context Variable')"
+								:placeholder="__('Var')"
 								:read_only="readOnly"
 								@update:modelValue="
 									m.target = $event;
@@ -156,9 +85,195 @@
 					</div>
 				</div>
 			</div>
+
+			<div class="section-divider"></div>
+
+			<!-- Return Schema / Discovery -->
+			<div class="panel-section schema-section">
+				<h5 class="section-title">{{ __("Return Schema") }}</h5>
+				<div class="detected-keys-list mt-2">
+					<div v-if="!detectedKeys.length" class="empty-state">
+						{{ __("No schema detected.") }}
+					</div>
+					<div v-else class="keys-grid">
+						<div
+							v-for="k in detectedKeys"
+							:key="k.fieldname || k.key"
+							class="key-tag"
+							:title="`${k.fieldname || k.key} (${k.fieldtype || 'Data'})`"
+						>
+							<i class="fa fa-info-circle mr-1 opacity-70"></i>
+							{{ k.label || k.fieldname || k.key }}
+						</div>
+					</div>
+				</div>
+
+				<div
+					class="form-group mt-3"
+					v-if="node.data?.return_type && node.data?.return_type !== 'Boolean'"
+				>
+					<label class="section-title mini">{{ __("Manual Schema (JSON)") }}</label>
+					<ControlFactory
+						:df="resolvedSchemaField"
+						:modelValue="serializeSchema(node.data?.resolved_output_schema)"
+						@update:modelValue="updateField('resolved_output_schema', $event)"
+					/>
+				</div>
+			</div>
 		</div>
 	</div>
 </template>
+
+<script setup>
+import { ref, watch, onMounted, computed } from "vue";
+import { useStore } from "../../store";
+import ControlFactory from "../../controls/ControlFactory.vue";
+import AutocompleteControl from "../../controls/AutocompleteControl.vue";
+
+const props = defineProps({
+	node: Object,
+	readOnly: Boolean,
+});
+
+const store = useStore();
+
+const outputMappings = ref([]);
+const availableVariables = ref([]);
+
+const showMutationMode = computed(() => {
+	return ["Process", "Query Records", "Aggregate Records", "Create Docs"].includes(
+		props.node.data?.action_type
+	);
+});
+
+// -- Field Definitions --
+const returnTypeField = {
+	fieldname: "return_type",
+	fieldtype: "Select",
+	label: __("Return Type"),
+	options: "\nBoolean\nDict\nList\nList of Dict\nDoc as Dict",
+};
+
+const returnVariableField = computed(() => ({
+	fieldname: "return_variable",
+	fieldtype: "Data",
+	label: __("Result Variable name"),
+	description:
+		props.node.data?.return_type === "Boolean"
+			? __("Value assigned directly.")
+			: __("Stored as this variable."),
+}));
+
+const mutationModeField = {
+	fieldname: "mutation_mode",
+	fieldtype: "Select",
+	label: __("Mutation Mode"),
+	options:
+		"Set Doc Field\nUpdate Doc Field\nSet Context Variable\nUpdate Context Variable\nAppend to Context Variable\nBatch Database Set",
+};
+
+const resolvedSchemaField = {
+	fieldname: "resolved_output_schema",
+	fieldtype: "Code",
+	label: "",
+	options: "JSON",
+	read_only: props.readOnly,
+};
+
+const detectedKeys = computed(() => {
+	const schema = props.node?.data?.resolved_output_schema;
+	if (Array.isArray(schema)) return schema;
+	try {
+		return typeof schema === "string" ? JSON.parse(schema) : [];
+	} catch (e) {
+		return [];
+	}
+});
+
+function serializeSchema(val) {
+	if (!val) return "[]";
+	if (typeof val === "string") return val;
+	try {
+		return JSON.stringify(val, null, 2);
+	} catch (e) {
+		return "[]";
+	}
+}
+
+// -- Mapping Logic --
+watch(
+	() => props.node.data?.output_mapping,
+	(val) => {
+		if (val) {
+			try {
+				const obj = typeof val === "string" ? JSON.parse(val) : val;
+				outputMappings.value = Object.entries(obj).map(([source, target]) => ({
+					source,
+					target,
+				}));
+			} catch (e) {
+				outputMappings.value = [];
+			}
+		} else {
+			outputMappings.value = [];
+		}
+	},
+	{ immediate: true }
+);
+
+function addOutputMapping() {
+	outputMappings.value.push({ source: "", target: "" });
+}
+
+function removeOutputMapping(idx) {
+	outputMappings.value.splice(idx, 1);
+	saveOutputMappings();
+}
+
+function saveOutputMappings() {
+	const obj = {};
+	outputMappings.value.forEach((m) => {
+		if (m.source && m.target) obj[m.source] = m.target;
+	});
+	updateField("output_mapping", obj);
+}
+
+function updateField(fieldname, value) {
+	if (props.node.data) {
+		props.node.data[fieldname] = value;
+		store.mark_dirty();
+	}
+}
+
+async function refreshVariables() {
+	if (!props.node?.id) return;
+	try {
+		availableVariables.value = await store.getAvailableVariables(props.node.id);
+	} catch (e) {
+		availableVariables.value = [];
+	}
+}
+
+function getVariableOptions() {
+	return availableVariables.value.map((v) => ({ label: v.label, value: v.value }));
+}
+
+onMounted(() => {
+	refreshVariables();
+});
+
+function validate() {
+	const errors = [];
+	outputMappings.value.forEach((m, idx) => {
+		if ((m.source && !m.target) || (!m.source && m.target)) {
+			errors.push(__("Variable Assignment #{0} is incomplete", [idx + 1]));
+		}
+	});
+	return errors.length ? { valid: false, errors } : { valid: true };
+}
+
+defineExpose({ validate });
+</script>
 
 <script setup>
 import { ref, watch, onMounted, computed } from "vue";

@@ -62,7 +62,7 @@ watch(
 			<slot name="actions" />
 		</div>
 		<div ref="code"></div>
-		<div v-if="df.description" class="mt-2 description" v-html="df.description"></div>
+		<div v-if="df.description" class="mt-2 description">{{ __(df.description) }}</div>
 	</div>
 	<div v-else class="control" ref="code"></div>
 </template>

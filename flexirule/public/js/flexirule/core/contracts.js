@@ -16,8 +16,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
-		icon: "fa fa-play",
-		color: "#22c55e",
+		css: { icon: "fa fa-play", color: "#22c55e" },
 		description: "The starting point of your rule flow. Defines when the rule is triggered.",
 	},
 	Condition: {
@@ -25,10 +24,10 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: true,
 		terminal: false,
-		icon: "fa fa-code-fork",
-		color: "#3b82f6",
+		css: { icon: "fa fa-code-fork", color: "#3b82f6" },
 		description:
 			"Branch your flow based on a logical condition. If true, following the 'True' path; otherwise, follow 'False'.",
+		validation: { frontend: "validate_condition" },
 	},
 	Process: {
 		required_fields: ["process_name", "operation"],
@@ -36,8 +35,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_false: false,
 		terminal: false,
 		dynamic_fields: true, // Fields come from operation schema
-		icon: "fa fa-cog",
-		color: "#8b5cf6",
+		css: { icon: "fa fa-cog", color: "#8b5cf6" },
 		description:
 			"Execute a specific business process or operation. Operations can interact with the database, current document, or external systems.",
 	},
@@ -46,8 +44,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: true,
 		terminal: false,
-		icon: "fa fa-refresh",
-		color: "#f59e0b",
+		css: { icon: "fa fa-refresh", color: "#f59e0b" },
 		description: "Iterate over a list of items and execute actions for each item.",
 	},
 	Stop: {
@@ -55,8 +52,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: false,
 		has_next_false: false,
 		terminal: true,
-		icon: "fa fa-stop",
-		color: "#ef4444",
+		css: { icon: "fa fa-stop", color: "#ef4444" },
 		description: "Terminates the rule execution immediately.",
 	},
 	Switch: {
@@ -64,8 +60,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: false,
 		has_next_false: true,
 		terminal: false,
-		icon: "fa fa-random",
-		color: "#06b6d4",
+		css: { icon: "fa fa-random", color: "#06b6d4" },
 		description:
 			"Direct the flow to different paths based on the value of a specific field or expression.",
 	},
@@ -74,8 +69,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
-		icon: "fa fa-clock-o",
-		color: "#64748b",
+		css: { icon: "fa fa-clock-o", color: "#64748b" },
 		description: "Introduce a delay or wait for a specific event before proceeding.",
 	},
 	"Sub-Rule": {
@@ -83,8 +77,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
-		icon: "fa fa-cube",
-		color: "#ec4899",
+		css: { icon: "fa fa-cube", color: "#ec4899" },
 		description: "Invoke another rule as a reusable component within this flow.",
 	},
 	"Set Value": {
@@ -92,30 +85,29 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
-		icon: "fa fa-edit",
-		color: "#14b8a6",
+		css: { icon: "fa fa-edit", color: "#14b8a6" },
 		description: "Update a field in the current document with a calculated value.",
 		validation: {
 			check_target_field_editable: true,
 		},
 	},
 	"Raise Error": {
-		required_fields: ["error_template"],
+		required_fields: ["value_template"],
 		has_next_true: false,
 		has_next_false: false,
 		terminal: true,
-		icon: "fa fa-exclamation-triangle",
-		color: "#dc2626",
+		css: { icon: "fa fa-exclamation-triangle", color: "#dc2626" },
 		description: "Stop execution and display an error message to the user.",
 	},
 	Notify: {
-		required_fields: ["notification_template"],
+		required_fields: ["value_template", "operation"],
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
-		icon: "fa fa-bell",
-		color: "#0ea5e9",
+		css: { icon: "fa fa-bell", color: "#0ea5e9" },
 		description: "Send a notification (toast, system message, or email) to the user.",
+		operation_label: "Notification Type",
+		operation_options: ["Toast", "System", "Email"],
 	},
 	"Query Records": {
 		required_fields: ["reference_doctype", "operation"],
@@ -123,10 +115,13 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_false: false,
 		terminal: false,
 		allowed_mutations: ["Set Context Variable", "Append to Context Variable"],
-		icon: "fa fa-search",
-		color: "#0891b2",
+		css: { icon: "fa fa-search", color: "#0891b2" },
 		description:
 			"Query records from a DocType. Supports Query List, Query Doc, Exist Record, Query Report, and Query API modes.",
+		mandatory_fields: {
+			"Query Doc": ["reference_docname"],
+			"Exist Record": ["reference_doctype"],
+		},
 	},
 	"Aggregate Records": {
 		required_fields: ["reference_doctype", "operation", "config"],
@@ -138,8 +133,7 @@ export const ACTION_TYPE_CONTRACT = {
 			"Append to Context Variable",
 			"Update Context Variable",
 		],
-		icon: "fa fa-calculator",
-		color: "#d97706",
+		css: { icon: "fa fa-calculator", color: "#d97706" },
 		description:
 			"Aggregate data from records using operations like sum, avg, count, min, max, or group_by.",
 	},
@@ -149,8 +143,7 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_false: false,
 		terminal: false,
 		allowed_mutations: ["Set Doc Field", "Set Context Variable"],
-		icon: "fa fa-plus-circle",
-		color: "#059669",
+		css: { icon: "fa fa-plus-circle", color: "#059669" },
 		description:
 			"Create new documents or update existing ones with field mappings from the current context.",
 	},

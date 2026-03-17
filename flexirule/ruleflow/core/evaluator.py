@@ -156,7 +156,7 @@ class ConditionEvaluator:
 
 			# Special Handling for Link/Dynamic Link Tuples
 			# right might be ["DocType", "Value"] or ["DocType", ["V1", "V2"]]
-			if isinstance(right, (list, tuple)) and len(right) == 2 and isinstance(right[0], str):
+			if isinstance(right, list | tuple) and len(right) == 2 and isinstance(right[0], str):
 				# It is likely a Link Tuple (DocType, Value)
 
 				# Refinement: If op is 'in' or 'not_in', it must have a list as the second element to be a Link Tuple
@@ -164,7 +164,7 @@ class ConditionEvaluator:
 				is_link_tuple = False
 				if op in ["==", "!="]:
 					is_link_tuple = True
-				elif op in ["in", "not_in", "not in"] and isinstance(right[1], (list, tuple)):
+				elif op in ["in", "not_in", "not in"] and isinstance(right[1], list | tuple):
 					is_link_tuple = True
 
 				if is_link_tuple:
@@ -239,7 +239,9 @@ class ConditionEvaluator:
 				value = value_def.get("value")
 
 				if value_type == "field":
-					return self._get_field_value(row or doc, value)
+					if not value:
+						return None
+					return self._get_field_value(row or doc, str(value))
 				elif value_type == "literal":
 					return value
 				elif value_type == "method":
@@ -286,7 +288,7 @@ def check_link_match(lhs, rhs, op="=="):
 	2. Unpack RHS.
 	3. Perform standard comparison on values.
 	"""
-	if not rhs or not isinstance(rhs, (list, tuple)) or len(rhs) < 2:
+	if not rhs or not isinstance(rhs, list | tuple) or len(rhs) < 2:
 		return False
 
 	# rhs format: [DocType, Value] - DocType is included for completeness but not validated here

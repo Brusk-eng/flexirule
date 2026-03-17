@@ -39,7 +39,7 @@ class ContextManager:
 		    context: The full execution context dict containing 'vars', 'doc', etc.
 		"""
 		self.context = context
-		self._variable_history = []  # Track when variables were set
+		self._variable_history: list[dict] = []  # Track when variables were set
 
 	@property
 	def vars(self) -> dict:

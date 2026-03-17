@@ -38,7 +38,7 @@ doc_events = {
 
 doctype_js = {"Rule": "ruleflow/doctype/rule/rule.js"}
 
-fixtures = []
+fixtures: list[str] = []
 
 flexirule_excluded_doctypes = [
 	"Error Log",

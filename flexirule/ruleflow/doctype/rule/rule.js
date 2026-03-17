@@ -288,7 +288,8 @@ function toggle_action_fields(frm, cdt, cdn) {
 	const grid_row = frm.get_field("actions").grid.get_row(cdn);
 	if (!grid_row) return;
 
-	const hide_all = [
+	// All configuration fields that might be toggled
+	const all_config_fields = [
 		"process_name",
 		"operation",
 		"config",
@@ -303,32 +304,74 @@ function toggle_action_fields(frm, cdt, cdn) {
 		"skip_conditions",
 		"skip_permissions",
 		"configure_operation",
+		"target_field",
+		"value_template",
+		"reference_doctype",
+		"reference_docname",
+		"mutation_mode",
+		"input_mapping",
+		"output_mapping",
+		"input_source",
+		"return_type",
+		"return_variable",
+		"resolved_output_schema",
 	];
 
-	hide_all.forEach((f) => grid_row.toggle_display(f, false));
+	// Initial Hide
+	all_config_fields.forEach((f) => grid_row.toggle_display(f, false));
 
-	if (row.action_type === "Process") {
-		[
-			"process_name",
-			"operation",
-			"config",
-			"timeout",
-			"is_async",
-			"on_error",
-			"configure_operation",
-		].forEach((f) => grid_row.toggle_display(f, true));
+	const type = row.action_type;
+	if (!type) return;
+
+	const contract = flexirule.contracts?.getContract?.(type);
+	if (!contract) return;
+
+	// 1. Show required fields from contract
+	const fields_to_show = [...(contract.required_fields || [])];
+
+	// 2. Additional logic for dynamic fields
+	if (type === "Process") {
+		fields_to_show.push("config", "timeout", "is_async", "on_error", "configure_operation");
+	} else if (type === "Condition") {
+		fields_to_show.push("condition_expression", "next_step_if_false");
+	} else if (type === "Sub-Rule") {
+		fields_to_show.push("skip_conditions", "skip_permissions");
+	} else if (["Query Records", "Aggregate Records", "Create Docs"].includes(type)) {
+		fields_to_show.push("input_source", "mutation_mode", "return_type", "return_variable");
 	}
 
-	if (row.action_type === "Condition") {
-		["condition_expression", "condition_json", "next_step_if_false"].forEach((f) =>
-			grid_row.toggle_display(f, true)
-		);
+	// Always show operation if it has options or is for specific types
+	if (
+		contract.operation_options ||
+		["Process", "Query Records", "Aggregate Records", "Create Docs"].includes(type)
+	) {
+		fields_to_show.push("operation");
 	}
 
-	if (row.action_type === "Sub-Rule") {
-		["rule", "skip_conditions", "skip_permissions"].forEach((f) =>
-			grid_row.toggle_display(f, true)
-		);
+	// Handle reference_docname visibility
+	if (type === "Query Records" && ["Query Doc", "Query Report"].includes(row.operation)) {
+		fields_to_show.push("reference_docname");
+	} else if (type === "Create Docs" && row.operation === "Update Existing") {
+		fields_to_show.push("reference_docname");
+	} else if (type === "Process" && row.operation?.includes("Doc")) {
+		fields_to_show.push("reference_docname");
+	}
+
+	// Deduplicate and filter existing fields
+	const unique_fields = [...new Set(fields_to_show)];
+	unique_fields.forEach((f) => {
+		if (grid_row.get_field(f)) {
+			grid_row.toggle_display(f, true);
+		}
+	});
+
+	// Update Operation Label if contract provides it
+	if (contract.operation_label) {
+		grid_row.get_field("operation").df.label = contract.operation_label;
+		grid_row.get_field("operation").refresh();
+	} else {
+		grid_row.get_field("operation").df.label = __("Operation / Mode");
+		grid_row.get_field("operation").refresh();
 	}
 }
 

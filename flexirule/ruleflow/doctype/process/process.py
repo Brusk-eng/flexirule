@@ -181,7 +181,7 @@ def get_script(process_name: str):
 			script += f"\n\n//# sourceURL={scrub(process.name)}.js"
 
 	if not script and process.javascript:
-		script = process.javascript
+		script = process.javascript or ""
 		script += f"\n\n//# sourceURL={scrub(process.name)}__custom"
 
 	if not script:
@@ -262,7 +262,7 @@ def get_process_list():
 	)
 
 	# group operations by process
-	ops_by_process = {}
+	ops_by_process: dict[str, list] = {}
 	for op in operations:
 		ops_by_process.setdefault(op["parent"], []).append(op)
 

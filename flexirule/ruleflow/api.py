@@ -114,7 +114,7 @@ def get_doctype_fields(doctype: str, filters: str | dict | None = None):
 	except Exception:
 		return {"parent_fields": [], "child_tables": [], "system_fields": []}
 
-	result = {"parent_fields": [], "child_tables": [], "system_fields": []}
+	result: dict[str, list] = {"parent_fields": [], "child_tables": [], "system_fields": []}
 
 	# Process parent fields
 	for df in meta.fields:
@@ -247,13 +247,13 @@ def test_rule(
 		log_data = logs[0] if logs else {}
 
 		# Parse JSON fields
-		if log_data.get("execution_path"):
+		if isinstance(log_data, dict) and log_data.get("execution_path"):
 			try:
 				log_data["execution_path"] = json.loads(log_data["execution_path"])
 			except Exception:
 				pass
 
-		if log_data.get("context_snapshot"):
+		if isinstance(log_data, dict) and log_data.get("context_snapshot"):
 			try:
 				log_data["context_snapshot"] = json.loads(log_data["context_snapshot"])
 			except Exception:
@@ -289,13 +289,12 @@ def execute_rule(rule_name: str, context: str | dict | None = None, dry_run: boo
 
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
-	if isinstance(context, str):
-		context = json.loads(context)
+	ctx: dict | None = json.loads(context) if isinstance(context, str) else context
 
-	dry_run = frappe.parse_json(dry_run)
+	dry: bool = bool(frappe.parse_json(dry_run))
 
 	try:
-		result = RuleCoordinator.execute_rule(rule_name, context, dry_run=dry_run)
+		result = RuleCoordinator.execute_rule(rule_name, ctx, dry_run=dry)
 
 		# Clean context for JSON serialization
 		if isinstance(result, dict):
@@ -416,7 +415,7 @@ def get_action_context_schema(rule_name: str, action_id: str):
 	"""
 	rule = frappe.get_doc("Rule", rule_name)
 
-	result = {"doc_fields": [], "predecessor_outputs": []}
+	result: dict[str, list] = {"doc_fields": [], "predecessor_outputs": []}
 
 	# Get doc fields
 	try:
@@ -568,12 +567,12 @@ def test_action_query(
 
 	if not action:
 		frappe.throw(_("Action {0} not found in rule {1}").format(action_id, rule_name))
+		raise ValueError("Action not found")
 
 	# Apply overrides if provided (useful for testing UI changes without saving)
 	if overrides:
-		if isinstance(overrides, str):
-			overrides = json.loads(overrides)
-		for key, val in overrides.items():
+		overrides_dict: dict = json.loads(overrides) if isinstance(overrides, str) else overrides
+		for key, val in overrides_dict.items():
 			# Config and mapping fields might be strings in DB but dicts/lists in overrides
 			json_fields = [
 				"config",
@@ -582,10 +581,13 @@ def test_action_query(
 				"output_mapping",
 				"resolved_output_schema",
 			]
-			if key in json_fields and not isinstance(val, str):
+			if key in json_fields and not isinstance(val, str | bytes):
 				setattr(action, key, json.dumps(val))
 			elif hasattr(action, key):
-				setattr(action, key, val)
+				if key == "config" and isinstance(val, dict):
+					setattr(action, key, json.dumps(val))
+				else:
+					setattr(action, key, val)
 
 	# Build a minimal context
 	doc = None
@@ -614,6 +616,11 @@ def test_action_query(
 	handler = HandlerRegistry.get(action.action_type)
 	if not handler:
 		frappe.throw(_("No handler for action type: {0}").format(action.action_type))
+		raise ValueError("Handler not found")
+
+	# Re-assert for mypy since throw is not always detected as terminal
+	if handler is None:
+		return {"success": False, "error": "Handler not found", "result": None, "schema": [], "duration": 0}
 
 	import time
 
@@ -628,16 +635,21 @@ def test_action_query(
 		schema = []
 
 		# 1. Try to detect from Action Config first (most reliable for Query List)
-		if action.action_type == "Query Records":
+		if action and action.action_type == "Query Records":
 			try:
-				config_data = (
+				config_data: dict = (
 					json.loads(action.config) if isinstance(action.config, str) else (action.config or {})
 				)
-				mode = action.operation or config_data.get("operation")
+				if config_data is None:
+					config_data = {}
 
-				if mode == "Query List":
+				mode = (action.operation or config_data.get("operation")) if action else None
+
+				reference_doctype = action.reference_doctype if action else None
+
+				if mode == "Query List" and reference_doctype:
 					fields = config_data.get("fields") or ["name"]
-					meta = frappe.get_meta(action.reference_doctype)
+					meta = frappe.get_meta(reference_doctype)
 					system_fields = {f["value"]: f for f in SYSTEM_FIELDS}
 
 					for f in fields:
