@@ -81,9 +81,8 @@ class SetValueHandler(ActionHandler):
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
 		}
-		rendered_value = frappe.render_template(
-			value_template, template_context
-		)  # nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+		rendered_value = frappe.render_template(value_template, template_context)
 
 		# Set the value on the document
 		doc = context.get("doc")
@@ -116,9 +115,8 @@ class RaiseErrorHandler(ActionHandler):
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
 		}
-		message = frappe.render_template(
-			value_template, template_context
-		)  # nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+		message = frappe.render_template(value_template, template_context)
 
 		engine._log("INFO", _("Raising error: {0}").format(message))
 		frappe.throw(message)
@@ -148,9 +146,8 @@ class NotifyHandler(ActionHandler):
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
 		}
-		message = frappe.render_template(
-			value_template, template_context
-		)  # nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+		message = frappe.render_template(value_template, template_context)
 
 		if notification_type == "Toast":
 			frappe.msgprint(message, alert=True)
