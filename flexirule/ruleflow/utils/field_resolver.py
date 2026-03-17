@@ -180,13 +180,13 @@ class FieldResolver:
 		return [f.fieldname for f in meta.fields if f.fieldtype == "Table"]
 
 	@staticmethod
-	def get_field_type(doctype: str, fieldname: str) -> str:
+	def get_field_type(doctype: str, fieldname: str) -> str | None:
 		"""
 		Get field type for a field
 		"""
 		meta = frappe.get_meta(doctype)
 		field = meta.get_field(fieldname)
-		return str(field.fieldtype) if field else ""
+		return str(field.fieldtype) if field else None
 
 	@staticmethod
 	def get_all_fields(doctype: str, include_child_tables: bool = False) -> list[dict]:
