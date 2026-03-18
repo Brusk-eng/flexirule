@@ -34,6 +34,16 @@ def get_excluded_doctypes():
 			"Data Review Related Document",
 		]
 
+		try:
+			user_excluded = frappe.get_all(
+				"RuleFlow Excluded DocType", parent="RuleFlow Settings", pluck="document_type"
+			)
+			if user_excluded:
+				default_excluded.extend(user_excluded)
+		except Exception:
+			# Table might not exist yet if migrating
+			pass
+
 		return list(set(excluded + default_excluded))
 
 	return frappe.local_cache("flexirule_excluded_doctypes", "list", _build_exclusion_list)

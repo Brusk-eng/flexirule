@@ -233,7 +233,7 @@ const processNameField = {
 	fieldname: "process_name",
 	fieldtype: "Link",
 	label: __("Process"),
-	options: "Rule Process",
+	options: "Process",
 	reqd: 1,
 };
 

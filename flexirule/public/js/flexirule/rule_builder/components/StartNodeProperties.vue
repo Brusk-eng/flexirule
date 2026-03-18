@@ -48,9 +48,6 @@ function normalize_permissions(value) {
 	return value.map((row) => ({
 		role: row.role || "",
 		can_execute: row.can_execute ? 1 : 0,
-		can_edit: row.can_edit ? 1 : 0,
-		can_view: row.can_view ? 1 : 0,
-		can_disable: row.can_disable ? 1 : 0,
 	}));
 }
 
@@ -59,9 +56,6 @@ function default_permission_row() {
 	return {
 		role: "System Manager",
 		can_execute: 1,
-		can_view: 1,
-		can_edit: is_active ? 0 : 1,
-		can_disable: is_active ? 1 : 0,
 	};
 }
 
@@ -77,9 +71,6 @@ function add_permission_row() {
 	permissions.value.push({
 		role: "",
 		can_execute: 0,
-		can_edit: 0,
-		can_view: 0,
-		can_disable: 0,
 	});
 	update_field("permissions", permissions.value);
 }
@@ -334,9 +325,6 @@ watch(
 				<div class="perm-row perm-header">
 					<span>{{ __("Role") }}</span>
 					<span>{{ __("Execute") }}</span>
-					<span>{{ __("Edit") }}</span>
-					<span>{{ __("View") }}</span>
-					<span>{{ __("Disable") }}</span>
 					<span></span>
 				</div>
 				<div v-for="(row, idx) in permissions" :key="idx" class="perm-row">
@@ -352,24 +340,6 @@ watch(
 						:checked="!!row.can_execute"
 						:disabled="readOnly"
 						@change="update_permission(idx, 'can_execute', $event.target.checked)"
-					/>
-					<input
-						type="checkbox"
-						:checked="!!row.can_edit"
-						:disabled="readOnly"
-						@change="update_permission(idx, 'can_edit', $event.target.checked)"
-					/>
-					<input
-						type="checkbox"
-						:checked="!!row.can_view"
-						:disabled="readOnly"
-						@change="update_permission(idx, 'can_view', $event.target.checked)"
-					/>
-					<input
-						type="checkbox"
-						:checked="!!row.can_disable"
-						:disabled="readOnly"
-						@change="update_permission(idx, 'can_disable', $event.target.checked)"
 					/>
 					<button
 						v-if="!readOnly"
@@ -486,7 +456,7 @@ watch(
 
 .perm-row {
 	display: grid;
-	grid-template-columns: 1.6fr 0.7fr 0.6fr 0.6fr 0.7fr auto;
+	grid-template-columns: 1.6fr 0.7fr auto;
 	gap: 6px;
 	align-items: center;
 }

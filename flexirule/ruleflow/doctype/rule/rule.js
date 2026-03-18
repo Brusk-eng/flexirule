@@ -198,29 +198,44 @@ function update_dashboard_indicators(frm) {
 		frm._dashboard_rendered = {};
 	}
 
-	const indicators = [];
+	frappe.call({
+		method: "flexirule.ruleflow.api.get_rule_stats",
+		args: { rule_name: frm.doc.name },
+		callback: (r) => {
+			if (!r.message) return;
+			const stats = r.message;
+			const indicators = [];
 
-	if (frm.doc.execution_count) {
-		indicators.push({
-			label: __("Executed {0} times", [frm.doc.execution_count]),
-			color: "blue",
-			key: "execution_count",
-		});
-	}
+			if (stats.execution_count > 0) {
+				indicators.push({
+					label: __("Executed {0} times", [stats.execution_count]),
+					color: "blue",
+					key: "execution_count",
+				});
+				if (stats.success_rate < 100) {
+					indicators.push({
+						label: __("{0}% Success Rate", [stats.success_rate.toFixed(1)]),
+						color: stats.success_rate > 90 ? "orange" : "red",
+						key: "success_rate",
+					});
+				}
+			}
 
-	if (frm.doc.last_error) {
-		indicators.push({
-			label: __("Has Errors"),
-			color: "red",
-			key: "last_error",
-		});
-	}
+			if (frm.doc.last_error) {
+				indicators.push({
+					label: __("Has Errors"),
+					color: "red",
+					key: "last_error",
+				});
+			}
 
-	indicators.forEach((ind) => {
-		if (!frm._dashboard_rendered[ind.key]) {
-			frm.dashboard.add_indicator(ind.label, ind.color);
-			frm._dashboard_rendered[ind.key] = true;
-		}
+			indicators.forEach((ind) => {
+				if (!frm._dashboard_rendered[ind.key]) {
+					frm.dashboard.add_indicator(ind.label, ind.color);
+					frm._dashboard_rendered[ind.key] = true;
+				}
+			});
+		},
 	});
 }
 function test_rule(frm) {

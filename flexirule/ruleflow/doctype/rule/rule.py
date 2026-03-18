@@ -25,16 +25,13 @@ class Rule(Document):
 		from flexirule.ruleflow.doctype.rule_permission.rule_permission import RulePermission
 
 		actions: DF.Table[RuleAction]
-		avg_execution_time: DF.Float
 		debug_mode: DF.Check
 		description: DF.Text | None
 		document_type: DF.Link
-		execution_count: DF.Int
 		execution_mode: DF.Literal["Synchronous", "Asynchronous"]
 		is_active: DF.Check
 		is_sub_rule: DF.Check
 		last_error: DF.Text | None
-		last_executed: DF.Datetime | None
 		max_execution_time: DF.Int
 		permissions: DF.Table[RulePermission]
 		previous_rule: DF.Link | None
@@ -64,7 +61,6 @@ class Rule(Document):
 		rule_name: DF.Data
 		skip_for_roles: DF.TableMultiSelect[HasRole]
 		status: DF.Literal["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]
-		success_rate: DF.Percent
 		trigger_condition: DF.Code | None
 		trigger_condition_expression: DF.Code | None
 		trigger_event: DF.Literal[
@@ -382,10 +378,10 @@ class Rule(Document):
 					)
 
 	def get_computed_status(self):
-		if self.get("is_archived"):
-			return "Archived"
-
 		if not self.is_active:
+			# New rule or rule that has never been executed
+			if self.is_new() or not frappe.db.exists("Rule Execution Log", {"rule": self.name}):
+				return "Draft"
 			return "Disabled"
 
 		if not self.actions:
