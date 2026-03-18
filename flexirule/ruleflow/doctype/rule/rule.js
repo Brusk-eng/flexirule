@@ -385,8 +385,13 @@ function update_operation_options(frm, cdt, cdn) {
 	const apply_ops = (ops) => {
 		const field = grid_row.get_field("operation");
 		if (!field) return;
-		field.df.options = ops.join("\n");
-		field.set_data?.(ops);
+		const normalized = (ops || []).map((op) => {
+			if (typeof op === "string") return op;
+			return op?.value || op?.func_name || op?.label;
+		});
+		const cleaned = normalized.filter(Boolean);
+		field.df.options = cleaned.join("\n");
+		field.set_data?.(cleaned);
 		field.refresh();
 	};
 

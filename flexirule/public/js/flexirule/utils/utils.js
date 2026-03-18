@@ -204,6 +204,32 @@ flexirule.utils.get_process_adapter = function (process_name) {
 };
 
 /**
+ * Normalize operation records from API/DB/adapter into a stable object shape.
+ *
+ * @param {Array} operations
+ * @returns {Array<{value:string, func_name:string, label:string}>}
+ */
+flexirule.utils.normalize_process_operations = function (operations = []) {
+	return (operations || [])
+		.map((op) => {
+			if (typeof op === "string") {
+				return { value: op, func_name: op, label: op };
+			}
+
+			const value = op?.value || op?.func_name;
+			if (!value) return null;
+
+			return {
+				...op,
+				value,
+				func_name: op?.func_name || value,
+				label: op?.label || value,
+			};
+		})
+		.filter(Boolean);
+};
+
+/**
  * Get operations for a process, ensuring the adapter is loaded first.
  *
  * @param {string} process_name - Name of the process
@@ -215,7 +241,7 @@ flexirule.utils.get_process_operations = async function (process_name, db_operat
 
 	// 1. If we have DB operations, use them (they are authoritative for visible operations)
 	if (db_operations && db_operations.length > 0) {
-		return db_operations;
+		return flexirule.utils.normalize_process_operations(db_operations);
 	}
 
 	// 2. Otherwise load adapter and get from JS
@@ -223,7 +249,9 @@ flexirule.utils.get_process_operations = async function (process_name, db_operat
 	const adapter = flexirule.utils.get_process_adapter(process_name);
 	if (!adapter) return [];
 
-	return adapter.get_visible_operations?.() || adapter.operations || [];
+	return flexirule.utils.normalize_process_operations(
+		adapter.get_visible_operations?.() || adapter.operations || []
+	);
 };
 
 /**

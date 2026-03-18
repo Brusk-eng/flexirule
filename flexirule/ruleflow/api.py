@@ -476,19 +476,44 @@ def get_action_context_schema(rule_name: str, action_id: str):
 @frappe.whitelist()
 def get_process_operations(process_name: str):
 	"""
-	Get enabled operations for a specific process.
+	Get enabled operations for a specific process as normalized DTOs.
+	Returns stable shape for both Rule Form and Rule Builder consumers.
 	"""
 	if not process_name:
 		return []
 
-	return frappe.get_all(
+	rows = frappe.get_all(
 		"Process Operation",
 		filters={
 			"parenttype": "Process",
 			"parent": process_name,
 			"enabled": 1,
 		},
+		fields=[
+			"func_name",
+			"label",
+			"enabled",
+			"visible_in_builder",
+			"writes_to",
+			"is_terminal",
+		],
+		order_by="idx asc",
 	)
+
+	# Stable DTO with compatibility fields
+	return [
+		{
+			"value": r.get("func_name"),
+			"func_name": r.get("func_name"),
+			"label": r.get("label") or r.get("func_name"),
+			"enabled": r.get("enabled", 1),
+			"visible_in_builder": r.get("visible_in_builder", 1),
+			"writes_to": r.get("writes_to"),
+			"is_terminal": r.get("is_terminal", 0),
+		}
+		for r in rows
+		if r.get("func_name")
+	]
 
 
 @frappe.whitelist()
