@@ -17,7 +17,6 @@ def setup_default_ruleflow_settings():
 
 	default_doctypes = [
 		"Rule",
-		"Rule Action",
 		"Rule Execution Log",
 		"Rule Scheduler",
 		"Error Log",
