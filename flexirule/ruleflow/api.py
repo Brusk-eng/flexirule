@@ -760,7 +760,7 @@ def test_action_query(
 
 
 @frappe.whitelist()
-def get_rule_stats(rule_name):
+def get_rule_stats(rule_name: str):
 	"""Compute rule execution stats dynamically from Rule Execution Log"""
 	_require_api_access()
 
