@@ -666,49 +666,46 @@ class Rule(Document):
 		if not self.actions:
 			return
 
-		# Track available variables after each action in execution order
-		available_vars = {"doc", "old_doc", "frappe", "utils", "vars"}
-
-		# Build action map for traversal
 		action_map = {a.action_id: a for a in self.actions if a.action_id}
 
-		# Start from root and traverse the graph
-		visited = set()
-		queue = []
-
 		# Find root node
+		start_action = None
 		for action in self.actions:
 			if action.action_id == "root" or action.action_type == "Entry Action":
-				queue.append(action)
+				start_action = action
 				break
 
-		if not queue:
+		if not start_action:
 			return  # No root node, skip validation
 
-		while queue:
-			action = queue.pop(0)
-			action_id = action.action_id or action.name
+		self._validate_variable_paths(
+			start_action,
+			{"doc", "old_doc", "frappe", "utils", "vars"},
+			action_map,
+			set(),
+		)
 
-			if action_id in visited:
+	def _validate_variable_paths(self, action, available_vars, action_map, path):
+		"""Validate template variable usage for every reachable execution path."""
+		action_id = action.action_id or action.name
+		if action_id in path:
+			return
+
+		self._check_template_variables(action, available_vars)
+
+		next_available = set(available_vars)
+		if action.return_variable:
+			next_available.add(action.return_variable)
+
+		next_path = set(path)
+		next_path.add(action_id)
+
+		for next_id in [action.next_step_if_true, action.next_step_if_false]:
+			if not next_id:
 				continue
-			visited.add(action_id)
-
-			# Check templates for undefined variables
-			self._check_template_variables(action, available_vars)
-
-			# Add this action's return_variable to available set
-			if action.return_variable:
-				available_vars.add(action.return_variable)
-
-			# Queue next actions
-			if action.next_step_if_true:
-				next_action = action_map.get(action.next_step_if_true)
-				if next_action:
-					queue.append(next_action)
-			if action.next_step_if_false:
-				next_action = action_map.get(action.next_step_if_false)
-				if next_action:
-					queue.append(next_action)
+			next_action = action_map.get(next_id)
+			if next_action:
+				self._validate_variable_paths(next_action, next_available, action_map, next_path)
 
 	def _check_template_variables(self, action, available_vars):
 		"""Check Jinja template for undefined variable references"""

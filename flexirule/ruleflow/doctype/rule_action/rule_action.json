@@ -73,7 +73,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Type",
-   "options": "Entry Action\nCondition\nProcess\nLoop\nStop\nSwitch\nWait\nSub-Rule\nSet Value\nRaise Error\nNotify\nQuery Records\nAggregate Records\nCreate Docs",
+   "options": "Entry Action\nCondition\nProcess\nStop\nWait\nSub-Rule\nSet Value\nRaise Error\nNotify\nQuery Records\nAggregate Records\nCreate Docs",
    "reqd": 1
   },
   {

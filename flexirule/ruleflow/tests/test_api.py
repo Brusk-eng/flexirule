@@ -9,6 +9,7 @@ import json
 import unittest
 
 import frappe
+from frappe.exceptions import PermissionError
 
 from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
@@ -38,7 +39,13 @@ class TestBoltonAPI(unittest.TestCase):
 							"operation": "set_value",
 							"config": json.dumps({"field": "priority", "value": "Medium"}),
 							"is_entry_action": 1,
-						}
+							"next_step_if_true": "action_stop",
+						},
+						{
+							"action_type": "Stop",
+							"action_label": "Stop",
+							"action_id": "action_stop",
+						},
 					],
 				}
 			)
@@ -116,12 +123,13 @@ class TestAPIPermissions(unittest.TestCase):
 		frappe.set_user("Administrator")
 		frappe.db.rollback()
 
-	def test_api_requires_login(self):
-		"""Test that API requires logged in user"""
+	def test_api_requires_builder_access(self):
+		"""Sensitive metadata APIs should require builder/admin access."""
 		from flexirule.ruleflow.api import get_doctype_fields
 
-		result = get_doctype_fields("ToDo")
-		self.assertIsNotNone(result)
+		frappe.set_user("Guest")
+		with self.assertRaises(PermissionError):
+			get_doctype_fields("ToDo")
 
 
 def run_tests():

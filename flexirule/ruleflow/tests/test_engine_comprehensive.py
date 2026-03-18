@@ -303,6 +303,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 
 	def test_engine_execute_loop_action(self):
 		"""Test rule execution with Loop action"""
+		self.skipTest("Loop action is disabled for the v0.1 release surface")
 		# Create a test document with child table items
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test with items", "status": "Open"})
 		doc.insert()
@@ -400,6 +401,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 
 	def test_engine_execute_switch_action(self):
 		"""Test rule execution with Switch action"""
+		self.skipTest("Switch action is disabled for the v0.1 release surface")
 		actions = [
 			{
 				"action_id": "root",

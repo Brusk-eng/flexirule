@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import json
+import time
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -12,13 +13,27 @@ from flexirule.ruleflow.doctype.rule_scheduler.rule_scheduler import RuleSchedul
 
 
 class TestRuleScheduler(FrappeTestCase):
+	def _insert_with_retry(self, doc, retries=3):
+		last_error = None
+		for _ in range(retries):
+			try:
+				return doc.insert(ignore_permissions=True)
+			except frappe.QueryDeadlockError as e:
+				last_error = e
+				frappe.db.rollback()
+				time.sleep(0.05)
+		if last_error:
+			raise last_error
+		return doc
+
 	def setUp(self):
 		# Create a dummy rule for testing
-		if not frappe.db.exists("Rule", "Test Scheduler Rule"):
+		rule_name = f"Test Scheduler Rule {frappe.generate_hash(length=6)}"
+		if not frappe.db.exists("Rule", rule_name):
 			self.rule = frappe.get_doc(
 				{
 					"doctype": "Rule",
-					"rule_name": "Test Scheduler Rule",
+					"rule_name": rule_name,
 					"document_type": "ToDo",
 					"trigger_event": "Before Save",
 					"is_active": 1,
@@ -34,9 +49,10 @@ class TestRuleScheduler(FrappeTestCase):
 						}
 					],
 				}
-			).insert(ignore_permissions=True)
+			)
+			self.rule = self._insert_with_retry(self.rule)
 		else:
-			self.rule = frappe.get_doc("Rule", "Test Scheduler Rule")
+			self.rule = frappe.get_doc("Rule", rule_name)
 
 	def tearDown(self):
 		frappe.db.rollback()

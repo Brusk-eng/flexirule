@@ -149,6 +149,8 @@ export const ACTION_TYPE_CONTRACT = {
 	},
 };
 
+export const RELEASE_DISABLED_ACTION_TYPES = new Set(["Loop", "Switch"]);
+
 /**
  * Get contract for an action type with sensible defaults
  */
@@ -192,6 +194,10 @@ export function validateAgainstContract(nodeData) {
 	const contract = getContract(nodeData.action_type);
 	const errors = [];
 
+	if (RELEASE_DISABLED_ACTION_TYPES.has(nodeData.action_type)) {
+		errors.push(__("{0} is not available in this release", [nodeData.action_type]));
+	}
+
 	// 1. Check required fields
 	for (const field of contract.required_fields || []) {
 		const value = nodeData[field];
@@ -207,6 +213,10 @@ export function validateAgainstContract(nodeData) {
 				__("{0} is terminal and should not have next steps", [nodeData.action_type])
 			);
 		}
+	}
+
+	if (contract.has_next_false && !nodeData.next_step_if_false) {
+		errors.push(__("{0} requires a false path", [nodeData.action_type]));
 	}
 
 	// 3. Check has_next_false constraint
@@ -245,7 +255,9 @@ export function validateAgainstContract(nodeData) {
  * Get all action type options for Select field
  */
 export function getActionTypeOptions() {
-	return Object.keys(ACTION_TYPE_CONTRACT);
+	return Object.keys(ACTION_TYPE_CONTRACT).filter(
+		(actionType) => !RELEASE_DISABLED_ACTION_TYPES.has(actionType)
+	);
 }
 
 /**

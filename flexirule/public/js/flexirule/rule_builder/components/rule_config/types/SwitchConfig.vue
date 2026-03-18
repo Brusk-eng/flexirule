@@ -37,15 +37,17 @@ function getNodeLabel(id) {
 function updateJsonConfig(key, val) {
 	if (!props.node.data) return;
 
-	let config = {};
-	try {
-		config = JSON.parse(props.node.data.config || "{}");
-	} catch (e) {
-		config = {};
+	let config = props.node.data.config || {};
+	if (typeof config === "string") {
+		try {
+			config = JSON.parse(config || "{}");
+		} catch (e) {
+			config = {};
+		}
 	}
 
 	config[key] = val;
-	props.node.data.config = JSON.stringify(config);
+	props.node.data.config = config;
 
 	// If cases changed, we might need to update edges
 	if (key === "cases") {

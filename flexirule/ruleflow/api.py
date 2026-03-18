@@ -94,8 +94,14 @@ def get_doctype_fields(doctype: str, filters: str | dict | None = None):
 	        "system_fields": [...] if include_system_fields
 	    }
 	"""
+	_require_api_access()
 	if not doctype:
 		return {"parent_fields": [], "child_tables": [], "system_fields": []}
+
+	if not frappe.has_permission(doctype, "read"):
+		frappe.throw(
+			_("You do not have read permission for DocType {0}").format(doctype), frappe.PermissionError
+		)
 
 	# Parse filters
 	if isinstance(filters, str):
@@ -413,7 +419,12 @@ def get_action_context_schema(rule_name: str, action_id: str):
 	Get available context variables for a specific action in rule flow.
 	Used by UI to enable context-aware field selection.
 	"""
+	_require_api_access()
 	rule = frappe.get_doc("Rule", rule_name)
+	if not frappe.has_permission("Rule", "read", doc=rule):
+		frappe.throw(
+			_("You do not have permission to read Rule {0}").format(rule_name), frappe.PermissionError
+		)
 
 	result: dict[str, list] = {"doc_fields": [], "predecessor_outputs": []}
 
@@ -482,6 +493,7 @@ def get_process_operations(process_name: str):
 	Get enabled operations for a specific process as normalized DTOs.
 	Returns stable shape for both Rule Form and Rule Builder consumers.
 	"""
+	_require_api_access()
 	if not process_name:
 		return []
 

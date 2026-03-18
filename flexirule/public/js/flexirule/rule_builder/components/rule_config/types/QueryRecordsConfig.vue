@@ -1014,7 +1014,15 @@ watch(
 );
 
 defineExpose({
-	validate: () => ({ valid: true }),
+	validate: () => {
+		if (mode.value === "Query API") {
+			return {
+				valid: false,
+				message: __("Query API mode is not supported in this release"),
+			};
+		}
+		return { valid: true };
+	},
 });
 </script>
 

@@ -4,6 +4,8 @@
 import frappe
 from frappe import _
 
+from flexirule.ruleflow.core.contracts import get_contract, is_release_disabled_action
+
 
 def validate_graph_integrity(rule_doc):
 	"""
@@ -13,6 +15,30 @@ def validate_graph_integrity(rule_doc):
 		return
 
 	actions = {a.action_id: a for a in rule_doc.actions}
+	missing_references = []
+
+	def get_neighbors(action):
+		contract = get_contract(action.get("action_type"))
+		neighbors = []
+		if action.get("next_step_if_true"):
+			neighbors.append(action.get("next_step_if_true"))
+		if contract.get("has_next_false") and action.get("next_step_if_false"):
+			neighbors.append(action.get("next_step_if_false"))
+		return neighbors
+
+	for action in rule_doc.actions:
+		if is_release_disabled_action(action.action_type):
+			frappe.throw(
+				_(
+					"{0} actions are not available in this release. Remove '{1}' to activate this rule."
+				).format(action.action_type, action.action_label)
+			)
+
+		for next_step in [action.get("next_step_if_true"), action.get("next_step_if_false")]:
+			if next_step and next_step not in actions:
+				missing_references.append(
+					_("Action '{0}' points to missing action '{1}'").format(action.action_label, next_step)
+				)
 
 	# 1. Check for Cycles (DFS with Recursion Stack)
 	visited = set()
@@ -23,15 +49,10 @@ def validate_graph_integrity(rule_doc):
 		recursion_stack.add(current_id)
 
 		current_action = actions.get(current_id)
+		neighbors = []
 		if current_action:
 			# Get neighbors (next steps)
-			neighbors = []
-			if current_action.get("next_step_if_true"):
-				neighbors.append(current_action.get("next_step_if_true"))
-			if current_action.get("action_type") in ["Condition", "Switch", "Loop"] and current_action.get(
-				"next_step_if_false"
-			):
-				neighbors.append(current_action.get("next_step_if_false"))
+			neighbors = get_neighbors(current_action)
 
 			for neighbor in neighbors:
 				if neighbor not in visited:
@@ -82,30 +103,33 @@ def validate_graph_integrity(rule_doc):
 
 		action = actions.get(node_id)
 		if action:
-			if action.get("next_step_if_true"):
-				queue.append(action.get("next_step_if_true"))
-			# Include false paths for Condition, Loop, and Switch actions
-			if action.get("action_type") in [
-				"Condition",
-				"Loop",
-				"Switch",
-			] and action.get("next_step_if_false"):
-				queue.append(action.get("next_step_if_false"))
+			queue.extend(get_neighbors(action))
 
 	# Check for non-reachable nodes
 	orphans = [qid for qid in actions if qid not in reachable]
 	if orphans:
 		orphan_labels = [actions[o].action_label for o in orphans]
-		frappe.throw(_("Unreachable (Orphan) Actions found: {0}").format(", ".join(orphan_labels)))
+		message = _("Unreachable (Orphan) Actions found: {0}").format(", ".join(orphan_labels))
+		if missing_references:
+			message = "{0}. {1}".format(message, missing_references[0])
+		frappe.throw(message)
+
+	if missing_references:
+		frappe.throw(missing_references[0])
 
 	# 3. Check for Dead Ends (Paths not ending in Stop)
 	for action in rule_doc.actions:
-		if action.action_type in ["Process", "Condition", "Sub-Rule"]:
-			# Must have next step OR be explicitly 'Stop' type (which these are not)
-			# Process nodes can be terminal if they are the last thing, but V1 expects explicit Stop?
-			# Let's enforce that Condition MUST have both paths or explicit Stop
-			if action.action_type == "Condition":
-				if not action.next_step_if_true:
-					frappe.throw(_("Condition '{0}' missing True path").format(action.action_label))
-				if not action.next_step_if_false:
-					frappe.throw(_("Condition '{0}' missing False path").format(action.action_label))
+		contract = get_contract(action.action_type)
+		if contract.get("terminal"):
+			if action.next_step_if_true or action.next_step_if_false:
+				frappe.throw(
+					_("Action '{0}' is terminal and must not have outgoing paths").format(action.action_label)
+				)
+			continue
+
+		if contract.get("has_next_false") and not action.next_step_if_false:
+			frappe.throw(
+				_("Action '{0}' ({1}) is missing its required false path").format(
+					action.action_label, action.action_type
+				)
+			)

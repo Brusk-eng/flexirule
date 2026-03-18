@@ -281,7 +281,6 @@ const dynamicOperationField = computed(() => {
 					{ label: __("Query Doc"), value: "Query Doc" },
 					{ label: __("Exist Record"), value: "Exist Record" },
 					{ label: __("Query Report"), value: "Query Report" },
-					{ label: __("Query API"), value: "Query API" },
 				];
 			}
 			return [];

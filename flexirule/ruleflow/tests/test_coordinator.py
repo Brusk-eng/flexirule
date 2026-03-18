@@ -58,7 +58,14 @@ class TestRuleCoordinator(FrappeTestCase):
 						"operation": "required_fields",
 						"config": '{"fields": ["description"]}',
 						"on_error": "Stop",
-					}
+						"next_step_if_true": "ACT-STOP",
+					},
+					{
+						"action_id": "ACT-STOP",
+						"action_type": "Stop",
+						"action_label": "Stop",
+						"is_enabled": 1,
+					},
 				],
 			}
 		)
@@ -183,6 +190,22 @@ class TestRuleCoordinator(FrappeTestCase):
 
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 		RuleCoordinator.execute_rules(doc, "Validate")  # Should execute without error
+
+	def test_execute_rules_failure_logs_once(self):
+		"""A failed rule execution should create only one execution log row."""
+		rule = self.create_test_rule("Test Execute Fail Once")
+
+		doc = frappe.get_doc({"doctype": "ToDo", "description": ""})
+		with self.assertRaises(frappe.ValidationError):
+			RuleCoordinator.execute_rules(doc, "Validate")
+
+		logs = frappe.get_all(
+			"Rule Execution Log",
+			filters={"rule": rule.name},
+			fields=["name", "status"],
+		)
+		self.assertEqual(len(logs), 1)
+		self.assertEqual(logs[0].status, "Failed")
 
 	def test_execute_rules_with_ineligible_rule(self):
 		"""Test execute_rules with ineligible rule"""

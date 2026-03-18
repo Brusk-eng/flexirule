@@ -3,16 +3,29 @@
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.utils import cstr
 
 
 class TestRuleReorder(FrappeTestCase):
+	def _insert_with_retry(self, doc, retries=3):
+		last_error = None
+		for _ in range(retries):
+			try:
+				return doc.insert()
+			except frappe.QueryDeadlockError as e:
+				last_error = e
+				frappe.db.rollback()
+		if last_error:
+			raise last_error
+		return doc
+
 	def tearDown(self):
 		frappe.db.rollback()
 
 	def test_reorder_actions(self):
 		# Create a rule where Entry Action is NOT first in the list provided
 		rule = frappe.new_doc("Rule")
-		rule.rule_name = "Reorder Test Rule"
+		rule.rule_name = f"Reorder Test Rule {frappe.generate_hash(length=6)}"
 		rule.document_type = "ToDo"
 		rule.trigger_event = "Before Save"
 
@@ -38,7 +51,7 @@ class TestRuleReorder(FrappeTestCase):
 			},
 		)
 
-		rule.insert()
+		self._insert_with_retry(rule)
 
 		# Check order
 		self.assertEqual(len(rule.actions), 2)
@@ -50,7 +63,7 @@ class TestRuleReorder(FrappeTestCase):
 	def test_ensure_start_node_reorder(self):
 		# Test ensure_start_node adds it and then reorder puts it at top
 		rule = frappe.new_doc("Rule")
-		rule.rule_name = "Reorder Test Ensure"
+		rule.rule_name = f"Reorder Test Ensure {frappe.generate_hash(length=6)}"
 		rule.document_type = "ToDo"
 		rule.trigger_event = "Before Save"
 
@@ -66,7 +79,7 @@ class TestRuleReorder(FrappeTestCase):
 			},
 		)
 
-		rule.insert()
+		self._insert_with_retry(rule)
 
 		# Ensure start node adds Entry Action. Reorder should move it to top.
 		self.assertEqual(len(rule.actions), 2)

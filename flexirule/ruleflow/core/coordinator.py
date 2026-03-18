@@ -179,30 +179,6 @@ class RuleCoordinator:
 			try:
 				RuleCoordinator.execute_single_rule(doc, rule_doc, old_doc=old_doc, event_name=event_name)
 			except Exception as e:
-				# Log error to Rule Execution Log (async to avoid transaction conflicts)
-				error_msg = str(e)
-				if len(error_msg) > 139:
-					error_msg = error_msg[:139]
-
-				try:
-					frappe.enqueue(
-						"flexirule.ruleflow.utils.logging.persist_execution_log",
-						queue="short",
-						now=frappe.flags.in_test,
-						log_data={
-							"doctype": "Rule Execution Log",
-							"rule": rule_doc.name,
-							"status": "Failed",
-							"reference_doctype": doc.doctype,
-							"reference_docname": doc.name,
-							"message": error_msg,
-							"error_trace": frappe.get_traceback(),
-							"executed_by": frappe.session.user,
-						},
-					)
-				except Exception:
-					frappe.logger("flexirule").error(f"Failed to enqueue error log for rule {rule_doc.name}")
-
 				if rule_doc.debug_mode:
 					frappe.log_error(
 						title=_("Rule Execution Failed: {0}").format(rule_doc.name),
