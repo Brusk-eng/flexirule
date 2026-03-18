@@ -24,7 +24,7 @@ from jsonschema import ValidationError as SchemaValidationError
 from jsonschema import validate
 
 from flexirule.ruleflow.core.context_manager import ContextManager
-from flexirule.ruleflow.core.contracts import get_contract
+from flexirule.ruleflow.core.contracts import get_contract, is_release_disabled_action
 from flexirule.ruleflow.core.evaluator import check_link_match
 from flexirule.ruleflow.core.exceptions import (
 	CycleDetectedError,
@@ -350,12 +350,13 @@ class RuleEngine:
 
 		finally:
 			# Persist Log
-			duration = (time.time() - start_time) * 1000  # Convert to ms
+			duration = time.time() - start_time
 			self._save_execution_log(
-				status,
+				self._normalize_execution_status(status),
 				duration,
 				error_detail,
 				context=context if "context" in locals() else None,
+				message=self.execution_log[-1]["message"] if self.execution_log else None,
 			)
 
 			# Update last_error on Rule for get_computed_status()
@@ -369,6 +370,16 @@ class RuleEngine:
 
 		if not self.actions:
 			raise EmptyRuleError(_("Rule {0} has no enabled actions").format(self.rule.name))
+
+		disabled_actions = [
+			a.action_label or a.action_id for a in self.actions if is_release_disabled_action(a.action_type)
+		]
+		if disabled_actions:
+			raise frappe.ValidationError(
+				_("Rule {0} contains action types that are not available in this release: {1}").format(
+					self.rule.name, ", ".join(disabled_actions)
+				)
+			)
 
 		# Check Rule Permission table if defined
 		rule_permissions = self.rule.get("permissions")
@@ -914,7 +925,15 @@ class RuleEngine:
 		except Exception as e:
 			frappe.logger().error(f"Failed to update rule last_error: {e!s}")
 
-	def _save_execution_log(self, status, duration, error_trace=None, context=None):
+	def _normalize_execution_status(self, status):
+		"""Map internal execution states to persisted terminal states."""
+		if status in ("Success", "Failed", "Stopped"):
+			return status
+		if status == "Skipped":
+			return "Stopped"
+		return "Failed"
+
+	def _save_execution_log(self, status, duration, error_trace=None, context=None, message=None):
 		"""Save execution details to Rule Execution Log"""
 		try:
 			# Serialize context snapshot (remove complex objects)
@@ -948,6 +967,10 @@ class RuleEngine:
 				# If it's local, it might not exist after rollback
 				pass
 
+			message_text = message or (
+				error_trace.split("\n")[-2] if error_trace else _("Executed successfully")
+			)
+
 			log_doc = frappe.get_doc(
 				{
 					"doctype": "Rule Execution Log",
@@ -959,7 +982,7 @@ class RuleEngine:
 					"executed_by": (
 						active_context.get("meta", {}).get("user") if active_context else frappe.session.user
 					),
-					"message": (error_trace.split("\n")[-2] if error_trace else _("Executed successfully")),
+					"message": message_text,
 					"execution_path": json.dumps(self.path_trace, default=str),
 					"context_snapshot": json.dumps(context_snapshot, default=str),
 					"error_trace": error_trace,
@@ -970,6 +993,9 @@ class RuleEngine:
 					"batch_total": active_context.get("batch_total"),
 				}
 			)
+			log_data = log_doc.as_dict()
+			log_data.pop("name", None)
+			self.last_execution_log_payload = log_data
 
 			# PERSISTENCE LOGIC
 			# Use enqueue for failure logs to avoid breaking the current transaction.
@@ -980,8 +1006,6 @@ class RuleEngine:
 			elif status in ("Failed", "Error") and not active_context.get("test_mode"):
 				# Enqueue log creation to run in a separate transaction
 				# This avoids the problematic rollback+commit pattern
-				log_data = log_doc.as_dict()
-				log_data.pop("name", None)  # Remove name so it gets auto-generated
 				frappe.enqueue(
 					"flexirule.ruleflow.utils.logging.persist_execution_log",
 					queue="short",
@@ -990,8 +1014,6 @@ class RuleEngine:
 				)
 			elif active_context.get("save_log") and not active_context.get("test_mode"):
 				# Forced persistence - also use enqueue for consistency
-				log_data = log_doc.as_dict()
-				log_data.pop("name", None)
 				frappe.enqueue(
 					"flexirule.ruleflow.utils.logging.persist_execution_log",
 					queue="short",
@@ -1001,8 +1023,6 @@ class RuleEngine:
 			else:
 				# Success: Also use enqueue to avoid adding write overhead
 				# to the user's document save transaction
-				log_data = log_doc.as_dict()
-				log_data.pop("name", None)
 				frappe.enqueue(
 					"flexirule.ruleflow.utils.logging.persist_execution_log",
 					queue="short",

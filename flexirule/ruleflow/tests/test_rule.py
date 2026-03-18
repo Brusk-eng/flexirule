@@ -1,7 +1,7 @@
 # Copyright (c) 2025, Bolton and Contributors
 # See license.txt
 
-# import frappe
+import frappe
 from frappe.tests.utils import FrappeTestCase
 
 # On IntegrationTestCase, the doctype test records and all
@@ -12,4 +12,40 @@ from frappe.tests.utils import FrappeTestCase
 
 
 class TestRule(FrappeTestCase):
-	pass
+	def tearDown(self):
+		super().tearDown()
+		frappe.db.delete("Rule", {"rule_name": ["like", "Test Rule Validation%"]})
+
+	def test_active_rule_requires_next_step(self):
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Test Rule Validation Missing False Path",
+				"document_type": "ToDo",
+				"trigger_event": "Validate",
+				"is_active": 1,
+				"actions": [
+					{
+						"action_id": "root",
+						"action_type": "Entry Action",
+						"action_label": "Start",
+						"next_step_if_true": "condition_1",
+					},
+					{
+						"action_id": "condition_1",
+						"action_type": "Condition",
+						"action_label": "Check",
+						"condition_json": '[{"left":{"ref":"doc.description"},"op":"!=","right":{"value":""}}]',
+						"next_step_if_true": "stop_1",
+					},
+					{
+						"action_id": "stop_1",
+						"action_type": "Stop",
+						"action_label": "Stop",
+					},
+				],
+			}
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			rule.insert(ignore_permissions=True)

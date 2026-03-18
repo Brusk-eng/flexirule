@@ -142,6 +142,8 @@ ACTION_TYPE_CONTRACT = {
 	},
 }
 
+RELEASE_DISABLED_ACTION_TYPES = {"Loop", "Switch"}
+
 
 def get_contract(action_type: str) -> dict:
 	"""Get contract for an action type, with defaults for unknown types"""
@@ -164,3 +166,8 @@ def is_terminal_action(action_type: str) -> bool:
 def get_required_fields(action_type: str) -> list:
 	"""Get required fields for an action type"""
 	return get_contract(action_type).get("required_fields", [])
+
+
+def is_release_disabled_action(action_type: str) -> bool:
+	"""Check if an action type is intentionally disabled for the current release."""
+	return action_type in RELEASE_DISABLED_ACTION_TYPES

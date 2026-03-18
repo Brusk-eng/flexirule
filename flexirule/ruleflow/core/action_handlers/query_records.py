@@ -36,6 +36,9 @@ class QueryRecordsHandler(ActionHandler):
 		if not mode:
 			frappe.throw(_("Operation/Mode is required for Query Records action"))
 
+		if mode == "Query API":
+			frappe.throw(_("Query API mode is not supported in this release"))
+
 		if not reference_doctype:
 			frappe.throw(_("Reference DocType is required for Query Records action"))
 
@@ -49,7 +52,6 @@ class QueryRecordsHandler(ActionHandler):
 			"Query Doc": self._query_doc,
 			"Exist Record": self._exist_record,
 			"Query Report": self._query_report,
-			"Query API": self._query_api,
 		}
 
 		handler_fn = mode_handlers.get(mode)
@@ -93,9 +95,7 @@ class QueryRecordsHandler(ActionHandler):
 				errors.append(_("Query Report mode requires report_name in config"))
 
 		if mode == "Query API":
-			config = self._parse_config(action.config)
-			if not config.get("method"):
-				errors.append(_("Query API mode requires method in config"))
+			errors.append(_("Query API mode is not supported in this release"))
 
 		return errors
 

@@ -1,5 +1,6 @@
 <script setup>
 import { Handle, Position } from "@vue-flow/core";
+import { getActionTypeOptions } from "../../../core/contracts";
 import { useStore } from "../../store";
 
 const props = defineProps(["data", "label", "id", "selected"]);
@@ -34,7 +35,9 @@ const actionTypes = computed(() => {
 
 	return typeField.options
 		.split("\n")
-		.filter((t) => t && t !== "Entry Action" && t !== "Start")
+		.filter(
+			(t) => t && t !== "Entry Action" && t !== "Start" && getActionTypeOptions().includes(t)
+		)
 		.map((t) => ({
 			label: __(t),
 			value: t, // Keep exact value for action_type

@@ -20,6 +20,10 @@ const __ =
 		return s;
 	});
 
+const RELEASE_DISABLED_ACTION_TYPES = new Set(["Loop", "Switch"]);
+const ACTION_TYPES_REQUIRING_FALSE_PATH = new Set(["Condition"]);
+const TERMINAL_ACTION_TYPES = new Set(["Stop", "Raise Error"]);
+
 /**
  * Validate variable dependencies across a list of actions in topological order.
  *
@@ -139,6 +143,30 @@ flexirule.validation.validate_flow_constraints = function (
 		outgoing[e.source].push(e.target);
 	});
 
+	const startAction = actions.find(
+		(action) => action.action_type === "Entry Action" || action.action_id === "root"
+	);
+	if (startAction) {
+		const reachable = new Set();
+		const queue = [startAction.action_id || startAction.name];
+
+		while (queue.length) {
+			const current = queue.shift();
+			if (!current || reachable.has(current)) continue;
+			reachable.add(current);
+			(outgoing[current] || []).forEach((target) => queue.push(target));
+		}
+
+		for (const action of actions) {
+			const actionId = action.action_id || action.name;
+			if (!reachable.has(actionId)) {
+				errors.push(
+					__("Action '{0}' is unreachable from the start node.", [action.action_label])
+				);
+			}
+		}
+	}
+
 	for (const action of actions) {
 		// Skip Entry Action
 		if (action.action_type === "Entry Action" || action.action_id === "root") {
@@ -148,10 +176,25 @@ flexirule.validation.validate_flow_constraints = function (
 		const op_key = `${action.process_name}:${action.operation}`;
 		const op_meta = operation_metadata[op_key] || {};
 		const action_id = action.action_id || action.name;
+		const downstream = outgoing[action_id] || [];
+
+		if (TERMINAL_ACTION_TYPES.has(action.action_type) && downstream.length > 0) {
+			errors.push(
+				__("{0} is terminal and should not have downstream actions", [action.action_label])
+			);
+		}
+
+		if (
+			ACTION_TYPES_REQUIRING_FALSE_PATH.has(action.action_type) &&
+			!action.next_step_if_false
+		) {
+			errors.push(
+				__("Action '{0}' is missing its required false path.", [action.action_label])
+			);
+		}
 
 		// 1. Check is_terminal constraint
 		if (op_meta.is_terminal === 1) {
-			const downstream = outgoing[action_id] || [];
 			if (downstream.length > 0) {
 				errors.push(
 					__(
@@ -249,6 +292,15 @@ flexirule.validation.validate_action_types = function (
 		const action_type = action.action_type;
 		const label = action.action_label || action.action_id;
 
+		if (RELEASE_DISABLED_ACTION_TYPES.has(action_type)) {
+			errors.push(
+				__("Action '{0}' uses {1}, which is not available in this release.", [
+					label,
+					action_type,
+				])
+			);
+		}
+
 		// Sub-Rule validation
 		if (action_type === "Sub-Rule") {
 			if (!action.rule) {
@@ -266,6 +318,14 @@ flexirule.validation.validate_action_types = function (
 					__("Action '{0}' is a Condition but no condition is defined.", [label])
 				);
 			}
+		}
+
+		if (action_type === "Query Records" && action.operation === "Query API") {
+			errors.push(
+				__("Action '{0}' uses Query API mode, which is not available in this release.", [
+					label,
+				])
+			);
 		}
 
 		// Loop validation

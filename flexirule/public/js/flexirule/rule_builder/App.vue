@@ -313,13 +313,9 @@ function addNode(type, position) {
 			actionType = "Condition";
 			break;
 		case "switch":
-			label = __("New Switch");
-			actionType = "Switch";
-			break;
 		case "loop":
-			label = __("Loop");
-			actionType = "Loop";
-			break;
+			frappe.msgprint(__("{0} is not available in this release.", [type]));
+			return;
 		case "wait":
 			label = __("Wait");
 			actionType = "Wait";

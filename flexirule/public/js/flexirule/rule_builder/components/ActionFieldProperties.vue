@@ -12,6 +12,7 @@
 <script setup>
 import { useStore } from "../store";
 import ControlFactory from "../controls/ControlFactory.vue";
+import { getActionTypeOptions } from "../../core/contracts";
 
 const props = defineProps({
 	nodeData: Object,
@@ -29,10 +30,8 @@ const CONFIG_MODAL_TYPES = new Set([
 	"Set Value",
 	"Raise Error",
 	"Notify",
-	"Loop",
 	"Wait",
 	"Sub-Rule",
-	"Switch",
 	"Query Records",
 	"Aggregate Records",
 	"Create Docs",
@@ -76,18 +75,28 @@ const rule_action_meta = computed(() => {
 const doc_fields = computed(() => {
 	if (!rule_action_meta.value?.fields) return [];
 
-	return rule_action_meta.value.fields.filter((df) => {
-		// Skip layout fields
-		if (LAYOUT_FIELDS.includes(df.fieldtype)) return false;
+	return rule_action_meta.value.fields
+		.filter((df) => {
+			// Skip layout fields
+			if (LAYOUT_FIELDS.includes(df.fieldtype)) return false;
 
-		// Skip excluded fields
-		if (excluded_fields.value.includes(df.fieldname)) return false;
+			// Skip excluded fields
+			if (excluded_fields.value.includes(df.fieldname)) return false;
 
-		// Skip always hidden fields
-		if (df.hidden) return false;
+			// Skip always hidden fields
+			if (df.hidden) return false;
 
-		return true;
-	});
+			return true;
+		})
+		.map((df) => {
+			if (df.fieldname === "action_type") {
+				return {
+					...df,
+					options: getActionTypeOptions().join("\n"),
+				};
+			}
+			return df;
+		});
 });
 
 // Filter visible fields based on depends_on evaluation

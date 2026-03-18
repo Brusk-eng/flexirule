@@ -11,6 +11,21 @@ from frappe.modules.export_file import export_to_files
 from frappe.utils import now_datetime
 
 
+def _require_process_api_access():
+	"""Restrict process metadata and script APIs to builder/admin roles."""
+	if frappe.session.user == "Administrator":
+		return
+
+	roles = frappe.get_roles(frappe.session.user)
+	if "System Manager" not in roles and "Rule Builder" not in roles:
+		frappe.throw(
+			_("Not permitted. Requires 'System Manager' or 'Rule Builder' role."), frappe.PermissionError
+		)
+
+	if not frappe.has_permission("Process", "read"):
+		frappe.throw(_("You do not have permission to read Process records."), frappe.PermissionError)
+
+
 class Process(Document):
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
@@ -161,9 +176,14 @@ def get_process_module_dotted_path(module, process_name):
 
 @frappe.whitelist()
 def get_script(process_name: str):
+	_require_process_api_access()
 	from frappe.model.utils import render_include
 
 	process = frappe.get_cached_doc("Process", process_name)
+	if not frappe.has_permission("Process", "read", doc=process):
+		frappe.throw(
+			_("You do not have permission to read Process {0}").format(process_name), frappe.PermissionError
+		)
 	module = process.module or frappe.db.get_value("DocType", process.default_doctype, "module")
 
 	is_custom_module = frappe.get_cached_value("Module Def", module, "custom")
@@ -198,6 +218,7 @@ def get_process_js_paths():
 	Return JS adapter paths for all processes.
 	Same idea as Report JS loading.
 	"""
+	_require_process_api_access()
 	processes = frappe.get_all("Process", fields=["name", "module"])
 	result = {}
 
@@ -217,6 +238,7 @@ def get_process_list():
 	"""
 	Return all processes with their enabled operations.
 	"""
+	_require_process_api_access()
 
 	processes = frappe.get_all(
 		"Process",
