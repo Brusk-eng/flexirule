@@ -49,7 +49,7 @@
 								fieldname: 'on_error',
 								fieldtype: 'Select',
 								label: __('On Error'),
-								options: 'Stop\nContinue\nRetry\nRaise Error',
+								options: 'Stop\nContinue\nRetry\nRollback\nEscalate',
 							})
 						"
 						:modelValue="node.data?.on_error"

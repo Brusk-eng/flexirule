@@ -3,7 +3,7 @@
 	"creation": "2026-03-11 00:00:00",
 	"doctype": "DocType",
 	"engine": "InnoDB",
-	"field_order": ["role", "can_execute", "can_edit", "can_view", "can_disable"],
+	"field_order": ["role", "can_execute"],
 	"fields": [
 		{
 			"fieldname": "role",
@@ -19,27 +19,6 @@
 			"fieldtype": "Check",
 			"in_list_view": 1,
 			"label": "Can Execute"
-		},
-		{
-			"default": "0",
-			"fieldname": "can_edit",
-			"fieldtype": "Check",
-			"in_list_view": 1,
-			"label": "Can Edit"
-		},
-		{
-			"default": "0",
-			"fieldname": "can_view",
-			"fieldtype": "Check",
-			"in_list_view": 1,
-			"label": "Can View"
-		},
-		{
-			"default": "0",
-			"fieldname": "can_disable",
-			"fieldtype": "Check",
-			"in_list_view": 1,
-			"label": "Can Disable"
 		}
 	],
 	"istable": 1,

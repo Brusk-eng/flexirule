@@ -141,29 +141,11 @@ def validate_safe_eval(expression):
 	Raises:
 	    ValidationError if unsafe
 	"""
-	# Dangerous patterns
-	dangerous = [
-		"import ",
-		"__import__",
-		"exec(",
-		"eval(",
-		"open(",
-		"os.",
-		"subprocess",
-		"system(",
-		"__class__",
-		"__bases__",
-		"__globals__",
-	]
-
-	expr_lower = expression.lower()
-	for pattern in dangerous:
-		if pattern in expr_lower:
-			if getattr(frappe.flags, "in_validate_safe_eval", False):
-				return False
-			frappe.throw(
-				_("Expression contains forbidden pattern: {0}").format(pattern),
-				frappe.ValidationError,
-			)
+	try:
+		compile(expression, "<string>", "eval")
+	except SyntaxError as e:
+		frappe.throw(_("Invalid syntax in expression: {0}").format(str(e)), frappe.ValidationError)
+	except Exception as e:
+		frappe.throw(_("Invalid expression: {0}").format(str(e)), frappe.ValidationError)
 
 	return True  # Expression is safe

@@ -456,8 +456,11 @@ def get_action_context_schema(rule_name: str, action_id: str):
 		output_schema = None
 		try:
 			process_doc = frappe.get_cached_doc("Process", action.process_name)
-			process_doc.get_operation(action.operation)
-			# Schema logic for Process Operations could be added here
+			operation_doc = process_doc.get_operation(action.operation)
+			if operation_doc and operation_doc.output_schema:
+				import json
+
+				output_schema = json.loads(operation_doc.output_schema)
 		except Exception:
 			pass
 
@@ -530,8 +533,6 @@ def clone_rule(rule_name: str, new_name: str | None = None):
 		new_doc = frappe.copy_doc(doc)
 		new_doc.is_active = 0
 		new_doc.status = "Draft"
-		new_doc.execution_count = 0
-		new_doc.last_executed = None
 		new_doc.last_error = None
 
 		if new_name:
@@ -756,3 +757,39 @@ def test_action_query(
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), _("Test Query Failed"))
 		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def get_rule_stats(rule_name):
+	"""Compute rule execution stats dynamically from Rule Execution Log"""
+	_require_api_access()
+
+	stats = frappe.db.sql(
+		"""
+		SELECT
+			COUNT(*) as execution_count,
+			AVG(duration) as avg_execution_time,
+			MAX(creation) as last_executed,
+			SUM(CASE WHEN status = 'Success' THEN 1 ELSE 0 END) as success_count
+		FROM `tabRule Execution Log`
+		WHERE rule = %s
+		""",
+		(rule_name,),
+		as_dict=True,
+	)
+
+	if not stats or not stats[0].execution_count:
+		return {"execution_count": 0, "avg_execution_time": 0.0, "success_rate": 0.0, "last_executed": None}
+
+	result = stats[0]
+	execution_count = result.execution_count or 0
+	success_count = result.success_count or 0
+
+	success_rate = (success_count / execution_count * 100.0) if execution_count > 0 else 0.0
+
+	return {
+		"execution_count": execution_count,
+		"avg_execution_time": result.avg_execution_time or 0.0,
+		"success_rate": success_rate,
+		"last_executed": result.last_executed,
+	}

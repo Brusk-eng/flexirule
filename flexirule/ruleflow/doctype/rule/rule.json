@@ -29,12 +29,8 @@
   "section_break_flow",
   "actions",
   "visual_data",
-  "section_break_stats",
-  "execution_count",
-  "last_executed",
-  "last_error",
-  "success_rate",
-  "avg_execution_time"
+  "section_break_error",
+  "last_error"
  ],
  "fields": [
   {
@@ -209,41 +205,9 @@
   },
   {
    "collapsible": 1,
-   "fieldname": "section_break_stats",
+   "fieldname": "section_break_error",
    "fieldtype": "Section Break",
-   "label": "Execution Statistics"
-  },
-  {
-   "default": "0",
-   "fieldname": "execution_count",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Total Executions",
-   "no_copy": 1,
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "success_rate",
-   "fieldtype": "Percent",
-   "label": "Success Rate",
-   "no_copy": 1,
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "avg_execution_time",
-   "fieldtype": "Float",
-   "label": "Avg. Execution Time (ms)",
-   "no_copy": 1,
-   "read_only": 1
-  },
-  {
-   "fieldname": "last_executed",
-   "fieldtype": "Datetime",
-   "label": "Last Executed",
-   "no_copy": 1,
-   "read_only": 1
+   "label": "Error State"
   },
   {
    "fieldname": "last_error",

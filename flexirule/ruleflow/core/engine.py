@@ -83,6 +83,21 @@ class ReadOnlyDocument:
 	def db_set(self, *args, **kwargs):
 		raise frappe.ValidationError("Cannot db_set document in Pure method")
 
+	def run_method(self, *args, **kwargs):
+		raise frappe.ValidationError("Cannot run_method on document in Pure method")
+
+	def add_comment(self, *args, **kwargs):
+		raise frappe.ValidationError("Cannot add_comment on document in Pure method")
+
+	def queue_action(self, *args, **kwargs):
+		raise frappe.ValidationError("Cannot queue_action on document in Pure method")
+
+	@property
+	def flags(self):
+		import copy
+
+		return copy.deepcopy(self._doc.flags)
+
 
 @contextmanager
 def time_limit(seconds):
@@ -125,9 +140,13 @@ class SafeFrappeAPI:
 		return frappe.get_value(doctype, filters, fieldname, **kwargs)
 
 	@staticmethod
-	def get_all(doctype, filters=None, fields=None, **kwargs):
-		"""Read-only get_all"""
-		return frappe.get_all(doctype, filters=filters, fields=fields, **kwargs)
+	def get_all(doctype, filters=None, fields=None, limit_page_length=500, **kwargs):
+		"""Read-only get_all with default limit"""
+		if "limit" in kwargs:
+			limit_page_length = kwargs.pop("limit")
+		return frappe.get_all(
+			doctype, filters=filters, fields=fields, limit_page_length=limit_page_length, **kwargs
+		)
 
 	@staticmethod
 	def db_exists(doctype, name):
@@ -305,9 +324,6 @@ class RuleEngine:
 			# Post-execution cleanup
 			self._log("INFO", "Rule execution completed successfully")
 
-			if not self.context.get("test_mode"):
-				self._update_rule_stats(success=True)
-
 			return result
 
 		except frappe.PermissionError as e:
@@ -323,8 +339,6 @@ class RuleEngine:
 			)
 			error_detail = traceback.format_exc()
 			self._log("ERROR", error_msg)
-			if context if "context" in locals() else None:
-				self._update_rule_stats(success=False, error=error_msg)
 			raise BoltonTimeoutError(error_msg)
 
 		except Exception as e:
@@ -332,8 +346,6 @@ class RuleEngine:
 			error_msg = str(e)
 			error_detail = traceback.format_exc()
 			self._log("ERROR", _("Rule execution failed: {0}").format(error_msg))
-			if context if "context" in locals() else None:
-				self._update_rule_stats(success=False, error=error_msg)
 			raise
 
 		finally:
@@ -346,8 +358,9 @@ class RuleEngine:
 				context=context if "context" in locals() else None,
 			)
 
-			if not self.context.get("dry_run"):
-				self._update_rule_stats(success=(status == "Success"), duration=duration, error=error_detail)
+			# Update last_error on Rule for get_computed_status()
+			if not self.context.get("dry_run") and not self.context.get("test_mode"):
+				self._update_last_error(error_detail if status == "Failed" else None)
 
 	def _validate_execution(self):
 		"""Validate rule is executable"""
@@ -518,6 +531,10 @@ class RuleEngine:
 									str(e),
 								),
 							)
+							if context.get("_in_sync_hook"):
+								raise frappe.ValidationError(
+									f"Cannot retry action {current.action_label} inside a synchronous hook"
+								)
 							time.sleep(wait_time)
 							continue  # Retry same action
 						else:
@@ -884,50 +901,18 @@ class RuleEngine:
 		if self.rule.debug_mode or self.context.get("test_mode"):
 			frappe.logger().info(f"[{self.rule.name}] [{level}] {message}")
 
-	def _update_rule_stats(self, success=True, duration=0, error=None):
-		"""Update rule execution statistics (non-blocking, no commit)"""
-		if self.context.get("dry_run"):
-			return
-
+	def _update_last_error(self, error=None):
+		"""Update last_error on Rule for get_computed_status(). Non-blocking."""
 		try:
-			# Get current stats to calculate new success rate and avg time
-			current_count = self.rule.execution_count or 0
-			current_avg = self.rule.avg_execution_time or 0
-			current_success_rate = self.rule.success_rate or 0
-
-			new_count = current_count + 1
-			new_avg = (current_avg * current_count + duration) / new_count
-
-			# Calculate new success rate
-			success_count = (current_success_rate / 100.0) * current_count
-			if success:
-				success_count += 1
-			new_success_rate = (success_count / new_count) * 100.0
-
-			# Update in DB without triggering validations
 			frappe.db.set_value(
 				"Rule",
 				self.rule.name,
-				{
-					"execution_count": new_count,
-					"avg_execution_time": new_avg,
-					"success_rate": new_success_rate,
-					"last_executed": frappe.utils.now(),
-					"last_error": error if not success else None,
-				},
+				"last_error",
+				error,
 				update_modified=False,
 			)
-
-			# Also update local object for immediate feedback in engine if needed
-			self.rule.execution_count = new_count
-			self.rule.avg_execution_time = new_avg
-			self.rule.success_rate = new_success_rate
-			self.rule.last_executed = frappe.utils.now()
-			self.rule.last_error = error if not success else None
-
 		except Exception as e:
-			# Don't fail execution if stats update fails
-			frappe.logger().error(f"Failed to update rule stats: {e!s}")
+			frappe.logger().error(f"Failed to update rule last_error: {e!s}")
 
 	def _save_execution_log(self, status, duration, error_trace=None, context=None):
 		"""Save execution details to Rule Execution Log"""

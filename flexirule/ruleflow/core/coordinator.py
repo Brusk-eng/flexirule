@@ -368,10 +368,6 @@ class RuleCoordinator:
 
 			from flexirule.ruleflow.core.engine import RuleEngine
 
-			# Stats for async
-			frappe.cache().hincrby(f"rule_stats:{rule_doc.name}", "count", 1)
-			frappe.cache().hset(f"rule_stats:{rule_doc.name}", "last_executed", frappe.utils.now())
-
 			engine = RuleEngine(rule_doc)
 			engine.execute(doc)
 

@@ -49,8 +49,6 @@ def amend_rule(rule_name: str) -> str:
 	new_doc.status = "Draft"
 	new_doc.version = (original.version or 1) + 1
 	new_doc.previous_rule = original.name
-	new_doc.execution_count = 0
-	new_doc.last_executed = None
 	new_doc.last_error = None
 
 	# Build versioned name

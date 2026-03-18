@@ -449,9 +449,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 				nodeData.permissions = (rule_doc.value.permissions || []).map((row) => ({
 					role: row.role,
 					can_execute: row.can_execute || 0,
-					can_edit: row.can_edit || 0,
-					can_view: row.can_view || 0,
-					can_disable: row.can_disable || 0,
 				}));
 				nodeData.description = rule_doc.value.description;
 				nodeData.is_sub_rule = rule_doc.value.is_sub_rule || 0;
@@ -799,9 +796,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 					.map((row) => ({
 						role: row.role,
 						can_execute: row.can_execute ? 1 : 0,
-						can_edit: row.can_edit ? 1 : 0,
-						can_view: row.can_view ? 1 : 0,
-						can_disable: row.can_disable ? 1 : 0,
 					}));
 			}
 
