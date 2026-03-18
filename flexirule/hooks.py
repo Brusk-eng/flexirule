@@ -131,7 +131,7 @@ export_python_type_annotations = True
 # ------------
 
 # before_install = "flexirule.install.before_install"
-# after_install = "flexirule.install.after_install"
+after_install = "flexirule.install.after_install"
 after_migrate = [
 	"flexirule.ruleflow.core.process_sync.sync_all_processes",
 ]
