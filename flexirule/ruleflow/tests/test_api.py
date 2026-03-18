@@ -90,6 +90,19 @@ class TestBoltonAPI(unittest.TestCase):
 
 		self.assertTrue(result.get("success"))
 
+	def test_get_process_operations_returns_normalized_dto(self):
+		"""Process operations API should return normalized records."""
+		from flexirule.ruleflow.api import get_process_operations
+
+		result = get_process_operations("Enrichment")
+
+		self.assertIsInstance(result, list)
+		if result:
+			row = result[0]
+			self.assertIn("value", row)
+			self.assertIn("func_name", row)
+			self.assertIn("label", row)
+
 
 class TestAPIPermissions(unittest.TestCase):
 	"""Test API permission enforcement"""
