@@ -22,6 +22,7 @@ class TestRule(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": "Test Rule Validation Missing False Path",
 				"document_type": "ToDo",
+				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
 				"is_active": 1,
 				"actions": [
@@ -44,6 +45,22 @@ class TestRule(FrappeTestCase):
 						"action_label": "Stop",
 					},
 				],
+			}
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			rule.insert(ignore_permissions=True)
+
+	def test_scheduler_rule_rejects_doc_event_fields(self):
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Test Rule Validation Scheduler Leakage",
+				"document_type": "ToDo",
+				"trigger_type": "Scheduler Event",
+				"trigger_event": "Validate",
+				"is_active": 0,
+				"actions": [],
 			}
 		)
 

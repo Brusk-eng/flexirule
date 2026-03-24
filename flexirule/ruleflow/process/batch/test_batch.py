@@ -20,6 +20,7 @@ class TestBatchProcess(FrappeTestCase):
 					"doctype": "Rule",
 					"rule_name": "Test Batch Rule",
 					"document_type": "ToDo",
+					"trigger_type": "DocType Event",
 					"trigger_event": "Before Save",
 					"is_active": 1,
 					"actions": [

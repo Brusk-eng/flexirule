@@ -24,6 +24,7 @@ class TestExecutionAPI(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": rule_name,
 				"document_type": "ToDo",
+				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
 				"is_active": 1,
 				"actions": [
@@ -53,6 +54,15 @@ class TestExecutionAPI(FrappeTestCase):
 		RuleCoordinator.execute_rule(rule.name, context, dry_run=False)
 
 		self.assertEqual(todo.description, "Set by API")
+		log = frappe.get_all(
+			"Rule Execution Log",
+			filters={"rule": rule.name},
+			fields=["rule_version", "trigger_source"],
+			order_by="creation desc",
+			limit=1,
+		)[0]
+		self.assertEqual(log.rule_version, rule.version)
+		self.assertIn("Doc Event: ToDo/", log.trigger_source)
 
 	def test_dry_run_execute_rule(self):
 		"""Test RuleCoordinator.execute_rule with dry_run=True"""
@@ -69,6 +79,7 @@ class TestExecutionAPI(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": rule_name,
 				"document_type": "ToDo",
+				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
 				"is_active": 1,
 				"actions": [
@@ -116,6 +127,7 @@ class TestExecutionAPI(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": rule_name,
 				"document_type": "ToDo",
+				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
 				"is_active": 1,
 				"actions": [

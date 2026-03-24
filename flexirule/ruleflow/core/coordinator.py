@@ -6,7 +6,7 @@ RuleCoordinator - Main entry point for rule execution
 Finds applicable rules and dispatches them to appropriate executors
 """
 
-from typing import Any
+from typing import Any, ClassVar
 
 import frappe
 from frappe import _
@@ -17,6 +17,22 @@ class RuleCoordinator:
 
 	# Cache key for unified rule map (follows Frappe server_script_map pattern)
 	CACHE_KEY = "flexirule_map"
+
+	BLOCKING_EVENTS: ClassVar[set[str]] = {
+		"Before Naming",
+		"Before Insert",
+		"Before Save",
+		"Validate",
+		"Before Submit",
+		"On Submit",
+		"Before Cancel",
+		"On Cancel",
+		"On Trash",
+		"On Update After Submit",
+		"Before Rename",
+		"After Rename",
+		"Before Print",
+	}
 
 	@staticmethod
 	def execute_rule(rule: Any, context: dict | None = None, dry_run: bool = False) -> dict:
@@ -112,10 +128,10 @@ class RuleCoordinator:
 		"""Build complete rule map from database"""
 		rule_map: dict = {}
 
-		# Fetch all active rules with priority ordering
+		# Fetch all active DocType Event rules with priority ordering
 		active_rules = frappe.get_all(
 			"Rule",
-			filters={"is_active": 1},
+			filters={"is_active": 1, "trigger_type": "DocType Event"},
 			fields=["name", "document_type", "trigger_event", "priority"],
 			order_by="priority desc",
 		)
@@ -185,9 +201,8 @@ class RuleCoordinator:
 						message=_("DocType: {0} Doc: {1} Error: {2}").format(doc.doctype, doc.name, str(e)),
 					)
 
-				# Re-raise blocking exceptions (Stop the save)
-				if isinstance(e, frappe.ValidationError):
-					raise e
+				if event_name in RuleCoordinator.BLOCKING_EVENTS or isinstance(e, frappe.ValidationError):
+					raise
 
 	@staticmethod
 	def execute_rules(doc, event_name: str):

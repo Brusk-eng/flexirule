@@ -28,6 +28,7 @@ class TestBoltonAPI(unittest.TestCase):
 					"doctype": "Rule",
 					"rule_name": "Test API Rule",
 					"document_type": "ToDo",
+					"trigger_type": "DocType Event",
 					"trigger_event": "Validate",
 					"is_active": 1,
 					"actions": [

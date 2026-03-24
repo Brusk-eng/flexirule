@@ -1,6 +1,7 @@
 frappe.ui.form.on("Rule", {
 	onload(frm) {
 		frm._process_ops_cache = {};
+		apply_trigger_type_contract(frm);
 
 		const grid = frm.get_field("actions").grid;
 		const op_field = grid.get_field("operation");
@@ -50,10 +51,11 @@ frappe.ui.form.on("Rule", {
 		});
 
 		frm.page.clear_custom_actions();
-		frm.add_custom_button(__("Clone Rule"), () => clone_rule(frm), __("Actions"));
+		frm.add_custom_button(__("Amend Rule"), () => amend_rule(frm), __("Actions"));
 		frm.add_custom_button(__("Test Rule"), () => test_rule(frm), __("Actions"));
 		frm.add_custom_button(__("Clear Cache"), () => clear_rule_cache(frm), __("Actions"));
 
+		apply_trigger_type_contract(frm);
 		apply_active_lock(frm);
 
 		update_dashboard_indicators(frm);
@@ -78,6 +80,10 @@ frappe.ui.form.on("Rule", {
 			});
 			frm.refresh_field("actions");
 		}
+	},
+
+	trigger_type(frm) {
+		apply_trigger_type_contract(frm, { clear_hidden_values: true });
 	},
 });
 
@@ -160,22 +166,21 @@ function show_deactivation_dialog(frm) {
 			frm.refresh_fields();
 			d.hide();
 		},
-		secondary_action_label: __("Create Copy & Edit"),
+		secondary_action_label: __("Create Amendment & Edit"),
 		secondary_action() {
 			d.hide();
-			create_copy_and_edit(frm);
+			create_amendment_and_edit(frm);
 		},
 	});
 
 	d.show();
 }
 
-function create_copy_and_edit(frm) {
+function create_amendment_and_edit(frm) {
 	frappe.call({
-		method: "flexirule.ruleflow.api.clone_rule",
+		method: "flexirule.ruleflow.api.amend_rule",
 		args: {
 			rule_name: frm.doc.name,
-			new_name: `${frm.doc.rule_name} (Draft)`,
 		},
 		freeze: true,
 		callback(r) {
@@ -183,6 +188,41 @@ function create_copy_and_edit(frm) {
 				frappe.set_route("Form", "Rule", r.message);
 			}
 		},
+	});
+}
+
+function apply_trigger_type_contract(frm, options = {}) {
+	const contract = flexirule.contracts?.getTriggerTypeContract?.(frm.doc.trigger_type) || {
+		required_fields: [],
+		optional_fields: [],
+		hidden_fields: [],
+	};
+	const managedFields = [
+		"document_type",
+		"trigger_event",
+		"trigger_condition",
+		"trigger_condition_expression",
+	];
+	const visibleFields = new Set([
+		...(contract.required_fields || []),
+		...(contract.optional_fields || []),
+	]);
+	const clearHiddenValues = !!options.clear_hidden_values;
+
+	managedFields.forEach((fieldname) => {
+		if (!frm.fields_dict[fieldname]) return;
+
+		const isVisible = visibleFields.has(fieldname);
+		frm.toggle_display(fieldname, isVisible);
+		frm.set_df_property(
+			fieldname,
+			"reqd",
+			contract.required_fields?.includes(fieldname) ? 1 : 0
+		);
+
+		if (clearHiddenValues && !isVisible && frm.doc[fieldname]) {
+			frm.set_value(fieldname, null);
+		}
 	});
 }
 function update_dashboard_indicators(frm) {
@@ -427,35 +467,19 @@ function update_operation_options(frm, cdt, cdn) {
 		});
 }
 
-function clone_rule(frm) {
-	frappe.prompt(
-		[
-			{
-				label: __("New Rule Name"),
-				fieldname: "new_name",
-				fieldtype: "Data",
-				default: `${frm.doc.rule_name} (Copy)`,
-				reqd: 1,
-			},
-		],
-		(values) => {
-			frappe.call({
-				method: "flexirule.ruleflow.api.clone_rule",
-				args: {
-					rule_name: frm.doc.name,
-					new_name: values.new_name,
-				},
-				freeze: true,
-				callback: (r) => {
-					if (r.message) {
-						frappe.set_route("Form", "Rule", r.message);
-					}
-				},
-			});
+function amend_rule(frm) {
+	frappe.call({
+		method: "flexirule.ruleflow.api.amend_rule",
+		args: {
+			rule_name: frm.doc.name,
 		},
-		__("Clone Rule"),
-		__("Clone")
-	);
+		freeze: true,
+		callback: (r) => {
+			if (r.message) {
+				frappe.set_route("Form", "Rule", r.message);
+			}
+		},
+	});
 }
 
 function clear_rule_cache(frm) {

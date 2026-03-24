@@ -16,7 +16,7 @@ class TestRuleCycles(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": name,
 				"document_type": "Note",
-				"trigger_event": "Manual",
+				"trigger_type": "Callable Event",
 				"is_active": 0,
 				"priority": "0",
 				"trigger_condition": trigger_condition,

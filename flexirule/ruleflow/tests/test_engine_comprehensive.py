@@ -68,6 +68,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": name,
 				"document_type": doctype,
+				"trigger_type": "DocType Event",
 				"trigger_event": event,
 				"is_active": is_active,
 				"priority": 10,

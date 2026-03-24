@@ -34,7 +34,9 @@ class RuleScheduler(Document):
 		filter_doctype: DF.Link | None
 		filter_json: DF.Code | None
 		frequency: DF.Literal["All", "Hourly", "Daily", "Weekly", "Monthly", "Cron"]
+		last_error: DF.Text | None
 		last_execution: DF.Datetime | None
+		module: DF.Link | None
 		on_error: DF.Literal["Skip", "Stop"]
 		rule: DF.Link
 		stopped: DF.Check
@@ -55,14 +57,21 @@ class RuleScheduler(Document):
 				frappe.throw(_("{0} is not a valid Cron expression").format(self.cron_format))
 
 	def _validate_rule(self):
-		"""Ensure linked rule exists and is active."""
+		"""Ensure linked rule exists and has compatible trigger_type."""
 		if self.rule:
 			rule_doc = frappe.get_cached_doc("Rule", self.rule)
+			if rule_doc.trigger_type not in ("Scheduler Event", "Callable Event"):
+				frappe.throw(
+					_(
+						"Rule '{0}' has trigger type '{1}'. Only Scheduler Event or Callable Event rules can be scheduled."
+					).format(self.rule, rule_doc.trigger_type)
+				)
 			if not rule_doc.is_active:
 				frappe.msgprint(
-					_("Warning: Rule {0} is not active").format(self.rule),
+					_("Warning: Rule {0} is not active. Scheduler will be stopped.").format(self.rule),
 					indicator="orange",
 				)
+				self.stopped = 1
 
 	@property
 	def next_execution(self):
@@ -196,7 +205,9 @@ class RuleScheduler(Document):
 			)
 
 		except Exception as e:
-			frappe.log_error(f"Scheduler {self.name} failed", str(e))
+			error_msg = str(e)
+			frappe.log_error(f"Scheduler {self.name} failed", error_msg)
+			self.db_set("last_error", error_msg[:2000], update_modified=False)
 
 	def _get_documents(self):
 		"""Get documents matching filter criteria."""
@@ -217,7 +228,7 @@ class RuleScheduler(Document):
 			doctype,
 			filters=filters,
 			pluck="name",
-			limit=1000,  # Safety limit
+			limit=self.batch_size or 100,
 		)
 
 	def _update_last_execution(self):
