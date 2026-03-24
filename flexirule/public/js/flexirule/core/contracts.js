@@ -151,6 +151,24 @@ export const ACTION_TYPE_CONTRACT = {
 
 export const RELEASE_DISABLED_ACTION_TYPES = new Set(["Loop", "Switch"]);
 
+export const TRIGGER_TYPE_CONTRACT = {
+	"DocType Event": {
+		required_fields: ["document_type", "trigger_event"],
+		optional_fields: ["trigger_condition", "trigger_condition_expression"],
+		hidden_fields: [],
+	},
+	"Scheduler Event": {
+		required_fields: [],
+		optional_fields: ["document_type"],
+		hidden_fields: ["trigger_event", "trigger_condition", "trigger_condition_expression"],
+	},
+	"Callable Event": {
+		required_fields: [],
+		optional_fields: ["document_type"],
+		hidden_fields: ["trigger_event", "trigger_condition", "trigger_condition_expression"],
+	},
+};
+
 /**
  * Get contract for an action type with sensible defaults
  */
@@ -179,6 +197,16 @@ export function isTerminalAction(actionType) {
  */
 export function getRequiredFields(actionType) {
 	return getContract(actionType).required_fields || [];
+}
+
+export function getTriggerTypeContract(triggerType) {
+	return (
+		TRIGGER_TYPE_CONTRACT[triggerType] || {
+			required_fields: [],
+			optional_fields: [],
+			hidden_fields: [],
+		}
+	);
 }
 
 /**

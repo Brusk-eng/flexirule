@@ -44,10 +44,10 @@ class TestComplexFlows(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": "Test Child Rule",
 				"document_type": self.doctype,
-				"trigger_event": "Manual",
+				"trigger_type": "Callable Event",
 				"priority": 0,
 				"is_active": 1,
-				"is_sub_rule": 1,
+				"exposed_as_subrule": 1,
 				"actions": [
 					{
 						"action_id": "root",
@@ -89,7 +89,7 @@ class TestComplexFlows(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": "Test Parent Rule",
 				"document_type": self.doctype,
-				"trigger_event": "Manual",
+				"trigger_type": "Callable Event",
 				"priority": 0,
 				"is_active": 1,
 				"actions": [
@@ -126,10 +126,10 @@ class TestComplexFlows(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": "Test Cycle A",
 				"document_type": self.doctype,
-				"trigger_event": "Manual",
+				"trigger_type": "Callable Event",
 				"priority": 0,
 				"is_active": 1,
-				"is_sub_rule": 1,
+				"exposed_as_subrule": 1,
 				"actions": [{"action_id": "root", "action_type": "Entry Action", "action_label": "Start"}],
 			}
 		).insert()
@@ -139,10 +139,10 @@ class TestComplexFlows(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": "Test Cycle B",
 				"document_type": self.doctype,
-				"trigger_event": "Manual",
+				"trigger_type": "Callable Event",
 				"priority": 0,
 				"is_active": 1,
-				"is_sub_rule": 1,
+				"exposed_as_subrule": 1,
 				"actions": [{"action_id": "root", "action_type": "Entry Action", "action_label": "Start"}],
 			}
 		).insert()
@@ -172,7 +172,7 @@ class TestComplexFlows(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": "Test Analytics",
 				"document_type": self.doctype,
-				"trigger_event": "Manual",
+				"trigger_type": "Callable Event",
 				"priority": 0,
 				"is_active": 1,
 				"actions": [{"action_id": "root", "action_type": "Entry Action", "action_label": "Start"}],

@@ -401,7 +401,7 @@ class RuleEngine:
 			"vars": {},
 			"meta": {
 				"rule": self.rule.name,
-				"rule_version": "v1",
+				"rule_version": self.rule.version,
 				"engine_version": "1.0",
 				"user": frappe.session.user,
 				"timestamp": frappe.utils.now(),
@@ -933,6 +933,24 @@ class RuleEngine:
 			return "Stopped"
 		return "Failed"
 
+	def _build_trigger_source(self, active_context):
+		"""Build a stable execution source label for audit logs."""
+		if not active_context:
+			return f"Rule: {self.rule.name}"
+
+		scheduler_name = active_context.get("scheduler")
+		if scheduler_name:
+			return f"Scheduler: {scheduler_name}"
+
+		doc = active_context.get("doc")
+		event_name = active_context.get("event_name") or active_context.get("meta", {}).get("event_name")
+		if doc and event_name:
+			return f"Doc Event: {doc.doctype}/{doc.name} [{event_name}]"
+		if doc:
+			return f"Doc: {doc.doctype}/{doc.name}"
+
+		return f"Rule: {self.rule.name}"
+
 	def _save_execution_log(self, status, duration, error_trace=None, context=None, message=None):
 		"""Save execution details to Rule Execution Log"""
 		try:
@@ -975,9 +993,11 @@ class RuleEngine:
 				{
 					"doctype": "Rule Execution Log",
 					"rule": self.rule.name,
+					"rule_version": self.rule.version,
 					"status": status,
 					"duration": duration,
-					"reference_doctype": self.rule.document_type,
+					"trigger_source": self._build_trigger_source(active_context),
+					"reference_doctype": doc.doctype if doc else self.rule.document_type,
 					"reference_docname": doc_name,
 					"executed_by": (
 						active_context.get("meta", {}).get("user") if active_context else frappe.session.user

@@ -5,8 +5,10 @@
 	"engine": "InnoDB",
 	"field_order": [
 		"rule",
+		"rule_version",
 		"status",
 		"duration",
+		"trigger_source",
 		"column_break_1",
 		"reference_doctype",
 		"reference_docname",
@@ -34,6 +36,12 @@
 			"reqd": 1
 		},
 		{
+			"fieldname": "rule_version",
+			"fieldtype": "Int",
+			"label": "Rule Version",
+			"read_only": 1
+		},
+		{
 			"fieldname": "status",
 			"fieldtype": "Select",
 			"in_list_view": 1,
@@ -46,6 +54,13 @@
 			"fieldname": "duration",
 			"fieldtype": "Float",
 			"label": "Duration (s)",
+			"read_only": 1
+		},
+		{
+			"description": "e.g. Doc: INV-001, Scheduler: RS-XX, API: my_endpoint",
+			"fieldname": "trigger_source",
+			"fieldtype": "Data",
+			"label": "Trigger Source",
 			"read_only": 1
 		},
 		{

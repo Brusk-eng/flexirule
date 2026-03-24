@@ -144,6 +144,26 @@ ACTION_TYPE_CONTRACT = {
 
 RELEASE_DISABLED_ACTION_TYPES = {"Loop", "Switch"}
 
+# Trigger Type Contract
+# Defines which fields are required, optional, or hidden for each trigger_type.
+TRIGGER_TYPE_CONTRACT = {
+	"DocType Event": {
+		"required_fields": ["document_type", "trigger_event"],
+		"optional_fields": ["trigger_condition", "trigger_condition_expression"],
+		"hidden_fields": [],
+	},
+	"Scheduler Event": {
+		"required_fields": [],
+		"optional_fields": ["document_type"],
+		"hidden_fields": ["trigger_event", "trigger_condition", "trigger_condition_expression"],
+	},
+	"Callable Event": {
+		"required_fields": [],
+		"optional_fields": ["document_type"],
+		"hidden_fields": ["trigger_event", "trigger_condition", "trigger_condition_expression"],
+	},
+}
+
 
 def get_contract(action_type: str) -> dict:
 	"""Get contract for an action type, with defaults for unknown types"""
@@ -171,3 +191,15 @@ def get_required_fields(action_type: str) -> list:
 def is_release_disabled_action(action_type: str) -> bool:
 	"""Check if an action type is intentionally disabled for the current release."""
 	return action_type in RELEASE_DISABLED_ACTION_TYPES
+
+
+def get_trigger_type_contract(trigger_type: str) -> dict:
+	"""Get contract for a trigger type."""
+	return TRIGGER_TYPE_CONTRACT.get(
+		trigger_type,
+		{
+			"required_fields": [],
+			"optional_fields": [],
+			"hidden_fields": [],
+		},
+	)

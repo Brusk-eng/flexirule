@@ -451,7 +451,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 					can_execute: row.can_execute || 0,
 				}));
 				nodeData.description = rule_doc.value.description;
-				nodeData.is_sub_rule = rule_doc.value.is_sub_rule || 0;
+				nodeData.exposed_as_subrule =
+					rule_doc.value.exposed_as_subrule ?? rule_doc.value.is_sub_rule ?? 0;
 				nodeData.version = rule_doc.value.version;
 				nodeData.status = rule_doc.value.status;
 				nodeData.previous_rule = rule_doc.value.previous_rule;
@@ -554,12 +555,23 @@ export const useStore = defineStore("rule-builder-store", () => {
 	}
 
 	async function fetch_available_rules(doctype) {
-		if (!doctype) return;
+		const targetDoctype = doctype || rule_doc.value?.document_type;
+		if (!targetDoctype) return;
 		try {
 			const rules = await frappe.db.get_list("Rule", {
-				fields: ["name", "rule_name", "trigger_event", "is_active"],
+				fields: [
+					"name",
+					"rule_name",
+					"trigger_type",
+					"trigger_event",
+					"is_active",
+					"exposed_as_subrule",
+				],
 				filters: {
-					document_type: doctype,
+					document_type: targetDoctype,
+					trigger_type: "Callable Event",
+					exposed_as_subrule: 1,
+					is_active: 1,
 					name: ["!=", rule_name.value || ""],
 				},
 				limit: 0,
@@ -783,7 +795,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 						: doc.max_execution_time;
 				doc.debug_mode = startNode.data.debug_mode ? 1 : 0;
 				doc.description = startNode.data.description;
-				doc.is_sub_rule = startNode.data.is_sub_rule ? 1 : 0;
+				const exposedAsSubrule = startNode.data.exposed_as_subrule ? 1 : 0;
+				doc.exposed_as_subrule = exposedAsSubrule;
+				doc.is_sub_rule = exposedAsSubrule;
 				const skip_roles = Array.isArray(startNode.data.skip_for_roles)
 					? startNode.data.skip_for_roles
 					: [];

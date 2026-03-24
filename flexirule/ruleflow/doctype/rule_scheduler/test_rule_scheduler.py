@@ -35,7 +35,7 @@ class TestRuleScheduler(FrappeTestCase):
 					"doctype": "Rule",
 					"rule_name": rule_name,
 					"document_type": "ToDo",
-					"trigger_event": "Before Save",
+					"trigger_type": "Scheduler Event",
 					"is_active": 1,
 					"actions": [
 						{

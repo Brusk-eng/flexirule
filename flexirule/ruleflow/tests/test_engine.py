@@ -26,6 +26,7 @@ class TestRuleEngine(FrappeTestCase):
 					"doctype": "Rule",
 					"rule_name": "Test Validation Rule",
 					"document_type": "ToDo",
+					"trigger_type": "DocType Event",
 					"trigger_event": "Validate",
 					"is_active": 1,
 					"priority": 10,
@@ -56,6 +57,7 @@ class TestRuleEngine(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": "Test Engine Process",
 				"document_type": "ToDo",
+				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
 				"is_active": 1,
 				"actions": [

@@ -49,7 +49,7 @@ def get_excluded_doctypes():
 	return frappe.local_cache("flexirule_excluded_doctypes", "list", _build_exclusion_list)
 
 
-def execute_rules(doc, method=None):
+def execute_rules(doc, method=None, *args, **kwargs):
 	"""
 	Standard Frappe doc_event hook entry point.
 	Maps Frappe methods to FlexiRule events.
@@ -60,7 +60,7 @@ def execute_rules(doc, method=None):
 		"before_save": "Before Save",
 		"validate": "Validate",
 		"after_insert": "After Insert",
-		"after_save": "After Save",
+		"on_update": "After Save",
 		"before_submit": "Before Submit",
 		"on_submit": "On Submit",
 		"on_update_after_submit": "On Update After Submit",
@@ -68,6 +68,9 @@ def execute_rules(doc, method=None):
 		"before_cancel": "Before Cancel",
 		"on_cancel": "On Cancel",
 		"on_trash": "On Trash",
+		"before_print": "Before Print",
+		"before_rename": "Before Rename",
+		"after_rename": "After Rename",
 	}
 
 	trigger_event = event_map.get(method)
@@ -112,7 +115,7 @@ def get_flexirule_map():
 	return frappe.local_cache("flexirule_map", "unified", generator)
 
 
-def clear_rule_cache(doc=None, method=None):
+def clear_rule_cache(doc=None, method=None, *args, **kwargs):
 	"""
 	Clear rule cache when Rule document is modified.
 	This is a MODULE-LEVEL function callable from hooks.py

@@ -22,6 +22,7 @@ class TestRule(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": "Test Rule Validation Missing False Path",
 				"document_type": "ToDo",
+				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
 				"is_active": 1,
 				"actions": [
@@ -49,3 +50,61 @@ class TestRule(FrappeTestCase):
 
 		with self.assertRaises(frappe.ValidationError):
 			rule.insert(ignore_permissions=True)
+
+	def test_scheduler_rule_clears_doc_event_fields(self):
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Test Rule Validation Scheduler Leakage",
+				"document_type": "ToDo",
+				"trigger_type": "Scheduler Event",
+				"trigger_event": "Validate",
+				"is_active": 0,
+				"actions": [],
+			}
+		)
+
+		rule.insert(ignore_permissions=True)
+		self.assertFalse(rule.trigger_event)
+
+	def test_sub_rule_target_must_be_callable_exposed_and_active(self):
+		target_rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Test Rule Validation Hidden Target",
+				"document_type": "ToDo",
+				"trigger_type": "Callable Event",
+				"priority": "0",
+				"is_active": 1,
+				"exposed_as_subrule": 0,
+				"actions": [{"action_id": "root", "action_type": "Entry Action", "action_label": "Start"}],
+			}
+		).insert(ignore_permissions=True)
+
+		parent_rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Test Rule Validation Parent",
+				"document_type": "ToDo",
+				"trigger_type": "Callable Event",
+				"priority": "0",
+				"is_active": 1,
+				"actions": [
+					{
+						"action_id": "root",
+						"action_type": "Entry Action",
+						"action_label": "Start",
+						"next_step_if_true": "call_sub_rule",
+					},
+					{
+						"action_id": "call_sub_rule",
+						"action_type": "Sub-Rule",
+						"action_label": "Call Target",
+						"rule": target_rule.name,
+					},
+				],
+			}
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			parent_rule.insert(ignore_permissions=True)

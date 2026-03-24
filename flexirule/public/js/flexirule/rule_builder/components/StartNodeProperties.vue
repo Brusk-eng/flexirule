@@ -261,14 +261,14 @@ watch(
 			/>
 		</div>
 
-		<!-- Is Sub Rule -->
+		<!-- Exposed As Sub-Rule -->
 		<div class="form-group inline-field">
-			<label class="control-label">{{ __("Is Sub Rule") }}</label>
+			<label class="control-label">{{ __("Exposed As Sub-Rule") }}</label>
 			<input
 				type="checkbox"
-				:checked="!!nodeData?.is_sub_rule"
+				:checked="!!nodeData?.exposed_as_subrule"
 				:disabled="readOnly"
-				@change="update_field('is_sub_rule', $event.target.checked ? 1 : 0)"
+				@change="update_field('exposed_as_subrule', $event.target.checked ? 1 : 0)"
 			/>
 		</div>
 

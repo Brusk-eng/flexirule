@@ -11,16 +11,20 @@ class TestRuleCycles(FrappeTestCase):
 		frappe.db.delete("Rule Execution Log")
 
 	def create_rule(self, name, actions=None, trigger_condition=None):
+		if actions is None:
+			actions = [{"action_id": "root", "action_type": "Entry Action", "action_label": "Start"}]
+
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
 				"rule_name": name,
 				"document_type": "Note",
-				"trigger_event": "Manual",
+				"trigger_type": "Callable Event",
 				"is_active": 0,
+				"exposed_as_subrule": 1,
 				"priority": "0",
 				"trigger_condition": trigger_condition,
-				"actions": actions or [],
+				"actions": actions,
 			}
 		)
 		rule.insert()
@@ -48,6 +52,7 @@ class TestRuleCycles(FrappeTestCase):
 		# A calls B, B calls A
 		rule_a = self.create_rule("Rule A")
 		rule_b = self.create_rule("Rule B")
+		frappe.db.set_value("Rule", rule_b.name, "is_active", 1, update_modified=False)
 
 		# A calls B
 		rule_a.set("actions", [])
@@ -62,6 +67,7 @@ class TestRuleCycles(FrappeTestCase):
 			},
 		)
 		rule_a.save()
+		frappe.db.set_value("Rule", rule_a.name, "is_active", 1, update_modified=False)
 
 		# B calls A -> Cycle
 		rule_b.set("actions", [])
@@ -84,6 +90,8 @@ class TestRuleCycles(FrappeTestCase):
 		rule_a = self.create_rule("Rule A")
 		rule_b = self.create_rule("Rule B")
 		rule_c = self.create_rule("Rule C")
+		frappe.db.set_value("Rule", rule_b.name, "is_active", 1, update_modified=False)
+		frappe.db.set_value("Rule", rule_c.name, "is_active", 1, update_modified=False)
 
 		rule_a.set("actions", [])
 		rule_a.append(
@@ -97,6 +105,7 @@ class TestRuleCycles(FrappeTestCase):
 			},
 		)
 		rule_a.save()
+		frappe.db.set_value("Rule", rule_a.name, "is_active", 1, update_modified=False)
 
 		rule_b.set("actions", [])
 		rule_b.append(

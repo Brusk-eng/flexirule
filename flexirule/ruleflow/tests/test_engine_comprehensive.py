@@ -40,7 +40,17 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 		frappe.db.delete("Rule", {"rule_name": ["like", "Test%"]})
 		frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test%"]})
 
-	def create_test_rule(self, name, actions=None, doctype="ToDo", event="Validate", is_active=1):
+	def create_test_rule(
+		self,
+		name,
+		actions=None,
+		doctype="ToDo",
+		event="Validate",
+		is_active=1,
+		trigger_type="DocType Event",
+		exposed_as_subrule=0,
+		priority=10,
+	):
 		"""Helper to create test rules"""
 		if actions is None:
 			actions = [
@@ -68,9 +78,11 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": name,
 				"document_type": doctype,
+				"trigger_type": trigger_type,
 				"trigger_event": event,
 				"is_active": is_active,
-				"priority": 10,
+				"exposed_as_subrule": exposed_as_subrule,
+				"priority": priority,
 				"actions": actions,
 			}
 		)
@@ -468,7 +480,14 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 			},
 		]
 
-		sub_rule = self.create_test_rule("Test Sub Rule", actions=sub_rule_actions)
+		sub_rule = self.create_test_rule(
+			"Test Sub Rule",
+			actions=sub_rule_actions,
+			trigger_type="Callable Event",
+			event=None,
+			exposed_as_subrule=1,
+			priority=0,
+		)
 
 		# Now create the main rule with sub-rule action
 		main_actions = [

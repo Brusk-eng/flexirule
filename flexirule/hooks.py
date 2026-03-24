@@ -20,25 +20,31 @@ doc_events = {
 		"before_save": "flexirule.ruleflow.hooks.execute_rules",
 		"validate": "flexirule.ruleflow.hooks.execute_rules",
 		"after_insert": "flexirule.ruleflow.hooks.execute_rules",
-		"after_save": "flexirule.ruleflow.hooks.execute_rules",
+		"on_update": "flexirule.ruleflow.hooks.execute_rules",
 		"before_submit": "flexirule.ruleflow.hooks.execute_rules",
 		"on_submit": "flexirule.ruleflow.hooks.execute_rules",
 		"on_update_after_submit": "flexirule.ruleflow.hooks.execute_rules",
 		"on_change": "flexirule.ruleflow.hooks.execute_rules",
 		"before_cancel": "flexirule.ruleflow.hooks.execute_rules",
 		"on_cancel": "flexirule.ruleflow.hooks.execute_rules",
+		"before_print": "flexirule.ruleflow.hooks.execute_rules",
+		"before_rename": "flexirule.ruleflow.hooks.execute_rules",
+		"after_rename": "flexirule.ruleflow.hooks.execute_rules",
 		"on_trash": "flexirule.ruleflow.hooks.execute_rules",
 	},
 	"Rule": {
 		"after_insert": "flexirule.ruleflow.hooks.clear_rule_cache",
-		"after_save": "flexirule.ruleflow.hooks.clear_rule_cache",
+		"on_update": "flexirule.ruleflow.hooks.clear_rule_cache",
 		"on_trash": "flexirule.ruleflow.hooks.clear_rule_cache",
 	},
 }
 
 doctype_js = {"Rule": "ruleflow/doctype/rule/rule.js"}
 
-fixtures: list[str] = []
+fixtures: list = [
+	{"dt": "Rule", "filters": {"module": ["is", "set"]}},
+	{"dt": "Rule Scheduler", "filters": {"module": ["is", "set"]}},
+]
 
 flexirule_excluded_doctypes = [
 	"Error Log",

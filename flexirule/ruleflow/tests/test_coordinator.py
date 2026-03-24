@@ -44,6 +44,7 @@ class TestRuleCoordinator(FrappeTestCase):
 				"doctype": "Rule",
 				"rule_name": name,
 				"document_type": doctype,
+				"trigger_type": "DocType Event",
 				"trigger_event": event,
 				"is_active": is_active,
 				"priority": 10,
@@ -206,6 +207,18 @@ class TestRuleCoordinator(FrappeTestCase):
 		)
 		self.assertEqual(len(logs), 1)
 		self.assertEqual(logs[0].status, "Failed")
+
+	def test_execute_rules_re_raises_non_validation_errors_for_blocking_events(self):
+		rule = self.create_test_rule("Test Blocking Event Error")
+		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
+
+		with unittest.mock.patch.object(
+			RuleCoordinator,
+			"execute_single_rule",
+			side_effect=RuntimeError("boom"),
+		):
+			with self.assertRaises(RuntimeError):
+				RuleCoordinator.execute_rules_from_event(doc, rule.trigger_event)
 
 	def test_execute_rules_with_ineligible_rule(self):
 		"""Test execute_rules with ineligible rule"""
