@@ -136,9 +136,7 @@ class Rule(Document):
 
 		for fieldname in contract.get("hidden_fields", []):
 			if self.get(fieldname):
-				frappe.throw(
-					_("{0} must be empty for {1} rules.").format(meta.get_label(fieldname), self.trigger_type)
-				)
+				self.set(fieldname, None)
 
 	def validate_version_constraints(self):
 		"""

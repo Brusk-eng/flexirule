@@ -51,7 +51,7 @@ class TestRule(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			rule.insert(ignore_permissions=True)
 
-	def test_scheduler_rule_rejects_doc_event_fields(self):
+	def test_scheduler_rule_clears_doc_event_fields(self):
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
@@ -64,5 +64,5 @@ class TestRule(FrappeTestCase):
 			}
 		)
 
-		with self.assertRaises(frappe.ValidationError):
-			rule.insert(ignore_permissions=True)
+		rule.insert(ignore_permissions=True)
+		self.assertFalse(rule.trigger_event)
