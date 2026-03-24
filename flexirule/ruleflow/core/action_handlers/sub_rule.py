@@ -58,6 +58,19 @@ class SubRuleHandler(ActionHandler):
 
 			sub_rule_doc = frappe.get_cached_doc("Rule", sub_rule_name)
 
+			if hasattr(sub_rule_doc, "normalize_sub_rule_exposure_flag"):
+				sub_rule_doc.normalize_sub_rule_exposure_flag()
+
+			if sub_rule_doc.trigger_type != "Callable Event":
+				raise MethodExecutionError(
+					_("Sub-Rule {0} must be a Callable Event rule").format(sub_rule_name)
+				)
+
+			if not sub_rule_doc.is_exposed_as_subrule():
+				raise MethodExecutionError(
+					_("Sub-Rule {0} is not exposed for sub-rule execution").format(sub_rule_name)
+				)
+
 			if not sub_rule_doc.is_active:
 				raise MethodExecutionError(_("Sub-Rule {0} is not active").format(sub_rule_name))
 

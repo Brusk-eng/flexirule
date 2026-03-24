@@ -81,7 +81,7 @@
    "fieldname": "rule",
    "fieldtype": "Link",
    "label": "Rule",
-   "link_filters": "[[\"Rule\",\"is_sub_rule\",\"=\",1]]",
+   "link_filters": "[[\"Rule\",\"trigger_type\",\"=\",\"Callable Event\"],[\"Rule\",\"exposed_as_subrule\",\"=\",1],[\"Rule\",\"is_active\",\"=\",1]]",
    "options": "Rule"
   },
   {

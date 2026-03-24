@@ -5,6 +5,25 @@ frappe.ui.form.on("Rule", {
 
 		const grid = frm.get_field("actions").grid;
 		const op_field = grid.get_field("operation");
+		const rule_field = grid.get_field("rule");
+
+		rule_field.get_query = function () {
+			const filters = [
+				["Rule", "trigger_type", "=", "Callable Event"],
+				["Rule", "exposed_as_subrule", "=", 1],
+				["Rule", "is_active", "=", 1],
+			];
+
+			if (frm.doc.document_type) {
+				filters.push(["Rule", "document_type", "=", frm.doc.document_type]);
+			}
+
+			if (frm.doc.name) {
+				filters.push(["Rule", "name", "!=", frm.doc.name]);
+			}
+
+			return { filters };
+		};
 
 		op_field.get_data = function () {
 			const row = this.grid_row.doc;

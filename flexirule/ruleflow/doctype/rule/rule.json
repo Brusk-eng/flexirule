@@ -7,7 +7,7 @@
  "field_order": [
   "rule_name",
   "is_active",
-  "is_sub_rule",
+  "exposed_as_subrule",
   "priority",
   "version",
   "status",
@@ -250,9 +250,9 @@
   {
    "default": "0",
    "description": "Make this rule available to be used as Action in other Rule",
-   "fieldname": "is_sub_rule",
+   "fieldname": "exposed_as_subrule",
    "fieldtype": "Check",
-   "label": "Is Sub Rule"
+   "label": "Exposed As Sub-Rule"
   }
  ],
  "index_web_pages_for_search": 1,

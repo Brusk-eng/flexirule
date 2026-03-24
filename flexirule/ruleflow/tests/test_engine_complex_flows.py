@@ -47,7 +47,7 @@ class TestComplexFlows(FrappeTestCase):
 				"trigger_type": "Callable Event",
 				"priority": 0,
 				"is_active": 1,
-				"is_sub_rule": 1,
+				"exposed_as_subrule": 1,
 				"actions": [
 					{
 						"action_id": "root",
@@ -129,7 +129,7 @@ class TestComplexFlows(FrappeTestCase):
 				"trigger_type": "Callable Event",
 				"priority": 0,
 				"is_active": 1,
-				"is_sub_rule": 1,
+				"exposed_as_subrule": 1,
 				"actions": [{"action_id": "root", "action_type": "Entry Action", "action_label": "Start"}],
 			}
 		).insert()
@@ -142,7 +142,7 @@ class TestComplexFlows(FrappeTestCase):
 				"trigger_type": "Callable Event",
 				"priority": 0,
 				"is_active": 1,
-				"is_sub_rule": 1,
+				"exposed_as_subrule": 1,
 				"actions": [{"action_id": "root", "action_type": "Entry Action", "action_label": "Start"}],
 			}
 		).insert()

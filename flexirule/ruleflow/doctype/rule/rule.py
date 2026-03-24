@@ -28,9 +28,9 @@ class Rule(Document):
 		debug_mode: DF.Check
 		description: DF.Text | None
 		document_type: DF.Link | None
+		exposed_as_subrule: DF.Check
 		execution_mode: DF.Literal["Synchronous", "Asynchronous"]
 		is_active: DF.Check
-		is_sub_rule: DF.Check
 		last_error: DF.Text | None
 		max_execution_time: DF.Int
 		module: DF.Link | None
@@ -92,6 +92,7 @@ class Rule(Document):
 		"""
 		Validate Rule Configuration
 		"""
+		self.normalize_sub_rule_exposure_flag()
 		self.ensure_start_node()
 		self.reorder_actions()
 		self.compile_conditions()
@@ -110,8 +111,23 @@ class Rule(Document):
 
 	def before_save(self):
 		"""Initialize version for new rules."""
+		self.normalize_sub_rule_exposure_flag()
 		if self.is_new() and not self.version:
 			self.version = 1
+
+	def normalize_sub_rule_exposure_flag(self):
+		"""Keep sub-rule exposure stable across the field rename transition."""
+		legacy_value = self.get("is_sub_rule")
+		current_value = self.get("exposed_as_subrule")
+		normalized = current_value if current_value not in (None, "") else legacy_value
+		normalized = 1 if normalized else 0
+
+		self.set("exposed_as_subrule", normalized)
+		self.set("is_sub_rule", normalized)
+
+	def is_exposed_as_subrule(self):
+		"""Return whether the rule is allowed to be targeted by Sub-Rule actions."""
+		return bool(self.get("exposed_as_subrule") or self.get("is_sub_rule"))
 
 	def validate_priority_callable(self):
 		"""If trigger_type is Callable Event, priority must be 0."""
@@ -558,11 +574,7 @@ class Rule(Document):
 
 		# Type-specific validations
 		if action_type == "Sub-Rule":
-			# Prevent self-reference
-			if action.rule == self.name:
-				frappe.throw(
-					_("Action '{0}' cannot reference its own Rule as Sub-Rule.").format(action.action_label)
-				)
+			self.validate_sub_rule_target(action)
 
 		elif action_type == "Condition":
 			if not action.condition_json and not action.condition_expression:
@@ -624,6 +636,56 @@ class Rule(Document):
 			return json.loads(json_str) if isinstance(json_str, str) else json_str
 		except Exception:
 			return {}
+
+	def validate_sub_rule_target(self, action):
+		"""Validate that a Sub-Rule action targets a compatible callable rule."""
+		if not action.rule:
+			return
+
+		if action.rule == self.name:
+			frappe.throw(
+				_("Action '{0}' cannot reference its own Rule as Sub-Rule.").format(action.action_label)
+			)
+
+		if not frappe.db.exists("Rule", action.rule):
+			frappe.throw(_("Action '{0}' references a missing Rule.").format(action.action_label))
+
+		target_rule = frappe.get_cached_doc("Rule", action.rule)
+		if hasattr(target_rule, "normalize_sub_rule_exposure_flag"):
+			target_rule.normalize_sub_rule_exposure_flag()
+
+		if target_rule.trigger_type != "Callable Event":
+			frappe.throw(
+				_("Action '{0}' must target a Callable Event rule. Selected rule '{1}' uses '{2}'.").format(
+					action.action_label, target_rule.name, target_rule.trigger_type
+				)
+			)
+
+		if not target_rule.is_exposed_as_subrule():
+			frappe.throw(
+				_(
+					"Action '{0}' must target a rule exposed as a sub-rule. Enable 'Exposed As Sub-Rule' on '{1}'."
+				).format(action.action_label, target_rule.name)
+			)
+
+		if not target_rule.is_active:
+			frappe.throw(
+				_("Action '{0}' must target an active rule. Activate '{1}' first.").format(
+					action.action_label, target_rule.name
+				)
+			)
+
+		if target_rule.document_type != self.document_type:
+			frappe.throw(
+				_(
+					"Action '{0}' targets Rule '{1}' for DocType '{2}', but the caller rule uses '{3}'."
+				).format(
+					action.action_label,
+					target_rule.name,
+					target_rule.document_type or _("None"),
+					self.document_type or _("None"),
+				)
+			)
 
 	def validate_no_sub_rule_cycles(self):
 		"""
