@@ -1,6 +1,5 @@
 {
  "actions": [],
- "allow_rename": 0,
  "autoname": "field:rule_name",
  "creation": "2025-11-29 14:00:00",
  "doctype": "DocType",
@@ -52,7 +51,7 @@
    "label": "Description"
   },
   {
-   "default": "1",
+   "default": "0",
    "fieldname": "is_active",
    "fieldtype": "Check",
    "in_standard_filter": 1,
@@ -118,7 +117,7 @@
    "in_standard_filter": 1,
    "label": "Trigger Event",
    "mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
-   "options": "Before Naming\nBefore Insert\nBefore Save\nValidate\nBefore Submit\nAfter Insert\nAfter Save\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash\nOn Update After Submit\nOn Change\nBefore Rename\nAfter Rename\nBefore Print"
+   "options": "\nBefore Naming\nBefore Insert\nBefore Save\nValidate\nBefore Submit\nAfter Insert\nAfter Save\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash\nOn Update After Submit\nOn Change\nBefore Rename\nAfter Rename\nBefore Print"
   },
   {
    "depends_on": "eval:doc.trigger_type==='DocType Event'",
@@ -276,7 +275,7 @@
    "link_fieldname": "rule"
   }
  ],
- "modified": "2026-03-25 00:13:00.000000",
+ "modified": "2026-03-25 01:33:39.206306",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "Rule",
