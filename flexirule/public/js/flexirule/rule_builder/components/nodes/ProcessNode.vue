@@ -65,12 +65,15 @@ function openConfig() {
 
 <template>
 	<div
-		class="process-node-card"
-		:class="{
-			selected: selected,
-			disabled: isEffectiveDisabled,
-			'test-executed': !!testResult,
-		}"
+		:class="[
+			'process-node-card',
+			(data.action_type || 'process').toLowerCase().replace(/\s+/g, '-'),
+			{
+				selected: selected,
+				disabled: isEffectiveDisabled,
+				'test-executed': !!testResult,
+			},
+		]"
 		:style="{ '--accent-color': nodeMeta.color }"
 	>
 		<!-- Execution Badge -->

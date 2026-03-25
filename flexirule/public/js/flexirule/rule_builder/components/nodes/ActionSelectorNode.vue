@@ -16,6 +16,7 @@ const customLabel = ref("");
 const searchQuery = ref("");
 const showResults = ref(false);
 const processOperations = ref([]);
+const selectedIndex = ref(-1);
 
 // Fuzzy match helper — matches each query word independently against the text
 // Fuzzy match helper — supports acronyms and word-start matching
@@ -173,10 +174,38 @@ function onSearchFocus() {
 	showResults.value = true;
 }
 
+function onSearchKeydown(e) {
+	if (!showResults.value || !filteredResults.value.length) return;
+
+	const options = filteredResults.value.filter((i) => i.type !== "header");
+	const headersCount = filteredResults.value.filter((i) => i.type === "header").length;
+
+	if (e.key === "ArrowDown") {
+		e.preventDefault();
+		selectedIndex.value = (selectedIndex.value + 1) % filteredResults.value.length;
+		// Skip headers
+		if (filteredResults.value[selectedIndex.value]?.type === "header") {
+			onSearchKeydown(e);
+		}
+	} else if (e.key === "ArrowUp") {
+		e.preventDefault();
+		selectedIndex.value =
+			(selectedIndex.value - 1 + filteredResults.value.length) % filteredResults.value.length;
+		// Skip headers
+		if (filteredResults.value[selectedIndex.value]?.type === "header") {
+			onSearchKeydown(e);
+		}
+	} else if (e.key === "Enter" && selectedIndex.value !== -1) {
+		e.preventDefault();
+		selectItem(filteredResults.value[selectedIndex.value]);
+	}
+}
+
 function onSearchBlur() {
 	// Delay to allow click on results
 	setTimeout(() => {
 		showResults.value = false;
+		selectedIndex.value = -1;
 	}, 200);
 }
 
@@ -273,6 +302,7 @@ onMounted(() => {
 							:placeholder="__('Search actions...')"
 							@focus="onSearchFocus"
 							@blur="onSearchBlur"
+							@keydown="onSearchKeydown"
 							@keyup.enter="onCreate"
 						/>
 					</div>
@@ -283,8 +313,10 @@ onMounted(() => {
 							:class="[
 								'search-result-item',
 								item.type === 'header' ? 'result-header' : 'result-option',
+								{ active: idx === selectedIndex },
 							]"
 							@mousedown.prevent="selectItem(item)"
+							@mouseover="selectedIndex = idx"
 						>
 							<template v-if="item.type === 'header'">
 								<span class="header-label">{{ item.label }}</span>
@@ -461,7 +493,8 @@ onMounted(() => {
 	transition: all 0.2s;
 }
 
-.result-option:hover {
+.result-option:hover,
+.result-option.active {
 	background: #f3f4f6;
 }
 

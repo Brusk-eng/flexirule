@@ -122,7 +122,7 @@ export const ACTION_TYPE_CONTRACT = {
 		],
 		css: { icon: "fa fa-search", color: "#0891b2" },
 		description:
-			"Query records from a DocType. Supports Query List, Query Doc, Exist Record, Query Report, and Query API modes.",
+			"Query records from a DocType. Supports Query List, Query Doc, Exist Record, and Query Report modes.",
 		operation_label: "Query Mode",
 		operation_options: [
 			"Query List",

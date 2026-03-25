@@ -540,7 +540,7 @@ def get_all_process_operations():
 	for p in processes:
 		ops = frappe.get_all(
 			"Process Operation",
-			filters={"parent": p.name, "parenttype": "Process", "enabled": 1},
+			filters={"parent": p.name, "parenttype": "Process", "enabled": 1, "visible_in_builder": 1},
 			fields=["func_name", "label", "description"],
 			order_by="idx asc",
 		)
