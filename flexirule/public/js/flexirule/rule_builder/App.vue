@@ -128,12 +128,35 @@
 					<div class="btn-group-vertical" v-show="!isCollapsed">
 						<button
 							class="btn btn-xs btn-default"
-							:draggable="true"
-							@dragstart="onDragStart($event, 'selector')"
 							@click="addNode('selector')"
 							:title="__('Add Action')"
 						>
 							<i class="fa fa-plus-circle"></i> {{ __("Add Action") }}
+						</button>
+						<div class="divider-horizontal"></div>
+						<button
+							class="btn btn-xs btn-link text-muted toolbar-sub-btn"
+							@click="addNode('condition')"
+						>
+							<i class="fa fa-code-fork"></i> {{ __("Condition") }}
+						</button>
+						<button
+							class="btn btn-xs btn-link text-muted toolbar-sub-btn"
+							@click="addNode('process')"
+						>
+							<i class="fa fa-cog"></i> {{ __("Process") }}
+						</button>
+						<button
+							class="btn btn-xs btn-link text-muted toolbar-sub-btn"
+							@click="addNode('set value')"
+						>
+							<i class="fa fa-edit"></i> {{ __("Set Value") }}
+						</button>
+						<button
+							class="btn btn-xs btn-link text-muted toolbar-sub-btn"
+							@click="addNode('sub-rule')"
+						>
+							<i class="fa fa-cube"></i> {{ __("Sub-Rule") }}
 						</button>
 					</div>
 				</div>
@@ -157,6 +180,7 @@
 </template>
 
 <script setup>
+import { ref, computed, onMounted, watch } from "vue";
 import { VueFlow, Panel, PanelPosition } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
@@ -382,54 +406,42 @@ function addNode(type, position) {
 	const parentNode = getAutoConnectSource();
 	const resolvedPosition = position || getNextNodePosition(parentNode);
 
-	switch (type.toLowerCase()) {
-		case "process":
-			label = __("New Process");
-			actionType = "Process";
-			break;
-		case "condition":
-			label = __("New Condition");
-			actionType = "Condition";
-			break;
-		case "switch":
-		case "loop":
-			frappe.msgprint(__("{0} is not available in this release.", [type]));
-			return;
-		case "wait":
-			label = __("Wait");
-			actionType = "Wait";
-			break;
-		case "sub-rule":
-			label = __("Sub Rule");
-			actionType = "Sub-Rule";
-			break;
-		case "stop":
-			label = __("Stop");
-			actionType = "Stop";
-			break;
-		case "selector":
-			label = __("New Action");
-			actionType = "Selector";
-			break;
-		default:
-			label = __("New Action");
-			actionType = "Selector";
-	}
-
+	const nodeData = store.get_default_node_data(type.toLowerCase(), label);
 	const newNode = {
 		id,
-		type,
+		type:
+			nodeData.action_type.toLowerCase() === "selector"
+				? "selector"
+				: nodeData.action_type
+						.toLowerCase()
+						.replace(/ records| docs/g, (m) =>
+							m.includes("query")
+								? "query"
+								: m.includes("aggregate")
+								? "aggregate"
+								: "createdoc"
+						),
 		position: resolvedPosition,
-		label,
+		label: nodeData.action_label,
 		data: {
+			...nodeData,
 			action_id: id,
-			action_type: actionType,
-			action_label: label,
-			is_enabled: 1,
 			suggested_parent_id: parentNode?.id || null,
 			suggested_source_handle: parentNode?.type === "condition" ? "true" : "default",
 		},
 	};
+
+	// Fix type mapping for VueFlow
+	if (newNode.data.action_type === "Query Records") newNode.type = "query";
+	if (newNode.data.action_type === "Aggregate Records") newNode.type = "aggregate";
+	if (newNode.data.action_type === "Create Docs") newNode.type = "createdoc";
+	if (newNode.data.action_type === "Sub-Rule") newNode.type = "sub-rule";
+	if (newNode.data.action_type === "Set Value") newNode.type = "set-value";
+	if (newNode.data.action_type === "Notify") newNode.type = "notify";
+	if (newNode.data.action_type === "Raise Error") newNode.type = "raise-error";
+	if (newNode.data.action_type === "Wait") newNode.type = "wait";
+	if (newNode.data.action_type === "Condition") newNode.type = "condition";
+
 	store.nodes.push(newNode);
 	autoConnectNode(id, parentNode);
 	store.selected_id = id;
@@ -741,5 +753,31 @@ input:checked + .slider:before {
 	order: 0;
 	margin-left: 0;
 	margin-right: 10px;
+}
+
+.divider-horizontal {
+	height: 1px;
+	background: var(--border-color);
+	margin: 4px 0;
+	opacity: 0.6;
+}
+
+.toolbar-sub-btn {
+	justify-content: flex-start !important;
+	padding-left: 8px !important;
+	font-weight: 500;
+	opacity: 0.8;
+}
+
+.toolbar-sub-btn:hover {
+	opacity: 1;
+	background: var(--gray-50);
+	text-decoration: none;
+}
+
+.toolbar-sub-btn i {
+	width: 14px;
+	margin-right: 6px;
+	text-align: center;
 }
 </style>

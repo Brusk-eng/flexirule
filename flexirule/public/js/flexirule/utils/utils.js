@@ -392,3 +392,25 @@ flexirule.utils.safe_json_parse = function (json_str, default_val = null) {
 		return default_val;
 	}
 };
+
+/**
+ * Convert string to Title Case (e.g. "create docs" -> "Create Docs")
+ */
+flexirule.utils.to_title_case = function (str) {
+	if (!str) return "";
+	return str.replace(/\w\S*/g, (txt) => {
+		return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+	});
+};
+
+/**
+ * Generate a short, unique ID for actions.
+ */
+flexirule.utils.generate_short_id = function () {
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	let result = "";
+	for (let i = 0; i < 4; i++) {
+		result += chars.charAt(Math.floor(Math.random() * chars.length));
+	}
+	return `ACT-${result}`;
+};

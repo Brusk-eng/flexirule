@@ -17,6 +17,7 @@
 					ref="configRef"
 					:node="node"
 					:read_only="readOnly"
+					@update:field="on_update_field"
 				/>
 				<div v-else class="empty-config text-center">
 					<i class="fa fa-sliders fa-3x text-muted mb-3"></i>
@@ -86,7 +87,7 @@ const configComponent = computed(() => {
 
 const configRef = ref(null);
 
-function on_update_action_field({ fieldname, value }) {
+function on_update_field(fieldname, value) {
 	if (!props.node?.data) return;
 	props.node.data[fieldname] = value;
 	store.mark_dirty();

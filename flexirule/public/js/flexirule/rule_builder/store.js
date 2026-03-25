@@ -946,7 +946,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 			doc.actions = orderedNodes.map((node, idx) => {
 				const outgoing = edgesList.filter((e) => e.source === node.id);
 				// Loop/Condition use 'default'/'true' for True path
-				const true_edge = outgoing.find(
+				let true_edge = outgoing.find(
 					(e) => e.sourceHandle === "true" || e.sourceHandle === "default"
 				);
 				const false_edge = outgoing.find((e) => e.sourceHandle === "false");
@@ -959,6 +959,25 @@ export const useStore = defineStore("rule-builder-store", () => {
 					: node.data?.action_type === "Sub-rule"
 					? "Sub-Rule"
 					: node.data?.action_type || "Process";
+
+				// Ensure Entry Action picks up edges mapped from 'start' UI node
+				if (is_start_node && !true_edge) {
+					const startOutgoing = edgesList.filter(
+						(e) => e.source === "start" || e.source === "root"
+					);
+					true_edge = startOutgoing.find(
+						(e) => e.sourceHandle === "true" || e.sourceHandle === "default"
+					);
+				}
+
+				if (is_start_node) {
+					console.warn(
+						"Entry Action outgoing edges:",
+						outgoing,
+						"evaluated true edge:",
+						true_edge
+					);
+				}
 
 				// Parent ID logic
 				let prev_action_id = null;
@@ -1038,6 +1057,51 @@ export const useStore = defineStore("rule-builder-store", () => {
 			}
 			return obj;
 		});
+	}
+
+	function get_default_node_data(type, label = "") {
+		const id = flexirule.utils.generate_short_id();
+		const actionType = flexirule.utils.to_title_case(type);
+		const baseData = {
+			action_id: id,
+			action_type: actionType,
+			action_label: label || `New ${actionType}`,
+			is_enabled: 1,
+			is_async: 0,
+			skip_conditions: 1,
+			mutation_mode: null,
+		};
+
+		// Type specific defaults
+		if (type === "condition") {
+			baseData.action_type = "Condition";
+			baseData.condition_expression = "";
+			baseData.condition_json = "{}";
+		} else if (type === "wait") {
+			baseData.action_type = "Wait";
+			baseData.config = { wait_type: "Duration", value: 1, unit: "Minutes" };
+		} else if (type === "set value") {
+			baseData.action_type = "Set Value";
+			baseData.config = { static_values: {} };
+		} else if (type === "sub-rule") {
+			baseData.action_type = "Sub-Rule";
+		} else if (type === "query" || type === "query records") {
+			baseData.action_type = "Query Records";
+			baseData.operation = "Query List";
+			baseData.return_variable = "query_result";
+		} else if (type === "aggregate" || type === "aggregate records") {
+			baseData.action_type = "Aggregate Records";
+			baseData.operation = "Count";
+			baseData.return_variable = "aggregate_result";
+		} else if (type === "createdoc" || type === "create docs") {
+			baseData.action_type = "Create Docs";
+			baseData.operation = "Create ToDo";
+			baseData.reference_doctype = "ToDo";
+			baseData.mutation_mode = "Single";
+			baseData.return_variable = "new_doc";
+		}
+
+		return baseData;
 	}
 
 	function delete_node(nodeId) {
@@ -1158,7 +1222,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 						? "Check"
 						: data.return_type === "List"
 						? "Table"
-						: "Data",
+						: data.return_type === "Datetime"
+						? "Datetime"
+						: data.return_type === "Date"
+						? "Date"
+						: data.return_type === "Number"
+						? "Float"
+						: data.return_type || "Data",
 			});
 
 			if (data.resolved_output_schema && !["Boolean", "List"].includes(data.return_type)) {
@@ -1227,6 +1297,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 		config_modal_mode,
 		next_config_node,
 		prev_config_node,
+		get_default_node_data,
+		touch_node,
 		processes,
 		available_rules,
 		is_dirty,
@@ -1247,7 +1319,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 		clear_dirty,
 		delete_node,
 		delete_edge,
-		touch_node,
 		getEffectivelyDisabledIds,
 		fetch_available_rules,
 		fetch_processes,

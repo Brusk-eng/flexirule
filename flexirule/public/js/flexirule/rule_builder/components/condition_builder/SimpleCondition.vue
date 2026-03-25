@@ -211,10 +211,18 @@ function clearMapping() {
 				@clearStatic="clearMapping"
 			>
 				<ControlFactory
-					:df="valueFieldSchema"
+					:df="{ ...valueFieldSchema, label: '' }"
 					v-model="wrappedValue"
 					:read_only="readOnly"
+					:hideLabel="true"
 				/>
+				<small
+					v-if="selectedField && !node.right.ref"
+					class="text-muted field-hint mt-1"
+					style="display: block; line-height: 1.2"
+				>
+					{{ selectedField.label }} ({{ selectedField.fieldtype }})
+				</small>
 			</MappingWrapper>
 		</div>
 		<div v-else class="condition-cell value-cell"></div>

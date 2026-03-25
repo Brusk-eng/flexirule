@@ -1,12 +1,26 @@
 <script setup>
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
+import { getContract } from "../../../core/contracts";
+import { computed } from "vue";
 
 const props = defineProps(["data", "label", "id", "selected"]);
 const store = useStore();
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
+});
+
+const nodeMeta = computed(() => {
+	const actionType = props.data?.action_type || "Condition";
+	const contract = getContract(actionType);
+	const css = contract.css || {};
+
+	return {
+		color: css.color || "#fd7e14",
+		icon: css.icon || "fa-question-circle",
+		typeLabel: (actionType || "CONDITION").toUpperCase(),
+	};
 });
 
 const testResult = computed(() => {
@@ -35,6 +49,7 @@ function openConfig() {
 			'outcome-true': testResult && testResult.result === true,
 			'outcome-false': testResult && testResult.result === false,
 		}"
+		:style="{ '--accent-color': nodeMeta.color }"
 	>
 		<!-- Execution Badge -->
 		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
@@ -45,8 +60,8 @@ function openConfig() {
 
 		<!-- Card Body -->
 		<div class="node-header">
-			<i class="fa fa-question-circle"></i>
-			<span class="type-text">{{ __("CONDITION") }}</span>
+			<i class="fa" :class="nodeMeta.icon"></i>
+			<span class="type-text">{{ nodeMeta.typeLabel }}</span>
 			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
 				<i class="fa fa-pencil"></i>
 			</button>
@@ -87,22 +102,22 @@ function openConfig() {
 .condition-node-card {
 	width: 160px;
 	background: #fff;
-	border: 1px solid #ffd8a8; /* Light Orange */
+	border: 1px solid #f0f4f7;
 	border-radius: 8px;
 	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 	position: relative;
-	border-top: 4px solid #fd7e14; /* Orange 700 */
+	border-top: 4px solid var(--accent-color);
 	transition: all 0.2s ease;
 }
 
 .condition-node-card:hover {
 	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-	border-color: #fd7e14;
+	border-color: var(--accent-color);
 }
 
 .condition-node-card.selected {
-	box-shadow: 0 0 0 2px #fd7e14;
-	border-color: #fd7e14;
+	box-shadow: 0 0 0 2px var(--accent-color);
+	border-color: var(--accent-color);
 }
 
 .condition-node-card.test-executed {
@@ -141,12 +156,12 @@ function openConfig() {
 	display: flex;
 	align-items: center;
 	padding: 6px 10px;
-	border-bottom: 1px solid #fff4e6;
+	border-bottom: 1px solid #f0f4f7;
 	gap: 6px;
 }
 
 .node-header i {
-	color: #fd7e14;
+	color: var(--accent-color);
 	font-size: 12px;
 }
 
@@ -193,7 +208,7 @@ function openConfig() {
 	width: 10px !important;
 	height: 10px !important;
 	background-color: #fff !important;
-	border: 2px solid #fd7e14 !important;
+	border: 2px solid var(--accent-color) !important;
 }
 
 .out-port {
