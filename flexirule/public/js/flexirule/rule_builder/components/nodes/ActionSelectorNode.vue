@@ -18,11 +18,23 @@ const showResults = ref(false);
 const processOperations = ref([]);
 
 // Fuzzy match helper — matches each query word independently against the text
+// Fuzzy match helper — supports acronyms and word-start matching
 function fuzzyMatch(text, query) {
 	if (!query) return true;
 	const lowerText = text.toLowerCase();
-	const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-	return words.every((w) => lowerText.includes(w));
+	const q = query.toLowerCase().trim();
+
+	// 1. Simple substring match
+	if (lowerText.includes(q)) return true;
+
+	// 2. Acronym match (e.g. "dq" -> "Document Query")
+	const words = lowerText.split(/[\s_-]+/).filter(Boolean);
+	const acronym = words.map((w) => w[0]).join("");
+	if (acronym.includes(q)) return true;
+
+	// 3. Multi-word match (e.g. "doc query" -> "Document Query Records")
+	const qWords = q.split(/\s+/).filter(Boolean);
+	return qWords.every((qw) => words.some((w) => w.startsWith(qw) || w.includes(qw)));
 }
 
 // Categorize action types into groups for display
@@ -66,34 +78,50 @@ const filteredResults = computed(() => {
 	const q = searchQuery.value;
 	const results = [];
 
-	// 1. Filter action types
-	const matchingActions = actionTypes.value.filter(
-		(t) => fuzzyMatch(t.label, q) || fuzzyMatch(t.description, q) || fuzzyMatch(t.value, q)
-	);
+	// 1. Filter action types and their native operations
+	actionTypes.value.forEach((t) => {
+		const contract = ACTION_TYPE_CONTRACT[t.value] || {};
+		const ops = contract.operation_options || [];
 
-	// Group by category
-	const grouped = {};
-	matchingActions.forEach((a) => {
-		if (!grouped[a.category]) grouped[a.category] = [];
-		grouped[a.category].push(a);
+		// Match the action type itself
+		const matchAction =
+			fuzzyMatch(t.label, q) || fuzzyMatch(t.description, q) || fuzzyMatch(t.value, q);
+		if (matchAction) {
+			results.push({ type: "header", label: t.label });
+			results.push({ type: "action", ...t });
+		}
+
+		// Match operations within this action type
+		const matchingOps = ops.filter((op) => fuzzyMatch(op, q));
+		if (matchingOps.length) {
+			if (!matchAction) {
+				results.push({ type: "header", label: t.label });
+			}
+			matchingOps.forEach((op) => {
+				results.push({
+					type: "op",
+					label: `${t.label} → ${__(op)}`,
+					value: t.value,
+					operation: op,
+					icon: t.icon,
+					color: t.color,
+					description: t.description,
+				});
+			});
+		}
 	});
 
-	Object.entries(grouped).forEach(([cat, items]) => {
-		results.push({ type: "header", label: cat });
-		items.forEach((item) => results.push({ type: "action", ...item }));
-	});
-
-	// 2. Filter process operations
-	const matchingOps = processOperations.value.filter(
+	// 2. Filter process operations (backend processes)
+	const matchingProcessOps = processOperations.value.filter(
 		(op) =>
 			fuzzyMatch(op.label, q) ||
 			fuzzyMatch(op.process, q) ||
 			fuzzyMatch(op.description || "", q)
 	);
 
-	if (matchingOps.length) {
+	if (matchingProcessOps.length) {
 		results.push({ type: "header", label: __("Process Operations") });
-		matchingOps.forEach((op) =>
+		matchingProcessOps.forEach((op) =>
 			results.push({
 				type: "process_op",
 				label: `${op.process} → ${op.label}`,
@@ -124,13 +152,19 @@ async function loadProcessOperations() {
 function selectItem(item) {
 	if (item.type === "header") return;
 	selectedType.value = item.value;
+
+	// Invalidate previous temp props
+	selectedType._process_name = null;
+	selectedType._operation = null;
+
 	if (item.type === "process_op") {
-		// Pre-fill process_name and operation
 		selectedType.value = "Process";
-		// Store for later use in onCreate
 		selectedType._process_name = item.process_name;
 		selectedType._operation = item.operation;
+	} else if (item.type === "op") {
+		selectedType._operation = item.operation;
 	}
+
 	searchQuery.value = item.label;
 	showResults.value = false;
 }
@@ -165,10 +199,12 @@ function onCreate() {
 	const suggestedParentId = store.nodes[nodeIndex].data?.suggested_parent_id;
 	const suggestedSourceHandle = store.nodes[nodeIndex].data?.suggested_source_handle || "default";
 
-	// Pre-fill process data if selected from process operations
-	if (selectedType._process_name) {
-		nodeData.process_name = selectedType._process_name;
+	// Pre-fill process/operation data if selected from search results
+	if (selectedType._operation) {
 		nodeData.operation = selectedType._operation;
+		if (selectedType._process_name) {
+			nodeData.process_name = selectedType._process_name;
+		}
 		selectedType._process_name = null;
 		selectedType._operation = null;
 	}
@@ -402,14 +438,15 @@ onMounted(() => {
 }
 
 .result-header {
-	font-size: 9px;
+	font-size: 10px;
 	font-weight: 700;
 	text-transform: uppercase;
-	color: #94a3b8;
-	padding: 6px 10px 3px;
+	color: var(--text-muted);
+	padding: 8px 12px 4px;
 	cursor: default;
-	letter-spacing: 0.5px;
+	letter-spacing: 0.8px;
 	border-top: 1px solid #f1f5f9;
+	background: #fcfcfc;
 }
 
 .result-header:first-child {
@@ -418,18 +455,19 @@ onMounted(() => {
 
 .result-option {
 	display: flex;
-	align-items: flex-start;
-	gap: 8px;
+	align-items: center;
+	padding: 8px 12px;
+	gap: 10px;
+	transition: all 0.2s;
 }
 
 .result-option:hover {
-	background: #f0f7ff;
+	background: #f3f4f6;
 }
 
 .result-option i {
-	margin-top: 2px;
-	font-size: 12px;
-	width: 14px;
+	font-size: 14px;
+	width: 16px;
 	text-align: center;
 }
 
@@ -440,19 +478,21 @@ onMounted(() => {
 }
 
 .result-label {
-	font-weight: 600;
-	color: #1e293b;
+	font-weight: 500;
+	color: #111827;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	line-height: 1.2;
 }
 
 .result-desc {
-	font-size: 9px;
-	color: #94a3b8;
+	font-size: 10px;
+	color: #6b7280;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	margin-top: 1px;
 }
 
 .node-footer {
