@@ -161,6 +161,7 @@ import { VueFlow, Panel, PanelPosition } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { useStore } from "./store";
+import { isTerminalAction } from "../core/contracts";
 
 import { generateShortId } from "../utils/index.js";
 import "../utils/utils.js";
@@ -298,10 +299,88 @@ function handleKeydown(e) {
 		if (store.can_redo()) store.redo();
 	}
 }
+
+function hasOutgoingEdge(nodeId) {
+	return (store.edges || []).some((edge) => edge.source === nodeId);
+}
+
+function getAutoConnectSource() {
+	const selectedNode = (store.nodes || []).find((node) => node.id === store.selected_id);
+	const selectedActionType = selectedNode?.data?.action_type || selectedNode?.type;
+	if (
+		selectedNode &&
+		selectedNode.type !== "selector" &&
+		selectedNode.type !== "condition" &&
+		!isTerminalAction(selectedActionType) &&
+		!hasOutgoingEdge(selectedNode.id)
+	) {
+		return selectedNode;
+	}
+
+	const startNode = (store.nodes || []).find(
+		(node) => node.id === "start" || node.type === "start"
+	);
+	if (startNode && !hasOutgoingEdge(startNode.id)) {
+		return startNode;
+	}
+
+	return null;
+}
+
+function getNextNodePosition(parentNode = null) {
+	if (parentNode?.position) {
+		return {
+			x: (parentNode.position.x || 0) + 300,
+			y: parentNode.position.y || 0,
+		};
+	}
+
+	const placedNodes = (store.nodes || []).filter(
+		(node) =>
+			node.type !== "start" &&
+			Number.isFinite(node.position?.x) &&
+			Number.isFinite(node.position?.y)
+	);
+	if (placedNodes.length) {
+		const lastNode = placedNodes[placedNodes.length - 1];
+		return {
+			x: (lastNode.position.x || 0) + 260,
+			y: lastNode.position.y || 0,
+		};
+	}
+
+	return { x: 340, y: 255 };
+}
+
+function autoConnectNode(nodeId, parentNode = null) {
+	const sourceNode = parentNode || getAutoConnectSource();
+	if (!sourceNode) return;
+
+	const sourceHandle = sourceNode.type === "condition" ? null : "default";
+	const edgeId = `e-${sourceNode.id}-${nodeId}-${sourceHandle || "default"}`;
+	const exists = (store.edges || []).some(
+		(edge) =>
+			edge.source === sourceNode.id &&
+			edge.target === nodeId &&
+			(edge.sourceHandle || "default") === (sourceHandle || "default")
+	);
+	if (exists) return;
+
+	store.edges.push({
+		id: edgeId,
+		source: sourceNode.id,
+		target: nodeId,
+		sourceHandle: sourceHandle || "default",
+		animated: sourceNode.type === "start",
+	});
+}
+
 function addNode(type, position) {
 	const id = generateShortId();
 	let label = "";
 	let actionType = "";
+	const parentNode = getAutoConnectSource();
+	const resolvedPosition = position || getNextNodePosition(parentNode);
 
 	switch (type.toLowerCase()) {
 		case "process":
@@ -340,16 +419,19 @@ function addNode(type, position) {
 	const newNode = {
 		id,
 		type,
-		position,
+		position: resolvedPosition,
 		label,
 		data: {
 			action_id: id,
 			action_type: actionType,
 			action_label: label,
 			is_enabled: 1,
+			suggested_parent_id: parentNode?.id || null,
+			suggested_source_handle: parentNode?.type === "condition" ? "true" : "default",
 		},
 	};
 	store.nodes.push(newNode);
+	autoConnectNode(id, parentNode);
 	store.selected_id = id;
 	store.mark_dirty();
 }

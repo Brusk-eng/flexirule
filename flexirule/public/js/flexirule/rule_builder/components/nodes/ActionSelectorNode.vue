@@ -59,6 +59,9 @@ function onCreate() {
 	if (typeConfig.actionType === "Aggregate Records") nodeType = "aggregate";
 	if (typeConfig.actionType === "Create Docs") nodeType = "createdoc";
 
+	const suggestedParentId = store.nodes[nodeIndex].data?.suggested_parent_id;
+	const suggestedSourceHandle = store.nodes[nodeIndex].data?.suggested_source_handle || "default";
+
 	// Upgrade the node
 	store.nodes[nodeIndex].type = nodeType;
 	store.nodes[nodeIndex].label = label;
@@ -66,7 +69,23 @@ function onCreate() {
 		...store.nodes[nodeIndex].data,
 		action_type: typeConfig.actionType,
 		action_label: label,
+		suggested_parent_id: null,
+		suggested_source_handle: null,
 	};
+
+	if (suggestedParentId) {
+		const edgeId = `e-${suggestedParentId}-${props.id}-${suggestedSourceHandle}`;
+		const hasIncoming = store.edges.some((edge) => edge.target === props.id);
+		if (!hasIncoming) {
+			store.edges.push({
+				id: edgeId,
+				source: suggestedParentId,
+				target: props.id,
+				sourceHandle: suggestedSourceHandle,
+				animated: suggestedParentId === "root",
+			});
+		}
+	}
 
 	store.selected_id = props.id;
 	store.touch_node(props.id);

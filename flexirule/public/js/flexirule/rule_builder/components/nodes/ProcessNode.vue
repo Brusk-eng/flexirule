@@ -1,6 +1,7 @@
 <script setup>
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
+import { getContract } from "../../../core/contracts";
 
 const props = defineProps(["data", "label", "id", "selected"]);
 const store = useStore();
@@ -38,6 +39,31 @@ const nodeMeta = computed(() => {
 const testResult = computed(() => {
 	const path = store.test_execution_path || [];
 	return path.find((entry) => entry.action_id === props.id);
+});
+
+const isConfigured = computed(() => {
+	const actionType = props.data?.action_type;
+	if (!actionType) return false;
+
+	const contract = getContract(actionType);
+	const requiredFields = contract.required_fields || [];
+	const hasRequiredFields = requiredFields.every((fieldname) => {
+		const value = props.data?.[fieldname];
+		return value !== undefined && value !== null && value !== "";
+	});
+
+	if (!requiredFields.length) {
+		return true;
+	}
+
+	const config = props.data?.config;
+	const hasConfig =
+		config &&
+		(typeof config === "string"
+			? config.trim() !== "" && config.trim() !== "{}"
+			: Object.keys(config).length > 0);
+
+	return hasRequiredFields || hasConfig;
 });
 
 function deleteNode() {
@@ -92,11 +118,11 @@ function openConfig() {
 		<div class="node-footer">
 			<div
 				class="config-status"
-				:class="{ configured: data.config }"
+				:class="{ configured: isConfigured }"
 				@click.stop="openConfig"
 			>
-				<i class="fa" :class="data.config ? 'fa-check-circle' : 'fa-circle-o'"></i>
-				<span>{{ data.config ? __("Configured") : __("Not Configured") }}</span>
+				<i class="fa" :class="isConfigured ? 'fa-check-circle' : 'fa-circle-o'"></i>
+				<span>{{ isConfigured ? __("Configured") : __("Not Configured") }}</span>
 			</div>
 		</div>
 
