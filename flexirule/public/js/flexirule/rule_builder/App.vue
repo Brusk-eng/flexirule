@@ -446,6 +446,15 @@ function addNode(type, position) {
 	autoConnectNode(id, parentNode);
 	store.selected_id = id;
 	store.mark_dirty();
+
+	if (vfInstance) {
+		setTimeout(() => {
+			vfInstance.setCenter(newNode.position.x + 100, newNode.position.y, {
+				zoom: 1,
+				duration: 500,
+			});
+		}, 50);
+	}
 }
 function autoConnectStartNode() {
 	const startNode = (store.nodes || []).find((el) => el.id === "start" || el.type === "start");
