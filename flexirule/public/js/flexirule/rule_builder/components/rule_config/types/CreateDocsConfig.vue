@@ -8,7 +8,38 @@
 		</div>
 
 		<div v-else class="config-container">
-			<template v-if="mode === 'Update Existing'">
+			<template v-if="mode === 'Create ToDo'">
+				<ControlFactory
+					:df="with_read_only(assignedToField)"
+					:modelValue="config.assigned_to"
+					@update:modelValue="(val) => update_config_key('assigned_to', val)"
+				/>
+				<ControlFactory
+					:df="with_read_only(todoDescriptionField)"
+					:modelValue="config.description"
+					@update:modelValue="(val) => update_config_key('description', val)"
+				/>
+				<ControlFactory
+					:df="with_read_only(todoPriorityField)"
+					:modelValue="config.priority"
+					@update:modelValue="(val) => update_config_key('priority', val)"
+				/>
+			</template>
+
+			<template v-else-if="mode === 'Add Comment'">
+				<ControlFactory
+					:df="with_read_only(commentTypeField)"
+					:modelValue="config.comment_type"
+					@update:modelValue="(val) => update_config_key('comment_type', val)"
+				/>
+				<ControlFactory
+					:df="with_read_only(commentTextField)"
+					:modelValue="config.comment_text"
+					@update:modelValue="(val) => update_config_key('comment_text', val)"
+				/>
+			</template>
+
+			<template v-else-if="mode === 'Update Existing'">
 				<ControlFactory
 					:df="with_read_only(docnameExprField)"
 					:modelValue="config.docname_expression"
@@ -20,7 +51,10 @@
 				</div>
 			</template>
 
-			<div class="sub-section section-subcard">
+			<div
+				v-if="!['Create ToDo', 'Add Comment'].includes(mode)"
+				class="sub-section section-subcard"
+			>
 				<h6>{{ __("Static Values") }}</h6>
 				<div class="table-rows">
 					<div v-for="(row, idx) in static_rows" :key="idx" class="row-item">
@@ -86,7 +120,10 @@
 				</div>
 			</div>
 
-			<div class="sub-section section-subcard">
+			<div
+				v-if="!['Create ToDo', 'Add Comment'].includes(mode)"
+				class="sub-section section-subcard"
+			>
 				<h6>{{ __("Field Mappings") }}</h6>
 				<div class="table-rows">
 					<div v-for="(row, idx) in mapping_rows" :key="idx" class="row-item mappings">
@@ -159,6 +196,44 @@ const docnameExprField = {
 	fieldtype: "Code",
 	label: __("Docname Expression"),
 	options: "PythonExpression",
+};
+
+const assignedToField = {
+	fieldname: "assigned_to",
+	fieldtype: "Link",
+	label: __("Assigned To"),
+	options: "User",
+	reqd: 1,
+};
+
+const todoDescriptionField = {
+	fieldname: "description",
+	fieldtype: "Code",
+	label: __("Description"),
+	options: "Jinja",
+	reqd: 1,
+};
+
+const todoPriorityField = {
+	fieldname: "priority",
+	fieldtype: "Select",
+	label: __("Priority"),
+	options: "Low\nMedium\nHigh",
+};
+
+const commentTypeField = {
+	fieldname: "comment_type",
+	fieldtype: "Select",
+	label: __("Comment Type"),
+	options: "Comment\nInfo\nEdit\nWorkflow",
+};
+
+const commentTextField = {
+	fieldname: "comment_text",
+	fieldtype: "Code",
+	label: __("Comment Text"),
+	options: "Jinja",
+	reqd: 1,
 };
 
 const field_map = computed(() => {
@@ -287,7 +362,17 @@ watch(
 );
 
 defineExpose({
-	validate: () => ({ valid: true }),
+	validate: () => {
+		const errors = [];
+		if (mode.value === "Create ToDo") {
+			if (!config.assigned_to) errors.push(__("Assigned To is required"));
+			if (!config.description) errors.push(__("Description is required"));
+		}
+		if (mode.value === "Add Comment" && !config.comment_text) {
+			errors.push(__("Comment Text is required"));
+		}
+		return { valid: errors.length === 0, errors };
+	},
 });
 </script>
 

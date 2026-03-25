@@ -4,61 +4,7 @@
 import frappe
 from frappe import _
 
-from flexirule.ruleflow.utils.field_resolver import (
-	parse_field_list,
-	parse_field_mapping,
-)
-
-
-def set_value(context, config=None, **kwargs):
-	"""
-	Set a value for a field. Supports Jinja templating.
-
-	config: {
-	    "field": "fieldname",
-	    "value": "Value or {{ jinja }}",
-	    "overwrite": 0/1
-	}
-	"""
-	doc = context.get("doc")
-	if not doc or not config:
-		return
-
-	field = config.get("field")
-	value = config.get("value")
-	overwrite = config.get("overwrite", 0)
-
-	if not field:
-		return
-
-	current_value = doc.get(field)
-	if not overwrite and current_value:
-		return
-
-	# Render Jinja if needed
-	if isinstance(value, str) and "{{" in value:
-		try:
-			value = frappe.render_template(
-				value,
-				{
-					"doc": doc,
-					"frappe": frappe,
-					"context": context,
-					"nowdate": frappe.utils.nowdate,
-					"now": frappe.utils.now,
-					"today": frappe.utils.today,
-					"user": frappe.session.user,
-				},
-			)
-		except Exception as e:
-			frappe.log_error(
-				f"Enrichment: Jinja rendering failed for {field}: {e}",
-				"Enrichment Error",
-			)
-			# Fallback to literal value if rendering fails
-
-	doc.set(field, value)
-	return value
+from flexirule.ruleflow.utils.field_resolver import parse_field_list, parse_field_mapping
 
 
 def calculate_value(context, config=None, **kwargs):
@@ -178,36 +124,14 @@ def copy_from_template(context, config=None, **kwargs):
 	return results
 
 
-def apply_naming_series(context, config=None, **kwargs):
-	"""
-	Set naming series for the document.
-
-	config: {
-	    "naming_series": "SERIES-"
-	}
-	"""
-	doc = context.get("doc")
-	if not doc or not config:
-		return
-
-	naming_series = config.get("naming_series")
-
-	if naming_series:
-		doc.naming_series = naming_series
-
-	return naming_series
-
-
 # ============================================================
 # DISPATCHER
 # ============================================================
 
 _OPERATIONS = {
-	"set_value": set_value,
 	"calculate_value": calculate_value,
 	"linked_doc_autocomplete": linked_doc_autocomplete,
 	"copy_from_template": copy_from_template,
-	"apply_naming_series": apply_naming_series,
 }
 
 

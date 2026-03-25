@@ -9,7 +9,7 @@ import unittest
 
 import frappe
 
-from flexirule.ruleflow.doctype.process.process import Process
+from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 
 
 class TestValidationMethods(unittest.TestCase):
@@ -22,55 +22,25 @@ class TestValidationMethods(unittest.TestCase):
 		self.process = frappe.get_doc("Process", "Validation")
 
 	def test_validate_required_fields_success(self):
-		"""Test required field validation passes when fields present"""
-		self.doc.description = "Valid description"
+		"""Test numeric range validation passes for docstatus"""
 
 		result = self.process.execute(
-			self.context, func="required_fields", config={"fields": ["description"]}
+			self.context,
+			func="value_in_range",
+			config={"field": "docstatus", "min_value": 0, "max_value": 0},
 		)
 
 		self.assertTrue(result)
 
 	def test_validate_required_fields_failure(self):
-		"""Test required field validation fails when fields missing"""
-		self.doc.description = None
+		"""Test numeric range validation fails for non-numeric source field"""
 
 		with self.assertRaises(frappe.ValidationError):
-			self.process.execute(self.context, func="required_fields", config={"fields": ["description"]})
-
-	def test_validate_field_pattern_success(self):
-		"""Test pattern validation succeeds with valid pattern"""
-		doc = frappe._dict({"email": "test@example.com"})
-		context = {"doc": doc, "vars": {}}
-
-		result = self.process.execute(
-			context,
-			func="field_pattern",
-			config={
-				"field": "email",
-				"pattern_type": "Custom Regex",
-				"pattern": r".*@.*\..*",
-			},
-		)
-
-		self.assertTrue(result)
-
-	def test_validate_field_pattern_empty_passes(self):
-		"""Test that empty values pass pattern validation"""
-		doc = frappe._dict({"email": ""})
-		context = {"doc": doc, "vars": {}}
-
-		result = self.process.execute(
-			context,
-			func="field_pattern",
-			config={
-				"field": "email",
-				"pattern_type": "Custom Regex",
-				"pattern": r".*@.*\..*",
-			},
-		)
-
-		self.assertTrue(result)
+			self.process.execute(
+				self.context,
+				func="value_in_range",
+				config={"field": "description", "min_value": 1},
+			)
 
 
 class TestEnrichmentMethods(unittest.TestCase):
@@ -81,29 +51,6 @@ class TestEnrichmentMethods(unittest.TestCase):
 		self.doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 		self.context = {"doc": self.doc, "vars": {}}
 		self.process = frappe.get_doc("Process", "Enrichment")
-
-	def test_set_value(self):
-		"""Test setting field values"""
-		result = self.process.execute(
-			self.context,
-			func="set_value",
-			config={"field": "priority", "value": "Medium"},
-		)
-
-		self.assertEqual(result, "Medium")
-		self.assertEqual(self.doc.priority, "Medium")
-
-	def test_set_value_no_overwrite(self):
-		"""Test that set_value doesn't overwrite existing value unless told to"""
-		self.doc.priority = "High"
-
-		self.process.execute(
-			self.context,
-			func="set_value",
-			config={"field": "priority", "value": "Low", "overwrite": 0},
-		)
-
-		self.assertEqual(self.doc.priority, "High")
 
 	def test_calculate_value(self):
 		"""Test field calculation using Safe Eval"""
@@ -120,7 +67,7 @@ class TestEnrichmentMethods(unittest.TestCase):
 
 
 class TestNotificationMethods(unittest.TestCase):
-	"""Test notification process methods using the new Process architecture"""
+	"""Test native replacements for the removed Notification process."""
 
 	def setUp(self):
 		"""Setup test data"""
@@ -128,25 +75,51 @@ class TestNotificationMethods(unittest.TestCase):
 		self.doc = frappe.get_doc({"doctype": "ToDo", "description": "Test Notification"})
 		self.doc.insert(ignore_permissions=True)
 		self.context = {"doc": self.doc, "vars": {}}
-		self.process = frappe.get_doc("Process", "Notification")
+		self.handler = HandlerRegistry.get("Create Docs")
+		self.engine = frappe._dict()
 
 	def tearDown(self):
 		"""Cleanup"""
 		frappe.db.rollback()
 
 	def test_add_comment(self):
-		"""Test comment creation"""
-		comment_name = self.process.execute(
-			self.context,
-			func="add_comment",
-			config={"comment_text": "Test comment from rule"},
+		"""Test comment creation through Create Docs."""
+		action = frappe._dict(
+			{
+				"operation": "Add Comment",
+				"reference_doctype": "Comment",
+				"config": '{"comment_text":"Test comment from rule"}',
+				"skip_permissions": 1,
+				"next_step_if_true": None,
+			}
 		)
+		assert self.handler is not None
+		result, _ = self.handler.execute(action, self.context, self.engine)
 
-		self.assertIsNotNone(comment_name)
+		self.assertIsNotNone(result.get("name"))
 
 		# Verify comment was created
-		comment = frappe.get_doc("Comment", comment_name)
+		comment = frappe.get_doc("Comment", result["name"])
 		self.assertEqual(comment.content, "Test comment from rule")
+
+	def test_create_todo(self):
+		"""Test linked ToDo creation through Create Docs."""
+		action = frappe._dict(
+			{
+				"operation": "Create ToDo",
+				"reference_doctype": "ToDo",
+				"config": '{"assigned_to":"Administrator","description":"Follow up {{ doc.name }}","priority":"High"}',
+				"skip_permissions": 1,
+				"next_step_if_true": None,
+			}
+		)
+		assert self.handler is not None
+		result, _ = self.handler.execute(action, self.context, self.engine)
+
+		todo = frappe.get_doc("ToDo", result["name"])
+		self.assertEqual(todo.allocated_to, "Administrator")
+		self.assertEqual(todo.priority, "High")
+		self.assertEqual(todo.reference_name, self.doc.name)
 
 
 def run_tests():

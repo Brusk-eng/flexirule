@@ -37,6 +37,7 @@ class TestRuleCoordinator(FrappeTestCase):
 		event="Validate",
 		is_active=1,
 		trigger_condition=None,
+		actions=None,
 	):
 		"""Helper to create test rules"""
 		rule_doc = frappe.get_doc(
@@ -49,16 +50,15 @@ class TestRuleCoordinator(FrappeTestCase):
 				"is_active": is_active,
 				"priority": 10,
 				"trigger_condition": (json.dumps(trigger_condition) if trigger_condition else None),
-				"actions": [
+				"actions": actions
+				or [
 					{
 						"action_id": "ACT-TEST",
-						"action_type": "Process",
-						"action_label": "Test Action",
+						"action_type": "Set Value",
+						"action_label": "Set Description",
 						"is_enabled": 1,
-						"process_name": "Validation",
-						"operation": "required_fields",
-						"config": '{"fields": ["description"]}',
-						"on_error": "Stop",
+						"target_field": "description",
+						"value_template": "Set by coordinator",
 						"next_step_if_true": "ACT-STOP",
 					},
 					{
@@ -194,9 +194,20 @@ class TestRuleCoordinator(FrappeTestCase):
 
 	def test_execute_rules_failure_logs_once(self):
 		"""A failed rule execution should create only one execution log row."""
-		rule = self.create_test_rule("Test Execute Fail Once")
+		rule = self.create_test_rule(
+			"Test Execute Fail Once",
+			actions=[
+				{
+					"action_id": "ACT-ERROR",
+					"action_type": "Raise Error",
+					"action_label": "Fail Explicitly",
+					"is_enabled": 1,
+					"value_template": "Coordinator failure for {{ doc.doctype }}",
+				}
+			],
+		)
 
-		doc = frappe.get_doc({"doctype": "ToDo", "description": ""})
+		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 		with self.assertRaises(frappe.ValidationError):
 			RuleCoordinator.execute_rules(doc, "Validate")
 

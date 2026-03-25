@@ -179,6 +179,82 @@ class TestProcessSync(FrappeTestCase):
 		self.assertIn("test_operation", operation_names)
 		self.assertIn("second_operation", operation_names)
 
+	def test_import_process_from_file_removes_deleted_operation(self):
+		"""Removed operations in JSON should be pruned from the Process doc."""
+		initial_operations = [
+			{
+				"func_name": "test_operation",
+				"label": "Test Operation",
+				"enabled": 1,
+				"visible_in_builder": 1,
+				"requires_doc": 0,
+				"can_stop_save": 0,
+				"is_terminal": 0,
+				"writes_to": "None",
+				"allows_async": 0,
+				"transactional": 0,
+			},
+			{
+				"func_name": "obsolete_operation",
+				"label": "Obsolete Operation",
+				"enabled": 1,
+				"visible_in_builder": 1,
+				"requires_doc": 0,
+				"can_stop_save": 0,
+				"is_terminal": 0,
+				"writes_to": "None",
+				"allows_async": 0,
+				"transactional": 0,
+			},
+		]
+
+		json_path = self.create_test_process_json("TestRemoveOpProcess", initial_operations)
+		import_process_from_file(json_path, "Ruleflow")
+
+		updated_operations = [
+			{
+				"func_name": "test_operation",
+				"label": "Test Operation",
+				"enabled": 1,
+				"visible_in_builder": 1,
+				"requires_doc": 0,
+				"can_stop_save": 0,
+				"is_terminal": 0,
+				"writes_to": "None",
+				"allows_async": 0,
+				"transactional": 0,
+			}
+		]
+
+		updated_json_path = self.create_test_process_json("TestRemoveOpProcess", updated_operations)
+		import_process_from_file(updated_json_path, "Ruleflow")
+
+		updated_process_doc = frappe.get_doc("Process", "TestRemoveOpProcess")
+		operation_names = [op.func_name for op in updated_process_doc.operations]
+		self.assertEqual(operation_names, ["test_operation"])
+
+	def test_sync_processes_for_app_prunes_missing_standard_process(self):
+		"""Missing file-backed Process docs should be removed during app sync."""
+		original_in_import = getattr(frappe.flags, "in_import", False)
+		frappe.flags.in_import = True
+		try:
+			process = frappe.get_doc(
+				{
+					"doctype": "Process",
+					"process_name": "TestPruneMissingProcess",
+					"module": "Ruleflow",
+					"is_standard": "Yes",
+				}
+			).insert(ignore_permissions=True)
+		finally:
+			frappe.flags.in_import = original_in_import
+
+		self.assertTrue(frappe.db.exists("Process", process.name))
+
+		sync_processes_for_app("flexirule")
+
+		self.assertFalse(frappe.db.exists("Process", process.name))
+
 	def test_import_process_from_file_missing_name(self):
 		"""Test importing a process with missing name"""
 		# Create JSON without process_name

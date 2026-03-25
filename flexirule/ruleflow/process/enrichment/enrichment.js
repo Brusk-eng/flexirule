@@ -35,53 +35,6 @@ flexirule.processes["Enrichment"] = {
 
 	operations: [
 		{
-			func_name: "set_value",
-			label: __("Set Value"),
-			description: __("Set a static or dynamic value using Jinja."),
-			icon: "edit",
-			get_config_fields: (ctx) => {
-				const doc_fields = flexirule.processes.Enrichment.get_doc_fields(ctx);
-				return [
-					{
-						fieldname: "field",
-						fieldtype: "Select",
-						label: __("Target Field"),
-						options: doc_fields,
-						reqd: 1,
-						columns: 6,
-					},
-					{
-						fieldname: "overwrite",
-						fieldtype: "Check",
-						label: __("Overwrite if exists"),
-						default: 0,
-						columns: 6,
-					},
-					{
-						fieldname: "value",
-						fieldtype: "Small Text",
-						label: __("Value"),
-						description: __(
-							"Supports Jinja: {{ today() }}, {{ doc.customer_name }}, etc."
-						),
-						reqd: 1,
-					},
-				];
-			},
-			get_output_schema: (config, ctx) => {
-				if (config.field) {
-					return [
-						{
-							label: config.field,
-							value: config.field,
-							type: "Data", // Could be more specific based on field type
-						},
-					];
-				}
-				return null;
-			},
-		},
-		{
 			func_name: "calculate_value",
 			label: __("Calculate Value"),
 			description: __("Compute field values using Python formulas."),
@@ -229,33 +182,6 @@ flexirule.processes["Enrichment"] = {
 						type: "Data", // Could be more specific based on field type
 					};
 				});
-			},
-		},
-		{
-			func_name: "apply_naming_series",
-			label: __("Apply Naming Series"),
-			description: __("Dynamically set the document's naming series."),
-			icon: "tag",
-			get_config_fields: (ctx) => {
-				return [
-					{
-						fieldname: "naming_series",
-						fieldtype: "Data",
-						label: __("Naming Series"),
-						description: __("Example: INV-.YYYY.-.####"),
-						reqd: 1,
-					},
-				];
-			},
-			get_output_schema: (config, ctx) => {
-				// This operation modifies the naming_series field of the document
-				return [
-					{
-						label: "naming_series",
-						value: "naming_series",
-						type: "Data",
-					},
-				];
 			},
 		},
 	],

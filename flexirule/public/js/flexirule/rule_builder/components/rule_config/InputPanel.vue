@@ -176,7 +176,7 @@ const showReferenceDoctype = computed(() => {
 	const fields = contract.value.required_fields || [];
 	return (
 		fields.includes("reference_doctype") ||
-		["Process", "Set Value", "Notify"].includes(props.node.data?.action_type)
+		["Process", "Set Value"].includes(props.node.data?.action_type)
 	);
 });
 

@@ -15,6 +15,7 @@ from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.engine import SafeFrappeAPI
+from flexirule.ruleflow.utils.field_resolver import parse_field_list
 
 
 class StopHandler(ActionHandler):
@@ -82,7 +83,7 @@ class SetValueHandler(ActionHandler):
 			"utils": frappe.utils,
 		}
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-		rendered_value = frappe.render_template(value_template, template_context)
+		rendered_value = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
 
 		# Set the value on the document
 		doc = context.get("doc")
@@ -116,7 +117,7 @@ class RaiseErrorHandler(ActionHandler):
 			"utils": frappe.utils,
 		}
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-		message = frappe.render_template(value_template, template_context)
+		message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
 
 		engine._log("INFO", _("Raising error: {0}").format(message))
 		frappe.throw(message)
@@ -127,50 +128,176 @@ class NotifyHandler(ActionHandler):
 
 	action_type = "Notify"
 
+	MODE_TO_EMAIL = "Email"
+	MODE_TOAST = "Toast"
+	MODE_REALTIME = "System"
+	MODE_SYSTEM_NOTIFICATION = "System Notification"
+	MODE_PROVIDER = "Provider"
+
 	def execute(self, action, context, engine):
 		"""
-		Notify action - sends notification using Jinja template.
+		Notify action - sends notification using Jinja template and config.
 
 		Supports notification types:
 		- Toast: Browser alert message
-		- System: Realtime publish
-		- Email: Queued email notification
+		- System: Realtime publish to current session
+		- Email: Email with configurable recipients / subject / attachments
+		- System Notification: Creates a Notification Log row
+		- Provider: Dispatches to a hook-registered provider
 		"""
 		value_template = getattr(action, "value_template", "") or ""
-		notification_type = getattr(action, "operation", "Toast") or "Toast"
+		notification_type = self._normalize_mode(
+			getattr(action, "operation", self.MODE_TOAST) or self.MODE_TOAST
+		)
+		config = engine._get_action_config(action)
 
-		# Render Jinja template with SafeFrappeAPI to prevent write operations
-		template_context = {
-			"doc": context.get("doc"),
-			"vars": context.get("vars", {}),
-			"frappe": SafeFrappeAPI(),
-			"utils": frappe.utils,
-		}
-		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-		message = frappe.render_template(value_template, template_context)
+		message = self._render_template(value_template, context)
+		doc = context.get("doc")
 
-		if notification_type == "Toast":
+		if notification_type == self.MODE_TOAST:
 			frappe.msgprint(message, alert=True)
-		elif notification_type == "System":
+		elif notification_type == self.MODE_REALTIME:
 			frappe.publish_realtime(
 				"msgprint",
 				{"message": message, "alert": True},
 				user=frappe.session.user,
 			)
-		elif notification_type == "Email":
-			# Queue email notification
-			doc = context.get("doc")
-			if doc:
-				frappe.sendmail(
-					recipients=[frappe.session.user],
-					subject=_("Rule Notification: {0}").format(engine.rule.name),
-					message=message,
-					reference_doctype=doc.doctype,
-					reference_name=doc.name,
-				)
+		elif notification_type == self.MODE_TO_EMAIL:
+			recipients = self._get_recipients(config.get("recipients"), context)
+			subject_template = config.get("subject") or _("Rule Notification: {0}").format(engine.rule.name)
+			subject = self._render_template(subject_template, context)
+			attachments = self._build_email_attachments(config, doc)
+
+			frappe.sendmail(
+				recipients=recipients,
+				subject=subject,
+				message=message,
+				attachments=attachments,
+				reference_doctype=getattr(doc, "doctype", None),
+				reference_name=getattr(doc, "name", None),
+			)
+		elif notification_type == self.MODE_SYSTEM_NOTIFICATION:
+			subject_template = config.get("subject") or _("Rule Notification")
+			subject = self._render_template(subject_template, context)
+			for_user_template = config.get("for_user") or getattr(doc, "owner", None) or frappe.session.user
+			for_user = self._render_scalar(for_user_template, context)
+
+			notification = frappe.get_doc(
+				{
+					"doctype": "Notification Log",
+					"for_user": for_user,
+					"subject": subject,
+					"email_content": message,
+					"document_type": getattr(doc, "doctype", None),
+					"document_name": getattr(doc, "name", None),
+				}
+			)
+			notification.insert(ignore_permissions=True)
+			message = notification.name
+		elif notification_type == self.MODE_PROVIDER:
+			message = self._send_via_provider(config, context, message)
+		else:
+			frappe.throw(_("Unknown notification mode: {0}").format(notification_type))
 
 		engine._log("INFO", _("Sent {0} notification").format(notification_type))
-		return None, getattr(action, "next_step_if_true", None)
+		return message, getattr(action, "next_step_if_true", None)
+
+	def validate(self, action, context):
+		errors = []
+		mode = self._normalize_mode(getattr(action, "operation", self.MODE_TOAST) or self.MODE_TOAST)
+		config = self._parse_config(getattr(action, "config", None))
+
+		if mode == self.MODE_TO_EMAIL:
+			if not config.get("recipients"):
+				errors.append(_("Email notifications require recipients in config"))
+			if not config.get("subject"):
+				errors.append(_("Email notifications require a subject in config"))
+		elif mode == self.MODE_SYSTEM_NOTIFICATION:
+			if not config.get("subject"):
+				errors.append(_("System Notification mode requires a subject in config"))
+		elif mode == self.MODE_PROVIDER:
+			if not config.get("provider"):
+				errors.append(_("Provider mode requires a provider in config"))
+			if not config.get("recipient"):
+				errors.append(_("Provider mode requires a recipient in config"))
+
+		return errors
+
+	def _normalize_mode(self, mode):
+		value = (mode or "").strip().lower()
+		mode_map = {
+			"toast": self.MODE_TOAST,
+			"system": self.MODE_REALTIME,
+			"email": self.MODE_TO_EMAIL,
+			"system notification": self.MODE_SYSTEM_NOTIFICATION,
+			"create_system_notification": self.MODE_SYSTEM_NOTIFICATION,
+			"provider": self.MODE_PROVIDER,
+			"realtime": self.MODE_REALTIME,
+		}
+		return mode_map.get(value, mode)
+
+	def _template_context(self, context):
+		return {
+			"doc": context.get("doc"),
+			"vars": context.get("vars", {}),
+			"context": context,
+			"frappe": SafeFrappeAPI(),
+			"utils": frappe.utils,
+		}
+
+	def _render_template(self, template, context):
+		template = template or ""
+		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+		return frappe.render_template(template, self._template_context(context))  # nosemgrep: frappe-ssti
+
+	def _render_scalar(self, value, context):
+		if value is None:
+			return None
+		if isinstance(value, str):
+			return self._render_template(value, context)
+		return value
+
+	def _get_recipients(self, recipients_value, context):
+		rendered = self._render_scalar(recipients_value, context)
+		if isinstance(rendered, list):
+			return [r for r in rendered if r]
+		return parse_field_list(rendered)
+
+	def _build_email_attachments(self, config, doc):
+		if not config.get("attach_doc") or not doc:
+			return []
+
+		try:
+			return [frappe.attach_print(doc.doctype, doc.name, doc=doc)]
+		except Exception as exc:
+			frappe.log_error(f"Notify action: Failed to attach PDF: {exc}", "Notify Action Error")
+			return []
+
+	def _send_via_provider(self, config, context, message):
+		"""Dispatch a notification through a hook-registered provider."""
+		provider_name = config.get("provider")
+		recipient = self._render_scalar(config.get("recipient"), context)
+		providers = {}
+
+		for app in frappe.get_installed_apps():
+			app_providers = frappe.get_hooks("flexirule_notification_providers", app_name=app)
+			if isinstance(app_providers, list):
+				for provider_dict in app_providers:
+					if isinstance(provider_dict, dict):
+						providers.update(provider_dict)
+			elif isinstance(app_providers, dict):
+				providers.update(app_providers)
+
+		if provider_name not in providers:
+			frappe.throw(_("Notification provider '{0}' not found").format(provider_name))
+
+		return frappe.get_attr(providers[provider_name])(
+			recipient=recipient,
+			message=message,
+			doc=context.get("doc"),
+			context=context,
+			config=config,
+		)
 
 
 class EntryActionHandler(ActionHandler):

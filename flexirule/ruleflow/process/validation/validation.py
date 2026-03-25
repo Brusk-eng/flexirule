@@ -7,70 +7,15 @@ File-backed execution for validation operations.
 Unifies legacy validation and advanced validation methods.
 """
 
-import json
-import re
-
 import frappe
 from frappe import _
 
-from flexirule.ruleflow.utils.field_resolver import parse_field_list, parse_pattern_type
+from flexirule.ruleflow.utils.field_resolver import parse_field_list
+
 
 # ============================================================
 # OPERATIONS
 # ============================================================
-
-
-def required_fields(context, config):
-	"""Validate that specified fields have values"""
-	doc = context.get("doc")
-	if not doc:
-		return True
-
-	field_list = parse_field_list(config.get("fields"))
-	missing_fields = []
-
-	for field in field_list:
-		value = doc.get(field)
-		if not value and value != 0:
-			# Check if it's a fieldname or a label
-			meta = frappe.get_meta(doc.doctype)
-			df = meta.get_field(field)
-			label = _(df.label) if df else field
-			missing_fields.append(label)
-
-	if missing_fields:
-		frappe.throw(
-			_("Required fields are missing: {0}").format(", ".join(missing_fields)),
-			title=_("Validation Error"),
-		)
-
-	return True
-
-
-def field_pattern(context, config):
-	"""Validate that a field value matches a regex pattern"""
-	doc = context.get("doc")
-	field = config.get("field")
-	if not doc or not field:
-		return True
-
-	value = doc.get(field)
-	if not value:
-		return True  # Empty values pass
-
-	pattern_type = config.get("pattern_type")
-	pattern = config.get("pattern")
-	error_message = config.get("error_message")
-
-	actual_pattern = parse_pattern_type(pattern_type, pattern)
-
-	if not actual_pattern or not re.match(actual_pattern, str(value)):
-		msg = error_message or _("Field {0} does not match required pattern").format(field)
-		frappe.throw(msg, title=_("Pattern Mismatch"))
-
-	return True
-
-
 def value_in_range(context, config):
 	"""Validate that a numeric field is within a specified range"""
 	doc = context.get("doc")
@@ -95,33 +40,6 @@ def value_in_range(context, config):
 
 	if max_val is not None and num_value > float(max_val):
 		frappe.throw(_("Field {0} must be at most {1}").format(field, max_val))
-
-	return True
-
-
-def unique_field(context, config):
-	"""Validate field value is unique across documents"""
-	doc = context.get("doc")
-	field = config.get("field")
-	if not doc or not field:
-		return True
-
-	value = doc.get(field)
-	if not value:
-		return True
-
-	filters = {field: value}
-	if doc.name:
-		filters["name"] = ["!=", doc.name]
-	if config.get("ignore_cancelled", True):
-		filters["docstatus"] = ["!=", 2]
-
-	existing = frappe.db.exists(doc.doctype, filters)
-	if existing:
-		frappe.throw(
-			_("Value '{0}' for {1} already exists in {2}").format(value, field, existing),
-			title=_("Duplicate Value"),
-		)
 
 	return True
 
@@ -308,10 +226,7 @@ def on_field_change(context, config):
 # ============================================================
 
 _OPERATIONS = {
-	"required_fields": required_fields,
-	"field_pattern": field_pattern,
 	"value_in_range": value_in_range,
-	"unique_field": unique_field,
 	"conditional_required": conditional_required,
 	"child_table_rows": child_table_rows,
 	"composite_uniqueness": composite_uniqueness,

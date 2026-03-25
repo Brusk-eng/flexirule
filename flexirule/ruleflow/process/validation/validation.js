@@ -69,71 +69,6 @@ flexirule.processes["Validation"] = {
 	// Operations Definition
 	operations: [
 		{
-			func_name: "required_fields",
-			label: __("Required Fields"),
-			description: __("Validate that specified fields have values"),
-			icon: "check-circle",
-			color: "#ef4444",
-			get_config_fields: (ctx) => [
-				{
-					fieldname: "fields",
-					label: __("Mandatory Fields"),
-					fieldtype: "MultiDocField",
-					options: "vars.document_type",
-					reqd: 1,
-					description: __("Select one or more fields that must not be empty"),
-				},
-			],
-		},
-		{
-			func_name: "field_pattern",
-			label: __("Field Pattern"),
-			description: __("Validate field matches a preset or custom pattern"),
-			icon: "filter",
-			color: "#f59e0b",
-			get_config_fields: (ctx) => [
-				{
-					fieldname: "field",
-					label: __("Field to Validate"),
-					fieldtype: "DocField",
-					options: "vars.document_type",
-					reqd: 1,
-				},
-				{ fieldtype: "Column Break" },
-				{
-					fieldname: "pattern_type",
-					label: __("Pattern Type"),
-					fieldtype: "Select",
-					options: [
-						"Email",
-						"Phone",
-						"URL",
-						"Alphanumeric",
-						"Numeric",
-						"Custom Regex",
-					].join("\n"),
-					default: "Email",
-					reqd: 1,
-				},
-				{
-					fieldname: "pattern",
-					label: __("Custom Regex"),
-					fieldtype: "Data",
-					depends_on: "eval:doc.pattern_type === 'Custom Regex'",
-					reqd: 1,
-				},
-				{
-					fieldtype: "Section Break",
-				},
-				{
-					fieldname: "error_message",
-					label: __("Custom Error Message"),
-					fieldtype: "Data",
-					description: __("Optional. If empty, a default message will be used."),
-				},
-			],
-		},
-		{
 			func_name: "value_in_range",
 			label: __("Value in Range"),
 			description: __("Ensure a numeric value is within bounds"),
@@ -157,29 +92,6 @@ flexirule.processes["Validation"] = {
 					fieldname: "max_value",
 					label: __("Maximum"),
 					fieldtype: "Float",
-				},
-			],
-		},
-		{
-			func_name: "unique_field",
-			label: __("Unique Field"),
-			description: __("Validate field value is unique across all records"),
-			icon: "database",
-			color: "#6366f1",
-			get_config_fields: (ctx) => [
-				{
-					fieldname: "field",
-					label: __("Field for Uniqueness"),
-					fieldtype: "DocField",
-					options: "vars.document_type",
-					reqd: 1,
-				},
-				{ fieldtype: "Column Break" },
-				{
-					fieldname: "ignore_cancelled",
-					label: __("Ignore Cancelled"),
-					fieldtype: "Check",
-					default: 1,
 				},
 			],
 		},

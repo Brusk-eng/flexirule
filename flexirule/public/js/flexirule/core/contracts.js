@@ -105,9 +105,10 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_false: false,
 		terminal: false,
 		css: { icon: "fa fa-bell", color: "#0ea5e9" },
-		description: "Send a notification (toast, system message, or email) to the user.",
+		description:
+			"Send a notification as a toast, realtime message, email, Notification Log entry, or provider dispatch.",
 		operation_label: "Notification Type",
-		operation_options: ["Toast", "System", "Email"],
+		operation_options: ["Toast", "System", "Email", "System Notification", "Provider"],
 	},
 	"Query Records": {
 		required_fields: ["reference_doctype", "operation"],
@@ -142,10 +143,12 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
+		operation_label: "Create Mode",
+		operation_options: ["Create New", "Update Existing", "Create ToDo", "Add Comment"],
 		allowed_mutations: ["Set Doc Field", "Set Context Variable"],
 		css: { icon: "fa fa-plus-circle", color: "#059669" },
 		description:
-			"Create new documents or update existing ones with field mappings from the current context.",
+			"Create or update documents, including convenience modes for linked ToDos and timeline comments.",
 	},
 };
 

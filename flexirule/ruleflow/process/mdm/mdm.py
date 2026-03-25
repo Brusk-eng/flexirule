@@ -4,10 +4,8 @@
 import frappe
 from frappe import _
 
-from flexirule.ruleflow.utils.field_resolver import parse_field_list
 
-
-def create_review_task(context, config=None, **kwargs):
+def _create_review_task(context, config=None):
 	"""
 	Create a Data Review Task for data steward review.
 
@@ -58,15 +56,16 @@ def find_duplicates_and_task(context, config=None, **kwargs):
 
 	# Import deduplication logic
 	from flexirule.ruleflow.process.deduplication.deduplication import (
-		find_similar_records,
+		find_matching_records,
 	)
 
 	# Find similar records
-	matches = find_similar_records(
+	match_result = find_matching_records(
 		context,
 		config=config,  # Passes overall_threshold, fields_config, etc.
 		**kwargs,
 	)
+	matches = match_result.get("matches", [])
 
 	if not matches:
 		return []
@@ -98,7 +97,7 @@ def find_duplicates_and_task(context, config=None, **kwargs):
 			"description": description,
 		}
 
-		task_name = create_review_task(context, task_config)
+		task_name = _create_review_task(context, task_config)
 		if task_name:
 			# Update task with match details
 			frappe.db.set_value(
@@ -174,10 +173,6 @@ def batch_dedupe(context, config=None, **kwargs):
 
 def run_batch_dedupe(doctype, config):
 	"""Background job for deduplication."""
-	from flexirule.ruleflow.process.deduplication.deduplication import (
-		find_similar_records,
-	)
-
 	config.get("batch_size", 50)
 	filters = config.get("filters") or {"docstatus": ["!=", 2]}
 
@@ -198,7 +193,6 @@ def run_batch_dedupe(doctype, config):
 # ============================================================
 
 _OPERATIONS = {
-	"create_review_task": create_review_task,
 	"find_duplicates_and_task": find_duplicates_and_task,
 	"batch_normalize": batch_normalize,
 	"batch_dedupe": batch_dedupe,

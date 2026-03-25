@@ -136,34 +136,23 @@ class TestValidationMethods(FrappeTestCase):
 		self.process = frappe.get_doc("Process", "Validation")
 
 	def test_validate_required_fields_success(self):
-		"""Test required fields pass when present"""
+		"""Test numeric range validation passes"""
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 		context = {"doc": doc, "vars": {}}
-		result = self.process.execute(context, func="required_fields", config={"fields": ["description"]})
+		result = self.process.execute(
+			context, func="value_in_range", config={"field": "docstatus", "min_value": 0, "max_value": 0}
+		)
 		self.assertTrue(result)
 
 	def test_validate_required_fields_failure(self):
-		"""Test required fields fail when missing"""
+		"""Test numeric range validation fails"""
 		doc = frappe.get_doc({"doctype": "ToDo", "description": ""})
 		context = {"doc": doc, "vars": {}}
 
 		with self.assertRaises(frappe.ValidationError):
-			self.process.execute(context, func="required_fields", config={"fields": ["description"]})
-
-	def test_validate_field_pattern(self):
-		"""Test pattern validation"""
-		doc = frappe._dict({"email": "test@example.com"})
-		context = {"doc": doc, "vars": {}}
-		result = self.process.execute(
-			context,
-			func="field_pattern",
-			config={
-				"field": "email",
-				"pattern_type": "Custom Regex",
-				"pattern": r".*@.*\..*",
-			},
-		)
-		self.assertTrue(result)
+			self.process.execute(
+				context, func="value_in_range", config={"field": "description", "min_value": 1}
+			)
 
 
 class TestEnrichmentMethods(FrappeTestCase):
@@ -171,29 +160,6 @@ class TestEnrichmentMethods(FrappeTestCase):
 
 	def setUp(self):
 		self.process = frappe.get_doc("Process", "Enrichment")
-
-	def test_set_value(self):
-		"""Test setting default value"""
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
-		context = {"doc": doc, "vars": {}}
-		result = self.process.execute(
-			context, func="set_value", config={"field": "priority", "value": "Medium"}
-		)
-
-		self.assertEqual(result, "Medium")
-		self.assertEqual(doc.priority, "Medium")
-
-	def test_set_value_no_overwrite(self):
-		"""Test value doesn't overwrite existing"""
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test", "priority": "High"})
-		context = {"doc": doc, "vars": {}}
-		self.process.execute(
-			context,
-			func="set_value",
-			config={"field": "priority", "value": "Low", "overwrite": 0},
-		)
-
-		self.assertEqual(doc.priority, "High")
 
 	def test_calculate_value(self):
 		"""Test formula calculation"""
@@ -216,8 +182,8 @@ class TestDeduplicationMethods(FrappeTestCase):
 		super().setUpClass()
 		frappe.set_user("Administrator")
 
-	def test_find_duplicates_by_fields(self):
-		"""Test exact duplicate detection"""
+	def test_find_matching_records_with_exact_fields(self):
+		"""Test exact duplicate detection through the unified matcher."""
 		process = frappe.get_doc("Process", "Deduplication")
 
 		existing = frappe.get_doc({"doctype": "ToDo", "description": "Duplicate Test Item"}).insert(
@@ -228,12 +194,14 @@ class TestDeduplicationMethods(FrappeTestCase):
 		new_doc.name = "temp-new-doc"
 		context = {"doc": new_doc, "vars": {}}
 
-		duplicates = process.execute(
+		result = process.execute(
 			context,
-			func="find_duplicates_by_fields",
+			func="find_matching_records",
 			config={"fields": ["description"]},
 		)
-		self.assertIn(existing.name, duplicates)
+		self.assertTrue(result["has_match"])
+		self.assertEqual(result["match_count"], 1)
+		self.assertEqual(result["best_match"]["name"], existing.name)
 
 	@classmethod
 	def tearDownClass(cls):
@@ -264,17 +232,10 @@ class TestNewTriggerEvents(FrappeTestCase):
 			actions=[
 				{
 					"action_id": "set_desc_naming",
-					"action_type": "Process",
+					"action_type": "Set Value",
 					"action_label": "Set Description",
-					"process_name": "Enrichment",
-					"operation": "set_value",
-					"config": json.dumps(
-						{
-							"field": "description",
-							"value": "Set by Naming",
-							"overwrite": True,
-						}
-					),
+					"target_field": "description",
+					"value_template": "Set by Naming",
 					"is_enabled": 1,
 				}
 			],
@@ -294,7 +255,8 @@ class TestNewTriggerEvents(FrappeTestCase):
 
 		todo = frappe.get_doc({"doctype": "ToDo", "description": "Original"}).insert()
 
-		# Rule to update description on change
+		# On Change runs after the document is saved, so it should use
+		# non-mutating actions such as notifications rather than Set Value.
 		rule_name = "Test On Change"
 		create_test_rule(
 			rule_name,
@@ -302,12 +264,12 @@ class TestNewTriggerEvents(FrappeTestCase):
 			event="On Change",
 			actions=[
 				{
-					"action_id": "set_desc_change",
-					"action_type": "Process",
-					"action_label": "Update Description",
-					"process_name": "Enrichment",
-					"operation": "set_value",
-					"config": json.dumps({"field": "description", "value": "Changed", "overwrite": True}),
+					"action_id": "notify_change",
+					"action_type": "Notify",
+					"action_label": "Notify Change",
+					"operation": "System Notification",
+					"value_template": "Changed {{ doc.name }}",
+					"config": '{"subject":"On Change {{ doc.name }}","for_user":"Administrator"}',
 					"is_enabled": 1,
 				}
 			],
@@ -316,7 +278,16 @@ class TestNewTriggerEvents(FrappeTestCase):
 		todo.description = "Something Else"
 		todo.save()
 
-		self.assertEqual(todo.description, "Changed")
+		notification_name = frappe.db.get_value(
+			"Notification Log",
+			{
+				"for_user": "Administrator",
+				"subject": f"On Change {todo.name}",
+			},
+			"name",
+			order_by="creation desc",
+		)
+		self.assertTrue(notification_name)
 
 	@classmethod
 	def tearDownClass(cls):
