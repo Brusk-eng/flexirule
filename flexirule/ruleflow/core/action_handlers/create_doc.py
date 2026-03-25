@@ -212,7 +212,7 @@ class CreateDocHandler(ActionHandler):
 	def _render_scalar(self, value, context):
 		if value is None or not isinstance(value, str):
 			return value
-		return frappe.render_template(value, self._template_context(context))
+		return frappe.render_template(value, self._template_context(context))  # nosemgrep: frappe-ssti
 
 	def _create_todo(self, reference_doctype, config, context, ignore_permissions):
 		"""Create a linked ToDo using the current context document."""

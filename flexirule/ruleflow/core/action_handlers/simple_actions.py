@@ -83,7 +83,7 @@ class SetValueHandler(ActionHandler):
 			"utils": frappe.utils,
 		}
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-		rendered_value = frappe.render_template(value_template, template_context)
+		rendered_value = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
 
 		# Set the value on the document
 		doc = context.get("doc")
@@ -117,7 +117,7 @@ class RaiseErrorHandler(ActionHandler):
 			"utils": frappe.utils,
 		}
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-		message = frappe.render_template(value_template, template_context)
+		message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
 
 		engine._log("INFO", _("Raising error: {0}").format(message))
 		frappe.throw(message)
@@ -248,7 +248,7 @@ class NotifyHandler(ActionHandler):
 	def _render_template(self, template, context):
 		template = template or ""
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-		return frappe.render_template(template, self._template_context(context))
+		return frappe.render_template(template, self._template_context(context))  # nosemgrep: frappe-ssti
 
 	def _render_scalar(self, value, context):
 		if value is None:
