@@ -88,6 +88,31 @@
 		<div class="section-divider my-4"></div>
 
 		<div class="settings-section">
+			<h6 class="section-title-mini">{{ __("Output Settings") }}</h6>
+			<div class="settings-grid">
+				<div class="grid-item span-2">
+					<ControlFactory
+						:df="
+							with_read_only({
+								fieldname: 'return_variable',
+								fieldtype: 'Data',
+								label: __('Return Variable Name'),
+								placeholder: __('e.g. my_result'),
+								description: __(
+									'The variable where the action result will be stored.'
+								),
+							})
+						"
+						:modelValue="node.data?.return_variable"
+						@update:modelValue="(val) => update_action_field('return_variable', val)"
+					/>
+				</div>
+			</div>
+		</div>
+
+		<div class="section-divider my-4"></div>
+
+		<div class="settings-section">
 			<h6 class="section-title-mini">{{ __("Flow Control") }}</h6>
 			<div class="settings-grid">
 				<div class="grid-item span-2">

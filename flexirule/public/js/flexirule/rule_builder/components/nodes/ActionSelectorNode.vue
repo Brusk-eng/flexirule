@@ -1,4 +1,5 @@
 <script setup>
+import { ref, computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { getActionTypeOptions } from "../../../core/contracts";
 import { useStore } from "../../store";
@@ -52,13 +53,15 @@ function onCreate() {
 
 	if (nodeIndex === -1) return;
 
-	const label = customLabel.value.trim() || typeConfig.label;
+	const action_type = selectedType.value;
+	// Map Action Type to VueFlow node type
+	const nodeType = action_type
+		.toLowerCase()
+		.replace(/ records| docs/g, (m) =>
+			m.includes("query") ? "query" : m.includes("aggregate") ? "aggregate" : "createdoc"
+		);
 
-	let nodeType = typeConfig.actionType.toLowerCase();
-	if (typeConfig.actionType === "Query Records") nodeType = "query";
-	if (typeConfig.actionType === "Aggregate Records") nodeType = "aggregate";
-	if (typeConfig.actionType === "Create Docs") nodeType = "createdoc";
-
+	const nodeData = store.get_default_node_data(action_type.toLowerCase(), label);
 	const suggestedParentId = store.nodes[nodeIndex].data?.suggested_parent_id;
 	const suggestedSourceHandle = store.nodes[nodeIndex].data?.suggested_source_handle || "default";
 
@@ -66,8 +69,8 @@ function onCreate() {
 	store.nodes[nodeIndex].type = nodeType;
 	store.nodes[nodeIndex].label = label;
 	store.nodes[nodeIndex].data = {
-		...store.nodes[nodeIndex].data,
-		action_type: typeConfig.actionType,
+		...nodeData,
+		action_id: props.id, // Keep the original ID to maintain edge consistency
 		action_label: label,
 		suggested_parent_id: null,
 		suggested_source_handle: null,

@@ -11,29 +11,15 @@ const isEffectiveDisabled = computed(() => {
 });
 
 const nodeMeta = computed(() => {
-	const type = (props.data.action_type || "").toLowerCase();
-	if (type.includes("switch")) {
-		return { color: "#6f42c1", icon: "fa-random", typeLabel: __("SWITCH") };
-	}
-	if (type.includes("wait") || type.includes("delay")) {
-		return { color: "#6c757d", icon: "fa-clock-o", typeLabel: __("WAIT") };
-	}
-	if (type.includes("sub-rule") || type.includes("nested")) {
-		return { color: "#0dcaf0", icon: "fa-external-link", typeLabel: __("SUB-RULE") };
-	}
-	if (type.includes("stop") || type.includes("cancel")) {
-		return { color: "#dc3545", icon: "fa-stop-circle", typeLabel: __("STOP") };
-	}
-	if (type.includes("raise error")) {
-		return { color: "#dc3545", icon: "fa-exclamation-triangle", typeLabel: __("RAISE ERROR") };
-	}
-	if (type.includes("set value")) {
-		return { color: "#198754", icon: "fa-edit", typeLabel: __("SET VALUE") };
-	}
-	if (type.includes("notify")) {
-		return { color: "#ffc107", icon: "fa-bell", typeLabel: __("NOTIFY") };
-	}
-	return { color: "#0d6efd", icon: "fa-cog", typeLabel: __("PROCESS") };
+	const actionType = props.data?.action_type || "Process";
+	const contract = getContract(actionType);
+	const css = contract.css || {};
+
+	return {
+		color: css.color || "#0d6efd",
+		icon: css.icon || "fa-cog",
+		typeLabel: (actionType || "PROCESS").toUpperCase(),
+	};
 });
 
 const testResult = computed(() => {

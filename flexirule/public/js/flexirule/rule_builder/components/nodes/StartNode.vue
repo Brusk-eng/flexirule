@@ -1,6 +1,8 @@
 <script setup>
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
+import { getContract } from "../../../core/contracts";
+import { computed } from "vue";
 
 const props = defineProps(["data", "label", "id"]);
 const store = useStore();
@@ -10,6 +12,18 @@ const displayLabel = computed(() => {
 		return `${props.data.document_type} / ${props.data.trigger_event}`;
 	}
 	return props.label || __("Start");
+});
+
+const nodeMeta = computed(() => {
+	const actionType = props.data?.action_type || "Entry Action";
+	const contract = getContract(actionType);
+	const css = contract.css || {};
+
+	return {
+		color: css.color || "#10b981",
+		icon: css.icon || "fa-play",
+		typeLabel: __("TRIGGER"),
+	};
 });
 
 const testResult = computed(() => {
@@ -35,12 +49,16 @@ function openConfig() {
 		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
 			{{ store.test_execution_path.indexOf(testResult) + 1 }}
 		</div>
-		<div class="node-body" @dblclick.stop="openConfig">
+		<div
+			class="node-body"
+			@dblclick.stop="openConfig"
+			:style="{ '--accent-color': nodeMeta.color }"
+		>
 			<div class="icon-section">
-				<i class="fa fa-play"></i>
+				<i class="fa" :class="nodeMeta.icon"></i>
 			</div>
 			<div class="info-section">
-				<div class="type-label">{{ __("TRIGGER") }}</div>
+				<div class="type-label">{{ nodeMeta.typeLabel }}</div>
 				<div class="main-label">{{ displayLabel }}</div>
 			</div>
 
@@ -48,7 +66,24 @@ function openConfig() {
 				<i class="fa fa-pencil"></i>
 			</button>
 		</div>
-		<Handle type="source" :position="Position.Right" id="default" class="handle-source" />
+		<Handle
+			type="source"
+			:position="Position.Right"
+			id="default"
+			class="handle-source"
+			:connectable="true"
+			style="
+				display: block !important;
+				opacity: 1 !important;
+				visibility: visible !important;
+				right: -8px !important;
+				z-index: 9999 !important;
+				width: 14px !important;
+				height: 14px !important;
+				background: #fff !important;
+				pointer-events: all !important;
+			"
+		/>
 	</div>
 </template>
 
@@ -59,7 +94,7 @@ function openConfig() {
 }
 
 .node-body {
-	background: #10b981; /* Vibrant Green */
+	background: var(--accent-color);
 	color: white;
 	display: flex;
 	align-items: center;
@@ -73,7 +108,7 @@ function openConfig() {
 .node-body:hover {
 	transform: translateY(-1px);
 	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-	background: #059669; /* Darker Green for hover */
+	filter: brightness(0.9);
 }
 
 .icon-section {
@@ -114,10 +149,12 @@ function openConfig() {
 
 .handle-source {
 	background: white !important;
-	border: 3px solid #10b981 !important;
+	border: 3px solid var(--accent-color) !important;
 	width: 12px !important;
 	height: 12px !important;
 	right: -6px !important;
+	z-index: 10 !important;
+	cursor: crosshair !important;
 }
 
 .start-node-d.test-executed .node-body {
@@ -130,7 +167,7 @@ function openConfig() {
 	top: -6px;
 	left: -6px;
 	background: #fff;
-	color: #10b981;
+	color: var(--accent-color);
 	width: 18px;
 	height: 18px;
 	border-radius: 50%;
@@ -141,7 +178,7 @@ function openConfig() {
 	font-weight: 700;
 	z-index: 10;
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-	border: 2px solid #10b981;
+	border: 2px solid var(--accent-color);
 }
 
 .action-btn {

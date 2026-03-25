@@ -5,6 +5,8 @@
 			class="form-control form-control-sm"
 			:value="modelValue"
 			@input="$emit('update:modelValue', $event.target.value)"
+			@dragover.prevent
+			@drop="onDrop"
 			list="context-vars-list"
 			:placeholder="__('doc.field or row.field')"
 		/>
@@ -27,6 +29,14 @@ const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
 
 const metaFields = ref([]);
+
+function onDrop(event) {
+	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
+	if (variable) {
+		event.preventDefault();
+		emit("update:modelValue", variable);
+	}
+}
 
 // Common variables that are always available
 const commonVars = [

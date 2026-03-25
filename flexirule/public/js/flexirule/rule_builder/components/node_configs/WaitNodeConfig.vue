@@ -1,13 +1,32 @@
 <template>
 	<div class="wait-node-config">
-		<div class="form-group">
-			<label>{{ __("Duration (Seconds)") }}</label>
-			<input
-				type="number"
-				class="form-control"
-				:value="getJsonConfig('duration')"
-				@input="$emit('update-json-config', 'duration', parseFloat($event.target.value))"
-			/>
+		<div class="form-row">
+			<div class="form-group col-md-6">
+				<label class="small text-muted">{{ __("Delay Value") }}</label>
+				<input
+					type="number"
+					class="form-control"
+					:value="getJsonConfig('value', 1)"
+					@input="$emit('update-field', 'value', parseFloat($event.target.value))"
+				/>
+			</div>
+			<div class="form-group col-md-6">
+				<label class="small text-muted">{{ __("Unit") }}</label>
+				<select
+					class="form-control"
+					:value="getJsonConfig('unit', 'Minutes')"
+					@change="$emit('update-field', 'unit', $event.target.value)"
+				>
+					<option value="Seconds">{{ __("Seconds") }}</option>
+					<option value="Minutes">{{ __("Minutes") }}</option>
+					<option value="Hours">{{ __("Hours") }}</option>
+					<option value="Days">{{ __("Days") }}</option>
+				</select>
+			</div>
+		</div>
+		<div class="alert alert-info py-2 px-3 small mt-2">
+			<i class="fa fa-info-circle mr-1"></i>
+			{{ __("Rule execution will pause for the specified duration.") }}
 		</div>
 	</div>
 </template>
@@ -17,12 +36,17 @@ const props = defineProps({
 	nodeData: Object,
 });
 
-defineEmits(["update-json-config"]);
+defineEmits(["update-field"]);
 
 function getJsonConfig(key, defaultVal = "") {
-	// Support both new 'config' and legacy 'method_config'
 	const configStr = props.nodeData?.config || props.nodeData?.method_config;
 	const config = flexirule.utils.safe_json_parse(configStr, {});
+
+	// Legacy migration: if key is 'value' but only 'duration' exists
+	if (key === "value" && config.duration !== undefined && config.value === undefined) {
+		return config.duration;
+	}
+
 	return config[key] !== undefined ? config[key] : defaultVal;
 }
 </script>
