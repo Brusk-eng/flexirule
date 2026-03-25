@@ -18,14 +18,35 @@
 
 			<!-- Action Nodes: DocField-driven rendering -->
 			<template v-else>
+				<div v-if="selectedNode.type === 'selector'" class="selector-placeholder mb-3">
+					<p class="text-muted small mb-2">
+						{{
+							__(
+								"Choose an action type on the node card, then click Create to continue."
+							)
+						}}
+					</p>
+					<p class="text-muted small mb-0">
+						{{
+							__(
+								"Full action settings only appear after this placeholder becomes a real Rule Action."
+							)
+						}}
+					</p>
+				</div>
+
 				<!-- Quick Action Button -->
-				<div class="sidebar-v2-preview mb-3" v-if="isConfigurable">
+				<div
+					class="sidebar-v2-preview mb-3"
+					v-if="isConfigurable && selectedNode.type !== 'selector'"
+				>
 					<button class="btn btn-sm btn-primary-light w-100" @click="open_config_dialog">
 						<i class="fa fa-cog"></i> {{ __("Configure Action") }}
 					</button>
 				</div>
 
 				<ActionFieldProperties
+					v-if="selectedNode.type !== 'selector'"
 					:nodeData="selectedNode.data"
 					:readOnly="store.is_read_only"
 					@update:field="update_action_field"
@@ -232,6 +253,13 @@ onMounted(async () => {
 	padding: 10px 15px 5px;
 	border-bottom: 1px solid var(--border-color);
 	background: #f8f9ff;
+}
+
+.selector-placeholder {
+	padding: 12px;
+	border: 1px dashed var(--border-color);
+	border-radius: 8px;
+	background: var(--bg-light, #f8fafc);
 }
 
 .btn-primary-light {

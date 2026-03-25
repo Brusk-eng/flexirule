@@ -220,14 +220,32 @@ const showInputSource = computed(() => {
 	);
 });
 
+const forcedReferenceDoctype = computed(() => {
+	if (props.node.data?.action_type !== "Create Docs") return null;
+	if (props.node.data?.operation === "Add Comment") return "Comment";
+	if (props.node.data?.operation === "Create ToDo") return "ToDo";
+	return null;
+});
+
 // -- Field Definitions --
-const referenceDoctypeField = {
-	fieldname: "reference_doctype",
-	fieldtype: "Link",
-	label: __("Reference DocType"),
-	options: "DocType",
-	reqd: 1,
-};
+const referenceDoctypeField = computed(() => {
+	let description = __("Target DocType for this action.");
+	if (props.node.data?.action_type === "Create Docs" && forcedReferenceDoctype.value) {
+		description = __("{0} mode always targets the {1} DocType.")
+			.replace("{0}", props.node.data.operation)
+			.replace("{1}", forcedReferenceDoctype.value);
+	}
+
+	return {
+		fieldname: "reference_doctype",
+		fieldtype: "Link",
+		label: __("Reference DocType"),
+		options: "DocType",
+		reqd: 1,
+		read_only: Boolean(forcedReferenceDoctype.value),
+		description,
+	};
+});
 
 const processNameField = {
 	fieldname: "process_name",
@@ -338,10 +356,58 @@ async function loadDoctypeFields() {
 
 function updateField(fieldname, value) {
 	if (props.node?.data) {
+		if (fieldname === "operation" && props.node.data?.action_type === "Create Docs") {
+			const isSpecialCreateDocsMode = ["Add Comment", "Create ToDo"].includes(value);
+			if (value === "Add Comment") {
+				props.node.data.reference_doctype = "Comment";
+				props.node.data.reference_docname = null;
+			} else if (value === "Create ToDo") {
+				props.node.data.reference_doctype = "ToDo";
+				props.node.data.reference_docname = null;
+			} else if (
+				["Comment", "ToDo"].includes(props.node.data.reference_doctype) &&
+				["Create New", "Update Existing"].includes(value)
+			) {
+				props.node.data.reference_doctype = null;
+				props.node.data.reference_docname = null;
+			}
+
+			if (isSpecialCreateDocsMode) {
+				// These modes act on the current context document and should not
+				// inherit unrelated result-mutation settings from previous modes.
+				props.node.data.mutation_mode = null;
+				props.node.data.return_variable = null;
+				props.node.data.return_type = null;
+				props.node.data.resolved_output_schema = null;
+				props.node.data.output_mapping = null;
+			}
+		}
+
+		if (
+			fieldname === "reference_doctype" &&
+			forcedReferenceDoctype.value &&
+			value !== forcedReferenceDoctype.value
+		) {
+			props.node.data.reference_doctype = forcedReferenceDoctype.value;
+			store.mark_dirty();
+			return;
+		}
+
 		props.node.data[fieldname] = value;
 		store.mark_dirty();
 	}
 }
+
+watch(
+	() => forcedReferenceDoctype.value,
+	(value) => {
+		if (!props.node?.data || !value) return;
+		if (props.node.data.reference_doctype !== value) {
+			props.node.data.reference_doctype = value;
+			store.mark_dirty();
+		}
+	}
+);
 
 watch(
 	() => props.node?.data?.reference_doctype,
@@ -360,7 +426,24 @@ onMounted(() => {
 });
 
 defineExpose({
-	validate: () => ({ valid: true }),
+	validate: () => {
+		const errors = [];
+		if (props.node?.data?.action_type === "Create Docs") {
+			if (
+				props.node.data.operation === "Add Comment" &&
+				props.node.data.reference_doctype !== "Comment"
+			) {
+				errors.push(__("Add Comment mode requires Reference DocType = Comment"));
+			}
+			if (
+				props.node.data.operation === "Create ToDo" &&
+				props.node.data.reference_doctype !== "ToDo"
+			) {
+				errors.push(__("Create ToDo mode requires Reference DocType = ToDo"));
+			}
+		}
+		return { valid: errors.length === 0, errors };
+	},
 });
 </script>
 

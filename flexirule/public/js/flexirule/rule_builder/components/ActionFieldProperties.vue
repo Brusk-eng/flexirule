@@ -12,7 +12,7 @@
 <script setup>
 import { useStore } from "../store";
 import ControlFactory from "../controls/ControlFactory.vue";
-import { getActionTypeOptions } from "../../core/contracts";
+import { getActionTypeOptions, getContract, isTerminalAction } from "../../core/contracts";
 
 const props = defineProps({
 	nodeData: Object,
@@ -99,10 +99,90 @@ const doc_fields = computed(() => {
 		});
 });
 
+function get_visible_fieldnames(nodeData) {
+	const actionType = nodeData?.action_type;
+	if (!actionType || actionType === "Selector") {
+		return new Set();
+	}
+
+	const contract = getContract(actionType);
+	const fieldnames = new Set([
+		"action_type",
+		"is_enabled",
+		"is_async",
+		"action_label",
+		"description",
+	]);
+
+	(contract.required_fields || []).forEach((fieldname) => fieldnames.add(fieldname));
+
+	if (!isTerminalAction(actionType)) {
+		fieldnames.add("next_step_if_true");
+	}
+
+	switch (actionType) {
+		case "Process":
+			fieldnames.add("process_name");
+			fieldnames.add("operation");
+			fieldnames.add("configure_operation");
+			fieldnames.add("timeout");
+			fieldnames.add("on_error");
+			if (nodeData?.on_error === "Retry") {
+				fieldnames.add("retry_count");
+			}
+			if (nodeData?.operation?.includes("Doc")) {
+				fieldnames.add("reference_docname");
+			}
+			break;
+		case "Condition":
+			fieldnames.add("condition_expression");
+			fieldnames.add("set_conditions");
+			fieldnames.add("next_step_if_false");
+			break;
+		case "Sub-Rule":
+			fieldnames.add("rule");
+			fieldnames.add("skip_conditions");
+			fieldnames.add("skip_permissions");
+			break;
+		case "Set Value":
+			fieldnames.add("target_field");
+			fieldnames.add("value_template");
+			break;
+		case "Raise Error":
+			fieldnames.add("value_template");
+			break;
+		case "Notify":
+			fieldnames.add("operation");
+			fieldnames.add("value_template");
+			break;
+		case "Query Records":
+		case "Aggregate Records":
+		case "Create Docs":
+			fieldnames.add("operation");
+			fieldnames.add("input_source");
+			fieldnames.add("reference_doctype");
+			fieldnames.add("mutation_mode");
+			fieldnames.add("return_variable");
+			fieldnames.add("return_type");
+			fieldnames.add("skip_permissions");
+			if (
+				(actionType === "Query Records" &&
+					["Query Doc", "Query Report"].includes(nodeData?.operation)) ||
+				(actionType === "Create Docs" && nodeData?.operation === "Update Existing")
+			) {
+				fieldnames.add("reference_docname");
+			}
+			break;
+	}
+
+	return fieldnames;
+}
+
 // Filter visible fields based on depends_on evaluation
 const visible_fields = computed(() => {
+	const allowed_fields = get_visible_fieldnames(props.nodeData);
 	return doc_fields.value.filter((df) => {
-		return evaluate_depends_on(df.depends_on);
+		return allowed_fields.has(df.fieldname) && evaluate_depends_on(df.depends_on);
 	});
 });
 

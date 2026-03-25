@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { getContract } from "../core/contracts";
 
 export const useStore = defineStore("rule-builder-store", () => {
 	let rule_name = ref(null);
@@ -36,6 +37,19 @@ export const useStore = defineStore("rule-builder-store", () => {
 	const is_read_only = computed(() => {
 		return rule_doc.value?.is_active === 1;
 	});
+
+	const ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set([
+		"Query Records",
+		"Aggregate Records",
+		"Create Docs",
+		"Process",
+	]);
+	const ACTION_TYPES_WITH_RETURN_SCHEMA = new Set([
+		"Process",
+		"Query Records",
+		"Aggregate Records",
+		"Create Docs",
+	]);
 
 	async function fetch_metadata(doctype) {
 		if (!doctype || doc_meta.value[doctype]) return;
@@ -182,39 +196,36 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		const visual_data = flexirule.utils.safe_json_parse(rule_doc.value.visual_data, null);
 
-		if (visual_data && visual_data.length > 0) {
-			nodes.value = visual_data.filter((el) => el.position);
-			edges.value = visual_data.filter((el) => el.source);
-
-			// Recovery: Ensure start node exists
-			const hasStart = nodes.value.some(
-				(n) => n.id === "start" || n.id === "root" || n.type === "start"
-			);
-			if (!hasStart) {
-				console.warn(
-					"RuleBuilder: Start node missing in visual_data. Reconstructing from actions."
-				);
-				sync_actions_to_graph();
-			}
-		} else if (rule_doc.value.actions && rule_doc.value.actions.length > 0) {
+		if (rule_doc.value.actions && rule_doc.value.actions.length > 0) {
 			sync_actions_to_graph();
+
+			if (visual_data && visual_data.length > 0) {
+				merge_visual_layout(visual_data);
+			}
 		} else {
-			nodes.value = [
-				{
-					id: "start",
-					type: "start",
-					position: { x: 100, y: 100 },
-					label: "Start",
-					data: {
-						document_type: rule_doc.value.document_type,
-						trigger_event: rule_doc.value.trigger_event,
-						trigger_condition: rule_doc.value.trigger_condition,
-						is_enabled: 1,
+			if (visual_data && visual_data.length > 0) {
+				nodes.value = visual_data.filter((el) => el.position);
+				edges.value = visual_data.filter((el) => el.source);
+			} else {
+				nodes.value = [
+					{
+						id: "start",
+						type: "start",
+						position: { x: 100, y: 100 },
+						label: "Start",
+						data: {
+							document_type: rule_doc.value.document_type,
+							trigger_event: rule_doc.value.trigger_event,
+							trigger_condition: rule_doc.value.trigger_condition,
+							is_enabled: 1,
+						},
 					},
-				},
-			];
-			edges.value = [];
+				];
+				edges.value = [];
+			}
 		}
+
+		normalize_graph_nodes();
 
 		setup_breadcrumbs();
 		initial_state.value = JSON.stringify(getStateSnapshot());
@@ -500,6 +511,116 @@ export const useStore = defineStore("rule-builder-store", () => {
 		edges.value = actionEdges;
 	}
 
+	function merge_visual_layout(visual_data) {
+		const visualNodes = new Map(
+			(visual_data || []).filter((el) => el.position).map((node) => [node.id, node])
+		);
+		const visualEdges = new Map(
+			(visual_data || [])
+				.filter((el) => el.source)
+				.map((edge) => [
+					`${edge.source}:${edge.target}:${edge.sourceHandle || "default"}`,
+					edge,
+				])
+		);
+
+		nodes.value = nodes.value.map((node) => {
+			const visualNode = visualNodes.get(node.id);
+			if (!visualNode) return node;
+
+			const {
+				data: visualNodeData,
+				position,
+				type: _visualType,
+				label: _visualLabel,
+				id: _visualId,
+				...visualNodeMeta
+			} = visualNode;
+			return {
+				...node,
+				...visualNodeMeta,
+				position: position || node.position,
+				data: {
+					...(visualNodeData || {}),
+					...(node.data || {}),
+				},
+			};
+		});
+
+		edges.value = edges.value.map((edge) => {
+			const key = `${edge.source}:${edge.target}:${edge.sourceHandle || "default"}`;
+			const visualEdge = visualEdges.get(key);
+			if (!visualEdge) return edge;
+
+			const { data: visualEdgeData, ...visualEdgeMeta } = visualEdge;
+			return {
+				...edge,
+				...visualEdgeMeta,
+				data: {
+					...(visualEdgeData || {}),
+					...(edge.data || {}),
+				},
+			};
+		});
+	}
+
+	function normalize_action_data(actionType, data = {}) {
+		if (!actionType || !data) return data;
+
+		const normalized = { ...data };
+		const contract = getContract(actionType);
+		const allowedMutations = contract.allowed_mutations || [];
+
+		if (
+			normalized.mutation_mode &&
+			(!allowedMutations.length || !allowedMutations.includes(normalized.mutation_mode))
+		) {
+			normalized.mutation_mode = null;
+		}
+
+		if (!ACTION_TYPES_WITH_REFERENCE_CONTEXT.has(actionType)) {
+			normalized.input_source = null;
+			normalized.reference_doctype = null;
+			normalized.reference_docname = null;
+		}
+
+		if (!ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType)) {
+			normalized.return_type = null;
+			normalized.resolved_output_schema = null;
+		}
+
+		if (actionType !== "Process") {
+			normalized.process_name = null;
+		}
+
+		if (actionType !== "Sub-Rule") {
+			normalized.rule = null;
+		}
+
+		if (actionType !== "Condition") {
+			normalized.condition_expression = null;
+			normalized.condition_json = null;
+			normalized.next_step_if_false = null;
+		}
+
+		if (contract.terminal) {
+			normalized.next_step_if_true = null;
+			normalized.next_step_if_false = null;
+		}
+
+		return normalized;
+	}
+
+	function normalize_graph_nodes() {
+		nodes.value = nodes.value.map((node) => {
+			if (node.type === "start" || !node.data?.action_type) return node;
+			return {
+				...node,
+				data: normalize_action_data(node.data.action_type, node.data),
+			};
+		});
+	}
+
 	function getSubRuleName(configStr) {
 		try {
 			return JSON.parse(configStr).rule;
@@ -613,6 +734,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 	async function save_changes() {
 		frappe.dom.freeze(__("Saving..."));
 		try {
+			normalize_graph_nodes();
+
 			// 1. Validate mandatory fields
 			await frappe.model.with_doctype("Rule Action");
 			const action_meta = frappe.get_meta("Rule Action");
@@ -636,6 +759,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 				// Skip Start node validation against Rule Action (it uses Rule fields)
 				if (node.type === "start") return;
 
+				const label = node.data?.action_label || node.label || node.id;
+
 				// Prevent saving if node is not yet configured (Selector type)
 				if (node.type === "selector") {
 					errors.push(
@@ -645,7 +770,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 				}
 
 				const doc = node.data;
-				const label = node.data.action_label || node.label || node.id;
 
 				action_meta.fields.forEach((df) => {
 					// Check if field is applicable (depends_on)
