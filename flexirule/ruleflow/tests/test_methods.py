@@ -75,7 +75,7 @@ class TestNotificationMethods(unittest.TestCase):
 		self.doc = frappe.get_doc({"doctype": "ToDo", "description": "Test Notification"})
 		self.doc.insert(ignore_permissions=True)
 		self.context = {"doc": self.doc, "vars": {}}
-		self.handler = HandlerRegistry.get("Create Docs")
+		self.handler = HandlerRegistry.get("Document Action")
 		self.engine = frappe._dict()
 
 	def tearDown(self):
@@ -83,7 +83,7 @@ class TestNotificationMethods(unittest.TestCase):
 		frappe.db.rollback()
 
 	def test_add_comment(self):
-		"""Test comment creation through Create Docs."""
+		"""Test comment creation through Document Action."""
 		action = frappe._dict(
 			{
 				"operation": "Add Comment",
@@ -103,7 +103,7 @@ class TestNotificationMethods(unittest.TestCase):
 		self.assertEqual(comment.content, "Test comment from rule")
 
 	def test_create_todo(self):
-		"""Test linked ToDo creation through Create Docs."""
+		"""Test linked ToDo creation through Document Action."""
 		action = frappe._dict(
 			{
 				"operation": "Create ToDo",

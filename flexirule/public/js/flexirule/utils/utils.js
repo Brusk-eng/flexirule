@@ -403,14 +403,11 @@ flexirule.utils.to_title_case = function (str) {
 	});
 };
 
-/**
- * Generate a short, unique ID for actions.
- */
 flexirule.utils.generate_short_id = function () {
-	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
 	let result = "";
-	for (let i = 0; i < 4; i++) {
+	for (let i = 0; i < 6; i++) {
 		result += chars.charAt(Math.floor(Math.random() * chars.length));
 	}
-	return `ACT-${result}`;
+	return `act_${result}`;
 };

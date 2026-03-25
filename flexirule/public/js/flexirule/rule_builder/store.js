@@ -378,7 +378,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		}
 
 		rule_doc.value.actions.forEach((action, index) => {
-			const nodeId = action.action_id || `action-${index}`;
+			const nodeId = action.action_id || `act_${index}`;
 			const actionTypeRaw = (action.action_type || "Process").trim();
 			let type = actionTypeRaw.toLowerCase();
 
@@ -482,7 +482,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		// Edges
 		rule_doc.value.actions.forEach((action, index) => {
-			const nodeId = action.action_id || `action-${index}`;
+			const nodeId = action.action_id || `act_${index}`;
 			if (action.next_step_if_true) {
 				actionEdges.push({
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
