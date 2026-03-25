@@ -338,6 +338,100 @@
 					</div>
 				</div>
 			</template>
+			<template
+				v-else-if="['Sum', 'Average', 'Min', 'Max', 'Count', 'Group By'].includes(mode)"
+			>
+				<div class="sub-section section-subcard">
+					<h6>{{ __("Filters") }}</h6>
+					<FilterGroup
+						:doctype="reference_doctype"
+						:modelValue="config.filters"
+						:readOnly="readOnly"
+						:nodeId="node?.id"
+						@update:modelValue="(val) => update_config_key('filters', val)"
+					/>
+				</div>
+
+				<div class="sub-section section-subcard mt-3">
+					<template v-if="['Sum', 'Average', 'Min', 'Max'].includes(mode)">
+						<div class="field-picker-container">
+							<FieldPickerControl
+								:df="fieldField"
+								:fields="doctype_fields"
+								:documentType="reference_doctype"
+								:modelValue="config.field"
+								:read_only="readOnly"
+								:class="{
+									'border-warning':
+										config.field &&
+										!is_field_valid(config.field, doctype_fields),
+								}"
+								@update:modelValue="(val) => update_config_key('field', val)"
+							/>
+							<i
+								v-if="config.field && !is_field_valid(config.field, doctype_fields)"
+								class="fa fa-warning text-warning field-warning-icon"
+								:title="__('Field not found in DocType')"
+							></i>
+						</div>
+					</template>
+					<template v-else-if="mode === 'Group By'">
+						<div class="field-picker-container">
+							<FieldPickerControl
+								:df="aggGroupByField"
+								:fields="doctype_fields"
+								:documentType="reference_doctype"
+								:modelValue="config.group_by_field"
+								:read_only="readOnly"
+								:class="{
+									'border-warning':
+										config.group_by_field &&
+										!is_field_valid(config.group_by_field, doctype_fields),
+								}"
+								@update:modelValue="
+									(val) => update_config_key('group_by_field', val)
+								"
+							/>
+							<i
+								v-if="
+									config.group_by_field &&
+									!is_field_valid(config.group_by_field, doctype_fields)
+								"
+								class="fa fa-warning text-warning field-warning-icon"
+								:title="__('Field not found in DocType')"
+							></i>
+						</div>
+						<ControlFactory
+							:df="with_read_only(aggFunctionField)"
+							:modelValue="config.agg_function"
+							@update:modelValue="(val) => update_config_key('agg_function', val)"
+						/>
+						<div class="field-picker-container mt-2">
+							<FieldPickerControl
+								:df="aggFieldField"
+								:fields="doctype_fields"
+								:documentType="reference_doctype"
+								:modelValue="config.agg_field"
+								:read_only="readOnly"
+								:class="{
+									'border-warning':
+										config.agg_field &&
+										!is_field_valid(config.agg_field, doctype_fields),
+								}"
+								@update:modelValue="(val) => update_config_key('agg_field', val)"
+							/>
+							<i
+								v-if="
+									config.agg_field &&
+									!is_field_valid(config.agg_field, doctype_fields)
+								"
+								class="fa fa-warning text-warning field-warning-icon"
+								:title="__('Field not found in DocType')"
+							></i>
+						</div>
+					</template>
+				</div>
+			</template>
 		</div>
 
 		<div class="config-section section-card test-section">
@@ -659,8 +753,6 @@ async function update_report_columns() {
 	}
 }
 
-const operators = ["=", "!=", ">", ">=", "<", "<=", "in", "not in"];
-
 const limitField = {
 	fieldname: "limit",
 	fieldtype: "Int",
@@ -680,6 +772,31 @@ const groupByField = {
 	fieldtype: "Data",
 	label: __("Group By"),
 	description: __("Optional group by field."),
+};
+
+const fieldField = {
+	fieldname: "field",
+	fieldtype: "Data",
+	label: __("Field to Aggregate"),
+};
+
+const aggGroupByField = {
+	fieldname: "group_by_field",
+	fieldtype: "Data",
+	label: __("Group By Field"),
+};
+
+const aggFunctionField = {
+	fieldname: "agg_function",
+	fieldtype: "Select",
+	label: __("Aggregate Function"),
+	options: "count\nsum\navg\nmin\nmax",
+};
+
+const aggFieldField = {
+	fieldname: "agg_field",
+	fieldtype: "Data",
+	label: __("Aggregate Field"),
 };
 
 const docnameExprField = {

@@ -59,7 +59,7 @@
 								:key="op"
 								:value="op"
 							>
-								{{ op }}
+								{{ operatorLabelMap[op] || op }}
 							</option>
 						</select>
 					</div>
@@ -171,7 +171,7 @@
 							@change="(e) => toggleValueType(idx, e.target.value)"
 						>
 							<option v-for="vt in valueTypes" :key="vt" :value="vt">
-								{{ vt }}
+								{{ __(vt) }}
 							</option>
 						</select>
 					</div>
@@ -254,21 +254,25 @@ const ALL_CONDITIONS = [
 	["<=", __("Less Than Or Equal To")],
 	["Between", __("Between")],
 	["Timespan", __("Timespan")],
+	["starts with", __("Starts With")],
+	["ends with", __("Ends With")],
 ];
 
+const operatorLabelMap = Object.fromEntries(ALL_CONDITIONS.map(([op, label]) => [op, label]));
+
 const INVALID_CONDITION_MAP = {
-	Date: ["like", "not like"],
-	Datetime: ["like", "not like", "in", "not in", "=", "!="],
+	Date: ["like", "not like", "starts with", "ends with"],
+	Datetime: ["like", "not like", "in", "not in", "=", "!=", "starts with", "ends with"],
 	Data: ["Between", "Timespan"],
-	Time: ["Between", "Timespan"],
-	Select: ["like", "not like", "Between", "Timespan"],
-	Link: ["Between", "Timespan", ">", "<", ">=", "<="],
-	Currency: ["Between", "Timespan"],
-	Color: ["Between", "Timespan"],
+	Time: ["Between", "Timespan", "starts with", "ends with"],
+	Select: ["like", "not like", "Between", "Timespan", "starts with", "ends with"],
+	Link: ["Between", "Timespan", ">", "<", ">=", "<=", "starts with", "ends with"],
+	Currency: ["Between", "Timespan", "starts with", "ends with"],
+	Color: ["Between", "Timespan", "starts with", "ends with"],
 	Check: ALL_CONDITIONS.map((c) => c[0]).filter((c) => c !== "="),
-	Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
-	Float: ["like", "not like", "Between", "in", "not in", "Timespan"],
-	Int: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Rating: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
+	Float: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
+	Int: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
 };
 
 // Initialize local state from modelValue
@@ -306,6 +310,19 @@ const syncFromProps = () => {
 		}
 		return row;
 	});
+};
+
+const emitUpdate = () => {
+	const serialized = filters.value
+		.filter((r) => r.field)
+		.map((r) => ({
+			doctype: r.doctype || props.doctype,
+			field: r.field,
+			operator: r.operator || "=",
+			value: r.value,
+			value_type: r.value_type || "Value",
+		}));
+	emit("update:modelValue", serialized);
 };
 
 const guessValueType = (val) => {

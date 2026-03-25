@@ -104,10 +104,9 @@ const isConfigurable = computed(() => {
 		"Notify",
 		"Loop",
 		"Wait",
-		"Sub-Rule",
+		"Set Value",
 		"Query Records",
-		"Aggregate Records",
-		"Create Docs",
+		"Document Action",
 	].includes(type);
 });
 
@@ -163,8 +162,6 @@ function map_action_type(actionType) {
 			return "loop";
 		case "Wait":
 			return "wait";
-		case "Sub-Rule":
-			return "sub-rule";
 		case "Raise Error":
 			return "raise-error";
 		case "Set Value":
@@ -173,11 +170,9 @@ function map_action_type(actionType) {
 			return "notify";
 		case "Query Records":
 			return "query";
-		case "Aggregate Records":
-			return "aggregate";
-		case "Create Docs":
-			return "createdoc";
-		default:
+		case "Document Action":
+			return "documentaction";
+		case "Process":
 			return "process";
 	}
 }

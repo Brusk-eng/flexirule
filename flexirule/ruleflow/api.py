@@ -532,6 +532,32 @@ def get_process_operations(process_name: str):
 
 
 @frappe.whitelist()
+def get_all_process_operations():
+	"""Return all enabled Process operations across all apps for fuzzy search."""
+	_require_api_access()
+	processes = frappe.get_all("Process", filters={"enabled": 1}, fields=["name", "module"])
+	results = []
+	for p in processes:
+		ops = frappe.get_all(
+			"Process Operation",
+			filters={"parent": p.name, "parenttype": "Process", "enabled": 1},
+			fields=["func_name", "label", "description"],
+			order_by="idx asc",
+		)
+		for op in ops:
+			results.append(
+				{
+					"process": p.name,
+					"module": p.module,
+					"operation": op.func_name,
+					"label": op.label or op.func_name,
+					"description": op.description or "",
+				}
+			)
+	return results
+
+
+@frappe.whitelist()
 def clone_rule(rule_name: str, new_name: str | None = None):
 	"""
 	Clone a rule to create a new version or copy.

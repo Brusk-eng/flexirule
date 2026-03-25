@@ -236,7 +236,6 @@ class HandlerRegistry:
 
 		# Import all built-in handlers to trigger registration
 		from flexirule.ruleflow.core.action_handlers import (
-			aggregate_records,
 			condition,
 			create_doc,
 			loop,

@@ -191,8 +191,8 @@ const showRuleField = computed(() => {
 const showOperation = computed(() => {
 	if (!contract.value) return false;
 	return (
-		contract.value.operation_options ||
-		["Notify", "Process", "Query Records", "Aggregate Records", "Create Docs"].includes(
+		contract.value?.operation_options ||
+		["Notify", "Process", "Query Records", "Create Docs", "Document Action"].includes(
 			props.node.data?.action_type
 		)
 	);
@@ -205,8 +205,8 @@ const showReferenceDocname = computed(() => {
 	if (type === "Query Records") {
 		return ["Query Doc", "Query Report"].includes(op);
 	}
-	if (type === "Create Docs") {
-		return op === "Update Existing";
+	if (type === "Document Action" || type === "Create Docs") {
+		return ["Update Existing", "Delete Record"].includes(op);
 	}
 	if (type === "Process" && op?.includes("Doc")) return true;
 
@@ -215,13 +215,13 @@ const showReferenceDocname = computed(() => {
 
 const showInputSource = computed(() => {
 	if (!contract.value) return false;
-	return ["Query Records", "Aggregate Records", "Create Docs"].includes(
+	return ["Query Records", "Create Docs", "Document Action"].includes(
 		props.node.data?.action_type
 	);
 });
 
 const forcedReferenceDoctype = computed(() => {
-	if (props.node.data?.action_type !== "Create Docs") return null;
+	if (!["Document Action", "Create Docs"].includes(props.node.data?.action_type)) return null;
 	if (props.node.data?.operation === "Add Comment") return "Comment";
 	if (props.node.data?.operation === "Create ToDo") return "ToDo";
 	return null;
@@ -230,7 +230,10 @@ const forcedReferenceDoctype = computed(() => {
 // -- Field Definitions --
 const referenceDoctypeField = computed(() => {
 	let description = __("Target DocType for this action.");
-	if (props.node.data?.action_type === "Create Docs" && forcedReferenceDoctype.value) {
+	if (
+		["Document Action", "Create Docs"].includes(props.node.data?.action_type) &&
+		forcedReferenceDoctype.value
+	) {
 		description = __("{0} mode always targets the {1} DocType.")
 			.replace("{0}", props.node.data.operation)
 			.replace("{1}", forcedReferenceDoctype.value);
@@ -292,14 +295,8 @@ const dynamicOperationField = computed(() => {
 				const ops = await store.get_process_operations(props.node.data.process_name);
 				return ops.map((o) => ({ label: o.label || o.func_name, value: o.func_name }));
 			}
-			// For now, assume dynamic or fixed
-			if (props.node.data?.action_type === "Query Records") {
-				return [
-					{ label: __("Query List"), value: "Query List" },
-					{ label: __("Query Doc"), value: "Query Doc" },
-					{ label: __("Exist Record"), value: "Exist Record" },
-					{ label: __("Query Report"), value: "Query Report" },
-				];
+			if (options) {
+				return options.map((opt) => ({ label: __(opt), value: opt }));
 			}
 			return [];
 		},
@@ -356,7 +353,10 @@ async function loadDoctypeFields() {
 
 function updateField(fieldname, value) {
 	if (props.node?.data) {
-		if (fieldname === "operation" && props.node.data?.action_type === "Create Docs") {
+		if (
+			fieldname === "operation" &&
+			["Document Action", "Create Docs"].includes(props.node.data?.action_type)
+		) {
 			const isSpecialCreateDocsMode = ["Add Comment", "Create ToDo"].includes(value);
 			if (value === "Add Comment") {
 				props.node.data.reference_doctype = "Comment";
@@ -428,7 +428,7 @@ onMounted(() => {
 defineExpose({
 	validate: () => {
 		const errors = [];
-		if (props.node?.data?.action_type === "Create Docs") {
+		if (["Document Action", "Create Docs"].includes(props.node?.data?.action_type)) {
 			if (
 				props.node.data.operation === "Add Comment" &&
 				props.node.data.reference_doctype !== "Comment"

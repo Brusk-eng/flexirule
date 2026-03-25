@@ -18,10 +18,10 @@ from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegist
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
-class CreateDocHandler(ActionHandler):
-	"""Handler for creating or updating documents."""
+class DocumentActionHandler(ActionHandler):
+	"""Handler for creating, updating, or deleting documents."""
 
-	action_type = "Create Docs"
+	action_type = "Document Action"
 
 	def execute(self, action, context, engine):
 		"""Execute document creation/update based on mode."""
@@ -48,12 +48,14 @@ class CreateDocHandler(ActionHandler):
 			)
 		elif mode == "Update Existing":
 			result = self._update_existing(reference_doctype, config, context, action, ignore_permissions)
+		elif mode == "Delete Record":
+			result = self._delete_record(reference_doctype, config, context, action, ignore_permissions)
 		elif mode == "Create ToDo":
 			result = self._create_todo(reference_doctype, config, context, ignore_permissions)
 		elif mode == "Add Comment":
 			result = self._add_comment(reference_doctype, config, context, ignore_permissions)
 		else:
-			frappe.throw(_("Unknown Create Docs mode: {0}").format(mode))
+			frappe.throw(_("Unknown Document Action mode: {0}").format(mode))
 
 		next_action = action.next_step_if_true
 		return result, next_action
@@ -67,14 +69,14 @@ class CreateDocHandler(ActionHandler):
 			errors.append(_("Reference DocType is required"))
 
 		mode = action.operation
-		if mode == "Update Existing" and not action.reference_docname:
+		if mode in ("Update Existing", "Delete Record") and not action.reference_docname:
 			config = self._parse_config(action.config)
 			if not config.get("docname") and not config.get("docname_expression"):
 				errors.append(
 					_(
-						"Update Existing mode requires either a Reference Document "
+						"{0} mode requires either a Reference Document "
 						"or a docname/docname_expression in config"
-					)
+					).format(mode)
 				)
 		elif mode == "Create ToDo":
 			if action.reference_doctype and action.reference_doctype != "ToDo":
@@ -223,7 +225,15 @@ class CreateDocHandler(ActionHandler):
 		if not doc:
 			frappe.throw(_("Create ToDo mode requires a context document"))
 
-		assigned_to = self._render_scalar(config.get("assigned_to"), context)
+		raw_assigned = config.get("assigned_to")
+		# Support dynamic resolution: {variable} syntax first, then Jinja {{ }} templates
+		assigned_to = self._resolve_value_expression(raw_assigned, context) if raw_assigned else None
+		if (
+			assigned_to
+			and isinstance(assigned_to, str)
+			and ("{{" in str(raw_assigned) or "{%" in str(raw_assigned))
+		):
+			assigned_to = self._render_scalar(raw_assigned, context)
 		description = self._render_scalar(config.get("description"), context)
 		priority = self._render_scalar(config.get("priority") or "Medium", context)
 
@@ -254,8 +264,8 @@ class CreateDocHandler(ActionHandler):
 		if not doc:
 			frappe.throw(_("Add Comment mode requires a context document"))
 
-		comment_text = self._render_scalar(config.get("comment_text"), context)
-		comment_type = self._render_scalar(config.get("comment_type") or "Comment", context)
+		comment_text = self._resolve_value_expression(config.get("comment_text", ""), context)
+		comment_type = self._resolve_value_expression(config.get("comment_type") or "Comment", context)
 
 		if not comment_text:
 			frappe.throw(_("Add Comment mode requires comment_text in config"))
@@ -272,12 +282,36 @@ class CreateDocHandler(ActionHandler):
 		comment.insert(ignore_permissions=ignore_permissions)
 		return comment.as_dict()
 
+	def _delete_record(self, reference_doctype, config, context, action, ignore_permissions):
+		"""Deletes an existing document."""
+		docname = action.reference_docname
 
-def _async_create_doc(doc_data, ignore_permissions=False):
-	"""Background job for async document creation."""
-	new_doc = frappe.get_doc(doc_data)
-	new_doc.insert(ignore_permissions=ignore_permissions)
+		if not docname:
+			# Fallback to config explicitly mapping docname
+			if config.get("docname_expression"):
+				docname = self._safe_eval(config.get("docname_expression"), context)
+			else:
+				docname = self._resolve_value_expression(config.get("docname"), context)
+
+		if not docname:
+			frappe.throw(_("Record name is required for Delete Record mode"))
+
+		if not frappe.db.exists(reference_doctype, docname):
+			frappe.throw(
+				_("DocType {0} with name {1} does not exist").format(reference_doctype, docname),
+				frappe.DoesNotExistError,
+			)
+
+		if not ignore_permissions and not frappe.has_permission(reference_doctype, "delete", docname):
+			frappe.throw(
+				_("You don't have delete permission for {0}").format(reference_doctype),
+				frappe.PermissionError,
+			)
+
+		frappe.delete_doc(reference_doctype, docname, ignore_permissions=ignore_permissions)
+
+		return {"deleted": True, "doctype": reference_doctype, "name": docname}
 
 
 # Register handler
-HandlerRegistry.register(CreateDocHandler())
+HandlerRegistry.register(DocumentActionHandler())

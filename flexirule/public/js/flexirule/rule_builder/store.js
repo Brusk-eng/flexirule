@@ -40,15 +40,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	const ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set([
 		"Query Records",
-		"Aggregate Records",
-		"Create Docs",
+		"Document Action",
 		"Process",
 	]);
 	const ACTION_TYPES_WITH_RETURN_SCHEMA = new Set([
 		"Process",
 		"Query Records",
-		"Aggregate Records",
-		"Create Docs",
+		"Document Action",
 	]);
 
 	async function fetch_metadata(doctype) {
@@ -1076,7 +1074,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		if (type === "condition") {
 			baseData.action_type = "Condition";
 			baseData.condition_expression = "";
-			baseData.condition_json = "{}";
+			baseData.condition_json = "[]";
 		} else if (type === "wait") {
 			baseData.action_type = "Wait";
 			baseData.config = { wait_type: "Duration", value: 1, unit: "Minutes" };

@@ -61,7 +61,7 @@
 					<template #node-aggregate="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
 					</template>
-					<template #node-createdoc="nodeProps">
+					<template #node-documentaction="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
 					</template>
 
@@ -433,8 +433,8 @@ function addNode(type, position) {
 
 	// Fix type mapping for VueFlow
 	if (newNode.data.action_type === "Query Records") newNode.type = "query";
-	if (newNode.data.action_type === "Aggregate Records") newNode.type = "aggregate";
-	if (newNode.data.action_type === "Create Docs") newNode.type = "createdoc";
+	if (newNode.data.action_type === "Document Action") newNode.type = "documentaction";
+	if (newNode.data.action_type === "Create Docs") newNode.type = "documentaction";
 	if (newNode.data.action_type === "Sub-Rule") newNode.type = "sub-rule";
 	if (newNode.data.action_type === "Set Value") newNode.type = "set-value";
 	if (newNode.data.action_type === "Notify") newNode.type = "notify";
