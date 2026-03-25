@@ -33,12 +33,11 @@ class TestBoltonAPI(unittest.TestCase):
 					"is_active": 1,
 					"actions": [
 						{
-							"action_type": "Process",
-							"action_label": "Test Action",
+							"action_type": "Set Value",
+							"action_label": "Set Priority",
 							"action_id": "action_1",
-							"process_name": "Enrichment",
-							"operation": "set_value",
-							"config": json.dumps({"field": "priority", "value": "Medium"}),
+							"target_field": "priority",
+							"value_template": "Medium",
 							"is_entry_action": 1,
 							"next_step_if_true": "action_stop",
 						},

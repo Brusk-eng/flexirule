@@ -100,7 +100,7 @@ ACTION_TYPE_CONTRACT = {
 		"terminal": False,
 		"css": {"icon": "fa fa-bell", "color": "#0ea5e9"},
 		"operation_label": "Notification Type",
-		"operation_options": ["Toast", "System", "Email"],
+		"operation_options": ["Toast", "System", "Email", "System Notification", "Provider"],
 	},
 	"Query Records": {
 		"required_fields": ["reference_doctype", "operation"],
@@ -135,6 +135,8 @@ ACTION_TYPE_CONTRACT = {
 		"has_next_false": False,
 		"terminal": False,
 		"css": {"icon": "fa fa-plus-circle", "color": "#059669"},
+		"operation_label": "Create Mode",
+		"operation_options": ["Create New", "Update Existing", "Create ToDo", "Add Comment"],
 		"allowed_mutations": [
 			"Set Doc Field",
 			"Set Context Variable",

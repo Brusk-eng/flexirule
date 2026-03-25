@@ -158,7 +158,7 @@
    "fieldtype": "Autocomplete",
    "in_list_view": 1,
    "label": "Operation / Mode",
-   "mandatory_depends_on": "eval:(doc.action_type=='Process' && doc.process_name) || ['Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)"
+   "mandatory_depends_on": "eval:(doc.action_type=='Process' && doc.process_name) || ['Notify', 'Query Records', 'Aggregate Records', 'Create Docs'].includes(doc.action_type)"
   },
   {
    "description": "Configuration for the action (validated against schema for Process types)",

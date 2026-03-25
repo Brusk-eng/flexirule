@@ -30,17 +30,10 @@ class TestExecutionAPI(FrappeTestCase):
 				"actions": [
 					{
 						"action_id": "set_desc",
-						"action_type": "Process",
+						"action_type": "Set Value",
 						"action_label": "Set Description",
-						"process_name": "Enrichment",
-						"operation": "set_value",
-						"config": json.dumps(
-							{
-								"field": "description",
-								"value": "Set by API",
-								"overwrite": True,
-							}
-						),
+						"target_field": "description",
+						"value_template": "Set by API",
 						"is_enabled": 1,
 					}
 				],
@@ -85,17 +78,10 @@ class TestExecutionAPI(FrappeTestCase):
 				"actions": [
 					{
 						"action_id": "set_desc",
-						"action_type": "Process",
+						"action_type": "Set Value",
 						"action_label": "Set Description",
-						"process_name": "Enrichment",
-						"operation": "set_value",
-						"config": json.dumps(
-							{
-								"field": "description",
-								"value": "Should not persist",
-								"overwrite": True,
-							}
-						),
+						"target_field": "description",
+						"value_template": "Should not persist",
 						"is_enabled": 1,
 					}
 				],
@@ -103,7 +89,7 @@ class TestExecutionAPI(FrappeTestCase):
 		).insert()
 
 		# Execute with dry run
-		# We'll use a process that changes something in DB, e.g. set_value on doc and we expect it to NOT be in DB
+		# We'll use a native action that changes the document and verify it does not persist in DB
 		context = {"doc": todo}
 		RuleCoordinator.execute_rule(rule.name, context, dry_run=True)
 
@@ -133,17 +119,10 @@ class TestExecutionAPI(FrappeTestCase):
 				"actions": [
 					{
 						"action_id": "set_desc",
-						"action_type": "Process",
+						"action_type": "Set Value",
 						"action_label": "Set Description",
-						"process_name": "Enrichment",
-						"operation": "set_value",
-						"config": json.dumps(
-							{
-								"field": "description",
-								"value": "API Test",
-								"overwrite": True,
-							}
-						),
+						"target_field": "description",
+						"value_template": "API Test",
 						"is_enabled": 1,
 					}
 				],

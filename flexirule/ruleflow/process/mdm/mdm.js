@@ -21,36 +21,6 @@ flexirule.processes["MDM"] = {
 
 	operations: [
 		{
-			func_name: "create_review_task",
-			label: __("Create Review Task"),
-			description: __("Manually flag a record for steward review."),
-			icon: "task",
-			get_config_fields: (ctx) => [
-				{
-					fieldname: "task_type",
-					fieldtype: "Select",
-					label: __("Task Type"),
-					options: "Data Quality\nDuplicate Review\nMerge Request",
-					default: "Data Quality",
-					reqd: 1,
-				},
-				{
-					fieldname: "priority",
-					fieldtype: "Select",
-					label: __("Priority"),
-					options: "Low\nMedium\nHigh\nUrgent",
-					default: "Medium",
-				},
-				{
-					fieldname: "description",
-					fieldtype: "Small Text",
-					label: __("Description"),
-					description: __("Supports Jinja templates."),
-					reqd: 1,
-				},
-			],
-		},
-		{
 			func_name: "find_duplicates_and_task",
 			label: __("Find Duplicates & Task"),
 			description: __("Auto-detect duplicates and create review tasks."),

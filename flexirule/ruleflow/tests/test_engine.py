@@ -67,8 +67,8 @@ class TestRuleEngine(FrappeTestCase):
 						"action_label": "Validation Process",
 						"is_enabled": 1,
 						"process_name": "Validation",
-						"operation": "required_fields",
-						"config": '{"fields": ["description"]}',
+						"operation": "conditional_required",
+						"config": '{"condition_field": "status", "condition_value": "Open", "required_fields": ["description"]}',
 						"on_error": "Stop",
 					}
 				],
@@ -77,8 +77,8 @@ class TestRuleEngine(FrappeTestCase):
 
 		engine = RuleEngine(rule_doc)
 
-		# 1. Test success (description present)
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
+		# 1. Test success
+		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test", "status": "Open"})
 		engine.execute(doc)
 
 		# Verify execution trace
@@ -86,8 +86,8 @@ class TestRuleEngine(FrappeTestCase):
 		self.assertTrue(len(trace) > 0)
 		self.assertEqual(trace[0]["action"], "Validation Process")
 
-		# 2. Test failure (description missing)
-		doc_fail = frappe.get_doc({"doctype": "ToDo", "description": ""})
+		# 2. Test failure
+		doc_fail = frappe.get_doc({"doctype": "ToDo", "description": "", "status": "Open"})
 		with self.assertRaises(frappe.ValidationError):
 			engine.execute(doc_fail)
 
@@ -96,35 +96,27 @@ class TestValidationMethods(FrappeTestCase):
 	"""Test validation process methods using the Engine logic"""
 
 	def test_validate_required_fields_pass(self):
-		"""Test required fields validation passes"""
+		"""Test numeric range validation passes"""
 		process = frappe.get_doc("Process", "Validation")
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 		context = {"doc": doc, "vars": {}}
-		result = process.execute(context, func="required_fields", config={"fields": ["description"]})
+		result = process.execute(
+			context, func="value_in_range", config={"field": "docstatus", "min_value": 0, "max_value": 0}
+		)
 		self.assertTrue(result)
 
 	def test_validate_required_fields_fail(self):
-		"""Test required fields validation fails"""
+		"""Test numeric range validation fails"""
 		process = frappe.get_doc("Process", "Validation")
 		doc = frappe.get_doc({"doctype": "ToDo", "description": ""})
 		context = {"doc": doc, "vars": {}}
 
 		with self.assertRaises(frappe.ValidationError):
-			process.execute(context, func="required_fields", config={"fields": ["description"]})
+			process.execute(context, func="value_in_range", config={"field": "description", "min_value": 1})
 
 
 class TestEnrichmentMethods(FrappeTestCase):
 	"""Test enrichment process methods using the Engine logic"""
-
-	def test_set_value(self):
-		"""Test field value setting"""
-		process = frappe.get_doc("Process", "Enrichment")
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
-		context = {"doc": doc, "vars": {}}
-		result = process.execute(context, func="set_value", config={"field": "priority", "value": "Medium"})
-
-		self.assertEqual(doc.priority, "Medium")
-		self.assertEqual(result, "Medium")
 
 	def test_calculate_value(self):
 		"""Test formula calculation"""

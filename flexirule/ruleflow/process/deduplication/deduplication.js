@@ -1,148 +1,68 @@
 // Copyright (c) 2025, FlexiRule and contributors
 frappe.provide("flexirule.processes");
 
-/**
- * Deduplication Process Adapter
- * Standardizes configuration for deduplication operations.
- * Directly compatible with the ConfigurableAction runtime.
- */
 flexirule.processes["Deduplication"] = {
 	meta: {
-		version: "1.0",
+		version: "2.0",
 		title: __("Deduplication"),
 	},
 
-	setup(ctx) {
-		// Global setup for the entire adapter
-	},
-
-	/**
-	 * Returns the schema for a specific operation.
-	 * If omitted, the runtime falls back to operation.get_config_fields().
-	 */
 	get_schema(operation_name, ctx) {
 		const operation = this.get_operation(operation_name);
 		if (!operation) return [];
-
 		return typeof operation.get_config_fields === "function"
 			? operation.get_config_fields(ctx)
 			: [];
 	},
 
 	get_output_schema(operation_name, config, context) {
-		const operation = this.get_operation(operation_name);
+		const op_name =
+			typeof operation_name === "string"
+				? operation_name
+				: context?.operation_name || context?.operation || config?.operation;
+		const operation = this.get_operation(op_name);
 		if (operation && typeof operation.get_output_schema === "function") {
-			return operation.get_output_schema(config, context);
+			return operation.get_output_schema(
+				typeof operation_name === "string" ? config : operation_name,
+				typeof operation_name === "string" ? context : config
+			);
 		}
 		return [];
 	},
 
 	operations: [
 		{
-			func_name: "find_similar_records",
-			label: __("Find Similar Records"),
-			description: __("Find similar records using configurable algorithms"),
+			func_name: "find_matching_records",
+			label: __("Find Matching Records"),
+			description: __(
+				"Fetch candidate records with blocking filters, score them against the current document, and return structured match details."
+			),
 			category: "Matching",
 			icon: "search",
-			color: "#f59e0b",
-			setup: (cfg, ctx) => {
-				// Initialize defaults if missing
-				if (cfg.overall_threshold === undefined) {
-					ctx.update_field("overall_threshold", 0.8);
-				}
-			},
-			validate: (cfg, ctx) => {
-				if (cfg.overall_threshold < 0 || cfg.overall_threshold > 1) {
-					return __("Overall Threshold must be between 0.0 and 1.0");
-				}
-				if (!cfg.fields_config || cfg.fields_config.length === 0) {
-					return __("At least one Field Comparison Rule is required.");
+			color: "#f59e0a",
+			validate: (cfg) => {
+				if ((!cfg.fields_config || cfg.fields_config.length === 0) && !cfg.fields) {
+					return __("Add comparison rules or exact-match fields.");
 				}
 				return null;
 			},
 			get_config_fields: (ctx) => [
 				{
 					fieldtype: "Section Break",
-					label: __("Configuration"),
+					label: __("Candidate Selection"),
 				},
 				{
-					fieldname: "overall_threshold",
-					fieldtype: "Float",
-					label: __("Overall Threshold"),
-					default: 0.8,
-					reqd: 1,
-					description: __(
-						"Minimum match score required to consider a record similar (0.0 - 1.0)"
-					),
-					columns: 1,
+					fieldname: "candidate_doctype",
+					fieldtype: "Link",
+					options: "DocType",
+					label: __("Candidate DocType"),
+					description: __("Defaults to the current document DocType if left blank."),
 				},
 				{
-					fieldname: "minimum_fields_matched",
+					fieldname: "candidate_limit",
 					fieldtype: "Int",
-					label: __("Min Fields to Match"),
-					default: 1,
-					description: __(
-						"Minimum number of fields that must meet their individual thresholds"
-					),
-					columns: 1,
-				},
-				{
-					fieldname: "stop_after_first_match",
-					fieldtype: "Check",
-					label: __("Stop After First Match"),
-					default: 0,
-					description: __("Stop searching once a match is found"),
-				},
-				{
-					fieldtype: "Section Break",
-					label: __("Rules"),
-				},
-				{
-					fieldname: "help_html",
-					fieldtype: "HTML",
-					options: `<div class="text-muted small">
-                        Define how each field should be compared.
-                        <b>Fuzzy</b> handles typos. <b>Exact</b> requires precise match.
-                        <b>Numeric/Date</b> allow ranges.
-                    </div>`,
-				},
-				{
-					fieldname: "fields_config",
-					fieldtype: "Table",
-					label: __("Field Comparison Rules"),
-					reqd: 1,
-					fields: get_dedupe_table_fields(),
-				},
-			],
-			get_output_schema: (config, ctx) => {
-				return [
-					{
-						label: __("Similar Records"),
-						value: "similar_records",
-						type: "JSON", // Returns an array of similar records
-					},
-				];
-			},
-		},
-		{
-			func_name: "find_duplicates_by_fields",
-			label: __("Find Exact Duplicates"),
-			category: "Matching",
-			icon: "duplicate",
-			color: "#ef4444",
-			validate: (cfg, ctx) => {
-				if (!cfg.fields || cfg.fields.length === 0) {
-					return __("Please select at least one field to match.");
-				}
-			},
-			get_config_fields: (ctx) => [
-				{
-					fieldname: "fields",
-					fieldtype: "MultiDocField",
-					label: __("Fields to Match"),
-					options: "vars.document_type",
-					reqd: 1,
-					description: __("Select fields that must match exactly"),
+					label: __("Candidate Limit"),
+					default: 1000,
 				},
 				{
 					fieldname: "ignore_cancelled",
@@ -150,55 +70,34 @@ flexirule.processes["Deduplication"] = {
 					label: __("Ignore Cancelled Documents"),
 					default: 1,
 				},
-			],
-		},
-		{
-			func_name: "check_duplicate_and_prevent_save",
-			label: __("Block If Duplicate Exists"),
-			category: "Validation",
-			icon: "block",
-			color: "#dc2626",
-			validate: (cfg, ctx) => {
-				if (!cfg.fields || cfg.fields.length === 0) {
-					return __("Please define unique fields.");
-				}
-			},
-			get_config_fields: (ctx) => [
 				{
-					fieldname: "fields",
-					fieldtype: "MultiDocField",
-					label: __("Unique Fields"),
-					options: "vars.document_type",
-					reqd: 1,
-					description: __(
-						"If a document exists with these exact values, save will be blocked."
-					),
+					fieldname: "exclude_current_document",
+					fieldtype: "Check",
+					label: __("Exclude Current Document"),
+					default: 1,
 				},
-			],
-		},
-		{
-			func_name: "check_similar_and_prevent_save",
-			label: __("Block If Similar Exists"),
-			category: "Validation",
-			icon: "block",
-			color: "#b91c1c",
-			setup: (cfg, ctx) => {
-				if (cfg.overall_threshold === undefined) {
-					ctx.update_field("overall_threshold", 0.8);
-				}
-			},
-			validate: (cfg, ctx) => {
-				if (!cfg.fields_config || cfg.fields_config.length === 0) {
-					return __("Please add comparison rules.");
-				}
-			},
-			get_config_fields: (ctx) => [
+				{
+					fieldname: "stop_after_first_match",
+					fieldtype: "Check",
+					label: __("Stop After First Match"),
+					default: 0,
+				},
+				{
+					fieldtype: "Section Break",
+					label: __("Scoring Rules"),
+				},
 				{
 					fieldname: "overall_threshold",
 					fieldtype: "Float",
 					label: __("Overall Threshold"),
 					default: 0.8,
 					reqd: 1,
+				},
+				{
+					fieldname: "minimum_fields_matched",
+					fieldtype: "Int",
+					label: __("Minimum Fields Matched"),
+					default: 1,
 				},
 				{
 					fieldname: "fields_config",
@@ -208,30 +107,29 @@ flexirule.processes["Deduplication"] = {
 					fields: get_dedupe_table_fields(),
 				},
 			],
-		},
-		{
-			func_name: "mark_as_duplicate",
-			label: __("Mark as Duplicate"),
-			category: "Actions",
-			icon: "link",
-			color: "#8b5cf6",
-			get_config_fields: (ctx) => [
-				{
-					fieldname: "master_document",
-					fieldtype: "Data",
-					label: __("Master Document ID"),
-					reqd: 1,
-					description: __("Field containing the Master Document Name or ID"),
-				},
+			get_output_schema: () => [
+				{ label: __("Has Match"), value: "has_match", type: "Check" },
+				{ label: __("Match Count"), value: "match_count", type: "Int" },
+				{ label: __("Best Match"), value: "best_match", type: "JSON" },
+				{ label: __("Matches"), value: "matches", type: "JSON" },
+				{ label: __("Criteria"), value: "criteria", type: "JSON" },
 			],
 		},
 		{
 			func_name: "find_duplicates_in_child_table",
-			label: __("Find Duplicates in Child Table"),
+			label: __("Find Child Table Matches"),
+			description: __(
+				"Find parent documents whose child-table rows contain values already present in the current document."
+			),
 			category: "Matching",
 			icon: "table",
 			color: "#0ea5e9",
-			get_config_fields: (ctx) => [
+			validate: (cfg) => {
+				if (!cfg.child_table_field) return __("Child Table Field is required.");
+				if (!cfg.child_search_field) return __("Child Search Field is required.");
+				return null;
+			},
+			get_config_fields: () => [
 				{
 					fieldname: "child_table_field",
 					fieldtype: "Data",
@@ -241,24 +139,42 @@ flexirule.processes["Deduplication"] = {
 				{
 					fieldname: "child_search_field",
 					fieldtype: "Data",
-					label: __("Field to Check"),
+					label: __("Field to Compare"),
 					reqd: 1,
 				},
+				{
+					fieldname: "normalize_values",
+					fieldtype: "Check",
+					label: __("Normalize Values"),
+					default: 1,
+				},
+				{
+					fieldname: "ignore_cancelled",
+					fieldtype: "Check",
+					label: __("Ignore Cancelled Documents"),
+					default: 1,
+				},
+				{
+					fieldname: "result_limit",
+					fieldtype: "Int",
+					label: __("Result Limit"),
+					default: 1000,
+				},
+			],
+			get_output_schema: () => [
+				{ label: __("Has Match"), value: "has_match", type: "Check" },
+				{ label: __("Match Count"), value: "match_count", type: "Int" },
+				{ label: __("Best Match"), value: "best_match", type: "JSON" },
+				{ label: __("Matches"), value: "matches", type: "JSON" },
+				{ label: __("Values Checked"), value: "values_checked", type: "JSON" },
 			],
 		},
 	],
 
-	/**
-	 * Get an operation definition by name
-	 */
 	get_operation(name) {
 		return this.operations.find((op) => op.func_name === name);
 	},
 };
-
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-// SHARED UTILITIES
-// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 
 const SHARED = {
 	validTypes: [
@@ -282,7 +198,7 @@ const SHARED = {
 			.map((f) => ({
 				label: f.label,
 				value: f.value,
-				description: f.description, // Pass description to UI
+				description: f.description,
 			}));
 	},
 
@@ -296,38 +212,22 @@ const SHARED = {
 			Contains: { threshold: 0.8, tolerance: 0, weight: 0.5 },
 		};
 		const config = defaults[value] || {};
-
-		// Do not return the promise chain here to avoid deadlock with the runtime's internal sequencer.
-		// Each update_field call will append itself to the chain automatically.
 		if (config.threshold !== undefined) ctx.update_field("threshold", config.threshold);
 		if (config.tolerance !== undefined) ctx.update_field("tolerance", config.tolerance);
 		if (config.weight !== undefined) ctx.update_field("weight", config.weight);
 	},
 };
 
-/**
- * Returns the schema for the Fields Configuration table
- */
 function get_dedupe_table_fields() {
 	return [
-		{
-			fieldname: "sb_rule_def",
-			fieldtype: "Section Break",
-			label: __("Rule Definition"),
-		},
 		{
 			fieldname: "fieldname",
 			fieldtype: "DocField",
 			options: "vars.document_type",
 			label: __("Field"),
 			reqd: 1,
-			columns: 2,
 			in_list_view: 1,
 			get_options: (cfg, ctx, meta) => SHARED.get_field_options(meta),
-		},
-		{
-			fieldname: "cb_rule_def",
-			fieldtype: "Column Break",
 		},
 		{
 			fieldname: "algorithm",
@@ -336,74 +236,46 @@ function get_dedupe_table_fields() {
 			options: "Exact\nFuzzy\nPhonetic\nContains\nNumeric Range\nDate Distance",
 			reqd: 1,
 			default: "Fuzzy",
-			columns: 1,
 			in_list_view: 1,
 			onchange: (val, row, ctx) => SHARED.on_algorithm_change(val, ctx),
-		},
-		{
-			fieldname: "sb_params",
-			fieldtype: "Section Break",
-			label: __("Parameters"),
 		},
 		{
 			fieldname: "weight",
 			fieldtype: "Float",
 			label: __("Weight"),
 			default: 0.5,
-			columns: 1,
 			in_list_view: 1,
-		},
-		{
-			fieldname: "cb_params",
-			fieldtype: "Column Break",
 		},
 		{
 			fieldname: "threshold",
 			fieldtype: "Float",
 			label: __("Threshold"),
 			default: 0.8,
-			columns: 1,
 			in_list_view: 1,
 			depends_on: "eval:doc.algorithm !== 'Exact'",
-			mandatory_depends_on: "eval:doc.algorithm !== 'Exact'",
 		},
 		{
 			fieldname: "tolerance",
 			fieldtype: "Int",
 			label: __("Tolerance"),
 			default: 30,
-			columns: 1,
 			in_list_view: 1,
 			depends_on: "eval:in_list(['Numeric Range', 'Date Distance'], doc.algorithm)",
-			mandatory_depends_on: "eval:in_list(['Numeric Range', 'Date Distance'], doc.algorithm)",
-			description: __("Allowed deviation (±)"),
-		},
-		{
-			fieldname: "sb_options",
-			fieldtype: "Section Break",
-			label: __("Options"),
-			collapsible: 1,
+			description: __("Allowed deviation (plus/minus)"),
 		},
 		{
 			fieldname: "normalize",
 			fieldtype: "Check",
 			label: __("Normalize Values"),
 			default: 1,
-			columns: 1,
 			in_list_view: 1,
-		},
-		{
-			fieldname: "cb_options",
-			fieldtype: "Column Break",
 		},
 		{
 			fieldname: "included_in_filters",
 			fieldtype: "Check",
-			label: __("Blocking Filter"),
+			label: __("Use for Blocking"),
 			default: 1,
-			columns: 1,
 			in_list_view: 1,
-			description: __("Use this field for blocking checks"),
 		},
 	];
 }

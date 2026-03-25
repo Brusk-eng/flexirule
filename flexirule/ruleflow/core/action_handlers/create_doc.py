@@ -48,6 +48,10 @@ class CreateDocHandler(ActionHandler):
 			)
 		elif mode == "Update Existing":
 			result = self._update_existing(reference_doctype, config, context, action, ignore_permissions)
+		elif mode == "Create ToDo":
+			result = self._create_todo(reference_doctype, config, context, ignore_permissions)
+		elif mode == "Add Comment":
+			result = self._add_comment(reference_doctype, config, context, ignore_permissions)
 		else:
 			frappe.throw(_("Unknown Create Docs mode: {0}").format(mode))
 
@@ -72,6 +76,20 @@ class CreateDocHandler(ActionHandler):
 						"or a docname/docname_expression in config"
 					)
 				)
+		elif mode == "Create ToDo":
+			if action.reference_doctype and action.reference_doctype != "ToDo":
+				errors.append(_("Create ToDo mode requires Reference DocType = ToDo"))
+			config = self._parse_config(action.config)
+			if not config.get("assigned_to"):
+				errors.append(_("Create ToDo mode requires assigned_to in config"))
+			if not config.get("description"):
+				errors.append(_("Create ToDo mode requires description in config"))
+		elif mode == "Add Comment":
+			if action.reference_doctype and action.reference_doctype != "Comment":
+				errors.append(_("Add Comment mode requires Reference DocType = Comment"))
+			config = self._parse_config(action.config)
+			if not config.get("comment_text"):
+				errors.append(_("Add Comment mode requires comment_text in config"))
 		return errors
 
 	def _parse_config(self, config_str):
@@ -181,6 +199,78 @@ class CreateDocHandler(ActionHandler):
 		"""Evaluate expressions using SafeFrappeAPI from context."""
 		safe_frappe = context.get("frappe") or frappe
 		return frappe.safe_eval(expression, eval_globals={"frappe": safe_frappe}, eval_locals=context)
+
+	def _template_context(self, context):
+		return {
+			"doc": context.get("doc"),
+			"vars": context.get("vars", {}),
+			"context": context,
+			"frappe": context.get("frappe") or frappe,
+			"utils": frappe.utils,
+		}
+
+	def _render_scalar(self, value, context):
+		if value is None or not isinstance(value, str):
+			return value
+		return frappe.render_template(value, self._template_context(context))
+
+	def _create_todo(self, reference_doctype, config, context, ignore_permissions):
+		"""Create a linked ToDo using the current context document."""
+		if reference_doctype != "ToDo":
+			frappe.throw(_("Create ToDo mode requires Reference DocType = ToDo"))
+
+		doc = context.get("doc")
+		if not doc:
+			frappe.throw(_("Create ToDo mode requires a context document"))
+
+		assigned_to = self._render_scalar(config.get("assigned_to"), context)
+		description = self._render_scalar(config.get("description"), context)
+		priority = self._render_scalar(config.get("priority") or "Medium", context)
+
+		if not assigned_to:
+			frappe.throw(_("Create ToDo mode requires assigned_to in config"))
+		if not description:
+			frappe.throw(_("Create ToDo mode requires description in config"))
+
+		todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"allocated_to": assigned_to,
+				"description": description,
+				"priority": priority,
+				"reference_type": doc.doctype,
+				"reference_name": doc.name,
+			}
+		)
+		todo.insert(ignore_permissions=ignore_permissions)
+		return todo.as_dict()
+
+	def _add_comment(self, reference_doctype, config, context, ignore_permissions):
+		"""Add a timeline comment to the current context document."""
+		if reference_doctype != "Comment":
+			frappe.throw(_("Add Comment mode requires Reference DocType = Comment"))
+
+		doc = context.get("doc")
+		if not doc:
+			frappe.throw(_("Add Comment mode requires a context document"))
+
+		comment_text = self._render_scalar(config.get("comment_text"), context)
+		comment_type = self._render_scalar(config.get("comment_type") or "Comment", context)
+
+		if not comment_text:
+			frappe.throw(_("Add Comment mode requires comment_text in config"))
+
+		comment = frappe.get_doc(
+			{
+				"doctype": "Comment",
+				"comment_type": comment_type,
+				"reference_doctype": doc.doctype,
+				"reference_name": doc.name,
+				"content": comment_text,
+			}
+		)
+		comment.insert(ignore_permissions=ignore_permissions)
+		return comment.as_dict()
 
 
 def _async_create_doc(doc_data, ignore_permissions=False):

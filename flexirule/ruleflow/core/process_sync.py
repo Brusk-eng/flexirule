@@ -42,6 +42,7 @@ def sync_processes_for_app(app_name):
 		return
 
 	process_files = []
+	expected_process_names = set()
 
 	for module_name in modules:
 		try:
@@ -62,8 +63,10 @@ def sync_processes_for_app(app_name):
 			json_file = process_dir / f"{process_dir.name}.json"
 			if json_file.exists():
 				process_files.append((json_file, module_name))
+				expected_process_names.add(frappe.unscrub(process_dir.name))
 
 	if not process_files:
+		_prune_missing_standard_processes(modules, expected_process_names)
 		return
 
 	for i, (json_file, module_name) in enumerate(process_files):
@@ -74,8 +77,40 @@ def sync_processes_for_app(app_name):
 
 		update_progress_bar(f"Syncing Processes for {app_name}", i, len(process_files))
 
+	_prune_missing_standard_processes(modules, expected_process_names)
+
 	if process_files:
 		print()  # New line after progress bar
+
+
+def _prune_missing_standard_processes(module_names, expected_process_names):
+	"""Remove file-backed standard Process docs whose JSON definition no longer exists."""
+	if not module_names:
+		return
+
+	existing_processes = frappe.get_all(
+		"Process",
+		filters={
+			"module": ["in", module_names],
+			"is_standard": "Yes",
+		},
+		fields=["name", "module"],
+	)
+
+	for process in existing_processes:
+		if process.name in expected_process_names:
+			continue
+
+		if get_process_json_path(process.name, process.module):
+			continue
+
+		try:
+			frappe.delete_doc("Process", process.name, force=True, ignore_permissions=True)
+		except Exception as exc:
+			frappe.log_error(
+				f"Error pruning missing process {process.name}: {exc}",
+				"Process Sync Error",
+			)
 
 
 def import_process_from_file(json_path, module_name):
@@ -144,6 +179,7 @@ def import_process_from_file(json_path, module_name):
 
 		# Sync operations - update existing, add new
 		existing_funcs = {op.func_name: op for op in doc.operations}
+		incoming_funcs = {op.get("func_name") for op in operations if op.get("func_name")}
 
 		for op_data in operations:
 			func_name = op_data.get("func_name")
@@ -184,6 +220,12 @@ def import_process_from_file(json_path, module_name):
 			else:
 				# Add new operation
 				doc.append("operations", op_data)
+				modified = True
+
+		# Remove stale operations that no longer exist in the file-backed JSON definition
+		for op in list(doc.operations):
+			if op.func_name and op.func_name not in incoming_funcs:
+				doc.remove(op)
 				modified = True
 
 		if modified:

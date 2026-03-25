@@ -67,8 +67,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 					"action_label": "Test Process",
 					"is_enabled": 1,
 					"process_name": "Validation",
-					"operation": "required_fields",
-					"config": '{"fields": ["description"]}',
+					"operation": "value_in_range",
+					"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 					"on_error": "Stop",
 				},
 			]
@@ -189,8 +189,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Process True",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 			{
@@ -199,8 +199,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Process False",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -246,8 +246,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Process True",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 			{
@@ -256,8 +256,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Process False",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -293,8 +293,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Validate Description",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -346,8 +346,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Process Inside Loop",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 				"next_step_if_true": "ACT-AFTER-LOOP",  # Go to after loop to avoid cycle
 			},
@@ -357,8 +357,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "After Loop",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -436,8 +436,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Process Action",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -474,8 +474,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Sub Process",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -553,8 +553,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "After Wait",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -598,8 +598,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Get Description Length",
 				"is_enabled": 1,
 				"process_name": "Validation",  # Use existing process
-				"operation": "required_fields",  # Use existing operation
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",  # Use existing operation
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"return_variable": "desc_length",
 				"on_error": "Stop",
 			},
@@ -614,7 +614,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 
 		# The variable should be stored in context
 		# Note: The actual return value depends on the operation implementation
-		# For required_fields, it returns True/False
+		# For value_in_range, it returns a boolean when the numeric check passes
 		self.assertIn("desc_length", result["vars"])
 
 	def test_engine_execute_with_error_handling_continue(self):
@@ -633,8 +633,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Fail Process",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",  # This will fail if description is empty
-				"config": '{"fields": ["nonexistent_field"]}',  # This should cause an error
+				"operation": "value_in_range",  # This will fail if description is empty
+				"config": '{"field": "description", "min_value": 1}',  # This should cause an error
 				"on_error": "Continue",  # Should continue despite error
 				"next_step_if_true": "ACT-AFTER-ERROR",
 			},
@@ -644,8 +644,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "After Error",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -685,8 +685,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Fail Process",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",  # This will fail if description is empty
-				"config": '{"fields": ["nonexistent_field"]}',  # This should cause an error
+				"operation": "value_in_range",  # This will fail if description is empty
+				"config": '{"field": "description", "min_value": 1}',  # This should cause an error
 				"on_error": "Stop",  # Should stop on error
 				"next_step_if_true": "ACT-AFTER-ERROR",
 			},
@@ -696,8 +696,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "After Error",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -729,8 +729,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Process",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 				"next_step_if_true": "root",  # Points back, creating cycle
 			},
@@ -757,8 +757,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Slow Process",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -801,8 +801,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Process",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -886,8 +886,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Next",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -914,8 +914,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "Second",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
@@ -943,8 +943,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_label": "B",
 				"is_enabled": 1,
 				"process_name": "Validation",
-				"operation": "required_fields",
-				"config": '{"fields": ["description"]}',
+				"operation": "value_in_range",
+				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
 				"on_error": "Stop",
 			},
 		]
