@@ -209,14 +209,26 @@ import LinkControl from "../../controls/LinkControl.vue";
 import { useStore } from "../../store";
 
 const props = defineProps({
-	doctype: String,
 	modelValue: {
 		type: Array,
 		default: () => [],
 	},
-	readOnly: Boolean,
-	allowAnyDoctype: Boolean,
-	nodeId: String, // For variable options
+	doctype: {
+		type: String,
+		required: true,
+	},
+	nodeId: {
+		type: String,
+		default: null,
+	},
+	readOnly: {
+		type: Boolean,
+		default: false,
+	},
+	allowAnyDoctype: {
+		type: Boolean,
+		default: false,
+	},
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -341,6 +353,12 @@ const stripBracket = (val) => {
 	return val;
 };
 
+const getFieldsForDoctype = (dt) => {
+	if (!dt) return [];
+	if (props.fields && props.fields.length > 0) return props.fields;
+	return store.get_fields_for_doctype(dt);
+};
+
 const getFieldDef = (fieldname, dt) => {
 	if (!fieldname) return null;
 	const fields = getFieldsForDoctype(dt || props.doctype);
@@ -358,11 +376,6 @@ const isBooleanValue = (row) => {
 	if (row.value_type === "Boolean") return true;
 	const field = getFieldDef(row.field, row.doctype);
 	return field && field.fieldtype === "Check";
-};
-
-const getFieldsForDoctype = (dt) => {
-	if (!dt) return [];
-	return store.doctype_fields?.[dt] || [];
 };
 
 const getVariableOptions = async () => {

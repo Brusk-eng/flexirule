@@ -393,8 +393,16 @@ export const useStore = defineStore("rule-builder-store", () => {
 				type = "query";
 			} else if (type === "aggregate records") {
 				type = "aggregate";
-			} else if (type === "create docs") {
-				type = "createdoc";
+			} else if (type === "create docs" || type === "document action") {
+				type = "documentaction";
+			} else if (type === "set value") {
+				type = "set-value";
+			} else if (type === "raise error") {
+				type = "raise-error";
+			} else if (type === "notify") {
+				type = "notify";
+			} else if (type === "wait") {
+				type = "wait";
 			}
 
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;

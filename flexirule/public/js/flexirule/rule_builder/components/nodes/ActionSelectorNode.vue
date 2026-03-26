@@ -217,12 +217,8 @@ function onCreate() {
 
 	const action_type = selectedType.value;
 	const label = customLabel.value || searchQuery.value || selectedType.value;
-	// Map Action Type to VueFlow node type
-	const nodeType = action_type
-		.toLowerCase()
-		.replace(/ records| docs/g, (m) =>
-			m.includes("query") ? "query" : m.includes("aggregate") ? "aggregate" : "createdoc"
-		);
+	// Map Action Type to VueFlow node type using the same logic as App.vue
+	const nodeType = mapActionTypeToNodeType(action_type);
 
 	const nodeData = store.get_default_node_data(action_type.toLowerCase(), label);
 	const suggestedParentId = store.nodes[nodeIndex].data?.suggested_parent_id;
@@ -270,6 +266,26 @@ function onCreate() {
 
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
+}
+
+function mapActionTypeToNodeType(actionType) {
+	if (!actionType) return "process";
+	const type = actionType.toLowerCase().trim();
+
+	if (type === "selector") return "selector";
+	if (type === "entry action" || type === "start") return "start";
+	if (type === "condition") return "condition";
+	if (type === "loop") return "loop";
+	if (type === "wait") return "wait";
+	if (type === "notify") return "notify";
+	if (type === "sub-rule") return "sub-rule";
+	if (type === "query records") return "query";
+	if (type === "aggregate records") return "aggregate";
+	if (type === "document action" || type === "create docs") return "documentaction";
+	if (type === "set value") return "set-value";
+	if (type === "raise error") return "raise-error";
+
+	return "process";
 }
 
 onMounted(() => {

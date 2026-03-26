@@ -760,13 +760,6 @@ const limitField = {
 	description: __("Max rows to return."),
 };
 
-const orderByField = {
-	fieldname: "order_by",
-	fieldtype: "Data",
-	label: __("Order By"),
-	description: __("Example: modified desc"),
-};
-
 const groupByField = {
 	fieldname: "group_by",
 	fieldtype: "Data",
@@ -805,21 +798,6 @@ const docnameExprField = {
 	label: __("Docname Expression"),
 	options: "PythonExpression",
 };
-
-const methodField = {
-	fieldname: "method",
-	fieldtype: "Data",
-	label: __("Whitelisted Method"),
-};
-
-const reportLinkField = computed(() => ({
-	fieldname: "reference_docname",
-	fieldtype: "Link",
-	label: __("Report Name"),
-	options: "Report",
-	read_only: props.readOnly,
-	reqd: 1,
-}));
 
 function update_config_key(key, value) {
 	config[key] = value;

@@ -407,20 +407,10 @@ function addNode(type, position) {
 	const resolvedPosition = position || getNextNodePosition(parentNode);
 
 	const nodeData = store.get_default_node_data(type.toLowerCase(), label);
+	const nodeType = mapActionTypeToNodeType(nodeData.action_type);
 	const newNode = {
 		id,
-		type:
-			nodeData.action_type.toLowerCase() === "selector"
-				? "selector"
-				: nodeData.action_type
-						.toLowerCase()
-						.replace(/ records| docs/g, (m) =>
-							m.includes("query")
-								? "query"
-								: m.includes("aggregate")
-								? "aggregate"
-								: "createdoc"
-						),
+		type: nodeType,
 		position: resolvedPosition,
 		label: nodeData.action_label,
 		data: {
@@ -430,17 +420,6 @@ function addNode(type, position) {
 			suggested_source_handle: parentNode?.type === "condition" ? "true" : "default",
 		},
 	};
-
-	// Fix type mapping for VueFlow
-	if (newNode.data.action_type === "Query Records") newNode.type = "query";
-	if (newNode.data.action_type === "Document Action") newNode.type = "documentaction";
-	if (newNode.data.action_type === "Create Docs") newNode.type = "documentaction";
-	if (newNode.data.action_type === "Sub-Rule") newNode.type = "sub-rule";
-	if (newNode.data.action_type === "Set Value") newNode.type = "set-value";
-	if (newNode.data.action_type === "Notify") newNode.type = "notify";
-	if (newNode.data.action_type === "Raise Error") newNode.type = "raise-error";
-	if (newNode.data.action_type === "Wait") newNode.type = "wait";
-	if (newNode.data.action_type === "Condition") newNode.type = "condition";
 
 	store.nodes.push(newNode);
 	autoConnectNode(id, parentNode);
@@ -570,6 +549,29 @@ function onEdgeClick({ edge, event }) {
 	frappe.confirm(__("Delete this connection?"), () => {
 		removeEdges([edge.id]);
 	});
+}
+
+/**
+ * Universal mapper from Action Type (DocField value) to VueFlow Node Type (slot name)
+ */
+function mapActionTypeToNodeType(actionType) {
+	if (!actionType) return "process";
+	const type = actionType.toLowerCase().trim();
+
+	if (type === "selector") return "selector";
+	if (type === "entry action" || type === "start") return "start";
+	if (type === "condition") return "condition";
+	if (type === "loop") return "loop";
+	if (type === "wait") return "wait";
+	if (type === "notify") return "notify";
+	if (type === "sub-rule") return "sub-rule";
+	if (type === "query records") return "query";
+	if (type === "aggregate records") return "aggregate";
+	if (type === "document action" || type === "create docs") return "documentaction";
+	if (type === "set value") return "set-value";
+	if (type === "raise error") return "raise-error";
+
+	return "process";
 }
 </script>
 

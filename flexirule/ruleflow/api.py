@@ -770,6 +770,49 @@ def test_action_query(
 									"mandatory": 0,
 								}
 							)
+				elif mode == "Query Doc" and reference_doctype:
+					meta = frappe.get_meta(reference_doctype)
+					for df in meta.fields:
+						if df.fieldtype not in frappe.model.no_value_fields:
+							schema.append(
+								{
+									"fieldname": df.fieldname,
+									"label": df.label,
+									"fieldtype": df.fieldtype,
+									"options": df.options,
+									"mandatory": df.reqd,
+								}
+							)
+					# Add system fields
+					for sf in SYSTEM_FIELDS:
+						schema.append(
+							{
+								"fieldname": sf["value"],
+								"label": sf["label"],
+								"fieldtype": sf.get("fieldtype", "Data"),
+								"options": sf.get("options"),
+								"mandatory": 0,
+							}
+						)
+				elif mode in ["Count", "Sum", "Average", "Min", "Max"] and (
+					isinstance(result, int | float) or result is None
+				):
+					label_map = {
+						"Count": _("Count Result"),
+						"Sum": _("Sum Result"),
+						"Average": _("Average Result"),
+						"Min": _("Min Result"),
+						"Max": _("Max Result"),
+					}
+					schema.append(
+						{
+							"fieldname": "result",
+							"label": label_map.get(mode, _("Query Result")),
+							"fieldtype": "Float" if mode == "Average" else "Int",
+							"options": None,
+							"mandatory": 0,
+						}
+					)
 			except Exception:
 				pass
 
