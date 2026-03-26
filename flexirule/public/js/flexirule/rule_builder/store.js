@@ -40,15 +40,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	const ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set([
 		"Query Records",
-		"Aggregate Records",
-		"Create Docs",
+		"Document Action",
 		"Process",
 	]);
 	const ACTION_TYPES_WITH_RETURN_SCHEMA = new Set([
 		"Process",
 		"Query Records",
-		"Aggregate Records",
-		"Create Docs",
+		"Document Action",
 	]);
 
 	async function fetch_metadata(doctype) {
@@ -380,7 +378,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		}
 
 		rule_doc.value.actions.forEach((action, index) => {
-			const nodeId = action.action_id || `action-${index}`;
+			const nodeId = action.action_id || `act_${index}`;
 			const actionTypeRaw = (action.action_type || "Process").trim();
 			let type = actionTypeRaw.toLowerCase();
 
@@ -395,8 +393,16 @@ export const useStore = defineStore("rule-builder-store", () => {
 				type = "query";
 			} else if (type === "aggregate records") {
 				type = "aggregate";
-			} else if (type === "create docs") {
-				type = "createdoc";
+			} else if (type === "create docs" || type === "document action") {
+				type = "documentaction";
+			} else if (type === "set value") {
+				type = "set-value";
+			} else if (type === "raise error") {
+				type = "raise-error";
+			} else if (type === "notify") {
+				type = "notify";
+			} else if (type === "wait") {
+				type = "wait";
 			}
 
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;
@@ -484,7 +490,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		// Edges
 		rule_doc.value.actions.forEach((action, index) => {
-			const nodeId = action.action_id || `action-${index}`;
+			const nodeId = action.action_id || `act_${index}`;
 			if (action.next_step_if_true) {
 				actionEdges.push({
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
@@ -1076,7 +1082,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		if (type === "condition") {
 			baseData.action_type = "Condition";
 			baseData.condition_expression = "";
-			baseData.condition_json = "{}";
+			baseData.condition_json = "[]";
 		} else if (type === "wait") {
 			baseData.action_type = "Wait";
 			baseData.config = { wait_type: "Duration", value: 1, unit: "Minutes" };

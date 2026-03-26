@@ -1,7 +1,11 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import { getActionTypeOptions } from "../../../core/contracts";
+import {
+	ACTION_TYPE_CONTRACT,
+	RELEASE_DISABLED_ACTION_TYPES,
+	getActionTypeOptions,
+} from "../../../core/contracts";
 import { useStore } from "../../store";
 
 const props = defineProps(["data", "label", "id", "selected"]);
@@ -9,6 +13,38 @@ const store = useStore();
 
 const selectedType = ref("Process");
 const customLabel = ref("");
+const searchQuery = ref("");
+const showResults = ref(false);
+const processOperations = ref([]);
+const selectedIndex = ref(-1);
+
+// Fuzzy match helper — matches each query word independently against the text
+// Fuzzy match helper — supports acronyms and word-start matching
+function fuzzyMatch(text, query) {
+	if (!query) return true;
+	const lowerText = text.toLowerCase();
+	const q = query.toLowerCase().trim();
+
+	// 1. Simple substring match
+	if (lowerText.includes(q)) return true;
+
+	// 2. Acronym match (e.g. "dq" -> "Document Query")
+	const words = lowerText.split(/[\s_-]+/).filter(Boolean);
+	const acronym = words.map((w) => w[0]).join("");
+	if (acronym.includes(q)) return true;
+
+	// 3. Multi-word match (e.g. "doc query" -> "Document Query Records")
+	const qWords = q.split(/\s+/).filter(Boolean);
+	return qWords.every((qw) => words.some((w) => w.startsWith(qw) || w.includes(qw)));
+}
+
+// Categorize action types into groups for display
+const ACTION_CATEGORIES = {
+	"Control Flow": ["Condition", "Stop", "Wait", "Sub-Rule"],
+	"Data Actions": ["Set Value", "Query Records", "Document Action"],
+	Notifications: ["Raise Error", "Notify"],
+	Processes: ["Process"],
+};
 
 const actionTypes = computed(() => {
 	const meta = frappe.get_meta("Rule Action");
@@ -17,35 +53,161 @@ const actionTypes = computed(() => {
 	const typeField = meta.fields.find((f) => f.fieldname === "action_type");
 	if (!typeField || !typeField.options) return [];
 
-	// Map of action types to icons
-	const iconMap = {
-		Process: "fa-cog",
-		Condition: "fa-code-fork",
-		Loop: "fa-refresh",
-		Switch: "fa-code-fork",
-		Wait: "fa-clock-o",
-		"Sub-Rule": "fa-cube",
-		Stop: "fa-stop-circle",
-		"Set Value": "fa-edit",
-		"Raise Error": "fa-exclamation-triangle",
-		Notify: "fa-bell",
-		"Query Records": "fa-search",
-		"Aggregate Records": "fa-calculator",
-		"Create Docs": "fa-plus-circle",
-	};
-
 	return typeField.options
 		.split("\n")
 		.filter(
 			(t) => t && t !== "Entry Action" && t !== "Start" && getActionTypeOptions().includes(t)
 		)
-		.map((t) => ({
-			label: __(t),
-			value: t, // Keep exact value for action_type
-			actionType: t,
-			icon: iconMap[t] || "fa-cog",
-		}));
+		.map((t) => {
+			const contract = ACTION_TYPE_CONTRACT[t] || {};
+			return {
+				label: __(t),
+				value: t,
+				actionType: t,
+				icon: contract.css?.icon || "fa fa-cog",
+				color: contract.css?.color || "#6b7280",
+				description: contract.description || "",
+				category:
+					Object.entries(ACTION_CATEGORIES).find(([, types]) => types.includes(t))?.[0] ||
+					__("Other"),
+			};
+		});
 });
+
+// Filtered results for fuzzy search
+const filteredResults = computed(() => {
+	const q = searchQuery.value;
+	const results = [];
+
+	// 1. Filter action types and their native operations
+	actionTypes.value.forEach((t) => {
+		const contract = ACTION_TYPE_CONTRACT[t.value] || {};
+		const ops = contract.operation_options || [];
+
+		// Match the action type itself
+		const matchAction =
+			fuzzyMatch(t.label, q) || fuzzyMatch(t.description, q) || fuzzyMatch(t.value, q);
+		if (matchAction) {
+			results.push({ type: "header", label: t.label });
+			results.push({ type: "action", ...t });
+		}
+
+		// Match operations within this action type
+		const matchingOps = ops.filter((op) => fuzzyMatch(op, q));
+		if (matchingOps.length) {
+			if (!matchAction) {
+				results.push({ type: "header", label: t.label });
+			}
+			matchingOps.forEach((op) => {
+				results.push({
+					type: "op",
+					label: `${t.label} → ${__(op)}`,
+					value: t.value,
+					operation: op,
+					icon: t.icon,
+					color: t.color,
+					description: t.description,
+				});
+			});
+		}
+	});
+
+	// 2. Filter process operations (backend processes)
+	const matchingProcessOps = processOperations.value.filter(
+		(op) =>
+			fuzzyMatch(op.label, q) ||
+			fuzzyMatch(op.process, q) ||
+			fuzzyMatch(op.description || "", q)
+	);
+
+	if (matchingProcessOps.length) {
+		results.push({ type: "header", label: __("Process Operations") });
+		matchingProcessOps.forEach((op) =>
+			results.push({
+				type: "process_op",
+				label: `${op.process} → ${op.label}`,
+				value: "Process",
+				process_name: op.process,
+				operation: op.operation,
+				icon: "fa fa-cog",
+				color: "#8b5cf6",
+				description: op.description || "",
+			})
+		);
+	}
+
+	return results;
+});
+
+async function loadProcessOperations() {
+	try {
+		const res = await frappe.call({
+			method: "flexirule.ruleflow.api.get_all_process_operations",
+		});
+		processOperations.value = res.message || [];
+	} catch (e) {
+		processOperations.value = [];
+	}
+}
+
+function selectItem(item) {
+	if (item.type === "header") return;
+	selectedType.value = item.value;
+
+	// Invalidate previous temp props
+	selectedType._process_name = null;
+	selectedType._operation = null;
+
+	if (item.type === "process_op") {
+		selectedType.value = "Process";
+		selectedType._process_name = item.process_name;
+		selectedType._operation = item.operation;
+	} else if (item.type === "op") {
+		selectedType._operation = item.operation;
+	}
+
+	searchQuery.value = item.label;
+	showResults.value = false;
+}
+
+function onSearchFocus() {
+	showResults.value = true;
+}
+
+function onSearchKeydown(e) {
+	if (!showResults.value || !filteredResults.value.length) return;
+
+	const options = filteredResults.value.filter((i) => i.type !== "header");
+	const headersCount = filteredResults.value.filter((i) => i.type === "header").length;
+
+	if (e.key === "ArrowDown") {
+		e.preventDefault();
+		selectedIndex.value = (selectedIndex.value + 1) % filteredResults.value.length;
+		// Skip headers
+		if (filteredResults.value[selectedIndex.value]?.type === "header") {
+			onSearchKeydown(e);
+		}
+	} else if (e.key === "ArrowUp") {
+		e.preventDefault();
+		selectedIndex.value =
+			(selectedIndex.value - 1 + filteredResults.value.length) % filteredResults.value.length;
+		// Skip headers
+		if (filteredResults.value[selectedIndex.value]?.type === "header") {
+			onSearchKeydown(e);
+		}
+	} else if (e.key === "Enter" && selectedIndex.value !== -1) {
+		e.preventDefault();
+		selectItem(filteredResults.value[selectedIndex.value]);
+	}
+}
+
+function onSearchBlur() {
+	// Delay to allow click on results
+	setTimeout(() => {
+		showResults.value = false;
+		selectedIndex.value = -1;
+	}, 200);
+}
 
 function onCreate() {
 	const typeConfig = actionTypes.value.find((t) => t.value === selectedType.value);
@@ -54,23 +216,30 @@ function onCreate() {
 	if (nodeIndex === -1) return;
 
 	const action_type = selectedType.value;
-	// Map Action Type to VueFlow node type
-	const nodeType = action_type
-		.toLowerCase()
-		.replace(/ records| docs/g, (m) =>
-			m.includes("query") ? "query" : m.includes("aggregate") ? "aggregate" : "createdoc"
-		);
+	const label = customLabel.value || searchQuery.value || selectedType.value;
+	// Map Action Type to VueFlow node type using the same logic as App.vue
+	const nodeType = mapActionTypeToNodeType(action_type);
 
 	const nodeData = store.get_default_node_data(action_type.toLowerCase(), label);
 	const suggestedParentId = store.nodes[nodeIndex].data?.suggested_parent_id;
 	const suggestedSourceHandle = store.nodes[nodeIndex].data?.suggested_source_handle || "default";
+
+	// Pre-fill process/operation data if selected from search results
+	if (selectedType._operation) {
+		nodeData.operation = selectedType._operation;
+		if (selectedType._process_name) {
+			nodeData.process_name = selectedType._process_name;
+		}
+		selectedType._process_name = null;
+		selectedType._operation = null;
+	}
 
 	// Upgrade the node
 	store.nodes[nodeIndex].type = nodeType;
 	store.nodes[nodeIndex].label = label;
 	store.nodes[nodeIndex].data = {
 		...nodeData,
-		action_id: props.id, // Keep the original ID to maintain edge consistency
+		action_id: props.id,
 		action_label: label,
 		suggested_parent_id: null,
 		suggested_source_handle: null,
@@ -98,6 +267,30 @@ function onCreate() {
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 }
+
+function mapActionTypeToNodeType(actionType) {
+	if (!actionType) return "process";
+	const type = actionType.toLowerCase().trim();
+
+	if (type === "selector") return "selector";
+	if (type === "entry action" || type === "start") return "start";
+	if (type === "condition") return "condition";
+	if (type === "loop") return "loop";
+	if (type === "wait") return "wait";
+	if (type === "notify") return "notify";
+	if (type === "sub-rule") return "sub-rule";
+	if (type === "query records") return "query";
+	if (type === "aggregate records") return "aggregate";
+	if (type === "document action" || type === "create docs") return "documentaction";
+	if (type === "set value") return "set-value";
+	if (type === "raise error") return "raise-error";
+
+	return "process";
+}
+
+onMounted(() => {
+	loadProcessOperations();
+});
 </script>
 
 <template>
@@ -113,13 +306,52 @@ function deleteNode() {
 		</div>
 
 		<div class="node-body" @dblclick.stop="store.selected_id = props.id">
-			<div class="form-group">
+			<div class="form-group search-group">
 				<label class="small text-muted">{{ __("Action Type") }}</label>
-				<select v-model="selectedType" class="form-control input-xs">
-					<option v-for="type in actionTypes" :key="type.value" :value="type.value">
-						{{ type.label }}
-					</option>
-				</select>
+				<div class="search-wrapper">
+					<div class="search-input-group">
+						<i class="fa fa-search search-icon"></i>
+						<input
+							type="text"
+							v-model="searchQuery"
+							class="form-control input-xs"
+							:placeholder="__('Search actions...')"
+							@focus="onSearchFocus"
+							@blur="onSearchBlur"
+							@keydown="onSearchKeydown"
+							@keyup.enter="onCreate"
+						/>
+					</div>
+					<div v-if="showResults && filteredResults.length" class="search-results">
+						<div
+							v-for="(item, idx) in filteredResults"
+							:key="idx"
+							:class="[
+								'search-result-item',
+								item.type === 'header' ? 'result-header' : 'result-option',
+								{ active: idx === selectedIndex },
+							]"
+							@mousedown.prevent="selectItem(item)"
+							@mouseover="selectedIndex = idx"
+						>
+							<template v-if="item.type === 'header'">
+								<span class="header-label">{{ item.label }}</span>
+							</template>
+							<template v-else>
+								<i
+									:class="['fa', item.icon?.replace('fa ', '')]"
+									:style="{ color: item.color }"
+								></i>
+								<div class="result-text">
+									<span class="result-label">{{ item.label }}</span>
+									<span v-if="item.description" class="result-desc">{{
+										item.description
+									}}</span>
+								</div>
+							</template>
+						</div>
+					</div>
+				</div>
 			</div>
 			<div class="form-group">
 				<label class="small text-muted">{{ __("Label") }}</label>
@@ -146,7 +378,7 @@ function deleteNode() {
 
 <style scoped>
 .action-selector-card {
-	width: 200px;
+	width: 220px;
 	background: #fff;
 	border: 2px dashed #d1d8dd;
 	border-radius: 8px;
@@ -206,6 +438,110 @@ function deleteNode() {
 .form-group label {
 	display: block;
 	margin-bottom: 2px;
+}
+
+.search-wrapper {
+	position: relative;
+}
+
+.search-input-group {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.search-icon {
+	position: absolute;
+	left: 8px;
+	color: #adb5bd;
+	font-size: 10px;
+	z-index: 1;
+	pointer-events: none;
+}
+
+.search-input-group input {
+	padding-left: 24px !important;
+}
+
+.search-results {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+	z-index: 100;
+	max-height: 240px;
+	overflow-y: auto;
+	margin-top: 2px;
+}
+
+.search-result-item {
+	cursor: pointer;
+	padding: 6px 10px;
+	font-size: 11px;
+	transition: background 0.15s;
+}
+
+.result-header {
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: var(--text-muted);
+	padding: 8px 12px 4px;
+	cursor: default;
+	letter-spacing: 0.8px;
+	border-top: 1px solid #f1f5f9;
+	background: #fcfcfc;
+}
+
+.result-header:first-child {
+	border-top: none;
+}
+
+.result-option {
+	display: flex;
+	align-items: center;
+	padding: 8px 12px;
+	gap: 10px;
+	transition: all 0.2s;
+}
+
+.result-option:hover,
+.result-option.active {
+	background: #f3f4f6;
+}
+
+.result-option i {
+	font-size: 14px;
+	width: 16px;
+	text-align: center;
+}
+
+.result-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.result-label {
+	font-weight: 500;
+	color: #111827;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	line-height: 1.2;
+}
+
+.result-desc {
+	font-size: 10px;
+	color: #6b7280;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-top: 1px;
 }
 
 .node-footer {

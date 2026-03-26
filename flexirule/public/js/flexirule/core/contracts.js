@@ -115,40 +115,50 @@ export const ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
-		allowed_mutations: ["Set Context Variable", "Append to Context Variable"],
-		css: { icon: "fa fa-search", color: "#0891b2" },
-		description:
-			"Query records from a DocType. Supports Query List, Query Doc, Exist Record, Query Report, and Query API modes.",
-		mandatory_fields: {
-			"Query Doc": ["reference_docname"],
-			"Exist Record": ["reference_doctype"],
-		},
-	},
-	"Aggregate Records": {
-		required_fields: ["reference_doctype", "operation", "config"],
-		has_next_true: true,
-		has_next_false: false,
-		terminal: false,
 		allowed_mutations: [
 			"Set Context Variable",
 			"Append to Context Variable",
 			"Update Context Variable",
 		],
-		css: { icon: "fa fa-calculator", color: "#d97706" },
+		css: { icon: "fa fa-search", color: "#0891b2" },
 		description:
-			"Aggregate data from records using operations like sum, avg, count, min, max, or group_by.",
+			"Query records from a DocType. Supports Query List, Query Doc, Exist Record, and Query Report modes.",
+		operation_label: "Query Mode",
+		operation_options: [
+			"Query List",
+			"Query Doc",
+			"Exist Record",
+			"Query Report",
+			"Count",
+			"Sum",
+			"Average",
+			"Min",
+			"Max",
+			"Group By",
+		],
+		mandatory_fields: {
+			"Query Doc": ["reference_docname"],
+			"Exist Record": ["reference_doctype"],
+		},
 	},
-	"Create Docs": {
+
+	"Document Action": {
 		required_fields: ["reference_doctype", "operation"],
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
-		operation_label: "Create Mode",
-		operation_options: ["Create New", "Update Existing", "Create ToDo", "Add Comment"],
+		operation_label: "Document Mode",
+		operation_options: [
+			"Create New",
+			"Update Existing",
+			"Delete Record",
+			"Create ToDo",
+			"Add Comment",
+		],
 		allowed_mutations: ["Set Doc Field", "Set Context Variable"],
-		css: { icon: "fa fa-plus-circle", color: "#059669" },
+		css: { icon: "fa fa-file-text", color: "#059669" },
 		description:
-			"Create or update documents, including convenience modes for linked ToDos and timeline comments.",
+			"Create, update, or delete documents, including convenience modes for linked ToDos and timeline comments.",
 	},
 };
 

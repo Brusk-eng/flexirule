@@ -59,7 +59,7 @@
 								:key="op"
 								:value="op"
 							>
-								{{ op }}
+								{{ operatorLabelMap[op] || op }}
 							</option>
 						</select>
 					</div>
@@ -171,7 +171,7 @@
 							@change="(e) => toggleValueType(idx, e.target.value)"
 						>
 							<option v-for="vt in valueTypes" :key="vt" :value="vt">
-								{{ vt }}
+								{{ __(vt) }}
 							</option>
 						</select>
 					</div>
@@ -209,14 +209,26 @@ import LinkControl from "../../controls/LinkControl.vue";
 import { useStore } from "../../store";
 
 const props = defineProps({
-	doctype: String,
 	modelValue: {
 		type: Array,
 		default: () => [],
 	},
-	readOnly: Boolean,
-	allowAnyDoctype: Boolean,
-	nodeId: String, // For variable options
+	doctype: {
+		type: String,
+		required: true,
+	},
+	nodeId: {
+		type: String,
+		default: null,
+	},
+	readOnly: {
+		type: Boolean,
+		default: false,
+	},
+	allowAnyDoctype: {
+		type: Boolean,
+		default: false,
+	},
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -254,21 +266,25 @@ const ALL_CONDITIONS = [
 	["<=", __("Less Than Or Equal To")],
 	["Between", __("Between")],
 	["Timespan", __("Timespan")],
+	["starts with", __("Starts With")],
+	["ends with", __("Ends With")],
 ];
 
+const operatorLabelMap = Object.fromEntries(ALL_CONDITIONS.map(([op, label]) => [op, label]));
+
 const INVALID_CONDITION_MAP = {
-	Date: ["like", "not like"],
-	Datetime: ["like", "not like", "in", "not in", "=", "!="],
+	Date: ["like", "not like", "starts with", "ends with"],
+	Datetime: ["like", "not like", "in", "not in", "=", "!=", "starts with", "ends with"],
 	Data: ["Between", "Timespan"],
-	Time: ["Between", "Timespan"],
-	Select: ["like", "not like", "Between", "Timespan"],
-	Link: ["Between", "Timespan", ">", "<", ">=", "<="],
-	Currency: ["Between", "Timespan"],
-	Color: ["Between", "Timespan"],
+	Time: ["Between", "Timespan", "starts with", "ends with"],
+	Select: ["like", "not like", "Between", "Timespan", "starts with", "ends with"],
+	Link: ["Between", "Timespan", ">", "<", ">=", "<=", "starts with", "ends with"],
+	Currency: ["Between", "Timespan", "starts with", "ends with"],
+	Color: ["Between", "Timespan", "starts with", "ends with"],
 	Check: ALL_CONDITIONS.map((c) => c[0]).filter((c) => c !== "="),
-	Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
-	Float: ["like", "not like", "Between", "in", "not in", "Timespan"],
-	Int: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Rating: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
+	Float: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
+	Int: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
 };
 
 // Initialize local state from modelValue
@@ -308,6 +324,19 @@ const syncFromProps = () => {
 	});
 };
 
+const emitUpdate = () => {
+	const serialized = filters.value
+		.filter((r) => r.field)
+		.map((r) => ({
+			doctype: r.doctype || props.doctype,
+			field: r.field,
+			operator: r.operator || "=",
+			value: r.value,
+			value_type: r.value_type || "Value",
+		}));
+	emit("update:modelValue", serialized);
+};
+
 const guessValueType = (val) => {
 	if (typeof val === "number") return "Number";
 	if (typeof val === "boolean") return "Boolean";
@@ -322,6 +351,12 @@ const stripBracket = (val) => {
 		return val.slice(1, -1);
 	}
 	return val;
+};
+
+const getFieldsForDoctype = (dt) => {
+	if (!dt) return [];
+	if (props.fields && props.fields.length > 0) return props.fields;
+	return store.get_fields_for_doctype(dt);
 };
 
 const getFieldDef = (fieldname, dt) => {
@@ -341,11 +376,6 @@ const isBooleanValue = (row) => {
 	if (row.value_type === "Boolean") return true;
 	const field = getFieldDef(row.field, row.doctype);
 	return field && field.fieldtype === "Check";
-};
-
-const getFieldsForDoctype = (dt) => {
-	if (!dt) return [];
-	return store.doctype_fields?.[dt] || [];
 };
 
 const getVariableOptions = async () => {

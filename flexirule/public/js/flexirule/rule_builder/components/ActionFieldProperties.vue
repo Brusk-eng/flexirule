@@ -33,8 +33,7 @@ const CONFIG_MODAL_TYPES = new Set([
 	"Wait",
 	"Sub-Rule",
 	"Query Records",
-	"Aggregate Records",
-	"Create Docs",
+	"Document Action",
 ]);
 
 const excluded_fields = computed(() => {
@@ -46,7 +45,7 @@ const excluded_fields = computed(() => {
 		"process_method", // Obsolete
 	];
 
-	const MODAL_TYPES = ["Query Records", "Aggregate Records", "Create Docs"];
+	const MODAL_TYPES = ["Query Records", "Document Action"];
 
 	if (MODAL_TYPES.includes(props.nodeData?.action_type)) {
 		base.push(
@@ -156,8 +155,7 @@ function get_visible_fieldnames(nodeData) {
 			fieldnames.add("value_template");
 			break;
 		case "Query Records":
-		case "Aggregate Records":
-		case "Create Docs":
+		case "Document Action":
 			fieldnames.add("operation");
 			fieldnames.add("input_source");
 			fieldnames.add("reference_doctype");
@@ -168,7 +166,7 @@ function get_visible_fieldnames(nodeData) {
 			if (
 				(actionType === "Query Records" &&
 					["Query Doc", "Query Report"].includes(nodeData?.operation)) ||
-				(actionType === "Create Docs" && nodeData?.operation === "Update Existing")
+				(actionType === "Document Action" && nodeData?.operation === "Update Existing")
 			) {
 				fieldnames.add("reference_docname");
 			}

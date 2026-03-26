@@ -110,7 +110,7 @@
 
 				<div
 					class="form-group mt-3"
-					v-if="node.data?.return_type && node.data?.return_type !== 'Boolean'"
+					v-if="node.data?.return_type && node.data?.return_type !== 'Yes / No'"
 				>
 					<label class="section-title mini">{{ __("Manual Schema (JSON)") }}</label>
 					<ControlFactory
@@ -141,17 +141,15 @@ const outputMappings = ref([]);
 const availableVariables = ref([]);
 
 const showMutationMode = computed(() => {
-	return ["Process", "Query Records", "Aggregate Records", "Create Docs"].includes(
-		props.node.data?.action_type
-	);
+	return ["Process", "Query Records", "Document Action"].includes(props.node.data?.action_type);
 });
 
 // -- Field Definitions --
 const returnTypeField = {
 	fieldname: "return_type",
 	fieldtype: "Select",
-	label: __("Return Type"),
-	options: "\nBoolean\nDict\nList\nList of Dict\nDoc as Dict",
+	label: __("Result Format"),
+	options: "\nYes / No\nSingle Record\nList of Values\nList of Records\nFull Document",
 };
 
 const returnVariableField = computed(() => ({
@@ -159,7 +157,7 @@ const returnVariableField = computed(() => ({
 	fieldtype: "Data",
 	label: __("Result Variable name"),
 	description:
-		props.node.data?.return_type === "Boolean"
+		props.node.data?.return_type === "Yes / No"
 			? __("Value assigned directly.")
 			: __("Stored as this variable."),
 }));
@@ -264,152 +262,6 @@ onMounted(() => {
 
 function validate() {
 	const errors = [];
-	outputMappings.value.forEach((m, idx) => {
-		if ((m.source && !m.target) || (!m.source && m.target)) {
-			errors.push(__("Variable Assignment #{0} is incomplete", [idx + 1]));
-		}
-	});
-	return errors.length ? { valid: false, errors } : { valid: true };
-}
-
-defineExpose({ validate });
-</script>
-
-<script setup>
-import { ref, watch, onMounted, computed } from "vue";
-import { useStore } from "../../store";
-import ControlFactory from "../../controls/ControlFactory.vue";
-import AutocompleteControl from "../../controls/AutocompleteControl.vue";
-
-const props = defineProps({
-	node: Object,
-	readOnly: Boolean,
-});
-
-const store = useStore();
-
-const inputMappings = ref([]);
-const outputMappings = ref([]);
-const availableVariables = ref([]);
-
-const detectedKeys = computed(() => {
-	const schema = props.node?.data?.resolved_output_schema;
-	if (Array.isArray(schema)) return schema;
-	try {
-		return typeof schema === "string" ? JSON.parse(schema) : [];
-	} catch (e) {
-		return [];
-	}
-});
-
-// -- Input Mappings Logic --
-watch(
-	() => props.node.data?.input_mapping,
-	(val) => {
-		if (val) {
-			try {
-				const obj = typeof val === "string" ? JSON.parse(val) : val;
-				inputMappings.value = Object.entries(obj).map(([source, target]) => ({
-					source,
-					target,
-				}));
-			} catch (e) {
-				inputMappings.value = [];
-			}
-		} else {
-			inputMappings.value = [];
-		}
-	},
-	{ immediate: true }
-);
-
-function addInputMapping() {
-	inputMappings.value.push({ source: "", target: "" });
-}
-
-function removeInputMapping(idx) {
-	inputMappings.value.splice(idx, 1);
-	saveInputMappings();
-}
-
-function saveInputMappings() {
-	const obj = {};
-	inputMappings.value.forEach((m) => {
-		if (m.source && m.target) obj[m.source] = m.target;
-	});
-	updateField("input_mapping", obj);
-}
-
-// -- Output Mappings Logic --
-watch(
-	() => props.node.data?.output_mapping,
-	(val) => {
-		if (val) {
-			try {
-				const obj = typeof val === "string" ? JSON.parse(val) : val;
-				outputMappings.value = Object.entries(obj).map(([source, target]) => ({
-					source,
-					target,
-				}));
-			} catch (e) {
-				outputMappings.value = [];
-			}
-		} else {
-			outputMappings.value = [];
-		}
-	},
-	{ immediate: true }
-);
-
-function addOutputMapping() {
-	outputMappings.value.push({ source: "", target: "" });
-}
-
-function removeOutputMapping(idx) {
-	outputMappings.value.splice(idx, 1);
-	saveOutputMappings();
-}
-
-function saveOutputMappings() {
-	const obj = {};
-	outputMappings.value.forEach((m) => {
-		if (m.source && m.target) obj[m.source] = m.target;
-	});
-	updateField("output_mapping", obj);
-}
-
-// -- Shared Logic --
-function updateField(fieldname, value) {
-	if (props.node.data) {
-		props.node.data[fieldname] = value;
-		store.mark_dirty();
-	}
-}
-
-async function refreshVariables() {
-	if (!props.node?.id) return;
-	try {
-		availableVariables.value = await store.getAvailableVariables(props.node.id);
-	} catch (e) {
-		availableVariables.value = [];
-	}
-}
-
-function getVariableOptions() {
-	return availableVariables.value.map((v) => ({ label: v.label, value: v.value }));
-}
-
-onMounted(() => {
-	refreshVariables();
-});
-
-function validate() {
-	const errors = [];
-	inputMappings.value.forEach((m, idx) => {
-		if ((m.source && !m.target) || (!m.source && m.target)) {
-			errors.push(__("Input Mapping #{0} is incomplete", [idx + 1]));
-		}
-	});
 	outputMappings.value.forEach((m, idx) => {
 		if ((m.source && !m.target) || (!m.source && m.target)) {
 			errors.push(__("Variable Assignment #{0} is incomplete", [idx + 1]));

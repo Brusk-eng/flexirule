@@ -120,7 +120,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				},
 				{
 					"action_id": "nested_comment",
-					"action_type": "Create Docs",
+					"action_type": "Document Action",
 					"action_label": "Nested Comment",
 					"reference_doctype": "Comment",
 					"operation": "Add Comment",
@@ -153,7 +153,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				},
 				{
 					"action_id": "create_todo",
-					"action_type": "Create Docs",
+					"action_type": "Document Action",
 					"action_label": "Create Followup ToDo",
 					"reference_doctype": "ToDo",
 					"operation": "Create ToDo",
@@ -275,10 +275,10 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				},
 				{
 					"action_id": "count_email_dupes",
-					"action_type": "Aggregate Records",
+					"action_type": "Query Records",
 					"action_label": "Count Email Duplicates",
 					"reference_doctype": "Contact",
-					"operation": "count",
+					"operation": "Count",
 					"config": _j(
 						{
 							"filters": [{"field": "email_id", "operator": "=", "value": "{doc.email_id}"}],
@@ -323,7 +323,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				},
 				{
 					"action_id": "after_insert_comment",
-					"action_type": "Create Docs",
+					"action_type": "Document Action",
 					"action_label": "Create Timeline Comment",
 					"reference_doctype": "Comment",
 					"operation": "Add Comment",
@@ -385,10 +385,10 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				},
 				{
 					"action_id": "count_followups",
-					"action_type": "Aggregate Records",
+					"action_type": "Query Records",
 					"action_label": "Count Followup ToDos",
 					"reference_doctype": "ToDo",
-					"operation": "count",
+					"operation": "Count",
 					"config": _j(
 						{
 							"filters": [

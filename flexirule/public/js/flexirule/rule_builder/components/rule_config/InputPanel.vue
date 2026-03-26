@@ -191,8 +191,8 @@ const showRuleField = computed(() => {
 const showOperation = computed(() => {
 	if (!contract.value) return false;
 	return (
-		contract.value.operation_options ||
-		["Notify", "Process", "Query Records", "Aggregate Records", "Create Docs"].includes(
+		contract.value?.operation_options ||
+		["Notify", "Process", "Query Records", "Create Docs", "Document Action"].includes(
 			props.node.data?.action_type
 		)
 	);
@@ -205,8 +205,8 @@ const showReferenceDocname = computed(() => {
 	if (type === "Query Records") {
 		return ["Query Doc", "Query Report"].includes(op);
 	}
-	if (type === "Create Docs") {
-		return op === "Update Existing";
+	if (type === "Document Action" || type === "Create Docs") {
+		return ["Update Existing", "Delete Record"].includes(op);
 	}
 	if (type === "Process" && op?.includes("Doc")) return true;
 
@@ -215,13 +215,13 @@ const showReferenceDocname = computed(() => {
 
 const showInputSource = computed(() => {
 	if (!contract.value) return false;
-	return ["Query Records", "Aggregate Records", "Create Docs"].includes(
+	return ["Query Records", "Create Docs", "Document Action"].includes(
 		props.node.data?.action_type
 	);
 });
 
 const forcedReferenceDoctype = computed(() => {
-	if (props.node.data?.action_type !== "Create Docs") return null;
+	if (!["Document Action", "Create Docs"].includes(props.node.data?.action_type)) return null;
 	if (props.node.data?.operation === "Add Comment") return "Comment";
 	if (props.node.data?.operation === "Create ToDo") return "ToDo";
 	return null;
@@ -230,7 +230,10 @@ const forcedReferenceDoctype = computed(() => {
 // -- Field Definitions --
 const referenceDoctypeField = computed(() => {
 	let description = __("Target DocType for this action.");
-	if (props.node.data?.action_type === "Create Docs" && forcedReferenceDoctype.value) {
+	if (
+		["Document Action", "Create Docs"].includes(props.node.data?.action_type) &&
+		forcedReferenceDoctype.value
+	) {
 		description = __("{0} mode always targets the {1} DocType.")
 			.replace("{0}", props.node.data.operation)
 			.replace("{1}", forcedReferenceDoctype.value);
@@ -263,12 +266,47 @@ const ruleField = {
 	reqd: 1,
 };
 
-const referenceDocnameField = {
-	fieldname: "reference_docname",
-	fieldtype: "Data",
-	label: __("Reference Name"),
-	description: __("The document name or ID"),
-};
+const referenceDocnameField = computed(() => {
+	const actionType = props.node?.data?.action_type;
+	const operation = props.node?.data?.operation;
+	const refDocType = props.node?.data?.reference_doctype;
+
+	// Special case: Query Report
+	if (actionType === "Query Records" && operation === "Query Report") {
+		return {
+			fieldname: "reference_docname",
+			fieldtype: "Link",
+			label: __("Report Name"),
+			options: "Report",
+			reqd: 1,
+			description: __("Select the report to run."),
+		};
+	}
+
+	// Dynamic Link for Query Doc or Document Actions
+	const isLinkNeeded =
+		(actionType === "Query Records" && operation === "Query Doc") ||
+		(["Document Action", "Create Docs"].includes(actionType) &&
+			["Update Existing", "Delete Record"].includes(operation));
+
+	if (isLinkNeeded && refDocType && refDocType !== "Report") {
+		return {
+			fieldname: "reference_docname",
+			fieldtype: "Link",
+			label: __("Reference Name"),
+			options: refDocType,
+			reqd: 1,
+			description: __("Select the {0} record.").replace("{0}", refDocType),
+		};
+	}
+
+	return {
+		fieldname: "reference_docname",
+		fieldtype: "Data",
+		label: __("Reference Name"),
+		description: __("The document name, ID, or an expression."),
+	};
+});
 
 const inputSourceField = {
 	fieldname: "input_source",
@@ -292,14 +330,8 @@ const dynamicOperationField = computed(() => {
 				const ops = await store.get_process_operations(props.node.data.process_name);
 				return ops.map((o) => ({ label: o.label || o.func_name, value: o.func_name }));
 			}
-			// For now, assume dynamic or fixed
-			if (props.node.data?.action_type === "Query Records") {
-				return [
-					{ label: __("Query List"), value: "Query List" },
-					{ label: __("Query Doc"), value: "Query Doc" },
-					{ label: __("Exist Record"), value: "Exist Record" },
-					{ label: __("Query Report"), value: "Query Report" },
-				];
+			if (options) {
+				return options.map((opt) => ({ label: __(opt), value: opt }));
 			}
 			return [];
 		},
@@ -356,30 +388,40 @@ async function loadDoctypeFields() {
 
 function updateField(fieldname, value) {
 	if (props.node?.data) {
-		if (fieldname === "operation" && props.node.data?.action_type === "Create Docs") {
-			const isSpecialCreateDocsMode = ["Add Comment", "Create ToDo"].includes(value);
-			if (value === "Add Comment") {
-				props.node.data.reference_doctype = "Comment";
-				props.node.data.reference_docname = null;
-			} else if (value === "Create ToDo") {
-				props.node.data.reference_doctype = "ToDo";
-				props.node.data.reference_docname = null;
-			} else if (
-				["Comment", "ToDo"].includes(props.node.data.reference_doctype) &&
-				["Create New", "Update Existing"].includes(value)
-			) {
-				props.node.data.reference_doctype = null;
-				props.node.data.reference_docname = null;
+		if (fieldname === "operation") {
+			const actionType = props.node.data?.action_type;
+
+			// Handle Document Action / Create Docs special modes
+			if (["Document Action", "Create Docs"].includes(actionType)) {
+				const isSpecialCreateDocsMode = ["Add Comment", "Create ToDo"].includes(value);
+				if (value === "Add Comment") {
+					props.node.data.reference_doctype = "Comment";
+					props.node.data.reference_docname = null;
+				} else if (value === "Create ToDo") {
+					props.node.data.reference_doctype = "ToDo";
+					props.node.data.reference_docname = null;
+				} else if (
+					["Comment", "ToDo"].includes(props.node.data.reference_doctype) &&
+					["Create New", "Update Existing"].includes(value)
+				) {
+					props.node.data.reference_doctype = null;
+					props.node.data.reference_docname = null;
+				}
+
+				if (isSpecialCreateDocsMode) {
+					// These modes act on the current context document
+					props.node.data.mutation_mode = null;
+					props.node.data.return_variable = null;
+					props.node.data.return_type = null;
+					props.node.data.resolved_output_schema = null;
+					props.node.data.output_mapping = null;
+				}
 			}
 
-			if (isSpecialCreateDocsMode) {
-				// These modes act on the current context document and should not
-				// inherit unrelated result-mutation settings from previous modes.
-				props.node.data.mutation_mode = null;
-				props.node.data.return_variable = null;
-				props.node.data.return_type = null;
-				props.node.data.resolved_output_schema = null;
-				props.node.data.output_mapping = null;
+			// Handle Query Records -> Query Report special mode
+			if (actionType === "Query Records" && value === "Query Report") {
+				props.node.data.reference_doctype = "Report";
+				props.node.data.reference_docname = null;
 			}
 		}
 
@@ -428,7 +470,7 @@ onMounted(() => {
 defineExpose({
 	validate: () => {
 		const errors = [];
-		if (props.node?.data?.action_type === "Create Docs") {
+		if (["Document Action", "Create Docs"].includes(props.node?.data?.action_type)) {
 			if (
 				props.node.data.operation === "Add Comment" &&
 				props.node.data.reference_doctype !== "Comment"

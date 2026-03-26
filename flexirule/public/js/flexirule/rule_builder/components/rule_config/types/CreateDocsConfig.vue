@@ -9,11 +9,42 @@
 
 		<div v-else class="config-container">
 			<template v-if="mode === 'Create ToDo'">
-				<ControlFactory
-					:df="with_read_only(assignedToField)"
-					:modelValue="config.assigned_to"
-					@update:modelValue="(val) => update_config_key('assigned_to', val)"
-				/>
+				<div class="assign-to-group">
+					<div class="d-flex align-items-center gap-2 mb-1">
+						<label class="control-label small mb-0">{{ __("Assigned To") }}</label>
+						<select
+							v-if="!readOnly"
+							class="form-control input-xs assign-type-select"
+							v-model="assignToType"
+							@change="onAssignToTypeChange"
+						>
+							<option value="Value">{{ __("Value") }}</option>
+							<option value="Variable">{{ __("Variable") }}</option>
+							<option value="Expression">{{ __("Expression") }}</option>
+						</select>
+					</div>
+					<ControlFactory
+						v-if="assignToType === 'Value'"
+						:df="with_read_only(assignedToLinkField)"
+						:modelValue="stripBrackets(config.assigned_to)"
+						@update:modelValue="(val) => update_config_key('assigned_to', val)"
+					/>
+					<AutocompleteControl
+						v-else-if="assignToType === 'Variable'"
+						:df="{ fieldtype: 'Autocomplete', label: '' }"
+						:options="variable_options"
+						:modelValue="stripBrackets(config.assigned_to)"
+						:read_only="readOnly"
+						:hideLabel="true"
+						@update:modelValue="(val) => update_config_key('assigned_to', `{${val}}`)"
+					/>
+					<ControlFactory
+						v-else
+						:df="with_read_only(assignedToExprField)"
+						:modelValue="config.assigned_to"
+						@update:modelValue="(val) => update_config_key('assigned_to', val)"
+					/>
+				</div>
 				<ControlFactory
 					:df="with_read_only(todoDescriptionField)"
 					:modelValue="config.description"
@@ -39,7 +70,7 @@
 				/>
 			</template>
 
-			<template v-else-if="mode === 'Update Existing'">
+			<template v-else-if="['Update Existing', 'Delete Record'].includes(mode)">
 				<ControlFactory
 					:df="with_read_only(docnameExprField)"
 					:modelValue="config.docname_expression"
@@ -52,7 +83,7 @@
 			</template>
 
 			<div
-				v-if="!['Create ToDo', 'Add Comment'].includes(mode)"
+				v-if="!['Create ToDo', 'Add Comment', 'Delete Record'].includes(mode)"
 				class="sub-section section-subcard"
 			>
 				<h6>{{ __("Static Values") }}</h6>
@@ -198,13 +229,42 @@ const docnameExprField = {
 	options: "PythonExpression",
 };
 
-const assignedToField = {
+const assignedToLinkField = {
 	fieldname: "assigned_to",
 	fieldtype: "Link",
-	label: __("Assigned To"),
+	label: "",
 	options: "User",
 	reqd: 1,
 };
+
+const assignedToExprField = {
+	fieldname: "assigned_to",
+	fieldtype: "Code",
+	label: "",
+	options: "Jinja",
+	reqd: 1,
+};
+
+const assignToType = ref("Value");
+
+function stripBrackets(val) {
+	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}") && val.length > 2) {
+		return val.slice(1, -1);
+	}
+	return val || "";
+}
+
+function detectAssignToType(val) {
+	if (!val) return "Value";
+	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) return "Variable";
+	if (typeof val === "string" && (val.includes("{{") || val.includes("{%"))) return "Expression";
+	return "Value";
+}
+
+function onAssignToTypeChange() {
+	config.assigned_to = "";
+	sync_local_config();
+}
 
 const todoDescriptionField = {
 	fieldname: "description",
@@ -334,6 +394,11 @@ function load_local_config(val) {
 	Object.keys(config).forEach((k) => delete config[k]);
 	Object.assign(config, parsed);
 
+	// Detect and set assign_to type from saved value
+	if (parsed.assigned_to) {
+		assignToType.value = detectAssignToType(parsed.assigned_to);
+	}
+
 	const static_values = parsed.static_values || {};
 	static_rows.value = Object.entries(static_values).map(([key, value]) => ({
 		key,
@@ -427,5 +492,13 @@ defineExpose({
 
 .value-cell :deep(.control-factory) {
 	width: 100%;
+}
+
+.assign-type-select {
+	width: auto !important;
+	min-width: 80px;
+	font-size: 10px;
+	height: 22px;
+	padding: 1px 4px;
 }
 </style>
