@@ -34,10 +34,13 @@ class RuleBuilder {
 		this.page.clear_custom_actions();
 
 		// Primary action - Save button
-		this.save_btn = this.page.set_primary_action(
-			__("Save"),
-			() => this.store.save_changes(),
-			"save"
+		const translatedSaveLabel = __("Save Rule");
+		this.save_button_label =
+			typeof translatedSaveLabel === "string" && translatedSaveLabel.trim()
+				? translatedSaveLabel
+				: "Save Rule";
+		this.save_btn = this.page.set_primary_action(this.save_button_label, () =>
+			this.store.save_changes()
 		);
 
 		// Secondary button - Reset
@@ -133,6 +136,9 @@ class RuleBuilder {
 	}
 
 	update_save_button(is_dirty) {
+		if (this.save_btn?.text()?.trim() !== this.save_button_label) {
+			this.save_btn.text(this.save_button_label);
+		}
 		if (is_dirty) {
 			this.save_btn.removeClass("btn-primary-light").addClass("btn-primary");
 			this.page.set_indicator(__("Not Saved"), "orange");

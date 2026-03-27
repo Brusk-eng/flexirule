@@ -48,12 +48,17 @@ export const ACTION_TYPE_CONTRACT = {
 		description: "Iterate over a list of items and execute actions for each item.",
 	},
 	Stop: {
-		required_fields: [],
+		required_fields: ["operation"],
 		has_next_true: false,
 		has_next_false: false,
 		terminal: true,
 		css: { icon: "fa fa-stop", color: "#ef4444" },
-		description: "Terminates the rule execution immediately.",
+		description: "Terminates the rule execution as Success or Error.",
+		operation_label: "Terminal Mode",
+		operation_options: ["Success", "Error"],
+		mandatory_fields: {
+			Error: ["value_template"],
+		},
 	},
 	Switch: {
 		required_fields: ["config"],
@@ -90,14 +95,6 @@ export const ACTION_TYPE_CONTRACT = {
 		validation: {
 			check_target_field_editable: true,
 		},
-	},
-	"Raise Error": {
-		required_fields: ["value_template"],
-		has_next_true: false,
-		has_next_false: false,
-		terminal: true,
-		css: { icon: "fa fa-exclamation-triangle", color: "#dc2626" },
-		description: "Stop execution and display an error message to the user.",
 	},
 	Notify: {
 		required_fields: ["value_template", "operation"],
@@ -137,7 +134,6 @@ export const ACTION_TYPE_CONTRACT = {
 			"Group By",
 		],
 		mandatory_fields: {
-			"Query Doc": ["reference_docname"],
 			"Exist Record": ["reference_doctype"],
 		},
 	},
@@ -244,6 +240,22 @@ export function validateAgainstContract(nodeData) {
 		const value = nodeData[field];
 		if (value === undefined || value === null || value === "") {
 			errors.push(__("Field '{0}' is required for {1}", [field, nodeData.action_type]));
+		}
+	}
+
+	// 1a. Operation-specific mandatory fields
+	if (nodeData.operation && contract.mandatory_fields?.[nodeData.operation]) {
+		for (const field of contract.mandatory_fields[nodeData.operation]) {
+			const value = nodeData[field];
+			if (value === undefined || value === null || value === "") {
+				errors.push(
+					__("Field '{0}' is required for {1} in mode {2}", [
+						field,
+						nodeData.action_type,
+						nodeData.operation,
+					])
+				);
+			}
 		}
 	}
 

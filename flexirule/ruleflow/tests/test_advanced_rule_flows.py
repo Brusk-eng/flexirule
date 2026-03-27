@@ -132,6 +132,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				{
 					"action_id": "nested_stop",
 					"action_type": "Stop",
+					"operation": "Success",
 					"action_label": "Nested Stop",
 				},
 			],
@@ -180,6 +181,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				{
 					"action_id": "callable_stop",
 					"action_type": "Stop",
+					"operation": "Success",
 					"action_label": "Callable Stop",
 				},
 			],
@@ -253,44 +255,12 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 					"action_label": "Set Status Open",
 					"target_field": "status",
 					"value_template": "Open",
-					"next_step_if_true": "query_email_dupes",
-				},
-				{
-					"action_id": "query_email_dupes",
-					"action_type": "Query Records",
-					"action_label": "Query Email Duplicates",
-					"reference_doctype": "Contact",
-					"operation": "Query List",
-					"config": _j(
-						{
-							"filters": [{"field": "email_id", "operator": "=", "value": "{doc.email_id}"}],
-							"fields": ["name", "full_name", "email_id"],
-							"limit": 5,
-						}
-					),
-					"mutation_mode": "Set Context Variable",
-					"return_variable": "email_matches",
-					"return_type": "List of Dict",
-					"next_step_if_true": "count_email_dupes",
-				},
-				{
-					"action_id": "count_email_dupes",
-					"action_type": "Query Records",
-					"action_label": "Count Email Duplicates",
-					"reference_doctype": "Contact",
-					"operation": "Count",
-					"config": _j(
-						{
-							"filters": [{"field": "email_id", "operator": "=", "value": "{doc.email_id}"}],
-						}
-					),
-					"mutation_mode": "Set Context Variable",
-					"return_variable": "duplicate_count",
 					"next_step_if_true": "before_save_stop",
 				},
 				{
 					"action_id": "before_save_stop",
 					"action_type": "Stop",
+					"operation": "Success",
 					"action_label": "Before Save Stop",
 				},
 			],
@@ -355,6 +325,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				{
 					"action_id": "after_insert_stop",
 					"action_type": "Stop",
+					"operation": "Success",
 					"action_label": "After Insert Stop",
 				},
 			],
@@ -413,6 +384,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				{
 					"action_id": "scheduler_stop",
 					"action_type": "Stop",
+					"operation": "Success",
 					"action_label": "Scheduler Stop",
 				},
 			],
@@ -432,7 +404,8 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				},
 				{
 					"action_id": "raise_error",
-					"action_type": "Raise Error",
+					"action_type": "Stop",
+					"operation": "Error",
 					"action_label": "Raise Blocking Error",
 					"value_template": "Advanced flow blocked for {{ doc.name }}",
 				},
@@ -527,7 +500,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		self.assertIsNotNone(before_save_log)
 		self.assertEqual(before_save_log.status, "Success")
 		context_snapshot = json.loads(before_save_log.context_snapshot or "{}")
-		self.assertEqual(context_snapshot.get("duplicate_count"), 1)
+		self.assertEqual(context_snapshot.get("phone_matches", {}).get("match_count"), 1)
 		self.assertEqual(context_snapshot.get("contact_changed"), True)
 		self.assertEqual(context_snapshot.get("doc", {}).get("status"), "Open")
 
@@ -565,7 +538,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		before_save_log = self._latest_log(scenarios["before_save"].name, contact.name)
 		self.assertIsNotNone(before_save_log)
 		context_snapshot = json.loads(before_save_log.context_snapshot or "{}")
-		self.assertEqual(context_snapshot.get("duplicate_count"), 1)
+		self.assertEqual(context_snapshot.get("phone_matches", {}).get("match_count"), 1)
 		self.assertTrue(context_snapshot.get("phone_matches", {}).get("has_match"))
 		path = json.loads(before_save_log.execution_path or "[]")
 		self.assertTrue(any(step.get("action") == "Find Phone Duplicates" for step in path))

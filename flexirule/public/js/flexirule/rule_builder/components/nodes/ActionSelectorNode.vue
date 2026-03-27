@@ -42,7 +42,7 @@ function fuzzyMatch(text, query) {
 const ACTION_CATEGORIES = {
 	"Control Flow": ["Condition", "Stop", "Wait", "Sub-Rule"],
 	"Data Actions": ["Set Value", "Query Records", "Document Action"],
-	Notifications: ["Raise Error", "Notify"],
+	Notifications: ["Notify"],
 	Processes: ["Process"],
 };
 
@@ -277,13 +277,14 @@ function mapActionTypeToNodeType(actionType) {
 	if (type === "condition") return "condition";
 	if (type === "loop") return "loop";
 	if (type === "wait") return "wait";
+	if (type === "stop") return "stop";
 	if (type === "notify") return "notify";
 	if (type === "sub-rule") return "sub-rule";
 	if (type === "query records") return "query";
 	if (type === "aggregate records") return "aggregate";
 	if (type === "document action" || type === "create docs") return "documentaction";
 	if (type === "set value") return "set-value";
-	if (type === "raise error") return "raise-error";
+	if (type === "raise error") return "stop";
 
 	return "process";
 }

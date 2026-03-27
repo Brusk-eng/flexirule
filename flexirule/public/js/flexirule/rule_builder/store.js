@@ -395,10 +395,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 				type = "aggregate";
 			} else if (type === "create docs" || type === "document action") {
 				type = "documentaction";
-			} else if (type === "set value") {
+			} else if (type === "set-value") {
 				type = "set-value";
 			} else if (type === "raise error") {
-				type = "raise-error";
+				// Migrate legacy Raise Error to Stop with Error operation
+				type = "stop";
+				action.action_type = "Stop";
+				action.operation = "Error";
 			} else if (type === "notify") {
 				type = "notify";
 			} else if (type === "wait") {
@@ -612,6 +615,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 		if (contract.terminal) {
 			normalized.next_step_if_true = null;
 			normalized.next_step_if_false = null;
+		}
+
+		if (actionType === "Stop" && normalized.operation !== "Error") {
+			normalized.value_template = null;
 		}
 
 		return normalized;
@@ -1089,6 +1096,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 		} else if (type === "set value") {
 			baseData.action_type = "Set Value";
 			baseData.config = { static_values: {} };
+		} else if (type === "stop") {
+			baseData.action_type = "Stop";
+			baseData.operation = "Success";
+		} else if (type === "raise error") {
+			// Backward compatibility alias
+			baseData.action_type = "Stop";
+			baseData.operation = "Error";
 		} else if (type === "sub-rule") {
 			baseData.action_type = "Sub-Rule";
 		} else if (type === "query" || type === "query records") {

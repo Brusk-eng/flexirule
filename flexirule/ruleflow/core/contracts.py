@@ -49,11 +49,16 @@ ACTION_TYPE_CONTRACT = {
 		"css": {"icon": "fa fa-refresh", "color": "#f59e0b"},
 	},
 	"Stop": {
-		"required_fields": [],
+		"required_fields": ["operation"],
 		"has_next_true": False,
 		"has_next_false": False,
 		"terminal": True,
 		"css": {"icon": "fa fa-stop", "color": "#ef4444"},
+		"operation_label": "Terminal Mode",
+		"operation_options": ["Success", "Error"],
+		"mandatory_fields": {
+			"Error": ["value_template"],
+		},
 	},
 	"Switch": {
 		"required_fields": ["config"],  # config must have cases
@@ -85,13 +90,6 @@ ACTION_TYPE_CONTRACT = {
 		"validation": {
 			"check_target_field_editable": True,
 		},
-	},
-	"Raise Error": {
-		"required_fields": ["value_template"],
-		"has_next_true": False,
-		"has_next_false": False,
-		"terminal": True,
-		"css": {"icon": "fa fa-exclamation-triangle", "color": "#dc2626"},
 	},
 	"Notify": {
 		"required_fields": ["value_template", "operation"],
@@ -127,7 +125,6 @@ ACTION_TYPE_CONTRACT = {
 			"Update Context Variable",
 		],
 		"mandatory_fields": {
-			"Query Doc": ["reference_docname"],
 			"Exist Record": ["reference_doctype"],
 		},
 	},

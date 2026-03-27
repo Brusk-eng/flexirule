@@ -40,6 +40,13 @@ class TestRuleCoordinator(FrappeTestCase):
 		actions=None,
 	):
 		"""Helper to create test rules"""
+		meta = frappe.get_meta(doctype)
+		target_field = "description"
+		for candidate in ("description", "subject", "title", "method", "error"):
+			if meta.get_field(candidate):
+				target_field = candidate
+				break
+
 		rule_doc = frappe.get_doc(
 			{
 				"doctype": "Rule",
@@ -57,8 +64,8 @@ class TestRuleCoordinator(FrappeTestCase):
 						"action_type": "Set Value",
 						"action_label": "Set Description",
 						"is_enabled": 1,
-						"target_field": "description",
-						"value_template": "Set by coordinator",
+						"target_field": target_field,
+						"value_template": "Set by Coordinator",
 						"next_step_if_true": "ACT-STOP",
 					},
 					{
@@ -66,6 +73,7 @@ class TestRuleCoordinator(FrappeTestCase):
 						"action_type": "Stop",
 						"action_label": "Stop",
 						"is_enabled": 1,
+						"operation": "Success",
 					},
 				],
 			}
@@ -199,7 +207,8 @@ class TestRuleCoordinator(FrappeTestCase):
 			actions=[
 				{
 					"action_id": "ACT-ERROR",
-					"action_type": "Raise Error",
+					"action_type": "Stop",
+					"operation": "Error",
 					"action_label": "Fail Explicitly",
 					"is_enabled": 1,
 					"value_template": "Coordinator failure for {{ doc.doctype }}",
@@ -331,7 +340,7 @@ class TestRuleCoordinator(FrappeTestCase):
 		"""Test execute_rules skips excluded doctypes"""
 		self.create_test_rule("Test Excluded", doctype="Error Log")
 
-		doc = frappe.get_doc({"doctype": "Error Log", "description": "Test"})
+		doc = frappe.get_doc({"doctype": "Error Log", "message": "Test"})
 		# This should not execute rules as Error Log is in excluded list
 		RuleCoordinator.execute_rules(doc, "Validate")
 
