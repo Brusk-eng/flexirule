@@ -17,7 +17,7 @@ class TestRule(FrappeTestCase):
 			{
 				"doctype": "Rule",
 				"rule_name": self.rule_name,
-				"document_type": "Lead",
+				"document_type": "User",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Before Save",
 				"actions": [
@@ -40,7 +40,7 @@ class TestRule(FrappeTestCase):
 			{
 				"doctype": "Rule",
 				"rule_name": self.rule_name,
-				"document_type": "Lead",
+				"document_type": "User",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Before Save",
 				"actions": [{"action_label": "Stop Success", "action_type": "Stop", "operation": "Success"}],
@@ -55,7 +55,7 @@ class TestRule(FrappeTestCase):
 			{
 				"doctype": "Rule",
 				"rule_name": self.rule_name,
-				"document_type": "Lead",
+				"document_type": "User",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Before Save",
 				"actions": [
@@ -77,7 +77,7 @@ class TestRule(FrappeTestCase):
 			{
 				"doctype": "Rule",
 				"rule_name": f"{self.rule_name} With Template",
-				"document_type": "Lead",
+				"document_type": "User",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Before Save",
 				"actions": [
