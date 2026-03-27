@@ -181,9 +181,16 @@ flexirule.utils.load_process_adapter = async function (process_name) {
 		});
 
 		if (response.message && response.message.script) {
-			// Use Function constructor for evaluation
+			// Evaluate in Desk global scope without Function constructor.
 			try {
-				new Function(response.message.script)();
+				const before = new Set(Object.keys(flexirule.processes || {}));
+				frappe.dom.eval(response.message.script);
+				const after = Object.keys(flexirule.processes || {});
+				if (!flexirule.processes[process_name] && after.length === before.size) {
+					console.warn(
+						`Adapter script loaded but did not register process: ${process_name}`
+					);
+				}
 			} catch (e) {
 				console.error(`Failed to evaluate adapter for ${process_name}:`, e);
 			}

@@ -110,7 +110,7 @@
 
 				<div
 					class="form-group mt-3"
-					v-if="node.data?.return_type && node.data?.return_type !== 'Yes / No'"
+					v-if="node.data?.return_type && node.data?.return_type !== 'Boolean'"
 				>
 					<label class="section-title mini">{{ __("Manual Schema (JSON)") }}</label>
 					<ControlFactory
@@ -129,6 +129,7 @@ import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../store";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
+import { getReturnTypeOptions } from "../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
@@ -145,19 +146,19 @@ const showMutationMode = computed(() => {
 });
 
 // -- Field Definitions --
-const returnTypeField = {
+const returnTypeField = computed(() => ({
 	fieldname: "return_type",
 	fieldtype: "Select",
 	label: __("Result Format"),
-	options: "\nYes / No\nSingle Record\nList of Values\nList of Records\nFull Document",
-};
+	options: ["", ...getReturnTypeOptions()].join("\n"),
+}));
 
 const returnVariableField = computed(() => ({
 	fieldname: "return_variable",
 	fieldtype: "Data",
 	label: __("Result Variable name"),
 	description:
-		props.node.data?.return_type === "Yes / No"
+		props.node.data?.return_type === "Boolean"
 			? __("Value assigned directly.")
 			: __("Stored as this variable."),
 }));

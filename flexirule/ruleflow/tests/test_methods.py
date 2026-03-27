@@ -90,6 +90,7 @@ class TestNotificationMethods(unittest.TestCase):
 				"reference_doctype": "Comment",
 				"config": '{"comment_text":"Test comment from rule"}',
 				"skip_permissions": 1,
+				"permission_audit_reason": "Automated Test",
 				"next_step_if_true": None,
 			}
 		)
@@ -110,6 +111,7 @@ class TestNotificationMethods(unittest.TestCase):
 				"reference_doctype": "ToDo",
 				"config": '{"assigned_to":"Administrator","description":"Follow up {{ doc.name }}","priority":"High"}',
 				"skip_permissions": 1,
+				"permission_audit_reason": "Automated Test",
 				"next_step_if_true": None,
 			}
 		)

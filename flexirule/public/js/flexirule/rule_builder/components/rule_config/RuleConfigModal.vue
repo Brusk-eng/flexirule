@@ -294,10 +294,8 @@ function getIcon(type) {
 		start: "fa fa-play",
 		stop: "fa fa-stop",
 		"query records": "fa fa-search",
-		"aggregate records": "fa fa-calculator",
-		"create docs": "fa fa-plus-circle",
+		"document action": "fa fa-plus-circle",
 		"set value": "fa fa-edit",
-		"raise error": "fa fa-exclamation-triangle",
 		notify: "fa fa-bell",
 	};
 	return icons[type.toLowerCase()] || "fa fa-circle";

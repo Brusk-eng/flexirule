@@ -290,54 +290,6 @@
 				</div>
 			</template>
 
-			<template v-else-if="mode === 'Query API'">
-				<ControlFactory
-					:df="with_read_only(methodField)"
-					:modelValue="config.method"
-					@update:modelValue="(val) => update_config_key('method', val)"
-				/>
-				<div class="sub-section section-subcard">
-					<h6>{{ __("Arguments") }}</h6>
-					<div class="table-rows">
-						<div v-for="(row, idx) in arg_rows" :key="idx" class="row-item">
-							<input
-								class="form-control input-xs"
-								v-model="row.key"
-								:placeholder="__('Key')"
-								:disabled="readOnly"
-								@change="sync_local_config"
-							/>
-							<input
-								class="form-control input-xs"
-								v-model="row.value"
-								:placeholder="__('Value')"
-								:disabled="readOnly"
-								@change="sync_local_config"
-							/>
-							<select
-								class="form-control input-xs"
-								v-model="row.value_type"
-								:disabled="readOnly"
-								@change="sync_local_config"
-							>
-								<option v-for="vt in value_types" :key="vt" :value="vt">
-									{{ __(vt) }}
-								</option>
-							</select>
-							<button
-								v-if="!readOnly"
-								class="btn btn-xs btn-link text-danger"
-								@click="remove_arg(idx)"
-							>
-								<i class="fa fa-trash"></i>
-							</button>
-						</div>
-						<button v-if="!readOnly" class="btn btn-xs btn-link" @click="add_arg">
-							<i class="fa fa-plus"></i> {{ __("Add Argument") }}
-						</button>
-					</div>
-				</div>
-			</template>
 			<template
 				v-else-if="['Sum', 'Average', 'Min', 'Max', 'Count', 'Group By'].includes(mode)"
 			>
@@ -475,7 +427,6 @@ const {
 	loadDocMeta,
 	load_doctype_fields,
 	strip_expression,
-	encode_value,
 	parse_value_type,
 	sync_config,
 	is_field_valid,
@@ -521,7 +472,6 @@ watch(
 
 const field_rows = ref([]);
 const order_by_rows = ref([]);
-const arg_rows = ref([]);
 
 const show_field_selector = ref(false);
 const field_search_query = ref("");
@@ -842,26 +792,8 @@ function remove_field(idx) {
 	sync_local_config();
 }
 
-function add_arg() {
-	arg_rows.value.push({ key: "", value: "", value_type: "Value" });
-}
-
-function remove_arg(idx) {
-	arg_rows.value.splice(idx, 1);
-	sync_local_config();
-}
-
 function build_fields() {
 	return field_rows.value.map((r) => r.field).filter((f) => f);
-}
-
-function build_args() {
-	const args = {};
-	arg_rows.value.forEach((row) => {
-		if (!row.key) return;
-		args[row.key] = encode_value(row);
-	});
-	return args;
 }
 
 function get_order_by_options() {
@@ -900,11 +832,6 @@ function sync_local_config() {
 
 		const order_by = build_order_by();
 		if (order_by) new_config.order_by = order_by;
-	}
-
-	if (mode.value === "Query API") {
-		const args = build_args();
-		if (Object.keys(args).length) new_config.args = args;
 	}
 
 	if (mode.value === "Query Report") {
@@ -1063,16 +990,6 @@ function load_local_config(val) {
 	} else {
 		order_by_rows.value = [];
 	}
-
-	const args = parsed.args || {};
-	arg_rows.value = Object.entries(args).map(([key, value]) => ({
-		key,
-		value: strip_expression(value),
-		value_type: parse_value_type(
-			value,
-			variable_options.value ? new Set(variable_options.value.map((v) => v.value)) : null
-		),
-	}));
 }
 
 watch(
@@ -1092,7 +1009,7 @@ watch(
 );
 
 watch(
-	() => [field_rows.value, order_by_rows.value, arg_rows.value, config],
+	() => [field_rows.value, order_by_rows.value, config],
 	() => {
 		sync_local_config();
 		update_resolved_schema();
@@ -1109,15 +1026,7 @@ watch(
 );
 
 defineExpose({
-	validate: () => {
-		if (mode.value === "Query API") {
-			return {
-				valid: false,
-				message: __("Query API mode is not supported in this release"),
-			};
-		}
-		return { valid: true };
-	},
+	validate: () => ({ valid: true }),
 });
 </script>
 

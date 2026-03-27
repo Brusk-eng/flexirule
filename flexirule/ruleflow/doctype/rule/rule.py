@@ -96,6 +96,7 @@ class Rule(Document):
 		self.ensure_start_node()
 		self.reorder_actions()
 		self.compile_conditions()
+		self.validate_with_service()
 		self.validate_actions()
 		self.validate_no_sub_rule_cycles()
 		self.validate_variable_availability()
@@ -108,6 +109,20 @@ class Rule(Document):
 		self.validate_strict_requirements()
 
 		self.status = self.get_computed_status()
+
+	def validate_with_service(self):
+		"""Shared structured validation layer used by form save and builder precheck."""
+		from flexirule.ruleflow.core.validation_service import validate_rule_definition
+
+		result = validate_rule_definition(self)
+		if result.get("warnings"):
+			for warning in result.get("warnings", []):
+				frappe.msgprint(warning, alert=True)
+		if result.get("valid"):
+			return
+
+		message = "<br>".join(result.get("errors", []))
+		frappe.throw(_("Rule validation failed:<br>{0}").format(message))
 
 	def before_save(self):
 		"""Initialize version for new rules."""
@@ -357,17 +372,8 @@ class Rule(Document):
 			except Exception as e:
 				frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
 
-	def validate_actions(self):
-		if not self.actions:
-			return
-
-		from flexirule.ruleflow.core.action_handlers import HandlerRegistry
-		from flexirule.ruleflow.core.compiler import ConditionCompiler
-
-		compiler = ConditionCompiler()
-
+		# Compile Action Conditions
 		for action in self.actions:
-			# Compile Action Condition
 			if action.action_type == "Condition" and action.condition_json:
 				try:
 					action.condition_expression = compiler.compile(action.condition_json)
@@ -386,6 +392,14 @@ class Rule(Document):
 						_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
 					)
 
+	def validate_actions(self):
+		if not self.actions:
+			return
+
+		from flexirule.ruleflow.core.action_handlers import HandlerRegistry
+		from flexirule.ruleflow.core.contracts import normalize_action_type
+
+		for action in self.actions:
 			# 1. Validate JSON fields syntax
 			self._validate_json_field(
 				action.config,
@@ -408,7 +422,7 @@ class Rule(Document):
 			self._validate_all_action_types(action)
 
 			# 4. Handler-level validation (action-specific)
-			handler = HandlerRegistry.get(action.action_type)
+			handler = HandlerRegistry.get(normalize_action_type(action.action_type))
 			if handler:
 				errors = handler.validate(action, {"doc": None, "vars": {}})
 				if errors:
@@ -507,10 +521,18 @@ class Rule(Document):
 		Validate constraints specific to each action type.
 		Uses ACTION_TYPE_CONTRACT for unified backend/frontend validation.
 		"""
-		from flexirule.ruleflow.core.contracts import get_contract, get_required_fields
+		from flexirule.ruleflow.core.contracts import (
+			get_contract,
+			get_required_fields,
+			normalize_action_type,
+		)
 
-		action_type = action.action_type
+		action_type = normalize_action_type(action.action_type)
 		contract = get_contract(action_type)
+
+		# Backward Compatibility: Default operation to 'Success' for Stop actions if missing
+		if action_type == "Stop" and not getattr(action, "operation", None):
+			action.operation = "Success"
 
 		# 1. Contract: Required fields check
 		for field in get_required_fields(action_type):
@@ -520,6 +542,17 @@ class Rule(Document):
 						action.action_label, action_type, field
 					)
 				)
+
+		# 1a. Contract: Operation-specific mandatory fields
+		if action.operation:
+			mandatory_fields = contract.get("mandatory_fields", {}).get(action.operation, [])
+			for field in mandatory_fields:
+				if not getattr(action, field, None):
+					frappe.throw(
+						_("Action '{0}' ({1}) mode '{2}' requires field '{3}'").format(
+							action.action_label, action_type, action.operation, field
+						)
+					)
 
 		# 1b. Contract: Allowed mutation modes (only for action types that declare it)
 		if getattr(action, "mutation_mode", None):
@@ -605,28 +638,33 @@ class Rule(Document):
 			self._validate_set_value_editable(action)
 
 	def _validate_set_value_editable(self, action):
-		"""Check if Set Value target field is editable for current trigger event"""
+		"""Check if Set Value target field is valid and editable for current trigger event"""
 		target_field = getattr(action, "target_field", None)
-		if not target_field or not self.document_type:
+		if not target_field:
 			return
+
+		if not self.document_type:
+			return
+
+		meta = frappe.get_meta(self.document_type)
+		df = meta.get_field(target_field)
+
+		if not df:
+			frappe.throw(
+				_("Action '{0}': Field '{1}' does not exist on DocType '{2}'").format(
+					action.action_label, target_field, self.document_type
+				)
+			)
 
 		# Only check for after-submit events
 		after_submit_events = ["On Submit", "On Update After Submit"]
-		if self.trigger_event not in after_submit_events:
-			return
-
-		try:
-			meta = frappe.get_meta(self.document_type)
-			df = meta.get_field(target_field)
-			if df and not df.allow_on_submit:
+		if self.trigger_event in after_submit_events:
+			if not df.allow_on_submit:
 				frappe.throw(
 					_(
-						"Cannot set field '{0}' after submit. Field does not have 'Allow on Submit' enabled."
-					).format(target_field)
+						"Action '{0}': Cannot set field '{1}' after submit. Field does not have 'Allow on Submit' enabled."
+					).format(action.action_label, target_field)
 				)
-		except Exception:
-			# Handle any exception that might occur during field validation
-			frappe.throw(_("Error validating field '{0}'.").format(target_field))
 
 	def _parse_json_field(self, json_str):
 		"""Parse JSON field safely, return empty dict on failure."""
@@ -803,10 +841,10 @@ class Rule(Document):
 		templates_to_check = []
 		if action.action_type == "Set Value":
 			templates_to_check.append(("value_template", getattr(action, "value_template", "")))
-		elif action.action_type == "Raise Error":
-			templates_to_check.append(("error_template", getattr(action, "error_template", "")))
+		elif action.action_type == "Stop" and getattr(action, "operation", None) == "Error":
+			templates_to_check.append(("value_template", getattr(action, "value_template", "")))
 		elif action.action_type == "Notify":
-			templates_to_check.append(("notification_template", getattr(action, "notification_template", "")))
+			templates_to_check.append(("value_template", getattr(action, "value_template", "")))
 
 		# Extract variable references from Jinja templates (e.g., {{ vars.foo }})
 		var_pattern = re.compile(r"\{\{\s*vars\.(\w+)")

@@ -23,21 +23,13 @@
 			}
 		],
 		"linebreak-style": "off",
-		"quotes": [
-			"off"
-		],
+		"quotes": ["off"],
 		"semi": "off",
 		"camelcase": "off",
 		"no-unused-vars": "off",
-		"no-console": [
-			"warn"
-		],
-		"no-extra-boolean-cast": [
-			"off"
-		],
-		"no-control-regex": [
-			"off"
-		],
+		"no-console": ["warn"],
+		"no-extra-boolean-cast": ["off"],
+		"no-control-regex": ["off"]
 	},
 	"root": true,
 	"globals": {

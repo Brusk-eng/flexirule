@@ -30,6 +30,13 @@ class ContextManager:
 		"List of Dict": (list,),
 		"Doc as Dict": (dict,),
 	}
+	RETURN_TYPE_ALIASES: ClassVar[dict[str, str]] = {
+		"Yes / No": "Boolean",
+		"Single Record": "Dict",
+		"List of Values": "List",
+		"List of Records": "List of Dict",
+		"Full Document": "Doc as Dict",
+	}
 
 	def __init__(self, context: dict):
 		"""
@@ -63,15 +70,16 @@ class ContextManager:
 		Raises:
 		    frappe.ValidationError: If value doesn't match declared return_type
 		"""
-		if return_type and return_type in self.TYPE_MAP:
-			self.validate_return_type(value, return_type, name)
+		normalized_return_type = self.normalize_return_type(return_type)
+		if normalized_return_type and normalized_return_type in self.TYPE_MAP:
+			self.validate_return_type(value, normalized_return_type, name)
 
 		self.vars[name] = value
 		self._variable_history.append(
 			{
 				"name": name,
 				"type": type(value).__name__,
-				"declared_type": return_type,
+				"declared_type": normalized_return_type,
 			}
 		)
 
@@ -119,7 +127,7 @@ class ContextManager:
 
 		return result
 
-	def validate_return_type(self, value, return_type: str, var_name: str = "result"):
+	def validate_return_type(self, value, return_type: str | None, var_name: str = "result"):
 		"""
 		Validate that a value matches the declared return type.
 
@@ -128,6 +136,10 @@ class ContextManager:
 		    return_type: Expected type string
 		    var_name: Variable name for error messages
 		"""
+		return_type = self.normalize_return_type(return_type)
+		if not return_type:
+			return
+
 		expected_types = self.TYPE_MAP.get(return_type)
 		if not expected_types:
 			return  # Unknown type, skip validation
@@ -165,7 +177,11 @@ class ContextManager:
 		if not expected_keys or value is None:
 			return
 
-		key_names = {k["key"] for k in expected_keys if "key" in k}
+		key_names = {
+			(k.get("fieldname") or k.get("key"))
+			for k in expected_keys
+			if (k.get("fieldname") or k.get("key"))
+		}
 		if not key_names:
 			return
 
@@ -181,6 +197,12 @@ class ContextManager:
 			frappe.logger().warning(
 				f"Return keys mismatch for '{var_name}': expected keys {missing} not found in result"
 			)
+
+	def normalize_return_type(self, return_type: str | None) -> str | None:
+		"""Normalize return type labels with backward-compatible aliases."""
+		if not return_type:
+			return return_type
+		return self.RETURN_TYPE_ALIASES.get(return_type, return_type)
 
 	def apply_mutation(self, mutation_mode: str, var_name: str, value, context: dict | None = None):
 		"""

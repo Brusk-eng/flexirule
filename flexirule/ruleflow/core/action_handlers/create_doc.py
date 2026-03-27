@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 """
-Create Docs Action Handler
+Document Action Handler
 
 Modes:
 - Create New: Creates a new document with field mappings
@@ -15,6 +15,7 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.permissions import can_skip_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
@@ -28,14 +29,14 @@ class DocumentActionHandler(ActionHandler):
 		mode = action.operation
 		reference_doctype = action.reference_doctype
 		config = self._parse_config(action.config)
-		ignore_permissions = bool(action.skip_permissions)
+		ignore_permissions = can_skip_permissions(action, context, throw=True)
 		is_async = bool(action.is_async)
 
 		if not mode:
-			frappe.throw(_("Operation/Mode is required for Create Docs action"))
+			frappe.throw(_("Operation/Mode is required for Document Action"))
 
 		if not reference_doctype:
-			frappe.throw(_("Reference DocType is required for Create Docs action"))
+			frappe.throw(_("Reference DocType is required for Document Action"))
 
 		# Apply input mapping (Context -> Config)
 		if getattr(action, "input_mapping", None):
@@ -61,7 +62,7 @@ class DocumentActionHandler(ActionHandler):
 		return result, next_action
 
 	def validate(self, action, context):
-		"""Validate Create Docs action configuration."""
+		"""Validate Document Action configuration."""
 		errors = []
 		if not action.operation:
 			errors.append(_("Operation/Mode is required"))

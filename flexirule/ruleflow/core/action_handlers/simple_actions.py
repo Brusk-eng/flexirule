@@ -24,7 +24,29 @@ class StopHandler(ActionHandler):
 	action_type = "Stop"
 
 	def execute(self, action, context, engine):
-		"""Stop action - terminates execution by returning None for next_id."""
+		"""
+		Stop action terminal behavior.
+
+		- Success: terminate flow silently.
+		- Error: raise ValidationError using value_template.
+		"""
+		mode = (getattr(action, "operation", None) or "Success").strip()
+
+		if mode == "Error":
+			value_template = getattr(action, "value_template", "") or _(
+				"Rule execution stopped by terminal error"
+			)
+			template_context = {
+				"doc": context.get("doc"),
+				"vars": context.get("vars", {}),
+				"frappe": SafeFrappeAPI(),
+				"utils": frappe.utils,
+			}
+			# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+			message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
+			engine._log("ERROR", _("Stop action raised error: {0}").format(message))
+			frappe.throw(message)
+
 		engine._log("INFO", _("Stop action encountered"))
 		return None, None
 

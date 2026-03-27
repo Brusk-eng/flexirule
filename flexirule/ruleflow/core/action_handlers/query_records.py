@@ -9,7 +9,6 @@ Modes:
 - Query Doc: frappe.get_doc() — returns doc as dict
 - Exist Record: frappe.db.exists() — returns boolean
 - Query Report: frappe.desk.query_report.run() — returns report data
-- Query API: Call a whitelisted API method — returns result
 """
 
 import json
@@ -18,6 +17,7 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.permissions import can_skip_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
@@ -31,13 +31,10 @@ class QueryRecordsHandler(ActionHandler):
 		mode = action.operation
 		reference_doctype = action.reference_doctype
 		config = self._parse_config(action.config)
-		ignore_permissions = bool(action.skip_permissions)
+		ignore_permissions = can_skip_permissions(action, context, throw=True)
 
 		if not mode:
 			frappe.throw(_("Operation/Mode is required for Query Records action"))
-
-		if mode == "Query API":
-			frappe.throw(_("Query API mode is not supported in this release"))
 
 		if not reference_doctype:
 			frappe.throw(_("Reference DocType is required for Query Records action"))
@@ -104,9 +101,6 @@ class QueryRecordsHandler(ActionHandler):
 			config = self._parse_config(action.config)
 			if not config.get("field"):
 				errors.append(_("{0} operation requires 'field' in config").format(mode))
-
-		if mode == "Query API":
-			errors.append(_("Query API mode is not supported in this release"))
 
 		return errors
 
@@ -358,24 +352,6 @@ class QueryRecordsHandler(ActionHandler):
 				data = new_data
 
 		return {"columns": columns, "result": data}
-
-	def _query_api(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Call a whitelisted API method."""
-		method = config.get("method")
-		if not method:
-			frappe.throw(_("method is required in config for Query API mode"))
-
-		# Security: validate method is allowed
-		from flexirule.ruleflow.core.permissions import check_method_permission
-
-		check_method_permission(method)
-
-		args = config.get("args", {})
-		# Resolve template expressions in args
-		args = self._resolve_filters(args, context)
-
-		result = frappe.call(method, **args)
-		return result
 
 
 # Register handler

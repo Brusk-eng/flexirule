@@ -43,6 +43,7 @@ class TestBoltonAPI(unittest.TestCase):
 						},
 						{
 							"action_type": "Stop",
+							"operation": "Success",
 							"action_label": "Stop",
 							"action_id": "action_stop",
 						},

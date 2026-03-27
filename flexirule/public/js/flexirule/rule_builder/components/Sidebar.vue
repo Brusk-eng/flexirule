@@ -89,7 +89,13 @@ const selectedNode = computed(() => {
 // Sidebar title
 const sidebar_title = computed(() => {
 	if (!selectedNode.value) return __("Properties");
-	return selectedNode.value.data?.action_label || selectedNode.value.label || __("Properties");
+	const data = selectedNode.value.data;
+	if (data?.action_type === "Stop") {
+		return data.operation === "Error" ? __("Raise Error") : __("Stop Flow");
+	}
+	if (data?.action_label) return data.action_label;
+	if (data?.action_type) return __(data.action_type);
+	return selectedNode.value.label || __("Properties");
 });
 
 // Check if node is configurable via modal
@@ -100,11 +106,10 @@ const isConfigurable = computed(() => {
 		"Process",
 		"Condition",
 		"Set Value",
-		"Raise Error",
+		"Stop",
 		"Notify",
 		"Loop",
 		"Wait",
-		"Set Value",
 		"Query Records",
 		"Document Action",
 	].includes(type);
@@ -162,8 +167,10 @@ function map_action_type(actionType) {
 			return "loop";
 		case "Wait":
 			return "wait";
+		case "Stop":
+			return "stop";
 		case "Raise Error":
-			return "raise-error";
+			return "stop";
 		case "Set Value":
 			return "set-value";
 		case "Notify":
@@ -175,6 +182,7 @@ function map_action_type(actionType) {
 		case "Process":
 			return "process";
 	}
+	return "process";
 }
 
 function update_edge(field, newTarget) {

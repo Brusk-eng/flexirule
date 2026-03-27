@@ -28,7 +28,7 @@ const CONFIG_MODAL_TYPES = new Set([
 	"Process",
 	"Condition",
 	"Set Value",
-	"Raise Error",
+	"Stop",
 	"Notify",
 	"Wait",
 	"Sub-Rule",
@@ -114,6 +114,11 @@ function get_visible_fieldnames(nodeData) {
 	]);
 
 	(contract.required_fields || []).forEach((fieldname) => fieldnames.add(fieldname));
+	if (nodeData?.operation && contract?.mandatory_fields?.[nodeData.operation]) {
+		contract.mandatory_fields[nodeData.operation].forEach((fieldname) =>
+			fieldnames.add(fieldname)
+		);
+	}
 
 	if (!isTerminalAction(actionType)) {
 		fieldnames.add("next_step_if_true");
@@ -147,8 +152,11 @@ function get_visible_fieldnames(nodeData) {
 			fieldnames.add("target_field");
 			fieldnames.add("value_template");
 			break;
-		case "Raise Error":
-			fieldnames.add("value_template");
+		case "Stop":
+			fieldnames.add("operation");
+			if (nodeData?.operation === "Error") {
+				fieldnames.add("value_template");
+			}
 			break;
 		case "Notify":
 			fieldnames.add("operation");

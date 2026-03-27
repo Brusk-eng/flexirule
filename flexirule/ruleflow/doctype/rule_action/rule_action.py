@@ -26,7 +26,6 @@ class RuleAction(Document):
 			"Wait",
 			"Sub-Rule",
 			"Set Value",
-			"Raise Error",
 			"Notify",
 			"Query Records",
 			"Document Action",

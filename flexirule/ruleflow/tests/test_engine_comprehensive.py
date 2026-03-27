@@ -390,6 +390,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 			{
 				"action_id": "ACT-STOP",
 				"action_type": "Stop",
+				"operation": "Success",
 				"action_label": "Stop Execution",
 				"is_enabled": 1,
 				"next_step_if_true": None,  # Stop action should not have a next step
@@ -510,6 +511,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 			{
 				"action_id": "MAIN-END",
 				"action_type": "Stop",
+				"operation": "Success",
 				"action_label": "Main End",
 				"is_enabled": 1,
 			},
