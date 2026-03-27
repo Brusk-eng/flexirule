@@ -22,27 +22,25 @@ class RuleAction(Document):
 			"Entry Action",
 			"Condition",
 			"Process",
-			"Loop",
 			"Stop",
-			"Switch",
 			"Wait",
 			"Sub-Rule",
 			"Set Value",
 			"Raise Error",
 			"Notify",
 			"Query Records",
-			"Aggregate Records",
-			"Create Docs",
+			"Document Action",
 		]
 		condition_expression: DF.Code | None
 		condition_json: DF.Code | None
 		config: DF.Code | None
 		description: DF.Text | None
 		input_mapping: DF.Code | None
-		input_source: DF.Literal["Context Doc", "Context Variable", "Both"]
+		input_source: DF.Literal["", "Context Doc", "Context Variable", "Both"]
 		is_async: DF.Check
 		is_enabled: DF.Check
 		mutation_mode: DF.Literal[
+			"",
 			"Set Doc Field",
 			"Update Doc Field",
 			"Set Context Variable",
