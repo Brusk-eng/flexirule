@@ -1,12 +1,9 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import {
-	ACTION_TYPE_CONTRACT,
-	RELEASE_DISABLED_ACTION_TYPES,
-	getActionTypeOptions,
-} from "../../../core/contracts";
+import { ACTION_TYPE_CONTRACT, getActionTypeOptions } from "../../../core/contracts";
 import { useStore } from "../../store";
+import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 
 const props = defineProps(["data", "label", "id", "selected"]);
 const store = useStore();
@@ -266,27 +263,6 @@ function onCreate() {
 
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
-}
-
-function mapActionTypeToNodeType(actionType) {
-	if (!actionType) return "process";
-	const type = actionType.toLowerCase().trim();
-
-	if (type === "selector") return "selector";
-	if (type === "entry action" || type === "start") return "start";
-	if (type === "condition") return "condition";
-	if (type === "loop") return "loop";
-	if (type === "wait") return "wait";
-	if (type === "stop") return "stop";
-	if (type === "notify") return "notify";
-	if (type === "sub-rule") return "sub-rule";
-	if (type === "query records") return "query";
-	if (type === "aggregate records") return "aggregate";
-	if (type === "document action" || type === "create docs") return "documentaction";
-	if (type === "set value") return "set-value";
-	if (type === "raise error") return "stop";
-
-	return "process";
 }
 
 onMounted(() => {

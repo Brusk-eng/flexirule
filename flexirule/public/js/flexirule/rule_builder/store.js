@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
-import { getContract } from "../core/contracts";
+import { getContract, normalizeActionType } from "../core/contracts";
+import { mapActionTypeToNodeType } from "./composables/useActionTypeMapper";
 
 export const useStore = defineStore("rule-builder-store", () => {
 	let rule_name = ref(null);
@@ -379,33 +380,20 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		rule_doc.value.actions.forEach((action, index) => {
 			const nodeId = action.action_id || `act_${index}`;
-			const actionTypeRaw = (action.action_type || "Process").trim();
-			let type = actionTypeRaw.toLowerCase();
+			const originalActionType = (action.action_type || "Process").trim();
+			const actionTypeRaw = normalizeActionType(originalActionType);
+			let type = mapActionTypeToNodeType(actionTypeRaw);
+
+			// Preserve legacy Raise Error behavior while canonicalizing to Stop.
+			if (originalActionType === "Raise Error" && !action.operation) {
+				action.operation = "Error";
+			}
 
 			const isRoot =
 				actionTypeRaw === "Entry Action" || nodeId === "start" || nodeId === "root";
 
 			if (isRoot) {
 				type = "start";
-			} else if (type === "sub-rule") {
-				type = "sub-rule";
-			} else if (type === "query records") {
-				type = "query";
-			} else if (type === "aggregate records") {
-				type = "aggregate";
-			} else if (type === "create docs" || type === "document action") {
-				type = "documentaction";
-			} else if (type === "set-value") {
-				type = "set-value";
-			} else if (type === "raise error") {
-				// Migrate legacy Raise Error to Stop with Error operation
-				type = "stop";
-				action.action_type = "Stop";
-				action.operation = "Error";
-			} else if (type === "notify") {
-				type = "notify";
-			} else if (type === "wait") {
-				type = "wait";
 			}
 
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;
@@ -416,16 +404,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 			const nodeData = {
 				action_id: nodeId,
-				action_type: action.action_type,
+				action_type: actionTypeRaw,
 				action_label: action.action_label,
 				process_name: action.process_name,
 				operation: action.operation,
 				config: configData,
 				target_field: action.target_field,
 				value_template: action.value_template,
-				error_template: action.error_template,
-				notification_template: action.notification_template,
-				notification_type: action.notification_type,
 				condition_expression: action.condition_expression,
 				condition_json: safeParse(action.condition_json),
 				is_enabled: action.is_enabled,
@@ -440,7 +425,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				output_mapping: safeParse(action.output_mapping),
 				rule:
 					action.rule ||
-					(action.action_type === "Sub-Rule" ? getSubRuleName(configData) : null),
+					(actionTypeRaw === "Sub-Rule" ? getSubRuleName(configData) : null),
 				skip_conditions: action.skip_conditions !== undefined ? action.skip_conditions : 1,
 				skip_permissions: action.skip_permissions || 0,
 				next_step_if_true: action.next_step_if_true,
@@ -963,15 +948,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 					(e) => e.sourceHandle === "true" || e.sourceHandle === "default"
 				);
 				const false_edge = outgoing.find((e) => e.sourceHandle === "false");
-				const incoming = edgesList.find((e) => e.target === node.id);
 
 				// Determine Entry Action status
 				const is_start_node = node.type === "start";
 				const action_type = is_start_node
 					? "Entry Action"
-					: node.data?.action_type === "Sub-rule"
-					? "Sub-Rule"
-					: node.data?.action_type || "Process";
+					: normalizeActionType(node.data?.action_type || "Process");
 
 				// Ensure Entry Action picks up edges mapped from 'start' UI node
 				if (is_start_node && !true_edge) {
@@ -992,21 +974,11 @@ export const useStore = defineStore("rule-builder-store", () => {
 					);
 				}
 
-				// Parent ID logic
-				let prev_action_id = null;
-				if (!is_start_node && incoming) {
-					const parentNode = nodes.value.find((n) => n.id === incoming.source);
-					prev_action_id =
-						parentNode?.data?.action_id || parentNode?.id || incoming.source;
-				}
-
 				return {
 					name: node.data?.name,
 					idx: idx + 1,
 					action_id: node.data?.action_id || node.id,
 					action_label: node.data?.action_label || node.label,
-					is_entry_action: is_start_node ? 1 : 0,
-					prev_action_id: prev_action_id,
 					action_type: action_type,
 					is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
 					process_name: node.data?.process_name,
@@ -1014,9 +986,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 					config: serializeField(node.data?.config),
 					target_field: node.data?.target_field,
 					value_template: node.data?.value_template,
-					error_template: node.data?.error_template,
-					notification_template: node.data?.notification_template,
-					notification_type: node.data?.notification_type,
 					condition_expression: node.data?.condition_expression,
 					condition_json: serializeField(node.data?.condition_json),
 					input_mapping: serializeField(node.data?.input_mapping),
@@ -1043,6 +1012,29 @@ export const useStore = defineStore("rule-builder-store", () => {
 				};
 			});
 
+			// 4. Backend precheck (shared validator service)
+			const validationPayload = {
+				trigger_type: doc.trigger_type,
+				document_type: doc.document_type,
+				trigger_event: doc.trigger_event,
+				actions: doc.actions.map((row) => ({ ...row })),
+			};
+			const backendValidation = await frappe.call({
+				method: "flexirule.ruleflow.api.validate_rule_document",
+				args: { doc: validationPayload },
+			});
+			if (backendValidation?.message && backendValidation.message.valid === false) {
+				const message = (backendValidation.message.errors || [])
+					.map((e) => `<li>${e}</li>`)
+					.join("");
+				frappe.msgprint({
+					title: __("Backend Validation Error"),
+					message: `<ul class=\"text-left\">${message}</ul>`,
+					indicator: "red",
+				});
+				return;
+			}
+
 			await frappe.call({ method: "frappe.client.save", args: { doc } });
 			frappe.toast(__("Saved"));
 			await fetch();
@@ -1064,9 +1056,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 	function clean_graph_data() {
 		return [...nodes.value, ...edges.value].map((el) => {
 			const { selected, dragging, resizing, sourceNode, targetNode, ...obj } = el;
-			// Normalize action_type casing
-			if (obj.data?.action_type === "Sub-rule") {
-				obj.data.action_type = "Sub-Rule";
+			// Persist canonical action types while keeping legacy aliases supported in the UI.
+			if (obj.data?.action_type) {
+				obj.data.action_type = normalizeActionType(obj.data.action_type);
 			}
 			return obj;
 		});
@@ -1074,7 +1066,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	function get_default_node_data(type, label = "") {
 		const id = flexirule.utils.generate_short_id();
-		const actionType = flexirule.utils.to_title_case(type);
+		const actionType = normalizeActionType(flexirule.utils.to_title_case(type));
 		const baseData = {
 			action_id: id,
 			action_type: actionType,
@@ -1099,26 +1091,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 		} else if (type === "stop") {
 			baseData.action_type = "Stop";
 			baseData.operation = "Success";
-		} else if (type === "raise error") {
-			// Backward compatibility alias
-			baseData.action_type = "Stop";
-			baseData.operation = "Error";
 		} else if (type === "sub-rule") {
 			baseData.action_type = "Sub-Rule";
 		} else if (type === "query" || type === "query records") {
 			baseData.action_type = "Query Records";
 			baseData.operation = "Query List";
 			baseData.return_variable = "query_result";
-		} else if (type === "aggregate" || type === "aggregate records") {
-			baseData.action_type = "Aggregate Records";
-			baseData.operation = "Count";
-			baseData.return_variable = "aggregate_result";
-		} else if (type === "createdoc" || type === "create docs") {
-			baseData.action_type = "Create Docs";
-			baseData.operation = "Create ToDo";
-			baseData.reference_doctype = "ToDo";
-			baseData.mutation_mode = "Single";
-			baseData.return_variable = "new_doc";
 		}
 
 		return baseData;
@@ -1237,21 +1215,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 			context_vars.push({
 				label: data.return_variable,
 				value: data.return_variable,
-				type:
-					data.return_type === "Boolean"
-						? "Check"
-						: data.return_type === "List"
-						? "Table"
-						: data.return_type === "Datetime"
-						? "Datetime"
-						: data.return_type === "Date"
-						? "Date"
-						: data.return_type === "Number"
-						? "Float"
-						: data.return_type || "Data",
+				type: mapReturnTypeToFieldType(data.return_type),
 			});
 
-			if (data.resolved_output_schema && !["Boolean", "List"].includes(data.return_type)) {
+			if (
+				data.resolved_output_schema &&
+				!["Boolean", "List", "List of Dict"].includes(data.return_type)
+			) {
 				let schema = data.resolved_output_schema;
 				if (typeof schema === "string") {
 					try {
@@ -1277,6 +1247,21 @@ export const useStore = defineStore("rule-builder-store", () => {
 		}
 
 		return await flexirule.utils.get_combined_fields(doctype, context_vars, "doc");
+	}
+
+	function mapReturnTypeToFieldType(returnType) {
+		switch (returnType) {
+			case "Boolean":
+				return "Check";
+			case "List":
+			case "List of Dict":
+				return "Table";
+			case "Dict":
+			case "Doc as Dict":
+				return "Data";
+			default:
+				return returnType || "Data";
+		}
 	}
 
 	function set_test_result(path, context) {

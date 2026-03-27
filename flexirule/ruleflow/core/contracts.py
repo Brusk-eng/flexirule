@@ -144,6 +144,14 @@ ACTION_TYPE_CONTRACT = {
 }
 
 RELEASE_DISABLED_ACTION_TYPES = {"Loop", "Switch"}
+LEGACY_ACTION_TYPE_ALIASES = {
+	"Aggregate Records": "Query Records",
+	"Create Docs": "Document Action",
+	"Sub-rule": "Sub-Rule",
+	"Raise Error": "Stop",
+}
+
+RETURN_TYPE_OPTIONS = ["Boolean", "Dict", "List", "List of Dict", "Doc as Dict"]
 
 # Trigger Type Contract
 # Defines which fields are required, optional, or hidden for each trigger_type.
@@ -168,6 +176,7 @@ TRIGGER_TYPE_CONTRACT = {
 
 def get_contract(action_type: str) -> dict:
 	"""Get contract for an action type, with defaults for unknown types"""
+	action_type = normalize_action_type(action_type)
 	return ACTION_TYPE_CONTRACT.get(
 		action_type,
 		{
@@ -191,7 +200,15 @@ def get_required_fields(action_type: str) -> list:
 
 def is_release_disabled_action(action_type: str) -> bool:
 	"""Check if an action type is intentionally disabled for the current release."""
+	action_type = normalize_action_type(action_type)
 	return action_type in RELEASE_DISABLED_ACTION_TYPES
+
+
+def normalize_action_type(action_type: str | None) -> str:
+	"""Normalize legacy action aliases to canonical action types."""
+	if not action_type:
+		return ""
+	return LEGACY_ACTION_TYPE_ALIASES.get(action_type, action_type)
 
 
 def get_trigger_type_contract(trigger_type: str) -> dict:
@@ -204,3 +221,14 @@ def get_trigger_type_contract(trigger_type: str) -> dict:
 			"hidden_fields": [],
 		},
 	)
+
+
+def get_contract_dto() -> dict:
+	"""Export a frontend-safe contract payload from backend single source of truth."""
+	return {
+		"action_type_contract": ACTION_TYPE_CONTRACT,
+		"trigger_type_contract": TRIGGER_TYPE_CONTRACT,
+		"release_disabled_action_types": sorted(RELEASE_DISABLED_ACTION_TYPES),
+		"legacy_action_type_aliases": LEGACY_ACTION_TYPE_ALIASES,
+		"return_type_options": RETURN_TYPE_OPTIONS,
+	}

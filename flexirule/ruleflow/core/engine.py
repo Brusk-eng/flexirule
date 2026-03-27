@@ -24,7 +24,11 @@ from jsonschema import ValidationError as SchemaValidationError
 from jsonschema import validate
 
 from flexirule.ruleflow.core.context_manager import ContextManager
-from flexirule.ruleflow.core.contracts import get_contract, is_release_disabled_action
+from flexirule.ruleflow.core.contracts import (
+	get_contract,
+	is_release_disabled_action,
+	normalize_action_type,
+)
 from flexirule.ruleflow.core.evaluator import check_link_match
 from flexirule.ruleflow.core.exceptions import (
 	CycleDetectedError,
@@ -476,7 +480,7 @@ class RuleEngine:
 				# Use Strategy Pattern with Handler Registry
 				from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 
-				handler = HandlerRegistry.get(current.action_type)
+				handler = HandlerRegistry.get(normalize_action_type(current.action_type))
 				if not handler:
 					self._log(
 						"WARNING",

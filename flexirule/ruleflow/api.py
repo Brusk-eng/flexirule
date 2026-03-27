@@ -12,6 +12,8 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
+from flexirule.ruleflow.core.contracts import get_contract_dto as _get_contract_dto
+from flexirule.ruleflow.core.contracts import normalize_action_type
 
 
 def _require_api_access():
@@ -343,6 +345,24 @@ def get_operator_config():
 
 
 @frappe.whitelist()
+def get_contract_dto():
+	"""Return canonical action/trigger contracts for frontend consumers."""
+	_require_api_access()
+	return _get_contract_dto()
+
+
+@frappe.whitelist()
+def validate_rule_document(doc: str | dict):
+	"""Validate a draft rule payload and return structured errors/warnings."""
+	_require_api_access()
+	payload = json.loads(doc) if isinstance(doc, str) else (doc or {})
+
+	from flexirule.ruleflow.core.validation_service import validate_rule_definition
+
+	return validate_rule_definition(payload)
+
+
+@frappe.whitelist()
 def get_schema_field_options(
 	schema_field: str | dict, parent_doctype: str, current_values: str | dict | None = None
 ):
@@ -535,7 +555,7 @@ def get_process_operations(process_name: str):
 def get_all_process_operations():
 	"""Return all enabled Process operations across all apps for fuzzy search."""
 	_require_api_access()
-	processes = frappe.get_all("Process", filters={"enabled": 1}, fields=["name", "module"])
+	processes = frappe.get_all("Process", fields=["name", "module"])
 	results = []
 	for p in processes:
 		ops = frappe.get_all(
@@ -677,7 +697,7 @@ def test_action_query(
 	# Execute only this one action via handler
 	from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 
-	handler = HandlerRegistry.get(action.action_type)
+	handler = HandlerRegistry.get(normalize_action_type(action.action_type))
 	if not handler:
 		frappe.throw(_("No handler for action type: {0}").format(action.action_type))
 		raise ValueError("Handler not found")

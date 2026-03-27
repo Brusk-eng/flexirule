@@ -41,7 +41,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import { useStore } from "../../store";
-import ActionSettings from "./ActionSettings.vue";
+import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 import ProcessConfig from "./types/ProcessConfig.vue";
 import ConditionConfig from "./types/ConditionConfig.vue";
 import LoopConfig from "./types/LoopConfig.vue";
@@ -49,11 +49,9 @@ import SwitchConfig from "./types/SwitchConfig.vue";
 import SubRuleConfig from "./types/SubRuleConfig.vue";
 import WaitConfig from "./types/WaitConfig.vue";
 import SetValueConfig from "./types/SetValueConfig.vue";
-import RaiseErrorConfig from "./types/RaiseErrorConfig.vue";
 import NotifyConfig from "./types/NotifyConfig.vue";
 import QueryRecordsConfig from "./types/QueryRecordsConfig.vue";
-import AggregateRecordsConfig from "./types/AggregateRecordsConfig.vue";
-import CreateDocsConfig from "./types/CreateDocsConfig.vue";
+import DocumentActionConfig from "./types/DocumentActionConfig.vue";
 
 const props = defineProps({
 	node: Object,
@@ -70,16 +68,14 @@ const configComponents = {
 	"sub-rule": SubRuleConfig,
 	wait: WaitConfig,
 	"set value": SetValueConfig,
-	"raise error": RaiseErrorConfig,
 	notify: NotifyConfig,
 	query: QueryRecordsConfig,
-	documentaction: CreateDocsConfig,
+	documentaction: DocumentActionConfig,
 };
 
 const configComponent = computed(() => {
-	let type = props.node?.type?.toLowerCase();
-	if (type === "query records") type = "query";
-	if (type === "document action" || type === "create docs") type = "documentaction";
+	let type = mapActionTypeToNodeType(props.node?.data?.action_type || props.node?.type);
+	type = type?.toLowerCase();
 	return configComponents[type] || null;
 });
 

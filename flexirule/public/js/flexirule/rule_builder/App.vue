@@ -40,9 +40,6 @@
 					<template #node-selector="nodeProps">
 						<ActionSelectorNode v-bind="nodeProps" />
 					</template>
-					<template #node-raise-error="nodeProps">
-						<ProcessNode v-bind="nodeProps" />
-					</template>
 					<template #node-set-value="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
 					</template>
@@ -56,9 +53,6 @@
 						<ProcessNode v-bind="nodeProps" />
 					</template>
 					<template #node-query="nodeProps">
-						<ProcessNode v-bind="nodeProps" />
-					</template>
-					<template #node-aggregate="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
 					</template>
 					<template #node-documentaction="nodeProps">
@@ -186,6 +180,7 @@ import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { useStore } from "./store";
 import { isTerminalAction } from "../core/contracts";
+import { mapActionTypeToNodeType } from "./composables/useActionTypeMapper";
 
 import { generateShortId } from "../utils/index.js";
 import "../utils/utils.js";
@@ -549,30 +544,6 @@ function onEdgeClick({ edge, event }) {
 	frappe.confirm(__("Delete this connection?"), () => {
 		removeEdges([edge.id]);
 	});
-}
-
-/**
- * Universal mapper from Action Type (DocField value) to VueFlow Node Type (slot name)
- */
-function mapActionTypeToNodeType(actionType) {
-	if (!actionType) return "process";
-	const type = actionType.toLowerCase().trim();
-
-	if (type === "selector") return "selector";
-	if (type === "entry action" || type === "start") return "start";
-	if (type === "condition") return "condition";
-	if (type === "loop") return "loop";
-	if (type === "wait") return "wait";
-	if (type === "stop") return "stop";
-	if (type === "notify") return "notify";
-	if (type === "sub-rule") return "sub-rule";
-	if (type === "query records") return "query";
-	if (type === "aggregate records") return "aggregate";
-	if (type === "document action" || type === "create docs") return "documentaction";
-	if (type === "set value") return "set-value";
-	if (type === "raise error") return "stop";
-
-	return "process";
 }
 </script>
 

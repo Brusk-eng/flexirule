@@ -410,14 +410,14 @@ function toggle_action_fields(frm, cdt, cdn) {
 		fields_to_show.push("condition_expression", "next_step_if_false");
 	} else if (type === "Sub-Rule") {
 		fields_to_show.push("skip_conditions", "skip_permissions");
-	} else if (["Query Records", "Aggregate Records", "Create Docs"].includes(type)) {
+	} else if (["Query Records", "Document Action"].includes(type)) {
 		fields_to_show.push("input_source", "mutation_mode", "return_type", "return_variable");
 	}
 
 	// Always show operation if it has options or is for specific types
 	if (
 		contract.operation_options ||
-		["Process", "Query Records", "Aggregate Records", "Create Docs"].includes(type)
+		["Process", "Query Records", "Document Action"].includes(type)
 	) {
 		fields_to_show.push("operation");
 	}
@@ -425,7 +425,7 @@ function toggle_action_fields(frm, cdt, cdn) {
 	// Handle reference_docname visibility
 	if (type === "Query Records" && ["Query Doc", "Query Report"].includes(row.operation)) {
 		fields_to_show.push("reference_docname");
-	} else if (type === "Create Docs" && row.operation === "Update Existing") {
+	} else if (type === "Document Action" && row.operation === "Update Existing") {
 		fields_to_show.push("reference_docname");
 	} else if (type === "Process" && row.operation?.includes("Doc")) {
 		fields_to_show.push("reference_docname");

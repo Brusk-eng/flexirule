@@ -22,7 +22,7 @@ const __ =
 
 const RELEASE_DISABLED_ACTION_TYPES = new Set(["Loop", "Switch"]);
 const ACTION_TYPES_REQUIRING_FALSE_PATH = new Set(["Condition"]);
-const TERMINAL_ACTION_TYPES = new Set(["Stop", "Raise Error"]);
+const TERMINAL_ACTION_TYPES = new Set(["Stop"]);
 
 /**
  * Validate variable dependencies across a list of actions in topological order.
@@ -318,14 +318,6 @@ flexirule.validation.validate_action_types = function (
 					__("Action '{0}' is a Condition but no condition is defined.", [label])
 				);
 			}
-		}
-
-		if (action_type === "Query Records" && action.operation === "Query API") {
-			errors.push(
-				__("Action '{0}' uses Query API mode, which is not available in this release.", [
-					label,
-				])
-			);
 		}
 
 		// Loop validation

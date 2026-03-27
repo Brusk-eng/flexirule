@@ -126,6 +126,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 					"operation": "Add Comment",
 					"config": _j({"comment_text": "Nested callable executed for {{ doc.name }}"}),
 					"skip_permissions": 1,
+					"permission_audit_reason": "Automated Test",
 					"return_variable": "nested_comment_result",
 					"next_step_if_true": "nested_stop",
 				},
@@ -166,6 +167,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 						}
 					),
 					"skip_permissions": 1,
+					"permission_audit_reason": "Automated Test",
 					"return_variable": "followup_todo",
 					"next_step_if_true": "call_nested",
 				},
@@ -176,6 +178,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 					"rule": nested_rule_name,
 					"skip_conditions": 1,
 					"skip_permissions": 1,
+					"permission_audit_reason": "Automated Test",
 					"next_step_if_true": "callable_stop",
 				},
 				{
@@ -303,6 +306,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 						}
 					),
 					"skip_permissions": 1,
+					"permission_audit_reason": "Automated Test",
 					"return_variable": "after_insert_comment_result",
 					"next_step_if_true": "wait_step",
 				},
@@ -320,6 +324,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 					"rule": callable_rule_name,
 					"skip_conditions": 1,
 					"skip_permissions": 1,
+					"permission_audit_reason": "Automated Test",
 					"next_step_if_true": "after_insert_stop",
 				},
 				{
@@ -379,6 +384,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 					"rule": callable_rule_name,
 					"skip_conditions": 1,
 					"skip_permissions": 1,
+					"permission_audit_reason": "Automated Test",
 					"next_step_if_true": "scheduler_stop",
 				},
 				{
