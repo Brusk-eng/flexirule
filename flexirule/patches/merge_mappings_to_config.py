@@ -12,18 +12,19 @@ def execute():
 		return
 
 	# Fetch all Rule Actions that have mapping data
-
 	conditions = []
 	if has_input:
 		conditions.append("(input_mapping IS NOT NULL AND input_mapping != '')")
 	if has_output:
 		conditions.append("(output_mapping IS NOT NULL AND output_mapping != '')")
 
-	query = f"""
-		SELECT name, {'input_mapping,' if has_input else ''} {'output_mapping,' if has_output else ''} config
-		FROM `tabRule Action`
-		WHERE {' OR '.join(conditions)}
-	"""
+	columns = ["name", "config"]
+	if has_input:
+		columns.append("input_mapping")
+	if has_output:
+		columns.append("output_mapping")
+
+	query = f"SELECT `{',`'.join(columns)}` FROM `tabRule Action` WHERE {' OR '.join(conditions)}"
 
 	actions = frappe.db.sql(query, as_dict=True)
 
