@@ -83,10 +83,7 @@ class TestRuleCoordinator(FrappeTestCase):
 
 		if trigger_condition:
 			rule_doc.compile_conditions()
-			rule_doc.compiled_expression = rule_doc.trigger_condition_expression
-			frappe.db.set_value(
-				"Rule", rule_doc.name, "compiled_expression", rule_doc.trigger_condition_expression
-			)
+			frappe.db.set_value("Rule", rule_doc.name, "compiled_expression", rule_doc.compiled_expression)
 
 		return rule_doc
 
