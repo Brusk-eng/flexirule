@@ -251,8 +251,8 @@ class RuleCoordinator:
 		# If Rule is Async, it will be queued by execute_single_rule.
 
 		# 4. Condition Check (Compiled Expression)
-		# We now rely solely on trigger_condition_expression which is the compiled version of trigger_condition
-		if rule_doc.get("trigger_condition_expression"):
+		# We now rely solely on compiled_expression which is the compiled version of trigger_condition
+		if rule_doc.get("compiled_expression"):
 			try:
 				from flexirule.ruleflow.core.evaluator import check_link_match
 				from flexirule.ruleflow.utils.field_resolver import FieldResolver
@@ -275,7 +275,7 @@ class RuleCoordinator:
 					"None": None,
 				}
 
-				if not frappe.safe_eval(rule_doc.get("trigger_condition_expression"), None, eval_globals):
+				if not frappe.safe_eval(rule_doc.get("compiled_expression"), None, eval_globals):
 					return False, _("Trigger Conditions failed")
 
 			except Exception as e:
@@ -283,9 +283,7 @@ class RuleCoordinator:
 
 		# Conditions MUST be pre-compiled - no runtime JSON parsing
 		elif rule_doc.get("trigger_condition"):
-			return False, _(
-				"Rule has trigger_condition but no compiled trigger_condition_expression. Please re-save the Rule."
-			)
+			return False, _("Rule has trigger_condition but no compiled_expression. Please re-save the Rule.")
 
 		return True, _("Eligible")
 

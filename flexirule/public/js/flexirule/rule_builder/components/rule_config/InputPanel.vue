@@ -174,9 +174,14 @@ const contract = computed(() => {
 const showReferenceDoctype = computed(() => {
 	if (!contract.value) return false;
 	const fields = contract.value.required_fields || [];
+	const isQueryReport =
+		props.node.data?.action_type === "Query Records" &&
+		props.node.data?.operation === "Query Report";
+
 	return (
-		fields.includes("reference_doctype") ||
-		["Process", "Set Value"].includes(props.node.data?.action_type)
+		!isQueryReport &&
+		(fields.includes("reference_doctype") ||
+			["Process", "Set Value"].includes(props.node.data?.action_type))
 	);
 });
 

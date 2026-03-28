@@ -697,7 +697,8 @@ class RuleEngine:
 			validation_result = result["result"]
 
 		# 1. Output Mapping (Result -> Context)
-		output_mapping = getattr(action, "output_mapping", None)
+		action_config = frappe.parse_json(getattr(action, "config", "{}") or "{}")
+		output_mapping = action_config.get("output_mapping")
 		if output_mapping:
 			if getattr(action, "is_async", 0):
 				raise MethodExecutionError(_("Async actions cannot map outputs"))

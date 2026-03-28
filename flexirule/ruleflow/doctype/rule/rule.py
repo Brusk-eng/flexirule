@@ -63,7 +63,7 @@ class Rule(Document):
 		skip_for_roles: DF.TableMultiSelect[HasRole]
 		status: DF.Literal["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]
 		trigger_condition: DF.Code | None
-		trigger_condition_expression: DF.Code | None
+		compiled_expression: DF.Code | None
 		trigger_event: DF.Literal[
 			"",
 			"Before Naming",
@@ -92,7 +92,6 @@ class Rule(Document):
 		"""
 		Validate Rule Configuration
 		"""
-		self.normalize_sub_rule_exposure_flag()
 		self.ensure_start_node()
 		self.reorder_actions()
 		self.compile_conditions()
@@ -126,23 +125,12 @@ class Rule(Document):
 
 	def before_save(self):
 		"""Initialize version for new rules."""
-		self.normalize_sub_rule_exposure_flag()
 		if self.is_new() and not self.version:
 			self.version = 1
 
-	def normalize_sub_rule_exposure_flag(self):
-		"""Keep sub-rule exposure stable across the field rename transition."""
-		legacy_value = self.get("is_sub_rule")
-		current_value = self.get("exposed_as_subrule")
-		normalized = current_value if current_value not in (None, "") else legacy_value
-		normalized = 1 if normalized else 0
-
-		self.set("exposed_as_subrule", normalized)
-		self.set("is_sub_rule", normalized)
-
 	def is_exposed_as_subrule(self):
 		"""Return whether the rule is allowed to be targeted by Sub-Rule actions."""
-		return bool(self.get("exposed_as_subrule") or self.get("is_sub_rule"))
+		return bool(self.get("exposed_as_subrule"))
 
 	def validate_priority_callable(self):
 		"""If trigger_type is Callable Event, priority must be 0."""
@@ -152,9 +140,6 @@ class Rule(Document):
 	def validate_trigger_type_requirements(self):
 		"""Enforce field presence based on trigger_type."""
 		from flexirule.ruleflow.core.contracts import get_trigger_type_contract
-
-		if self.trigger_type == "API Event":
-			frappe.throw(_("API Event is not available in this release."))
 
 		contract = get_trigger_type_contract(self.trigger_type)
 		meta = frappe.get_meta(self.doctype)
@@ -363,7 +348,6 @@ class Rule(Document):
 		if self.trigger_condition:
 			try:
 				self.trigger_condition_expression = compiler.compile(self.trigger_condition)
-				# Validate compiled expression
 				is_valid, error = compiler.validate(self.trigger_condition_expression)
 				if not is_valid:
 					frappe.throw(_("Invalid Trigger Condition: {0}").format(error))
@@ -405,14 +389,22 @@ class Rule(Document):
 				action.config,
 				_("Action {0}: Configuration").format(action.action_label),
 			)
-			self._validate_json_field(
-				action.input_mapping,
-				_("Action {0}: Input Mapping").format(action.action_label),
-			)
-			self._validate_json_field(
-				action.output_mapping,
-				_("Action {0}: Output Mapping").format(action.action_label),
-			)
+			# Validate mappings inside config blob
+			config_data = frappe.parse_json(action.config or "{}") if action.config else {}
+			if config_data.get("input_mapping"):
+				self._validate_json_field(
+					config_data.get("input_mapping")
+					if isinstance(config_data.get("input_mapping"), str)
+					else None,
+					_("Action {0}: Input Mapping").format(action.action_label),
+				)
+			if config_data.get("output_mapping"):
+				self._validate_json_field(
+					config_data.get("output_mapping")
+					if isinstance(config_data.get("output_mapping"), str)
+					else None,
+					_("Action {0}: Output Mapping").format(action.action_label),
+				)
 
 			# 2. Check Process config against Schema
 			if action.action_type == "Process" and action.process_name:
@@ -443,7 +435,7 @@ class Rule(Document):
 		if not self.actions:
 			return "Invalid"
 
-		if self.trigger_condition and not self.trigger_condition_expression:
+		if self.trigger_condition and not self.compiled_expression:
 			return "Invalid"
 
 		if self.last_error:
@@ -581,7 +573,8 @@ class Rule(Document):
 			)
 
 		# 1d. Output Mapping cannot be used with async actions
-		if action.output_mapping and action.is_async:
+		action_cfg = frappe.parse_json(action.config or "{}") if action.config else {}
+		if action_cfg.get("output_mapping") and action.is_async:
 			frappe.throw(
 				_("Action '{0}' ({1}) cannot use Output Mapping with Async enabled").format(
 					action.action_label, action_type

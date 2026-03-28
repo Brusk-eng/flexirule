@@ -269,7 +269,7 @@ def test_rule(
 
 		# Include info about skipped trigger filters for transparency
 		info_msg = _("Rule '{0}' executed successfully").format(rule.rule_name)
-		if rule.trigger_condition_expression:
+		if rule.compiled_expression:
 			info_msg += _(" (trigger filters were bypassed for manual test)")
 
 		# Capture path trace from engine
@@ -661,8 +661,6 @@ def test_action_query(
 			json_fields = [
 				"config",
 				"condition_json",
-				"input_mapping",
-				"output_mapping",
 				"resolved_output_schema",
 			]
 			if key in json_fields and not isinstance(val, str | bytes):

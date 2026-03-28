@@ -418,3 +418,12 @@ flexirule.utils.generate_short_id = function () {
 	}
 	return `act_${result}`;
 };
+
+flexirule.utils.debounce = function (func, wait) {
+	let timeout;
+	return function (...args) {
+		const context = this;
+		clearTimeout(timeout);
+		timeout = setTimeout(() => func.apply(context, args), wait);
+	};
+};

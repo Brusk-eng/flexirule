@@ -58,9 +58,6 @@ class SubRuleHandler(ActionHandler):
 
 			sub_rule_doc = frappe.get_cached_doc("Rule", sub_rule_name)
 
-			if hasattr(sub_rule_doc, "normalize_sub_rule_exposure_flag"):
-				sub_rule_doc.normalize_sub_rule_exposure_flag()
-
 			if sub_rule_doc.trigger_type != "Callable Event":
 				raise MethodExecutionError(
 					_("Sub-Rule {0} must be a Callable Event rule").format(sub_rule_name)
@@ -102,16 +99,14 @@ class SubRuleHandler(ActionHandler):
 
 			# Evaluate trigger condition if not skipped
 			if not skip_conditions and sub_rule_doc.trigger_condition:
-				if not sub_rule_doc.trigger_condition_expression:
+				if not sub_rule_doc.compiled_expression:
 					from flexirule.ruleflow.core.compiler import ConditionCompiler
 
-					sub_rule_doc.trigger_condition_expression = ConditionCompiler().compile(
+					sub_rule_doc.compiled_expression = ConditionCompiler().compile(
 						sub_rule_doc.trigger_condition
 					)
 
-				is_eligible = engine._evaluate_python_condition(
-					sub_rule_doc.trigger_condition_expression, context
-				)
+				is_eligible = engine._evaluate_python_condition(sub_rule_doc.compiled_expression, context)
 				if not is_eligible:
 					engine._log(
 						"INFO",

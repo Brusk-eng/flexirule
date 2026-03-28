@@ -39,8 +39,9 @@ class DocumentActionHandler(ActionHandler):
 			frappe.throw(_("Reference DocType is required for Document Action"))
 
 		# Apply input mapping (Context -> Config)
-		if getattr(action, "input_mapping", None):
-			config = apply_input_mapping(context, action.input_mapping, config)
+		action_config = frappe.parse_json(getattr(action, "config", "{}") or "{}")
+		if action_config.get("input_mapping"):
+			config = apply_input_mapping(context, action_config.get("input_mapping"), config)
 
 		# Dispatch to mode handler
 		if mode == "Create New":

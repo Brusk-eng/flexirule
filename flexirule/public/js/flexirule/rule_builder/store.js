@@ -1,5 +1,10 @@
 import { defineStore } from "pinia";
-import { getContract, normalizeActionType } from "../core/contracts";
+import {
+	getContract,
+	normalizeActionType,
+	ACTION_TYPES_WITH_REFERENCE_CONTEXT,
+	ACTION_TYPES_WITH_RETURN_SCHEMA,
+} from "../core/contracts";
 import { mapActionTypeToNodeType } from "./composables/useActionTypeMapper";
 
 export const useStore = defineStore("rule-builder-store", () => {
@@ -39,17 +44,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return rule_doc.value?.is_active === 1;
 	});
 
-	const ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set([
-		"Query Records",
-		"Document Action",
-		"Process",
-	]);
-	const ACTION_TYPES_WITH_RETURN_SCHEMA = new Set([
-		"Process",
-		"Query Records",
-		"Document Action",
-	]);
-
 	async function fetch_metadata(doctype) {
 		if (!doctype || doc_meta.value[doctype]) return;
 		fetch_counter.value++;
@@ -75,6 +69,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				"Fold",
 				"Heading",
 				"Spacer",
+				"condition_json",
 			];
 
 			// 1. Add Main Table Fields (doc.*)
@@ -371,7 +366,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 					action_type: "Entry Action",
 					document_type: rule_doc.value.document_type,
 					trigger_event: rule_doc.value.trigger_event,
-					trigger_condition_expression: rule_doc.value.trigger_condition_expression,
+					compiled_expression: rule_doc.value.compiled_expression,
 					trigger_condition: rule_doc.value.trigger_condition,
 					is_enabled: 1,
 				},
@@ -400,7 +395,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 			// Safe JSON parse helper
 			const safeParse = (val) => flexirule.utils.safe_json_parse(val);
 
-			const configData = safeParse(action.config || action.method_config);
+			const configData = safeParse(action.config);
 
 			const nodeData = {
 				action_id: nodeId,
@@ -421,8 +416,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				return_variable: action.return_variable,
 				is_async: action.is_async,
 				name: action.name,
-				input_mapping: safeParse(action.input_mapping),
-				output_mapping: safeParse(action.output_mapping),
+
 				rule:
 					action.rule ||
 					(actionTypeRaw === "Sub-Rule" ? getSubRuleName(configData) : null),
@@ -443,7 +437,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				nodeData.document_type = rule_doc.value.document_type;
 				nodeData.trigger_event = rule_doc.value.trigger_event;
 				nodeData.trigger_condition = rule_doc.value.trigger_condition;
-				nodeData.trigger_condition_expression = rule_doc.value.trigger_condition_expression;
+				nodeData.compiled_expression = rule_doc.value.compiled_expression;
 				nodeData.priority = rule_doc.value.priority;
 				nodeData.execution_mode = rule_doc.value.execution_mode;
 				nodeData.max_execution_time = rule_doc.value.max_execution_time;
@@ -729,6 +723,39 @@ export const useStore = defineStore("rule-builder-store", () => {
 		}
 	}
 
+	function clean_action_config(config) {
+		if (!config || typeof config !== "object") return config;
+		const clean = Array.isArray(config) ? [...config] : { ...config };
+
+		// Clean filters
+		if (Array.isArray(clean.filters)) {
+			clean.filters = clean.filters.filter((f) => f.field || f.fieldname);
+		} else if (clean.filters && typeof clean.filters === "object") {
+			// Report filters are a dict, no need to clean unless keys are empty
+		}
+
+		// Clean field lists
+		if (Array.isArray(clean.fields)) {
+			clean.fields = clean.fields.filter((f) => f && f.trim?.() !== "");
+		}
+
+		// Clean field_mappings
+		if (Array.isArray(clean.field_mappings)) {
+			clean.field_mappings = clean.field_mappings.filter((m) => m.source && m.target);
+		}
+
+		// Clean static_values (keys are important)
+		if (clean.static_values && typeof clean.static_values === "object") {
+			const cleaned_static = {};
+			Object.entries(clean.static_values).forEach(([k, v]) => {
+				if (k && k.trim() !== "") cleaned_static[k] = v;
+			});
+			clean.static_values = cleaned_static;
+		}
+
+		return clean;
+	}
+
 	async function save_changes() {
 		frappe.dom.freeze(__("Saving..."));
 		try {
@@ -905,8 +932,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 			doc.visual_data = JSON.stringify(clean_graph_data());
 
 			const startNode = nodes.value.find((el) => el.type === "start");
-			doc.trigger_condition_expression =
-				startNode?.data?.trigger_condition_expression || null;
+			doc.compiled_expression = startNode?.data?.compiled_expression || null;
 			doc.trigger_condition = startNode?.data?.trigger_condition || null;
 			if (startNode?.data) {
 				doc.priority = startNode.data.priority ?? doc.priority;
@@ -983,13 +1009,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 					is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
 					process_name: node.data?.process_name,
 					operation: node.data?.operation,
-					config: serializeField(node.data?.config),
+					config: serializeField(clean_action_config(node.data?.config)),
 					target_field: node.data?.target_field,
 					value_template: node.data?.value_template,
 					condition_expression: node.data?.condition_expression,
 					condition_json: serializeField(node.data?.condition_json),
-					input_mapping: serializeField(node.data?.input_mapping),
-					output_mapping: serializeField(node.data?.output_mapping),
+
 					on_error: node.data?.on_error || "Stop",
 					timeout: node.data?.timeout || 30,
 					priority: node.data?.priority || 0,
