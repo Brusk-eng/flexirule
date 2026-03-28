@@ -276,8 +276,36 @@ const title = computed(() => {
 	return baseTitle + suffix;
 });
 
-function on_update_action_field({ fieldname, value }) {
+function on_update_action_field({ fieldname, value, scope }) {
 	if (!draftNode.value?.data) return;
+	if (fieldname && scope === "config") {
+		let baseConfig = {};
+		if (draftNode.value.data.config && typeof draftNode.value.data.config === "object") {
+			baseConfig = draftNode.value.data.config;
+		} else if (typeof draftNode.value.data.config === "string") {
+			try {
+				baseConfig = JSON.parse(draftNode.value.data.config) || {};
+			} catch (e) {
+				baseConfig = {};
+			}
+		}
+		const nextConfig = {
+			...baseConfig,
+		};
+		if (
+			value === null ||
+			value === undefined ||
+			value === "" ||
+			(typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length)
+		) {
+			delete nextConfig[fieldname];
+		} else {
+			nextConfig[fieldname] = value;
+		}
+		draftNode.value.data.config = nextConfig;
+		store.mark_dirty();
+		return;
+	}
 	draftNode.value.data[fieldname] = value;
 	store.mark_dirty();
 }

@@ -414,7 +414,7 @@ function updateField(fieldname, value) {
 					props.node.data.return_variable = null;
 					props.node.data.return_type = null;
 					props.node.data.resolved_output_schema = null;
-					props.node.data.output_mapping = null;
+					clearConfigKey("output_mapping");
 				}
 			}
 
@@ -438,6 +438,22 @@ function updateField(fieldname, value) {
 		props.node.data[fieldname] = value;
 		store.mark_dirty();
 	}
+}
+
+function clearConfigKey(key) {
+	if (!props.node?.data) return;
+	let currentConfig = {};
+	if (props.node.data.config && typeof props.node.data.config === "object") {
+		currentConfig = { ...props.node.data.config };
+	} else if (typeof props.node.data.config === "string") {
+		try {
+			currentConfig = JSON.parse(props.node.data.config) || {};
+		} catch (e) {
+			currentConfig = {};
+		}
+	}
+	delete currentConfig[key];
+	props.node.data.config = currentConfig;
 }
 
 watch(
