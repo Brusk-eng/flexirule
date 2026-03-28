@@ -38,7 +38,7 @@ class TestV1Compliance(FrappeTestCase):
 		self.assertIn("Event mismatch", reason)
 
 		# Test Trigger Condition requires pre-compilation
-		# Now if trigger_condition exists without trigger_condition_expression, it's an error
+		# Now if trigger_condition exists without compiled_expression, it's an error
 		rule.trigger_condition = json.dumps(
 			[
 				{
@@ -48,17 +48,17 @@ class TestV1Compliance(FrappeTestCase):
 				}
 			]
 		)
-		rule.trigger_condition_expression = None  # No compiled version
+		rule.compiled_expression = None  # No compiled version
 
 		doc = frappe.new_doc("ToDo")
 		doc.status = "Closed"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Before Save")
 		self.assertFalse(is_eligible)
 		# New behavior: Returns error about missing compiled filters
-		self.assertIn("trigger_condition_expression", reason)
+		self.assertIn("compiled_expression", reason)
 
-		# Test with properly compiled trigger_condition_expression
-		rule.trigger_condition_expression = "resolve(doc, 'status') == 'Open'"
+		# Test with properly compiled compiled_expression
+		rule.compiled_expression = "resolve(doc, 'status') == 'Open'"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Before Save")
 		self.assertFalse(is_eligible)  # status is Closed, filter fails
 

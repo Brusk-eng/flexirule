@@ -7,6 +7,7 @@ Tests for FlexiRule Rule Coordinator
 
 import json
 import unittest
+from unittest import mock
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -79,6 +80,11 @@ class TestRuleCoordinator(FrappeTestCase):
 			}
 		)
 		rule_doc.insert(ignore_permissions=True)
+
+		if trigger_condition:
+			rule_doc.compile_conditions()
+			frappe.db.set_value("Rule", rule_doc.name, "compiled_expression", rule_doc.compiled_expression)
+
 		return rule_doc
 
 	def test_has_active_rules_positive(self):
@@ -232,7 +238,7 @@ class TestRuleCoordinator(FrappeTestCase):
 		rule = self.create_test_rule("Test Blocking Event Error")
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 
-		with unittest.mock.patch.object(
+		with mock.patch.object(
 			RuleCoordinator,
 			"execute_single_rule",
 			side_effect=RuntimeError("boom"),

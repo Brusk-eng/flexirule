@@ -12,7 +12,12 @@
 <script setup>
 import { useStore } from "../store";
 import ControlFactory from "../controls/ControlFactory.vue";
-import { getActionTypeOptions, getContract, isTerminalAction } from "../../core/contracts";
+import {
+	getActionTypeOptions,
+	getContract,
+	isTerminalAction,
+	CONFIG_MODAL_TYPES,
+} from "../../core/contracts";
 
 const props = defineProps({
 	nodeData: Object,
@@ -23,25 +28,11 @@ const emit = defineEmits(["update:field", "open:conditions", "open:config"]);
 
 const store = useStore();
 
-// Action types that use the V2 config modal for `config`
-const CONFIG_MODAL_TYPES = new Set([
-	"Process",
-	"Condition",
-	"Set Value",
-	"Stop",
-	"Notify",
-	"Wait",
-	"Sub-Rule",
-	"Query Records",
-	"Document Action",
-]);
-
 const excluded_fields = computed(() => {
 	const base = [
 		"action_id", // Auto-generated
 		"condition_json", // Managed by V2 modal
-		"input_mapping", // Managed by V2 modal
-		"output_mapping", // Managed by V2 modal
+
 		"process_method", // Obsolete
 	];
 

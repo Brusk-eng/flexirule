@@ -133,31 +133,15 @@
 										{{ opt.label }}
 									</option>
 								</select>
-								<select
-									v-else-if="isBooleanValue(row)"
-									class="form-control input-xs"
-									:value="row.value"
-									:disabled="readOnly"
-									@change="
-										(e) =>
-											updateRow(idx, {
-												value: e.target.value,
-												value_type: 'Boolean',
-											})
-									"
-								>
-									<option value="1">{{ __("Yes") }}</option>
-									<option value="0">{{ __("No") }}</option>
-								</select>
-								<input
-									v-else
-									type="text"
-									class="form-control input-xs"
-									:value="row.value"
-									:placeholder="__('Value')"
-									:disabled="readOnly"
-									@input="(e) => updateRow(idx, { value: e.target.value })"
-								/>
+								<div v-else style="width: 100%; min-width: 150px">
+									<ControlFactory
+										:df="getControlFactorySchema(row)"
+										:modelValue="row.value"
+										:read_only="readOnly"
+										:hideLabel="true"
+										@update:modelValue="(val) => updateRow(idx, { value: val })"
+									/>
+								</div>
 							</template>
 						</div>
 					</div>
@@ -206,6 +190,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import FieldPickerControl from "../../controls/FieldPickerControl.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 import LinkControl from "../../controls/LinkControl.vue";
+import ControlFactory from "../../controls/ControlFactory.vue";
 import { useStore } from "../../store";
 
 const props = defineProps({
@@ -294,6 +279,23 @@ const syncFromProps = () => {
 		return;
 	}
 
+	// Stability check: If our cleaned local state is already same as incoming prop,
+	// do nothing. This preserves local empty rows being edited.
+	const clean_local = filters.value
+		.filter((f) => f.field || f.fieldname)
+		.map((f) => ({
+			doctype: f.doctype || props.doctype,
+			field: f.field || f.fieldname,
+			operator: f.operator || f.op || "=",
+			value: f.value,
+			value_type: f.value_type || "Value",
+		}));
+
+	// deep compare strings
+	if (JSON.stringify(clean_local) === JSON.stringify(props.modelValue)) {
+		return;
+	}
+
 	// Normalize if coming from frappe format [dt, field, op, val]
 	filters.value = props.modelValue.map((f) => {
 		let row = {};
@@ -354,14 +356,65 @@ const stripBracket = (val) => {
 };
 
 const getFieldsForDoctype = (dt) => {
-	if (!dt) return [];
-	if (props.fields && props.fields.length > 0) return props.fields;
-	return store.get_fields_for_doctype(dt);
+	const fields = store.doc_meta[dt];
+	if (!fields || !Array.isArray(fields)) {
+		return [];
+	}
+	return fields.map((f) => {
+		// Extract raw label from format "doc.fieldname (Real Label)"
+		let realLabel = f.label;
+		const match = f.label.match(/\((.*?)\)/);
+		if (match && match[1]) {
+			realLabel = match[1];
+		}
+
+		return {
+			...f,
+			label: `${realLabel} (${f.fieldname})`,
+			value: f.fieldname,
+		};
+	});
 };
 
-const getFieldDef = (fieldname, dt) => {
+const getFieldDef = (fieldname, doctype) => {
 	if (!fieldname) return null;
-	const fields = getFieldsForDoctype(dt || props.doctype);
+	const dt = doctype || props.doctype;
+
+	// Standard field fallbacks
+	if (["name"].includes(fieldname)) {
+		return { fieldname, value: fieldname, fieldtype: "Data", label: "Name" };
+	}
+	if (["owner", "modified_by"].includes(fieldname)) {
+		return {
+			fieldname,
+			value: fieldname,
+			fieldtype: "Link",
+			options: "User",
+			label: fieldname === "owner" ? "Owner" : "Modified By",
+		};
+	}
+	if (["creation", "modified"].includes(fieldname)) {
+		return {
+			fieldname,
+			value: fieldname,
+			fieldtype: "Datetime",
+			label: fieldname === "creation" ? "Creation" : "Modified",
+		};
+	}
+	if (fieldname === "docstatus") {
+		return { fieldname, value: fieldname, fieldtype: "Int", label: "Docstatus" };
+	}
+
+	// Try Frappe's native meta cache first
+	if (dt && window.frappe && frappe.meta && frappe.meta.has_field(dt, fieldname)) {
+		const df = frappe.meta.get_docfield(dt, fieldname);
+		if (df) {
+			return { ...df, value: df.fieldname }; // ensure value alias is there
+		}
+	}
+
+	// Fallback to locally extracted list
+	const fields = getFieldsForDoctype(dt);
 	return fields.find((f) => f.value === fieldname) || null;
 };
 
@@ -374,13 +427,52 @@ const getOperatorsForField = (field) => {
 
 const isBooleanValue = (row) => {
 	if (row.value_type === "Boolean") return true;
-	const field = getFieldDef(row.field, row.doctype);
+	const field = getFieldDef(row.field, row.doctype || props.doctype);
 	return field && field.fieldtype === "Check";
 };
 
 const getVariableOptions = async () => {
 	if (!props.nodeId) return [];
 	return await store.getAvailableVariables(props.nodeId);
+};
+
+const getControlFactorySchema = (row) => {
+	const field = getFieldDef(row.field, row.doctype || props.doctype);
+	let schema = field ? frappe.utils.deep_clone(field) : { fieldtype: "Data", fieldname: "value" };
+	schema.label = "";
+	schema.read_only = props.readOnly;
+	schema.fieldname = field ? field.value : "value"; // Ensure valid fieldname for frappe controls
+
+	// Native Frappe Filter Manipulation (perfect parity)
+	if (window.frappe && frappe.ui && frappe.ui.filter_utils) {
+		frappe.ui.filter_utils.set_fieldtype(schema, null, row.operator);
+	} else {
+		// Fallback if filter_utils is somehow missing
+		if (schema.fieldname === "docstatus") {
+			schema.fieldtype = "Select";
+			schema.options = [
+				{ value: "0", label: __("Draft") },
+				{ value: "1", label: __("Submitted") },
+				{ value: "2", label: __("Cancelled") },
+			];
+		} else if (schema.fieldtype === "Check") {
+			schema.fieldtype = "Select";
+			schema.options = [
+				{ label: __("Yes"), value: "1" },
+				{ label: __("No"), value: "0" },
+			];
+		}
+	}
+
+	// FlexiRule Specific overrides for multi-value operators
+	if (["in", "not in"].includes(row.operator)) {
+		schema.fieldtype = "Data";
+		schema.placeholder = __("Comma-separated values");
+	} else if (row.operator === "Between") {
+		schema.placeholder = __("Value1, Value2");
+	}
+
+	return schema;
 };
 
 const addFilter = () => {

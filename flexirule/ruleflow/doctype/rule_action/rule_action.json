@@ -28,9 +28,6 @@
 		"input_source",
 		"reference_doctype",
 		"reference_docname",
-		"column_break_mapping",
-		"input_mapping",
-		"output_mapping",
 		"condition_action_section",
 		"set_conditions",
 		"condition_json",
@@ -303,24 +300,7 @@
 			"fieldtype": "Check",
 			"label": "Async"
 		},
-		{
-			"description": "Map context variables to method params: {\"context_var\": \"param_name\"}",
-			"fieldname": "input_mapping",
-			"fieldtype": "Code",
-			"label": "Input Mapping",
-			"options": "JSON"
-		},
-		{
-			"fieldname": "column_break_mapping",
-			"fieldtype": "Column Break"
-		},
-		{
-			"description": "Map result keys to context: {\"result_key\": \"context_var\"}",
-			"fieldname": "output_mapping",
-			"fieldtype": "Code",
-			"label": "Output Mapping",
-			"options": "JSON"
-		},
+
 		{
 			"depends_on": "eval:doc.return_type || doc.resolved_output_schema",
 			"description": "Return keys schema: [{\"fieldname\": \"field_name\",fieldtype\":\"\",options\":\"\",\"label\":\"Field Label\"}]\nWhen return Type is Boolen then value will be assign to Return Variable Name",

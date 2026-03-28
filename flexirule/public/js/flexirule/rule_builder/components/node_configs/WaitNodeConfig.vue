@@ -39,7 +39,7 @@ const props = defineProps({
 defineEmits(["update-field"]);
 
 function getJsonConfig(key, defaultVal = "") {
-	const configStr = props.nodeData?.config || props.nodeData?.method_config;
+	const configStr = props.nodeData?.config;
 	const config = flexirule.utils.safe_json_parse(configStr, {});
 
 	// Legacy migration: if key is 'value' but only 'duration' exists

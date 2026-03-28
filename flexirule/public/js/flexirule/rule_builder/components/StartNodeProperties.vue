@@ -174,20 +174,6 @@ watch(
 			</select>
 		</div>
 
-		<!-- Trigger Filters (Legacy, Read-only) -->
-		<div class="form-group">
-			<label class="control-label">{{ __("Trigger Filters (Python)") }}</label>
-			<div class="description text-muted mb-2">
-				{{ __("ReadOnly: Auto-compiled from Condition Builder") }}
-			</div>
-			<textarea
-				class="form-control text-mono"
-				rows="2"
-				readonly
-				:value="nodeData?.trigger_condition_expression"
-			></textarea>
-		</div>
-
 		<!-- Trigger Condition -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Trigger Condition (Logic)") }}</label>

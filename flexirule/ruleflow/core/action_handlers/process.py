@@ -50,8 +50,9 @@ class ProcessHandler(ActionHandler):
 		config = engine._get_action_config(action)
 
 		# Apply Input Mapping (Context -> Config)
-		if getattr(action, "input_mapping", None):
-			config = apply_input_mapping(context, action.input_mapping, config)
+		action_config = frappe.parse_json(getattr(action, "config", "{}") or "{}")
+		if action_config.get("input_mapping"):
+			config = apply_input_mapping(context, action_config.get("input_mapping"), config)
 
 		result = None
 

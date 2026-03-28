@@ -143,14 +143,21 @@ ACTION_TYPE_CONTRACT = {
 	},
 }
 
-RELEASE_DISABLED_ACTION_TYPES = {"Loop", "Switch"}
-LEGACY_ACTION_TYPE_ALIASES = {
-	"Aggregate Records": "Query Records",
-	"Create Docs": "Document Action",
-	"Sub-rule": "Sub-Rule",
-	"Raise Error": "Stop",
+ACTION_TYPES_WITH_REFERENCE_CONTEXT = {"Query Records", "Document Action", "Process"}
+ACTION_TYPES_WITH_RETURN_SCHEMA = {"Process", "Query Records", "Document Action"}
+CONFIG_MODAL_TYPES = {
+	"Process",
+	"Condition",
+	"Set Value",
+	"Stop",
+	"Notify",
+	"Wait",
+	"Sub-Rule",
+	"Query Records",
+	"Document Action",
 }
 
+RELEASE_DISABLED_ACTION_TYPES = {"Loop", "Switch"}
 RETURN_TYPE_OPTIONS = ["Boolean", "Dict", "List", "List of Dict", "Doc as Dict"]
 
 # Trigger Type Contract
@@ -158,18 +165,18 @@ RETURN_TYPE_OPTIONS = ["Boolean", "Dict", "List", "List of Dict", "Doc as Dict"]
 TRIGGER_TYPE_CONTRACT = {
 	"DocType Event": {
 		"required_fields": ["document_type", "trigger_event"],
-		"optional_fields": ["trigger_condition", "trigger_condition_expression"],
+		"optional_fields": ["trigger_condition", "compiled_expression"],
 		"hidden_fields": [],
 	},
 	"Scheduler Event": {
 		"required_fields": [],
 		"optional_fields": ["document_type"],
-		"hidden_fields": ["trigger_event", "trigger_condition", "trigger_condition_expression"],
+		"hidden_fields": ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
 	"Callable Event": {
 		"required_fields": [],
 		"optional_fields": ["document_type"],
-		"hidden_fields": ["trigger_event", "trigger_condition", "trigger_condition_expression"],
+		"hidden_fields": ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
 }
 
@@ -205,10 +212,10 @@ def is_release_disabled_action(action_type: str) -> bool:
 
 
 def normalize_action_type(action_type: str | None) -> str:
-	"""Normalize legacy action aliases to canonical action types."""
+	"""Return the action type directly as legacy aliases have been removed."""
 	if not action_type:
 		return ""
-	return LEGACY_ACTION_TYPE_ALIASES.get(action_type, action_type)
+	return action_type
 
 
 def get_trigger_type_contract(trigger_type: str) -> dict:
@@ -229,6 +236,8 @@ def get_contract_dto() -> dict:
 		"action_type_contract": ACTION_TYPE_CONTRACT,
 		"trigger_type_contract": TRIGGER_TYPE_CONTRACT,
 		"release_disabled_action_types": sorted(RELEASE_DISABLED_ACTION_TYPES),
-		"legacy_action_type_aliases": LEGACY_ACTION_TYPE_ALIASES,
 		"return_type_options": RETURN_TYPE_OPTIONS,
+		"action_types_with_reference_context": sorted(ACTION_TYPES_WITH_REFERENCE_CONTEXT),
+		"action_types_with_return_schema": sorted(ACTION_TYPES_WITH_RETURN_SCHEMA),
+		"config_modal_types": sorted(CONFIG_MODAL_TYPES),
 	}

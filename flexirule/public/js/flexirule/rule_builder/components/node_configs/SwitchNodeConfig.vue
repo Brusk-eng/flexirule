@@ -73,8 +73,7 @@ const cases = computed(() => {
 });
 
 function getJsonConfig(key, defaultVal = "") {
-	// Support both new 'config' and legacy 'method_config'
-	const configStr = props.nodeData?.config || props.nodeData?.method_config;
+	const configStr = props.nodeData?.config;
 	const config = flexirule.utils.safe_json_parse(configStr, {});
 	return config[key] !== undefined ? config[key] : defaultVal;
 }

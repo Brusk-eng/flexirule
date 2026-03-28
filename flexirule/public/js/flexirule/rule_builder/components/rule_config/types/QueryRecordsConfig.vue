@@ -793,7 +793,7 @@ function remove_field(idx) {
 }
 
 function build_fields() {
-	return field_rows.value.map((r) => r.field).filter((f) => f);
+	return field_rows.value.map((r) => r.field);
 }
 
 function get_order_by_options() {
@@ -813,11 +813,10 @@ function get_group_by_options() {
 }
 
 function build_order_by() {
-	return order_by_rows.value
-		.filter((r) => r.field)
-		.map((r) => `${r.field} ${r.direction || "asc"}`)
-		.join(", ");
+	return order_by_rows.value.map((r) => `${r.field} ${r.direction || "asc"}`).join(", ");
 }
+
+let is_syncing_out = false;
 
 function sync_local_config() {
 	const new_config = {};
@@ -826,7 +825,7 @@ function sync_local_config() {
 		if (val !== undefined && val !== null && val !== "") new_config[k] = val;
 	});
 
-	if (mode.value === "Query List") {
+	if (mode.value === "Query List" || mode.value === "Query Doc") {
 		const fields = build_fields();
 		if (fields.length) new_config.fields = fields;
 
@@ -841,8 +840,20 @@ function sync_local_config() {
 		if (Object.keys(filters).length) new_config.filters = filters;
 	}
 
-	sync_config(new_config);
+	// Compare before sending out to avoid loops
+	const current_str = JSON.stringify(props.node?.data?.config || {});
+	const next_str = JSON.stringify(new_config || {});
+
+	if (current_str !== next_str) {
+		is_syncing_out = true;
+		sync_config(new_config);
+		setTimeout(() => {
+			is_syncing_out = false;
+		}, 100);
+	}
 }
+
+const debounced_sync = flexirule.utils.debounce(sync_local_config, 300);
 
 async function load_report_filters(report_name) {
 	if (!report_name || mode.value !== "Query Report") {
@@ -933,6 +944,7 @@ async function test_query() {
 				overrides: props.node.data,
 			},
 		});
+
 		if (res.message) {
 			props.node.data.resolved_output_schema = res.message.schema || [];
 			test_status.value = __("Success");
@@ -943,7 +955,34 @@ async function test_query() {
 	}
 }
 
-function get_variable_options() {
+const debounced_schema_update = flexirule.utils.debounce(async function update_resolved_schema() {
+	if (!props.node?.data) return;
+	try {
+		const res = await frappe.call({
+			method: "flexirule.ruleflow.api.test_action_query",
+			args: {
+				rule_name: store.rule.name,
+				action_id: props.node.id,
+				overrides: props.node.data,
+			},
+			silent: true,
+		});
+
+		if (res.message && res.message.schema) {
+			// Deep check to avoid spam
+			const current = JSON.stringify(props.node.data.resolved_output_schema || []);
+			const next = JSON.stringify(res.message.schema || []);
+			if (current !== next) {
+				props.node.data.resolved_output_schema = res.message.schema;
+				store.mark_dirty();
+			}
+		}
+	} catch (e) {
+		// silent error
+	}
+}, 500);
+
+function get_field_options() {
 	return variable_options.value;
 }
 
@@ -1004,15 +1043,19 @@ watch(
 
 watch(
 	() => [props.node?.data?.config, mode.value],
-	([val]) => load_local_config(val),
+	([val]) => {
+		if (!is_syncing_out) {
+			load_local_config(val);
+		}
+	},
 	{ immediate: true }
 );
 
 watch(
 	() => [field_rows.value, order_by_rows.value, config],
 	() => {
-		sync_local_config();
-		update_resolved_schema();
+		debounced_sync();
+		debounced_schema_update();
 	},
 	{ deep: true }
 );
@@ -1020,7 +1063,8 @@ watch(
 watch(
 	() => report_filter_values,
 	() => {
-		update_resolved_schema();
+		debounced_sync();
+		debounced_schema_update();
 	},
 	{ deep: true }
 );

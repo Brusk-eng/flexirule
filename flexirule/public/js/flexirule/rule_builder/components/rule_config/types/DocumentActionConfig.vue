@@ -358,9 +358,7 @@ function build_static_values() {
 }
 
 function build_mappings() {
-	return mapping_rows.value
-		.filter((r) => r.source && r.target)
-		.map((r) => ({ source: r.source, target: r.target }));
+	return mapping_rows.value.map((r) => ({ source: r.source, target: r.target }));
 }
 
 function sync_local_config() {

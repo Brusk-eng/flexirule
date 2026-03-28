@@ -67,6 +67,9 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 			}
 		)
 		rule.insert(ignore_permissions=True)
+		rule.compile_conditions()
+		if rule.compiled_expression:
+			frappe.db.set_value("Rule", rule.name, "compiled_expression", rule.compiled_expression)
 		RuleCoordinator.clear_cache()
 		return rule
 

@@ -156,35 +156,47 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 const DEFAULT_TRIGGER_TYPE_CONTRACT = {
 	"DocType Event": {
 		required_fields: ["document_type", "trigger_event"],
-		optional_fields: ["trigger_condition", "trigger_condition_expression"],
+		optional_fields: ["trigger_condition", "compiled_expression"],
 		hidden_fields: [],
 	},
 	"Scheduler Event": {
 		required_fields: [],
 		optional_fields: ["document_type"],
-		hidden_fields: ["trigger_event", "trigger_condition", "trigger_condition_expression"],
+		hidden_fields: ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
 	"Callable Event": {
 		required_fields: [],
 		optional_fields: ["document_type"],
-		hidden_fields: ["trigger_event", "trigger_condition", "trigger_condition_expression"],
+		hidden_fields: ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
 };
 
 const DEFAULT_RELEASE_DISABLED_ACTION_TYPES = ["Loop", "Switch"];
-const DEFAULT_LEGACY_ACTION_TYPE_ALIASES = {
-	"Aggregate Records": "Query Records",
-	"Create Docs": "Document Action",
-	"Sub-rule": "Sub-Rule",
-	"Raise Error": "Stop",
-};
 const DEFAULT_RETURN_TYPE_OPTIONS = ["Boolean", "Dict", "List", "List of Dict", "Doc as Dict"];
+
+const DEFAULT_ACTION_TYPES_WITH_REFERENCE_CONTEXT = ["Query Records", "Document Action", "Process"];
+const DEFAULT_ACTION_TYPES_WITH_RETURN_SCHEMA = ["Process", "Query Records", "Document Action"];
+const DEFAULT_CONFIG_MODAL_TYPES = [
+	"Process",
+	"Condition",
+	"Set Value",
+	"Stop",
+	"Notify",
+	"Wait",
+	"Sub-Rule",
+	"Query Records",
+	"Document Action",
+];
 
 export let ACTION_TYPE_CONTRACT = withDescriptions(DEFAULT_ACTION_TYPE_CONTRACT);
 export let TRIGGER_TYPE_CONTRACT = { ...DEFAULT_TRIGGER_TYPE_CONTRACT };
 export let RELEASE_DISABLED_ACTION_TYPES = new Set(DEFAULT_RELEASE_DISABLED_ACTION_TYPES);
-export let LEGACY_ACTION_TYPE_ALIASES = { ...DEFAULT_LEGACY_ACTION_TYPE_ALIASES };
 export let RETURN_TYPE_OPTIONS = [...DEFAULT_RETURN_TYPE_OPTIONS];
+export let ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set(
+	DEFAULT_ACTION_TYPES_WITH_REFERENCE_CONTEXT
+);
+export let ACTION_TYPES_WITH_RETURN_SCHEMA = new Set(DEFAULT_ACTION_TYPES_WITH_RETURN_SCHEMA);
+export let CONFIG_MODAL_TYPES = new Set(DEFAULT_CONFIG_MODAL_TYPES);
 
 let _contractsLoaded = false;
 
@@ -212,12 +224,20 @@ function applyContractDto(dto = {}) {
 		RELEASE_DISABLED_ACTION_TYPES = new Set(dto.release_disabled_action_types);
 	}
 
-	if (dto.legacy_action_type_aliases && typeof dto.legacy_action_type_aliases === "object") {
-		LEGACY_ACTION_TYPE_ALIASES = { ...dto.legacy_action_type_aliases };
-	}
-
 	if (Array.isArray(dto.return_type_options) && dto.return_type_options.length) {
 		RETURN_TYPE_OPTIONS = [...dto.return_type_options];
+	}
+
+	if (Array.isArray(dto.action_types_with_reference_context)) {
+		ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set(dto.action_types_with_reference_context);
+	}
+
+	if (Array.isArray(dto.action_types_with_return_schema)) {
+		ACTION_TYPES_WITH_RETURN_SCHEMA = new Set(dto.action_types_with_return_schema);
+	}
+
+	if (Array.isArray(dto.config_modal_types)) {
+		CONFIG_MODAL_TYPES = new Set(dto.config_modal_types);
 	}
 }
 
@@ -260,7 +280,7 @@ export function getContract(actionType) {
 
 export function normalizeActionType(actionType) {
 	if (!actionType) return "";
-	return LEGACY_ACTION_TYPE_ALIASES[actionType] || actionType;
+	return actionType;
 }
 
 /**
