@@ -348,6 +348,7 @@ class Rule(Document):
 		if self.trigger_condition:
 			try:
 				self.trigger_condition_expression = compiler.compile(self.trigger_condition)
+				self.compiled_expression = self.trigger_condition_expression
 				is_valid, error = compiler.validate(self.trigger_condition_expression)
 				if not is_valid:
 					frappe.throw(_("Invalid Trigger Condition: {0}").format(error))
