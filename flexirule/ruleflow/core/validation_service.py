@@ -10,8 +10,10 @@ backend form save and frontend builder prechecks.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 
+import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
@@ -22,68 +24,40 @@ from flexirule.ruleflow.core.contracts import (
 	is_release_disabled_action,
 	normalize_action_type,
 )
+from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
 
 
 def validate_rule_definition(rule_doc) -> dict:
 	"""Validate rule payload/doc and return structured errors/warnings."""
+	rule = _coerce_rule_doc(rule_doc)
 	errors: list[str] = []
 	warnings: list[str] = []
 
-	trigger_type = _safe_get(rule_doc, "trigger_type")
-	trigger_contract = get_trigger_type_contract(trigger_type)
+	_normalize_hidden_trigger_fields(rule)
+	_validate_trigger_requirements(rule, errors)
 
-	for fieldname in trigger_contract.get("required_fields", []):
-		if _is_empty(_safe_get(rule_doc, fieldname)):
-			errors.append(_("Missing required trigger field: {0}").format(fieldname))
+	actions = list(_safe_get(rule, "actions", []) or [])
+	operation_metadata = _build_operation_metadata(actions)
 
-	for action in _safe_get(rule_doc, "actions", []) or []:
+	for action in actions:
 		action_label = _safe_get(action, "action_label") or _safe_get(action, "action_id") or _("(unnamed)")
 		action_type_raw = _safe_get(action, "action_type")
 		action_type = normalize_action_type(action_type_raw)
+
+		_validate_action_json(action, action_label, errors)
 
 		if _is_empty(action_type):
 			errors.append(_("Action '{0}' has no action_type").format(action_label))
 			continue
 
+		if action_type == "Stop" and _is_empty(_safe_get(action, "operation")):
+			_safe_set(action, "operation", "Success")
+
 		if is_release_disabled_action(action_type):
 			errors.append(_("Action '{0}' uses disabled type '{1}'").format(action_label, action_type))
 
-		contract = get_contract(action_type)
-
-		for fieldname in get_required_fields(action_type):
-			if _is_empty(_safe_get(action, fieldname)):
-				errors.append(
-					_("Action '{0}' ({1}) requires field '{2}'").format(action_label, action_type, fieldname)
-				)
-
-		operation = _safe_get(action, "operation")
-		if operation:
-			for fieldname in contract.get("mandatory_fields", {}).get(operation, []):
-				if _is_empty(_safe_get(action, fieldname)):
-					errors.append(
-						_("Action '{0}' ({1}) mode '{2}' requires field '{3}'").format(
-							action_label, action_type, operation, fieldname
-						)
-					)
-
-		if contract.get("terminal") and (
-			_safe_get(action, "next_step_if_true") or _safe_get(action, "next_step_if_false")
-		):
-			errors.append(
-				_("Action '{0}' ({1}) is terminal and should not have next steps").format(
-					action_label, action_type
-				)
-			)
-
-		if not contract.get("has_next_false") and _safe_get(action, "next_step_if_false"):
-			errors.append(
-				_("Action '{0}' ({1}) does not support 'next step if false'").format(
-					action_label, action_type
-				)
-			)
-
-		if action_type == "Query Records" and operation == "Query API":
-			errors.append(_("Action '{0}' uses removed mode Query API").format(action_label))
+		_validate_action_contracts(action, action_type, action_label, errors)
+		_validate_action_specifics(rule, action, action_type, action_label, warnings, errors)
 
 		handler = HandlerRegistry.get(action_type)
 		if handler:
@@ -93,7 +67,374 @@ def validate_rule_definition(rule_doc) -> dict:
 					_("Action '{0}' ({1}) validation failed: {2}").format(action_label, action_type, err)
 				)
 
+	dependency_result = _validate_variable_dependencies(actions, operation_metadata)
+	errors.extend(dependency_result["errors"])
+	warnings.extend(dependency_result["warnings"])
+
+	flow_result = _validate_flow_constraints(actions, operation_metadata)
+	errors.extend(flow_result["errors"])
+	warnings.extend(flow_result["warnings"])
+
+	if hasattr(rule, "validate_no_sub_rule_cycles"):
+		_capture_validation(errors, rule.validate_no_sub_rule_cycles)
+
+	if _is_truthy(_safe_get(rule, "is_active")):
+		_capture_validation(errors, validate_graph_integrity, rule)
+
+		entry_nodes = [
+			action
+			for action in actions
+			if _safe_get(action, "action_type") == "Entry Action" or _safe_get(action, "action_id") == "root"
+		]
+		if len(entry_nodes) != 1:
+			errors.append(_("Active Rule must have exactly one Entry Action (Start) node."))
+
+		if hasattr(rule, "validate_trigger_alignment"):
+			_capture_validation(errors, rule.validate_trigger_alignment)
+
 	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
+
+
+def _coerce_rule_doc(rule_doc):
+	if hasattr(rule_doc, "doctype"):
+		return rule_doc
+
+	payload = dict(rule_doc or {})
+	payload.setdefault("doctype", "Rule")
+	return frappe.get_doc(payload)
+
+
+def _validate_trigger_requirements(rule_doc, errors: list[str]) -> None:
+	trigger_type = _safe_get(rule_doc, "trigger_type")
+	trigger_contract = get_trigger_type_contract(trigger_type)
+
+	for fieldname in trigger_contract.get("required_fields", []):
+		if _is_empty(_safe_get(rule_doc, fieldname)):
+			errors.append(_("Missing required trigger field: {0}").format(fieldname))
+
+
+def _normalize_hidden_trigger_fields(rule_doc) -> None:
+	trigger_type = _safe_get(rule_doc, "trigger_type")
+	trigger_contract = get_trigger_type_contract(trigger_type)
+
+	for fieldname in trigger_contract.get("hidden_fields", []):
+		if not _is_empty(_safe_get(rule_doc, fieldname)):
+			_safe_set(rule_doc, fieldname, None)
+
+
+def _validate_action_json(action, action_label: str, errors: list[str]) -> None:
+	config = _safe_get(action, "config")
+	config_data = _validate_json_value(config, _("Action {0}: Configuration").format(action_label), errors)
+
+	if not isinstance(config_data, Mapping):
+		return
+
+	input_mapping = config_data.get("input_mapping")
+	if isinstance(input_mapping, str):
+		_validate_json_value(input_mapping, _("Action {0}: Input Mapping").format(action_label), errors)
+
+	output_mapping = config_data.get("output_mapping")
+	if isinstance(output_mapping, str):
+		_validate_json_value(output_mapping, _("Action {0}: Output Mapping").format(action_label), errors)
+
+
+def _validate_action_contracts(action, action_type: str, action_label: str, errors: list[str]) -> None:
+	contract = get_contract(action_type)
+	operation = _safe_get(action, "operation")
+
+	for fieldname in get_required_fields(action_type):
+		if _is_empty(_safe_get(action, fieldname)):
+			errors.append(
+				_("Action '{0}' ({1}) requires field '{2}'").format(action_label, action_type, fieldname)
+			)
+
+	if operation:
+		for fieldname in contract.get("mandatory_fields", {}).get(operation, []):
+			if _is_empty(_safe_get(action, fieldname)):
+				errors.append(
+					_("Action '{0}' ({1}) mode '{2}' requires field '{3}'").format(
+						action_label, action_type, operation, fieldname
+					)
+				)
+
+	mutation_mode = _safe_get(action, "mutation_mode")
+	if mutation_mode:
+		allowed_mutations = contract.get("allowed_mutations")
+		if allowed_mutations and mutation_mode not in allowed_mutations:
+			errors.append(
+				_("Action '{0}' ({1}) does not allow mutation mode '{2}'").format(
+					action_label, action_type, mutation_mode
+				)
+			)
+
+		if allowed_mutations and _is_empty(_safe_get(action, "return_variable")):
+			errors.append(
+				_("Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set").format(
+					action_label, action_type
+				)
+			)
+
+	if (_safe_get(action, "return_type") or _safe_get(action, "resolved_output_schema")) and _is_empty(
+		_safe_get(action, "return_variable")
+	):
+		errors.append(
+			_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
+				action_label, action_type
+			)
+		)
+
+	config_data = _parse_json_value(_safe_get(action, "config"), {})
+	if config_data.get("output_mapping") and _is_truthy(_safe_get(action, "is_async")):
+		errors.append(
+			_("Action '{0}' ({1}) cannot use Output Mapping with Async enabled").format(
+				action_label, action_type
+			)
+		)
+
+	if contract.get("terminal") and (
+		_safe_get(action, "next_step_if_true") or _safe_get(action, "next_step_if_false")
+	):
+		errors.append(
+			_("Action '{0}' ({1}) is terminal and should not have next steps").format(
+				action_label, action_type
+			)
+		)
+
+	if not contract.get("has_next_false") and _safe_get(action, "next_step_if_false"):
+		errors.append(
+			_("Action '{0}' ({1}) does not support 'next step if false'").format(action_label, action_type)
+		)
+
+
+def _validate_action_specifics(
+	rule_doc,
+	action,
+	action_type: str,
+	action_label: str,
+	warnings: list[str],
+	errors: list[str],
+) -> None:
+	operation = _safe_get(action, "operation")
+	config = _parse_json_value(_safe_get(action, "config"), {})
+
+	if action_type == "Process" and _safe_get(action, "process_name"):
+		_capture_validation(errors, rule_doc._validate_action_config, action)
+
+	if action_type == "Query Records" and operation == "Query API":
+		errors.append(_("Action '{0}' uses removed mode Query API").format(action_label))
+
+	if action_type == "Sub-Rule":
+		_capture_validation(errors, rule_doc.validate_sub_rule_target, action)
+
+	elif action_type == "Condition":
+		if _is_empty(_safe_get(action, "condition_json")) and _is_empty(
+			_safe_get(action, "condition_expression")
+		):
+			errors.append(_("Action '{0}' is a Condition but no condition is defined.").format(action_label))
+
+	elif action_type == "Loop":
+		if not config.get("iterator_var") and not config.get("collection"):
+			warnings.append(
+				_("Action '{0}' is a Loop but iterator configuration may be incomplete.").format(action_label)
+			)
+
+	elif action_type == "Switch":
+		if not config.get("cases"):
+			warnings.append(_("Action '{0}' is a Switch but no cases are defined.").format(action_label))
+
+	elif action_type == "Set Value":
+		_capture_validation(errors, rule_doc._validate_set_value_editable, action)
+
+
+def _build_operation_metadata(actions) -> dict:
+	metadata = {}
+	process_names = {
+		_safe_get(action, "process_name")
+		for action in actions
+		if normalize_action_type(_safe_get(action, "action_type")) == "Process"
+		and _safe_get(action, "process_name")
+	}
+
+	for process_name in process_names:
+		try:
+			process = frappe.get_cached_doc("Process", process_name)
+		except Exception:
+			continue
+
+		for operation in process.get("operations") or []:
+			key = f"{process.name}:{_safe_get(operation, 'func_name')}"
+			metadata[key] = {
+				"reads_vars": _safe_get(operation, "reads_vars"),
+				"writes_vars": _safe_get(operation, "writes_vars"),
+				"is_terminal": _safe_get(operation, "is_terminal"),
+				"writes_to": _safe_get(operation, "writes_to"),
+				"can_stop_save": _safe_get(operation, "can_stop_save"),
+				"output_schema": _safe_get(operation, "output_schema"),
+			}
+
+	return metadata
+
+
+def _validate_variable_dependencies(actions, operation_metadata=None) -> dict:
+	errors: list[str] = []
+	warnings: list[str] = []
+	available_vars = {"doc", "old_doc", "frappe"}
+	operation_metadata = operation_metadata or {}
+
+	for action in actions:
+		if _safe_get(action, "action_type") == "Entry Action" or _safe_get(action, "action_id") == "root":
+			continue
+
+		if _safe_get(action, "is_enabled") == 0:
+			continue
+
+		op_key = f"{_safe_get(action, 'process_name')}:{_safe_get(action, 'operation')}"
+		op_meta = operation_metadata.get(op_key, {})
+		action_label = _safe_get(action, "action_label") or _safe_get(action, "action_id") or _("(unnamed)")
+
+		reads_vars = _load_json_list(op_meta.get("reads_vars"), warnings, action_label, "reads_vars")
+		for var_def in reads_vars:
+			var_name = var_def if isinstance(var_def, str) else _safe_get(var_def, "fieldname")
+			is_required = 1 if isinstance(var_def, str) else _safe_get(var_def, "reqd", 1)
+
+			if is_required and var_name and var_name not in available_vars:
+				errors.append(
+					_(
+						"Action '{0}' requires variable '{1}' which is not produced by any prior action"
+					).format(action_label, var_name)
+				)
+
+		writes_vars = _load_json_list(op_meta.get("writes_vars"), warnings, action_label, "writes_vars")
+		for var_def in writes_vars:
+			var_name = var_def if isinstance(var_def, str) else _safe_get(var_def, "fieldname")
+			if var_name:
+				available_vars.add(var_name)
+
+		if _safe_get(action, "return_variable"):
+			available_vars.add(_safe_get(action, "return_variable"))
+
+	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
+
+
+def _validate_flow_constraints(actions, operation_metadata=None) -> dict:
+	errors: list[str] = []
+	warnings: list[str] = []
+	operation_metadata = operation_metadata or {}
+	outgoing: dict[str, list[str]] = {}
+
+	for action in actions:
+		source = _safe_get(action, "action_id") or _safe_get(action, "name")
+		if not source:
+			continue
+
+		if _safe_get(action, "next_step_if_true"):
+			outgoing.setdefault(source, []).append(_safe_get(action, "next_step_if_true"))
+		if _safe_get(action, "next_step_if_false"):
+			outgoing.setdefault(source, []).append(_safe_get(action, "next_step_if_false"))
+
+	start_action = next(
+		(
+			action
+			for action in actions
+			if _safe_get(action, "action_type") == "Entry Action" or _safe_get(action, "action_id") == "root"
+		),
+		None,
+	)
+	if start_action:
+		reachable = set()
+		queue = [_safe_get(start_action, "action_id") or _safe_get(start_action, "name")]
+
+		while queue:
+			current = queue.pop(0)
+			if not current or current in reachable:
+				continue
+			reachable.add(current)
+			queue.extend(outgoing.get(current, []))
+
+		for action in actions:
+			action_id = _safe_get(action, "action_id") or _safe_get(action, "name")
+			label = _safe_get(action, "action_label") or action_id or _("(unnamed)")
+			if action_id and action_id not in reachable:
+				errors.append(_("Action '{0}' is unreachable from the start node.").format(label))
+
+	for action in actions:
+		if _safe_get(action, "action_type") == "Entry Action" or _safe_get(action, "action_id") == "root":
+			continue
+
+		action_type = normalize_action_type(_safe_get(action, "action_type"))
+		action_id = _safe_get(action, "action_id") or _safe_get(action, "name")
+		action_label = _safe_get(action, "action_label") or action_id or _("(unnamed)")
+		downstream = outgoing.get(action_id, [])
+		op_key = f"{_safe_get(action, 'process_name')}:{_safe_get(action, 'operation')}"
+		op_meta = operation_metadata.get(op_key, {})
+
+		if get_contract(action_type).get("terminal") and downstream:
+			errors.append(_("{0} is terminal and should not have downstream actions").format(action_label))
+
+		if get_contract(action_type).get("has_next_false") and _is_empty(
+			_safe_get(action, "next_step_if_false")
+		):
+			errors.append(_("Action '{0}' is missing its required false path.").format(action_label))
+
+		if _is_truthy(op_meta.get("is_terminal")) and downstream:
+			errors.append(
+				_(
+					"Action '{0}' is marked as terminal but has downstream actions. Remove connections to: {1}"
+				).format(action_label, ", ".join(downstream))
+			)
+
+		if op_meta.get("writes_to") == "Database":
+			warnings.append(
+				_(
+					"Action '{0}' writes directly to the database. This is a side-effect that cannot be rolled back."
+				).format(action_label)
+			)
+		elif op_meta.get("writes_to") == "Document":
+			warnings.append(
+				_("Action '{0}' modifies the document. Ensure this is intentional.").format(action_label)
+			)
+
+	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
+
+
+def _load_json_list(value, warnings: list[str], action_label: str, fieldname: str) -> list:
+	if not value:
+		return []
+	try:
+		parsed = json.loads(value) if isinstance(value, str) else value
+		return parsed if isinstance(parsed, list) else []
+	except Exception:
+		warnings.append(f"{action_label}: Failed to parse {fieldname}")
+		return []
+
+
+def _validate_json_value(value, label: str, errors: list[str]):
+	if not value or not isinstance(value, str):
+		return value if value is not None else {}
+
+	try:
+		return json.loads(value)
+	except json.JSONDecodeError as exc:
+		errors.append(_("Invalid JSON in {0}: {1}").format(label, str(exc)))
+		return {}
+
+
+def _parse_json_value(value, default):
+	if value is None or value == "":
+		return default
+	if isinstance(value, Mapping):
+		return dict(value)
+	try:
+		return json.loads(value) if isinstance(value, str) else value
+	except Exception:
+		return default
+
+
+def _capture_validation(errors: list[str], fn, *args, **kwargs) -> None:
+	try:
+		fn(*args, **kwargs)
+	except Exception as exc:
+		errors.append(str(exc))
 
 
 def _safe_get(obj, key, default=None):
@@ -106,5 +447,21 @@ def _safe_get(obj, key, default=None):
 	return getattr(obj, key, default)
 
 
+def _safe_set(obj, key, value) -> None:
+	if obj is None:
+		return
+	if hasattr(obj, "__setitem__"):
+		obj[key] = value
+		return
+	if hasattr(obj, "set"):
+		obj.set(key, value)
+		return
+	setattr(obj, key, value)
+
+
 def _is_empty(value) -> bool:
 	return value in (None, "", [])
+
+
+def _is_truthy(value) -> bool:
+	return value in (1, True, "1")

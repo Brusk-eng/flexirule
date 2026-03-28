@@ -42,6 +42,24 @@
 						@update:modelValue="(val) => update_action_field('skip_permissions', val)"
 					/>
 				</div>
+				<div class="grid-item span-2" v-if="node.data?.skip_permissions">
+					<ControlFactory
+						:df="
+							with_read_only({
+								fieldname: 'permission_audit_reason',
+								fieldtype: 'Small Text',
+								label: __('Permission Audit Reason'),
+								description: __(
+									'Required when bypassing permissions. Stored in action config.'
+								),
+							})
+						"
+						:modelValue="configValue('permission_audit_reason')"
+						@update:modelValue="
+							(val) => update_config_field('permission_audit_reason', val)
+						"
+					/>
+				</div>
 				<div class="grid-item">
 					<ControlFactory
 						:df="
@@ -165,6 +183,23 @@ function with_read_only(field) {
 
 function update_action_field(fieldname, value) {
 	emit("update:field", { fieldname, value });
+}
+
+function update_config_field(fieldname, value) {
+	emit("update:field", { fieldname, value, scope: "config" });
+}
+
+function configValue(fieldname) {
+	const config = props.node?.data?.config;
+	if (!config) return null;
+	if (typeof config === "object") {
+		return config[fieldname];
+	}
+	try {
+		return JSON.parse(config)?.[fieldname];
+	} catch (e) {
+		return null;
+	}
 }
 </script>
 

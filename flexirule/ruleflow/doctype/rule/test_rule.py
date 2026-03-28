@@ -4,6 +4,8 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from flexirule.ruleflow.api import validate_rule_document
+
 
 class TestRule(FrappeTestCase):
 	def setUp(self):
@@ -91,3 +93,61 @@ class TestRule(FrappeTestCase):
 			}
 		)
 		valid_rule.validate()
+
+	def test_service_matches_form_validation_for_missing_condition(self):
+		"""API precheck and form validation should reject the same invalid rule definition."""
+		payload = {
+			"doctype": "Rule",
+			"rule_name": "Rule Missing Condition",
+			"document_type": "User",
+			"trigger_type": "DocType Event",
+			"trigger_event": "Before Save",
+			"actions": [
+				{
+					"action_label": "Missing Condition",
+					"action_type": "Condition",
+					"action_id": "condition_1",
+				}
+			],
+		}
+
+		api_result = validate_rule_document(payload)
+		self.assertFalse(api_result["valid"])
+		self.assertTrue(
+			any("is a Condition but no condition is defined" in error for error in api_result["errors"])
+		)
+
+		rule = frappe.get_doc(payload)
+		with self.assertRaisesRegex(frappe.ValidationError, "is a Condition but no condition is defined"):
+			rule.validate()
+
+	def test_service_matches_form_validation_for_async_output_mapping(self):
+		"""Async output mapping should fail consistently through API and form validation."""
+		payload = {
+			"doctype": "Rule",
+			"rule_name": "Rule Async Output Mapping",
+			"document_type": "User",
+			"trigger_type": "DocType Event",
+			"trigger_event": "Before Save",
+			"actions": [
+				{
+					"action_label": "Async Query",
+					"action_type": "Query Records",
+					"action_id": "query_1",
+					"reference_doctype": "User",
+					"operation": "Query List",
+					"is_async": 1,
+					"config": '{"output_mapping":{"rows":"vars.rows"}}',
+				}
+			],
+		}
+
+		api_result = validate_rule_document(payload)
+		self.assertFalse(api_result["valid"])
+		self.assertTrue(
+			any("cannot use Output Mapping with Async enabled" in error for error in api_result["errors"])
+		)
+
+		rule = frappe.get_doc(payload)
+		with self.assertRaisesRegex(frappe.ValidationError, "cannot use Output Mapping with Async enabled"):
+			rule.validate()

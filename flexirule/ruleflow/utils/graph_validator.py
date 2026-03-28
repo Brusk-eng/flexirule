@@ -108,7 +108,7 @@ def validate_graph_integrity(rule_doc):
 	# Check for non-reachable nodes
 	orphans = [qid for qid in actions if qid not in reachable]
 	if orphans:
-		orphan_labels = [actions[o].action_label for o in orphans]
+		orphan_labels = [actions[o].action_label or actions[o].action_id or str(o) for o in orphans]
 		message = _("Unreachable (Orphan) Actions found: {0}").format(", ".join(orphan_labels))
 		if missing_references:
 			message = "{0}. {1}".format(message, missing_references[0])

@@ -8,7 +8,6 @@ from frappe import _
 from frappe.model.document import Document
 
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
-from flexirule.ruleflow.utils.schema_validator import validate_config
 
 
 class Rule(Document):
@@ -95,17 +94,13 @@ class Rule(Document):
 		self.ensure_start_node()
 		self.reorder_actions()
 		self.compile_conditions()
+		self.normalize_trigger_type_fields()
 		self.validate_with_service()
-		self.validate_actions()
 		self.validate_no_sub_rule_cycles()
 		self.validate_variable_availability()
 		self.validate_active_rule_lock()
 		self.validate_priority_callable()
 		self.validate_version_constraints()
-		self.validate_trigger_type_requirements()
-
-		# New strict validations
-		self.validate_strict_requirements()
 
 		self.status = self.get_computed_status()
 
@@ -137,19 +132,11 @@ class Rule(Document):
 		if self.trigger_type == "Callable Event" and str(self.priority) != "0":
 			frappe.throw(_("Callable Event rules must have priority set to 0."))
 
-	def validate_trigger_type_requirements(self):
-		"""Enforce field presence based on trigger_type."""
+	def normalize_trigger_type_fields(self):
+		"""Clear fields hidden by the selected trigger type."""
 		from flexirule.ruleflow.core.contracts import get_trigger_type_contract
 
 		contract = get_trigger_type_contract(self.trigger_type)
-		meta = frappe.get_meta(self.doctype)
-
-		for fieldname in contract.get("required_fields", []):
-			if not self.get(fieldname):
-				frappe.throw(
-					_("{0} is required for {1} rules.").format(meta.get_label(fieldname), self.trigger_type)
-				)
-
 		for fieldname in contract.get("hidden_fields", []):
 			if self.get(fieldname):
 				self.set(fieldname, None)
@@ -166,26 +153,6 @@ class Rule(Document):
 		from flexirule.ruleflow.core.rule_service import validate_single_draft_copy
 
 		validate_single_draft_copy(self)
-
-	def validate_strict_requirements(self):
-		"""
-		Perform strict checks when rule is active.
-		"""
-		if not self.is_active:
-			return
-
-		# 1. Enforce Reachability (No orphans) and No cycles
-		from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
-
-		validate_graph_integrity(self)
-
-		# 2. Enforce exactly one Entry Action
-		entry_nodes = [a for a in self.actions if a.action_type == "Entry Action"]
-		if len(entry_nodes) != 1:
-			frappe.throw(_("Active Rule must have exactly one Entry Action (Start) node."))
-
-		# 3. Enforce Trigger Alignment (Doc-editing actions vs Trigger Event)
-		self.validate_trigger_alignment()
 
 	def validate_trigger_alignment(self, rule_doc=None, visited_rules=None, is_after_event_context=None):
 		"""
@@ -377,55 +344,6 @@ class Rule(Document):
 						_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
 					)
 
-	def validate_actions(self):
-		if not self.actions:
-			return
-
-		from flexirule.ruleflow.core.action_handlers import HandlerRegistry
-		from flexirule.ruleflow.core.contracts import normalize_action_type
-
-		for action in self.actions:
-			# 1. Validate JSON fields syntax
-			self._validate_json_field(
-				action.config,
-				_("Action {0}: Configuration").format(action.action_label),
-			)
-			# Validate mappings inside config blob
-			config_data = frappe.parse_json(action.config or "{}") if action.config else {}
-			if config_data.get("input_mapping"):
-				self._validate_json_field(
-					config_data.get("input_mapping")
-					if isinstance(config_data.get("input_mapping"), str)
-					else None,
-					_("Action {0}: Input Mapping").format(action.action_label),
-				)
-			if config_data.get("output_mapping"):
-				self._validate_json_field(
-					config_data.get("output_mapping")
-					if isinstance(config_data.get("output_mapping"), str)
-					else None,
-					_("Action {0}: Output Mapping").format(action.action_label),
-				)
-
-			# 2. Check Process config against Schema
-			if action.action_type == "Process" and action.process_name:
-				self._validate_action_config(action)
-
-			# 3. Validate action type-specific constraints
-			self._validate_all_action_types(action)
-
-			# 4. Handler-level validation (action-specific)
-			handler = HandlerRegistry.get(normalize_action_type(action.action_type))
-			if handler:
-				errors = handler.validate(action, {"doc": None, "vars": {}})
-				if errors:
-					message = "; ".join([str(e) for e in errors])
-					frappe.throw(
-						_("Action '{0}' ({1}) validation failed: {2}").format(
-							action.action_label, action.action_type, message
-						)
-					)
-
 	def get_computed_status(self):
 		if not self.is_active:
 			# New rule or rule that has never been executed
@@ -443,16 +361,6 @@ class Rule(Document):
 			return "Error"
 
 		return "Active"
-
-	def _validate_json_field(self, json_str, label):
-		if not json_str:
-			return
-		import json
-
-		try:
-			json.loads(json_str)
-		except json.JSONDecodeError as e:
-			frappe.throw(_("Invalid JSON in {0}: {1}").format(label, str(e)))
 
 	def _validate_action_config(self, action):
 		if not frappe.db.exists("Process", action.process_name):
@@ -509,128 +417,6 @@ class Rule(Document):
 				).format(action.action_label, action.operation)
 			)
 
-	def _validate_all_action_types(self, action):
-		"""
-		Validate constraints specific to each action type.
-		Uses ACTION_TYPE_CONTRACT for unified backend/frontend validation.
-		"""
-		from flexirule.ruleflow.core.contracts import (
-			get_contract,
-			get_required_fields,
-			normalize_action_type,
-		)
-
-		action_type = normalize_action_type(action.action_type)
-		contract = get_contract(action_type)
-
-		# Backward Compatibility: Default operation to 'Success' for Stop actions if missing
-		if action_type == "Stop" and not getattr(action, "operation", None):
-			action.operation = "Success"
-
-		# 1. Contract: Required fields check
-		for field in get_required_fields(action_type):
-			if not getattr(action, field, None):
-				frappe.throw(
-					_("Action '{0}' ({1}) requires field '{2}'").format(
-						action.action_label, action_type, field
-					)
-				)
-
-		# 1a. Contract: Operation-specific mandatory fields
-		if action.operation:
-			mandatory_fields = contract.get("mandatory_fields", {}).get(action.operation, [])
-			for field in mandatory_fields:
-				if not getattr(action, field, None):
-					frappe.throw(
-						_("Action '{0}' ({1}) mode '{2}' requires field '{3}'").format(
-							action.action_label, action_type, action.operation, field
-						)
-					)
-
-		# 1b. Contract: Allowed mutation modes (only for action types that declare it)
-		if getattr(action, "mutation_mode", None):
-			allowed_mutations = contract.get("allowed_mutations")
-			if allowed_mutations:
-				if action.mutation_mode not in allowed_mutations:
-					frappe.throw(
-						_("Action '{0}' ({1}) does not allow mutation mode '{2}'").format(
-							action.action_label, action_type, action.mutation_mode
-						)
-					)
-
-				if not action.return_variable:
-					frappe.throw(
-						_(
-							"Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set"
-						).format(action.action_label, action_type)
-					)
-
-		# 1c. Return Schema requires Return Variable
-		if (action.return_type or action.resolved_output_schema) and not action.return_variable:
-			frappe.throw(
-				_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
-					action.action_label, action_type
-				)
-			)
-
-		# 1d. Output Mapping cannot be used with async actions
-		action_cfg = frappe.parse_json(action.config or "{}") if action.config else {}
-		if action_cfg.get("output_mapping") and action.is_async:
-			frappe.throw(
-				_("Action '{0}' ({1}) cannot use Output Mapping with Async enabled").format(
-					action.action_label, action_type
-				)
-			)
-
-		# 2. Contract: Terminal action should not have next_step
-		if contract.get("terminal"):
-			if action.next_step_if_true or action.next_step_if_false:
-				frappe.throw(
-					_("Action '{0}' ({1}) is terminal and should not have next steps").format(
-						action.action_label, action_type
-					)
-				)
-
-		# 3. Contract: Check has_next_false for non-branching actions
-		if not contract.get("has_next_false") and action.next_step_if_false:
-			frappe.throw(
-				_("Action '{0}' ({1}) does not support 'next step if false'").format(
-					action.action_label, action_type
-				)
-			)
-
-		# Type-specific validations
-		if action_type == "Sub-Rule":
-			self.validate_sub_rule_target(action)
-
-		elif action_type == "Condition":
-			if not action.condition_json and not action.condition_expression:
-				frappe.throw(
-					_("Action '{0}' is a Condition but no condition is defined.").format(action.action_label)
-				)
-
-		elif action_type == "Loop":
-			config = self._parse_json_field(action.config)
-			if not config.get("iterator_var") and not config.get("collection"):
-				frappe.msgprint(
-					_("Action '{0}' is a Loop but iterator configuration may be incomplete.").format(
-						action.action_label
-					),
-					alert=True,
-				)
-
-		elif action_type == "Switch":
-			config = self._parse_json_field(action.config)
-			if not config.get("cases"):
-				frappe.msgprint(
-					_("Action '{0}' is a Switch but no cases are defined.").format(action.action_label),
-					alert=True,
-				)
-
-		elif action_type == "Set Value":
-			# Check if target field is editable given trigger event
-			self._validate_set_value_editable(action)
-
 	def _validate_set_value_editable(self, action):
 		"""Check if Set Value target field is valid and editable for current trigger event"""
 		target_field = getattr(action, "target_field", None)
@@ -659,15 +445,6 @@ class Rule(Document):
 						"Action '{0}': Cannot set field '{1}' after submit. Field does not have 'Allow on Submit' enabled."
 					).format(action.action_label, target_field)
 				)
-
-	def _parse_json_field(self, json_str):
-		"""Parse JSON field safely, return empty dict on failure."""
-		if not json_str:
-			return {}
-		try:
-			return json.loads(json_str) if isinstance(json_str, str) else json_str
-		except Exception:
-			return {}
 
 	def validate_sub_rule_target(self, action):
 		"""Validate that a Sub-Rule action targets a compatible callable rule."""
@@ -751,7 +528,7 @@ class Rule(Document):
 				# Cycle detected - build cycle path from where it starts
 				cycle_start = path.index(current_rule)
 				cycle_path = [*path[cycle_start:], current_rule]
-				return " → ".join(cycle_path)
+				return " → ".join([str(part) for part in cycle_path if part])
 
 			if current_rule in globally_visited:
 				return None  # Already fully explored, no cycle from here
@@ -770,7 +547,8 @@ class Rule(Document):
 
 		# Start DFS from this rule
 		globally_visited: set[str] = set()
-		initial_path = [self.name]
+		current_rule_name = self.name or self.rule_name or _("(unsaved rule)")
+		initial_path = [current_rule_name]
 
 		for sub_rule in sub_rules:
 			if sub_rule:

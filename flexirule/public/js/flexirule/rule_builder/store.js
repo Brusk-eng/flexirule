@@ -392,10 +392,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 			}
 
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;
-			// Safe JSON parse helper
-			const safeParse = (val) => flexirule.utils.safe_json_parse(val);
+			// Parse JSON-like payloads while preserving already-parsed objects.
+			const safeParse = (val, defaultVal = null) => {
+				if (val && typeof val === "object") {
+					return val;
+				}
+				return flexirule.utils.safe_json_parse(val, defaultVal);
+			};
 
-			const configData = safeParse(action.config);
+			const configData = safeParse(action.config, {}) || {};
 
 			const nodeData = {
 				action_id: nodeId,
@@ -753,6 +758,31 @@ export const useStore = defineStore("rule-builder-store", () => {
 			clean.static_values = cleaned_static;
 		}
 
+		if (
+			clean.input_mapping &&
+			typeof clean.input_mapping === "object" &&
+			!Array.isArray(clean.input_mapping) &&
+			!Object.keys(clean.input_mapping).length
+		) {
+			delete clean.input_mapping;
+		}
+
+		if (
+			clean.output_mapping &&
+			typeof clean.output_mapping === "object" &&
+			!Array.isArray(clean.output_mapping) &&
+			!Object.keys(clean.output_mapping).length
+		) {
+			delete clean.output_mapping;
+		}
+
+		if (
+			typeof clean.permission_audit_reason === "string" &&
+			!clean.permission_audit_reason.trim()
+		) {
+			delete clean.permission_audit_reason;
+		}
+
 		return clean;
 	}
 
@@ -824,102 +854,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				return;
 			}
 
-			// 2. Contract Validation: Variable Dependencies and Flow Constraints
-			// Build operation metadata from loaded processes
-			const op_metadata =
-				flexirule.validation?.build_operation_metadata?.(processes.value) || {};
-
-			// Prepare actions in topological order for validation
-			const sortedNodesForValidation = getTopologicalSort(nodes.value, edges.value);
-			const actionsForValidation = sortedNodesForValidation.map((node) => ({
-				action_id: node.data?.action_id || node.id,
-				action_type:
-					node.type === "start" ? "Entry Action" : node.data?.action_type || "Process",
-				action_label: node.data?.action_label || node.label || node.id,
-				process_name: node.data?.process_name,
-				operation: node.data?.operation,
-				is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
-				return_variable: node.data?.return_variable,
-				return_type: node.data?.return_type,
-				resolved_output_schema: node.data?.resolved_output_schema,
-				mutation_mode: node.data?.mutation_mode,
-				condition_json: node.data?.condition_json,
-				condition_expression: node.data?.condition_expression,
-				rule: node.data?.rule,
-				config: node.data?.config,
-				input_variables: node.data?.input_variables,
-				name: node.data?.name,
-			}));
-
-			// Validate variable dependencies
-			if (flexirule.validation?.validate_variable_dependencies) {
-				const varResult = flexirule.validation.validate_variable_dependencies(
-					actionsForValidation,
-					op_metadata
-				);
-				if (!varResult.valid) {
-					const message = varResult.errors.map((e) => `<li>${e}</li>`).join("");
-					frappe.msgprint({
-						title: __("Variable Dependency Error"),
-						message: `<ul class="text-left">${message}</ul>`,
-						indicator: "red",
-					});
-					return;
-				}
-				// Show warnings if any
-				if (varResult.warnings.length > 0) {
-					console.warn("Variable validation warnings:", varResult.warnings);
-				}
-			}
-
-			// Validate flow constraints (is_terminal, writes_to)
-			if (flexirule.validation?.validate_flow_constraints) {
-				const edgesForValidation = edges.value.map((e) => ({
-					source: e.source,
-					target: e.target,
-				}));
-				const flowResult = flexirule.validation.validate_flow_constraints(
-					actionsForValidation,
-					op_metadata,
-					edgesForValidation
-				);
-				if (!flowResult.valid) {
-					const message = flowResult.errors.map((e) => `<li>${e}</li>`).join("");
-					frappe.msgprint({
-						title: __("Flow Constraint Error"),
-						message: `<ul class="text-left">${message}</ul>`,
-						indicator: "red",
-					});
-					return;
-				}
-				// Show warnings for side-effects
-				if (flowResult.warnings.length > 0) {
-					// For now just skip logging, could show as toast or info dialog
-				}
-			}
-
-			// Validate action type-specific constraints (Sub-Rule, Condition, Loop, Switch, return_variable)
-			if (flexirule.validation?.validate_action_types) {
-				const typeResult = flexirule.validation.validate_action_types(
-					actionsForValidation,
-					op_metadata,
-					rule_name.value
-				);
-				if (!typeResult.valid) {
-					const message = typeResult.errors.map((e) => `<li>${e}</li>`).join("");
-					frappe.msgprint({
-						title: __("Action Configuration Error"),
-						message: `<ul class="text-left">${message}</ul>`,
-						indicator: "red",
-					});
-					return;
-				}
-				if (typeResult.warnings.length > 0) {
-					console.warn("Action type warnings:", typeResult.warnings);
-				}
-			}
-
-			// 3. Prepare doc for save
+			// 2. Prepare doc for save
 			const fresh = await frappe.call({
 				method: "frappe.client.get",
 				args: { doctype: "Rule", name: rule_name.value },
@@ -1037,8 +972,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 				};
 			});
 
-			// 4. Backend precheck (shared validator service)
+			// 3. Backend precheck (authoritative shared validator service)
 			const validationPayload = {
+				name: doc.name,
+				is_active: doc.is_active,
 				trigger_type: doc.trigger_type,
 				document_type: doc.document_type,
 				trigger_event: doc.trigger_event,

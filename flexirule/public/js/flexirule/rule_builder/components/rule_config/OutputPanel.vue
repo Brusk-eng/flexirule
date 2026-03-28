@@ -201,11 +201,14 @@ function serializeSchema(val) {
 
 // -- Mapping Logic --
 watch(
-	() => props.node.data?.output_mapping,
+	() => props.node.data?.config,
 	(val) => {
-		if (val) {
+		const config = parseConfig(val);
+		const mappingValue = config.output_mapping;
+		if (mappingValue) {
 			try {
-				const obj = typeof val === "string" ? JSON.parse(val) : val;
+				const obj =
+					typeof mappingValue === "string" ? JSON.parse(mappingValue) : mappingValue;
 				outputMappings.value = Object.entries(obj).map(([source, target]) => ({
 					source,
 					target,
@@ -234,7 +237,7 @@ function saveOutputMappings() {
 	outputMappings.value.forEach((m) => {
 		if (m.source && m.target) obj[m.source] = m.target;
 	});
-	updateField("output_mapping", obj);
+	updateConfigKey("output_mapping", Object.keys(obj).length ? obj : null);
 }
 
 function updateField(fieldname, value) {
@@ -242,6 +245,37 @@ function updateField(fieldname, value) {
 		props.node.data[fieldname] = value;
 		store.mark_dirty();
 	}
+}
+
+function parseConfig(configValue) {
+	if (!configValue) return {};
+	if (typeof configValue === "object") return configValue;
+	try {
+		return JSON.parse(configValue);
+	} catch (e) {
+		return {};
+	}
+}
+
+function updateConfigKey(key, value) {
+	if (!props.node?.data) return;
+	const nextConfig = {
+		...parseConfig(props.node.data.config),
+	};
+
+	if (
+		value === null ||
+		value === undefined ||
+		value === "" ||
+		(typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length)
+	) {
+		delete nextConfig[key];
+	} else {
+		nextConfig[key] = value;
+	}
+
+	props.node.data.config = nextConfig;
+	store.mark_dirty();
 }
 
 async function refreshVariables() {
