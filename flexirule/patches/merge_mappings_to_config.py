@@ -11,39 +11,36 @@ def execute():
 	if not has_input and not has_output:
 		return
 
-	# Fetch all Rule Actions that have mapping data
-	conditions = []
+	filters: dict = {}
+	or_filters: list = []
+
 	if has_input:
-		conditions.append("(input_mapping IS NOT NULL AND input_mapping != '')")
+		or_filters.append(["input_mapping", "!=", ""])
 	if has_output:
-		conditions.append("(output_mapping IS NOT NULL AND output_mapping != '')")
+		or_filters.append(["output_mapping", "!=", ""])
 
-	columns = ["name", "config"]
+	fields = ["name", "config"]
 	if has_input:
-		columns.append("input_mapping")
+		fields.append("input_mapping")
 	if has_output:
-		columns.append("output_mapping")
+		fields.append("output_mapping")
 
-	query = f"SELECT `{',`'.join(columns)}` FROM `tabRule Action` WHERE {' OR '.join(conditions)}"
-
-	actions = frappe.db.sql(query, as_dict=True)
+	actions = frappe.get_all("Rule Action", filters=filters, or_filters=or_filters, fields=fields)
 
 	for action in actions:
 		config = {}
-		if action.config:
+		if action.get("config"):
 			try:
-				config = json.loads(action.config)
+				config = json.loads(action["config"])
 			except Exception:
 				pass
 
 		if has_input and action.get("input_mapping"):
-			config["input_mapping"] = action.input_mapping
+			config["input_mapping"] = action["input_mapping"]
 		if has_output and action.get("output_mapping"):
-			config["output_mapping"] = action.output_mapping
+			config["output_mapping"] = action["output_mapping"]
 
-		frappe.db.sql(
-			"UPDATE `tabRule Action` SET config = %s WHERE name = %s", (json.dumps(config), action.name)
-		)
+		frappe.db.set_value("Rule Action", action["name"], "config", json.dumps(config))
 
 	# Drop old columns
 	try:
