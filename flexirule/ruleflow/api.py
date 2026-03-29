@@ -236,54 +236,55 @@ def test_rule(
 			"execution_log": {},
 		}
 
+	save_log_flag = bool(frappe.parse_json(save_log))
+
 	try:
 		from flexirule.ruleflow.core.engine import RuleEngine
 
-		# Run in test_mode to prevent rollback of the rule itself during tests
-		engine = RuleEngine(rule, {"test_mode": True, "save_log": frappe.parse_json(save_log)})
-		engine.execute(doc)
-
-		# Fetch the latest log (created by engine even in test mode)
-		logs = frappe.get_all(
-			"Rule Execution Log",
-			filters={"rule": rule_name, "reference_docname": doc.name},
-			order_by="creation desc",
-			limit=1,
-			fields=["status", "message", "execution_path", "context_snapshot"],
+		# Run in test_mode and return deterministic details directly from engine output.
+		# Avoids races with async "latest log" lookups.
+		engine = RuleEngine(
+			rule,
+			{
+				"test_mode": True,
+				"save_log": save_log_flag,
+				"skip_log_persistence": not save_log_flag,
+			},
 		)
-
-		log_data = logs[0] if logs else {}
-
-		# Parse JSON fields
-		if isinstance(log_data, dict) and log_data.get("execution_path"):
-			try:
-				log_data["execution_path"] = json.loads(log_data["execution_path"])
-			except Exception:
-				pass
-
-		if isinstance(log_data, dict) and log_data.get("context_snapshot"):
-			try:
-				log_data["context_snapshot"] = json.loads(log_data["context_snapshot"])
-			except Exception:
-				pass
+		context_result = engine.execute(doc)
+		engine_payload = engine.get_execution_payload(context_result)
 
 		# Include info about skipped trigger filters for transparency
 		info_msg = _("Rule '{0}' executed successfully").format(rule.rule_name)
 		if rule.compiled_expression:
 			info_msg += _(" (trigger filters were bypassed for manual test)")
 
-		# Capture path trace from engine
-		path_trace = getattr(engine, "path_trace", [])
+		path_trace = engine_payload.get("path_trace", [])
+		context_vars = engine_payload.get("context_vars", {})
+		messages = engine_payload.get("messages", [])
+		errors = engine_payload.get("errors", [])
+
+		execution_log = {
+			"status": "Success",
+			"message": messages[-1]["message"] if messages else _("Executed successfully"),
+			"execution_path": path_trace,
+			"context_snapshot": context_vars,
+			"messages": messages,
+			"errors": errors,
+			"log_saved": save_log_flag,
+		}
 
 	except Exception as e:
 		return {"success": False, "status": _("Failed"), "error": str(e)}
 
 	return {
 		"success": True,
-		"status": _(log_data.get("status", "Success")),
-		"execution_log": log_data,
-		"execution_path": log_data.get("execution_path", path_trace or []),
-		"context_snapshot": log_data.get("context_snapshot", {}),
+		"status": _("Success"),
+		"execution_log": execution_log,
+		"execution_path": path_trace,
+		"context_snapshot": context_vars,
+		"messages": messages,
+		"errors": errors,
 		"message": info_msg,
 	}
 

@@ -251,6 +251,7 @@ class RuleEngine:
 
 		self.execution_log = []
 		self.cache = {}
+		self.last_context = {}
 
 		# Build action maps for fast lookup
 		self.action_map_by_id = {a.action_id: a for a in self.actions if a.action_id}
@@ -353,19 +354,46 @@ class RuleEngine:
 			raise
 
 		finally:
+			active_context = context if "context" in locals() else self.context
+			self.last_context = active_context or {}
+
 			# Persist Log
 			duration = time.time() - start_time
 			self._save_execution_log(
 				self._normalize_execution_status(status),
 				duration,
 				error_detail,
-				context=context if "context" in locals() else None,
+				context=active_context,
 				message=self.execution_log[-1]["message"] if self.execution_log else None,
 			)
 
 			# Update last_error on Rule for get_computed_status()
 			if not self.context.get("dry_run") and not self.context.get("test_mode"):
 				self._update_last_error(error_detail if status == "Failed" else None)
+
+	def _sanitize_for_payload(self, value):
+		"""Return a JSON-safe value for API payloads."""
+		if isinstance(value, str | int | float | bool) or value is None:
+			return value
+		if isinstance(value, list):
+			return [self._sanitize_for_payload(item) for item in value]
+		if isinstance(value, tuple):
+			return [self._sanitize_for_payload(item) for item in value]
+		if isinstance(value, dict):
+			return {str(k): self._sanitize_for_payload(v) for k, v in value.items()}
+		return str(value)
+
+	def get_execution_payload(self, context=None):
+		"""Return deterministic execution details without relying on persisted logs."""
+		active_context = context or self.last_context or {}
+		return {
+			"path_trace": self._sanitize_for_payload(getattr(self, "path_trace", []) or []),
+			"context_vars": self._sanitize_for_payload(active_context.get("vars", {}) or {}),
+			"messages": self._sanitize_for_payload(self.execution_log or []),
+			"errors": self._sanitize_for_payload(
+				[entry for entry in (self.execution_log or []) if entry.get("level") == "ERROR"]
+			),
+		}
 
 	def _validate_execution(self):
 		"""Validate rule is executable"""
@@ -1028,6 +1056,9 @@ class RuleEngine:
 			if self.context.get("dry_run"):
 				# In dry_run mode, we don't persist logs at all
 				pass
+			elif active_context.get("skip_log_persistence"):
+				# Deterministic API tests can opt-out of persistence and rely on engine payload.
+				pass
 			elif status in ("Failed", "Error") and not active_context.get("test_mode"):
 				# Enqueue log creation to run in a separate transaction
 				# This avoids the problematic rollback+commit pattern
@@ -1037,12 +1068,12 @@ class RuleEngine:
 					now=frappe.flags.in_test,  # Run synchronously in tests
 					log_data=log_data,
 				)
-			elif active_context.get("save_log") and not active_context.get("test_mode"):
+			elif active_context.get("save_log"):
 				# Forced persistence - also use enqueue for consistency
 				frappe.enqueue(
 					"flexirule.ruleflow.utils.logging.persist_execution_log",
 					queue="short",
-					now=frappe.flags.in_test,
+					now=frappe.flags.in_test or active_context.get("test_mode"),
 					log_data=log_data,
 				)
 			else:
