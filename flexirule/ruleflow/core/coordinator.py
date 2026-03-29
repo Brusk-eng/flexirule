@@ -75,6 +75,9 @@ class RuleCoordinator:
 			engine = RuleEngine(rule, execution_context=context)
 			# Ensure engine knows about dry_run (it can use it for logging/behavior)
 			engine.context["dry_run"] = dry_run
+			# Persist logs for non-dry_run API calls to match hooks behavior
+			if not dry_run:
+				engine.context["save_log"] = True
 			return engine.execute(doc, event_name=rule.trigger_event)
 
 		if dry_run:
@@ -342,6 +345,7 @@ class RuleCoordinator:
 		execution_context = {"old_doc": old_doc}
 		if frappe.flags.in_test:
 			execution_context["test_mode"] = True
+			execution_context["save_log"] = True
 
 		engine = RuleEngine(rule_doc, execution_context=execution_context)
 		engine.execute(doc, event_name=event_name)

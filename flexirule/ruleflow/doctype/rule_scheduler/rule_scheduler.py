@@ -173,6 +173,7 @@ class RuleScheduler(Document):
 						"batch_index": i + 1,
 						"batch_total": len(documents),
 						"scheduler": self.name,
+						"save_log": True,
 					}
 
 					RuleCoordinator.execute_rule(rule_doc, context)

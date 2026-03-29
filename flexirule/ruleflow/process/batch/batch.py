@@ -103,7 +103,7 @@ def _execute_single(rule_name, doctype, doc_name, batch_id, index, total):
 		"batch_id": batch_id,
 		"batch_index": index,
 		"batch_total": total,
-		# 'scheduler' field is not set here since this is triggered by Process, not RuleScheduler doc
+		"save_log": True,
 	}
 
 	RuleCoordinator.execute_rule(rule_name, context)
