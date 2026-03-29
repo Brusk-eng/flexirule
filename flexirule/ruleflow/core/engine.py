@@ -251,6 +251,10 @@ class RuleEngine:
 
 		self.execution_log = []
 		self.cache = {}
+		self.path_trace = []
+		self.last_execution_result = {}
+		self.last_execution_log_payload = None
+		self.last_execution_log_persisted = False
 
 		# Build action maps for fast lookup
 		self.action_map_by_id = {a.action_id: a for a in self.actions if a.action_id}
@@ -285,6 +289,9 @@ class RuleEngine:
 		status = "Success"
 		error_detail = None
 		self.path_trace = []
+		self.execution_log = []
+		self.last_execution_log_payload = None
+		self.last_execution_log_persisted = False
 		self.context["event_name"] = event_name or self.rule.trigger_event
 
 		try:
@@ -362,10 +369,20 @@ class RuleEngine:
 				context=context if "context" in locals() else None,
 				message=self.execution_log[-1]["message"] if self.execution_log else None,
 			)
+			self.last_execution_result = self._build_execution_result(
+				status=self._normalize_execution_status(status),
+				duration=duration,
+				context=context if "context" in locals() else self.context,
+				error_trace=error_detail,
+			)
 
 			# Update last_error on Rule for get_computed_status()
 			if not self.context.get("dry_run") and not self.context.get("test_mode"):
 				self._update_last_error(error_detail if status == "Failed" else None)
+
+	def get_execution_result(self):
+		"""Return the latest structured execution summary for API/test consumers."""
+		return self.last_execution_result or {}
 
 	def _validate_execution(self):
 		"""Validate rule is executable"""
@@ -398,11 +415,15 @@ class RuleEngine:
 					)
 
 	def _initialize_context(self, doc, **kwargs):
+		existing_vars = dict(self.context.get("vars") or {})
+		if isinstance(kwargs.get("vars"), dict):
+			existing_vars.update(kwargs.get("vars") or {})
+
 		return {
 			**self.context,
 			"doc": doc,
 			"frappe": self._get_safe_frappe_api(),
-			"vars": {},
+			"vars": existing_vars,
 			"meta": {
 				"rule": self.rule.name,
 				"rule_version": self.rule.version,
@@ -956,6 +977,28 @@ class RuleEngine:
 
 		return f"Rule: {self.rule.name}"
 
+	def _build_execution_result(self, status, duration, context=None, error_trace=None):
+		"""Create a stable, serializable execution summary without requiring persisted logs."""
+		active_context = context or self.context or {}
+		context_vars = {}
+		for key, value in (active_context.get("vars") or {}).items():
+			if isinstance(value, str | int | float | bool | list | dict | type(None)):
+				context_vars[key] = value
+			else:
+				context_vars[key] = str(value)
+
+		return {
+			"status": status,
+			"duration": duration,
+			"path_trace": list(self.path_trace or []),
+			"context_variables": context_vars,
+			"messages": [entry.get("message") for entry in self.execution_log if entry.get("message")],
+			"execution_log": list(self.execution_log or []),
+			"error_trace": error_trace,
+			"log_persisted": bool(self.last_execution_log_persisted),
+			"log_payload": self.last_execution_log_payload,
+		}
+
 	def _save_execution_log(self, status, duration, error_trace=None, context=None, message=None):
 		"""Save execution details to Rule Execution Log"""
 		try:
@@ -1021,13 +1064,17 @@ class RuleEngine:
 			log_data = log_doc.as_dict()
 			log_data.pop("name", None)
 			self.last_execution_log_payload = log_data
+			self.last_execution_log_persisted = False
 
 			# PERSISTENCE LOGIC
 			# Use enqueue for failure logs to avoid breaking the current transaction.
 			# This ensures logs are persisted even if the main transaction rolls back.
 			if self.context.get("dry_run"):
 				# In dry_run mode, we don't persist logs at all
-				pass
+				return
+			if active_context.get("test_mode") and not active_context.get("save_log"):
+				# Test executions should return results directly and remain side-effect free by default.
+				return
 			elif status in ("Failed", "Error") and not active_context.get("test_mode"):
 				# Enqueue log creation to run in a separate transaction
 				# This avoids the problematic rollback+commit pattern
@@ -1054,6 +1101,7 @@ class RuleEngine:
 					now=frappe.flags.in_test,
 					log_data=log_data,
 				)
+			self.last_execution_log_persisted = True
 
 		except Exception as e:
 			# Fallback if logging itself fails

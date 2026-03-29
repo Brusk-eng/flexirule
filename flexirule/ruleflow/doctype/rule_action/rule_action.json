@@ -203,7 +203,7 @@
 			"description": "Target DocType for query or document creation",
 			"fieldname": "reference_doctype",
 			"fieldtype": "Link",
-			"label": "Reference DocType",
+			"label": "Target DocType",
 			"mandatory_depends_on": "eval:['Query Records', 'Document Action'].includes(doc.action_type)",
 			"options": "DocType"
 		},
@@ -212,15 +212,15 @@
 			"description": "Specific document reference (for Query Doc / Update Existing)",
 			"fieldname": "reference_docname",
 			"fieldtype": "Dynamic Link",
-			"label": "Reference Document",
+			"label": "Target Document",
 			"options": "reference_doctype"
 		},
 		{
 			"depends_on": "eval:['Query Records', 'Document Action'].includes(doc.action_type)",
-			"description": "How to store/apply the action result",
+			"description": "How to store or apply the action result",
 			"fieldname": "mutation_mode",
 			"fieldtype": "Select",
-			"label": "Mutation Mode",
+			"label": "Result Handling",
 			"options": "\nSet Doc Field\nUpdate Doc Field\nSet Context Variable\nUpdate Context Variable\nAppend to Context Variable\nBatch Database Set"
 		},
 		{

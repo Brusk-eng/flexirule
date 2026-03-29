@@ -2,6 +2,8 @@ import { defineStore } from "pinia";
 import {
 	getContract,
 	normalizeActionType,
+	normalizeTriggerType,
+	serializeTriggerType,
 	ACTION_TYPES_WITH_REFERENCE_CONTEXT,
 	ACTION_TYPES_WITH_RETURN_SCHEMA,
 } from "../core/contracts";
@@ -209,6 +211,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 						label: "Start",
 						data: {
 							document_type: rule_doc.value.document_type,
+							trigger_type:
+								normalizeTriggerType(rule_doc.value.trigger_type) ||
+								"DocType Event",
 							trigger_event: rule_doc.value.trigger_event,
 							trigger_condition: rule_doc.value.trigger_condition,
 							is_enabled: 1,
@@ -365,6 +370,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 					action_id: "start",
 					action_type: "Entry Action",
 					document_type: rule_doc.value.document_type,
+					trigger_type:
+						normalizeTriggerType(rule_doc.value.trigger_type) || "DocType Event",
 					trigger_event: rule_doc.value.trigger_event,
 					compiled_expression: rule_doc.value.compiled_expression,
 					trigger_condition: rule_doc.value.trigger_condition,
@@ -434,12 +441,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 				reference_doctype: action.reference_doctype,
 				reference_docname: action.reference_docname,
 				mutation_mode: action.mutation_mode,
+				target_doctype: action.reference_doctype,
+				target_docname: action.reference_docname,
+				result_handling: action.mutation_mode,
 				return_type: action.return_type,
 				resolved_output_schema: safeParse(action.resolved_output_schema),
 			};
 
 			if (isRoot) {
 				nodeData.document_type = rule_doc.value.document_type;
+				nodeData.trigger_type =
+					normalizeTriggerType(rule_doc.value.trigger_type) || "DocType Event";
 				nodeData.trigger_event = rule_doc.value.trigger_event;
 				nodeData.trigger_condition = rule_doc.value.trigger_condition;
 				nodeData.compiled_expression = rule_doc.value.compiled_expression;
@@ -561,6 +573,14 @@ export const useStore = defineStore("rule-builder-store", () => {
 		if (!actionType || !data) return data;
 
 		const normalized = { ...data };
+		normalized.reference_doctype =
+			normalized.target_doctype || normalized.reference_doctype || null;
+		normalized.reference_docname =
+			normalized.target_docname || normalized.reference_docname || null;
+		normalized.mutation_mode = normalized.result_handling || normalized.mutation_mode || null;
+		normalized.target_doctype = normalized.reference_doctype;
+		normalized.target_docname = normalized.reference_docname;
+		normalized.result_handling = normalized.mutation_mode;
 		const contract = getContract(actionType);
 		const allowedMutations = contract.allowed_mutations || [];
 
@@ -569,12 +589,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 			(!allowedMutations.length || !allowedMutations.includes(normalized.mutation_mode))
 		) {
 			normalized.mutation_mode = null;
+			normalized.result_handling = null;
 		}
 
 		if (!ACTION_TYPES_WITH_REFERENCE_CONTEXT.has(actionType)) {
 			normalized.input_source = null;
 			normalized.reference_doctype = null;
 			normalized.reference_docname = null;
+			normalized.target_doctype = null;
+			normalized.target_docname = null;
 		}
 
 		if (!ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType)) {
@@ -687,14 +710,15 @@ export const useStore = defineStore("rule-builder-store", () => {
 				],
 				filters: {
 					document_type: targetDoctype,
-					trigger_type: "Callable Event",
 					exposed_as_subrule: 1,
 					is_active: 1,
 					name: ["!=", rule_name.value || ""],
 				},
 				limit: 0,
 			});
-			available_rules.value = rules || [];
+			available_rules.value = (rules || []).filter(
+				(rule) => normalizeTriggerType(rule.trigger_type) === "Callable Rule"
+			);
 		} catch {
 			available_rules.value = [];
 		}
@@ -870,6 +894,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 			doc.compiled_expression = startNode?.data?.compiled_expression || null;
 			doc.trigger_condition = startNode?.data?.trigger_condition || null;
 			if (startNode?.data) {
+				doc.trigger_type =
+					serializeTriggerType(startNode.data.trigger_type) || "DocType Event";
+				doc.document_type = startNode.data.document_type || doc.document_type;
+				doc.trigger_event =
+					normalizeTriggerType(doc.trigger_type) === "DocType Event"
+						? startNode.data.trigger_event || null
+						: null;
 				doc.priority = startNode.data.priority ?? doc.priority;
 				doc.execution_mode = startNode.data.execution_mode || doc.execution_mode;
 				doc.max_execution_time =
@@ -964,9 +995,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 					next_step_if_false: false_edge?.target || null,
 					// New RC fields
 					input_source: node.data?.input_source,
-					reference_doctype: node.data?.reference_doctype,
-					reference_docname: node.data?.reference_docname,
-					mutation_mode: node.data?.mutation_mode,
+					reference_doctype: node.data?.target_doctype || node.data?.reference_doctype,
+					reference_docname: node.data?.target_docname || node.data?.reference_docname,
+					mutation_mode: node.data?.result_handling || node.data?.mutation_mode,
 					return_type: node.data?.return_type,
 					resolved_output_schema: serializeField(node.data?.resolved_output_schema),
 				};
@@ -1022,6 +1053,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 			if (obj.data?.action_type) {
 				obj.data.action_type = normalizeActionType(obj.data.action_type);
 			}
+			if (obj.data?.trigger_type) {
+				obj.data.trigger_type = normalizeTriggerType(obj.data.trigger_type);
+			}
 			return obj;
 		});
 	}
@@ -1037,6 +1071,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 			is_async: 0,
 			skip_conditions: 1,
 			mutation_mode: null,
+			result_handling: null,
 		};
 
 		// Type specific defaults
@@ -1155,9 +1190,39 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return result;
 	}
 
+	function normalizeVariableDto(variable = {}) {
+		const fieldtype = variable.fieldtype || variable.type || "Data";
+		return {
+			label: variable.label || variable.value || "",
+			value: variable.value || variable.label || "",
+			fieldtype,
+			type: fieldtype,
+			source_action_id: variable.source_action_id || null,
+		};
+	}
+
 	async function getAvailableVariables(upToNodeId = null) {
 		const ruleDoc = rule_doc.value || {};
 		const doctype = ruleDoc.document_type;
+
+		if (rule_name.value && upToNodeId) {
+			try {
+				const response = await frappe.call({
+					method: "flexirule.ruleflow.api.get_action_context_schema",
+					args: { rule_name: rule_name.value, action_id: upToNodeId },
+				});
+				const available = response?.message?.available_variables;
+				if (Array.isArray(available)) {
+					return await flexirule.utils.get_combined_fields(
+						doctype,
+						available.map(normalizeVariableDto),
+						"doc"
+					);
+				}
+			} catch (_error) {
+				// Fall back to client-side inference for unsaved drafts or partial configs.
+			}
+		}
 
 		// Collect variables from previous nodes
 		const context_vars = [];
@@ -1174,11 +1239,14 @@ export const useStore = defineStore("rule-builder-store", () => {
 			const data = node.data || {};
 			if (!data.return_variable) continue;
 
-			context_vars.push({
-				label: data.return_variable,
-				value: data.return_variable,
-				type: mapReturnTypeToFieldType(data.return_type),
-			});
+			context_vars.push(
+				normalizeVariableDto({
+					label: data.return_variable,
+					value: data.return_variable,
+					fieldtype: mapReturnTypeToFieldType(data.return_type),
+					source_action_id: node.id,
+				})
+			);
 
 			if (
 				data.resolved_output_schema &&
@@ -1195,13 +1263,14 @@ export const useStore = defineStore("rule-builder-store", () => {
 				if (Array.isArray(schema)) {
 					schema.forEach((field) => {
 						if (field.fieldname) {
-							context_vars.push({
-								label: `${data.return_variable}.${field.fieldname} (${
-									field.label || field.fieldname
-								})`,
-								value: `${data.return_variable}.${field.fieldname}`,
-								type: field.fieldtype || "Data",
-							});
+							context_vars.push(
+								normalizeVariableDto({
+									label: `${data.return_variable}.${field.fieldname}`,
+									value: `${data.return_variable}.${field.fieldname}`,
+									fieldtype: field.fieldtype || "Data",
+									source_action_id: node.id,
+								})
+							);
 						}
 					});
 				}

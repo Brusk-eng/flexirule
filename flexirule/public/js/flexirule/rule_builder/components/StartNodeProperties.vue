@@ -19,12 +19,14 @@ const store = useStore();
 
 // Trigger event options from store
 const trigger_event_options = computed(() => store.trigger_event_options || []);
+const trigger_type_options = ["DocType Event", "Callable Rule", "Scheduled Rule"];
 const priority_options = Array.from({ length: 21 }, (_, i) => String(i));
 
 const skip_roles = ref([]);
 const permissions = ref([]);
 const pending_skip_role = ref("");
-const is_manual_trigger = computed(() => props.nodeData?.trigger_event === "Manual");
+const is_callable_rule = computed(() => props.nodeData?.trigger_type === "Callable Rule");
+const is_doc_event_rule = computed(() => props.nodeData?.trigger_type === "DocType Event");
 
 function update_field(fieldname, value) {
 	emit("update:field", fieldname, value);
@@ -125,10 +127,15 @@ watch(
 );
 
 watch(
-	() => props.nodeData?.trigger_event,
+	() => props.nodeData?.trigger_type,
 	(val) => {
-		if (val === "Manual") {
+		if (val === "Callable Rule") {
 			update_field("priority", "0");
+		}
+		if (val !== "DocType Event") {
+			update_field("trigger_event", null);
+			update_field("trigger_condition", null);
+			update_field("compiled_expression", null);
 		}
 	},
 	{ immediate: true }
@@ -159,8 +166,22 @@ watch(
 			<input type="text" class="form-control" :value="nodeData?.previous_rule" readonly />
 		</div>
 
-		<!-- Trigger Event -->
 		<div class="form-group">
+			<label class="control-label">{{ __("Trigger Type") }}</label>
+			<select
+				class="form-control"
+				:value="nodeData?.trigger_type || 'DocType Event'"
+				@change="update_field('trigger_type', $event.target.value)"
+				:disabled="readOnly"
+			>
+				<option v-for="opt in trigger_type_options" :key="opt" :value="opt">
+					{{ __(opt) }}
+				</option>
+			</select>
+		</div>
+
+		<!-- Trigger Event -->
+		<div class="form-group" v-if="is_doc_event_rule">
 			<label class="control-label">{{ __("Trigger Event") }}</label>
 			<select
 				class="form-control"
@@ -175,7 +196,7 @@ watch(
 		</div>
 
 		<!-- Trigger Condition -->
-		<div class="form-group">
+		<div class="form-group" v-if="is_doc_event_rule">
 			<label class="control-label">{{ __("Trigger Condition (Logic)") }}</label>
 			<div class="description text-muted mb-2">
 				{{ __("Define complex logic conditions for when this rule should trigger.") }}
@@ -199,14 +220,14 @@ watch(
 				class="form-control"
 				:value="nodeData?.priority"
 				@change="update_field('priority', $event.target.value)"
-				:disabled="readOnly || is_manual_trigger"
+				:disabled="readOnly || is_callable_rule"
 			>
 				<option v-for="opt in priority_options" :key="opt" :value="opt">
 					{{ opt }}
 				</option>
 			</select>
-			<div v-if="is_manual_trigger" class="description text-muted mt-1">
-				{{ __("Manual trigger rules must use priority 0.") }}
+			<div v-if="is_callable_rule" class="description text-muted mt-1">
+				{{ __("Callable rules must use priority 0.") }}
 			</div>
 		</div>
 

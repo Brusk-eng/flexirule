@@ -1,0 +1,195 @@
+{
+  "rules": [
+    {
+      "rule_name": "Contact Deduplication Scheduler",
+      "description": "Scheduled Contact deduplication pipeline using Query Records, normalization, deduplication, and ToDo creation.",
+      "document_type": "Contact",
+      "trigger_type": "Scheduled Rule",
+      "execution_mode": "Asynchronous",
+      "is_active": 0,
+      "actions": [
+        {
+          "action_id": "query_contacts",
+          "action_type": "Query Records",
+          "action_label": "Query Contacts",
+          "reference_doctype": "Contact",
+          "operation": "Query List",
+          "config": "{\"fields\":[\"name\",\"first_name\",\"last_name\",\"email_id\"],\"limit\":500}",
+          "return_variable": "contact_rows",
+          "return_type": "List of Dict",
+          "resolved_output_schema": "[{\"fieldname\":\"name\",\"fieldtype\":\"Data\"},{\"fieldname\":\"first_name\",\"fieldtype\":\"Data\"},{\"fieldname\":\"last_name\",\"fieldtype\":\"Data\"},{\"fieldname\":\"email_id\",\"fieldtype\":\"Data\"}]",
+          "next_step_if_true": "normalize_names",
+          "is_enabled": 1
+        },
+        {
+          "action_id": "normalize_names",
+          "action_type": "Process",
+          "action_label": "Normalize Names",
+          "process_name": "Normalization",
+          "operation": "normalize_text",
+          "config": "{\"input_mapping\":{\"value\":\"vars.contact_rows\"}}",
+          "return_variable": "normalized_contacts",
+          "return_type": "List of Dict",
+          "next_step_if_true": "find_duplicates",
+          "is_enabled": 1
+        },
+        {
+          "action_id": "find_duplicates",
+          "action_type": "Process",
+          "action_label": "Find Duplicates",
+          "process_name": "Deduplication",
+          "operation": "find_duplicates",
+          "config": "{\"input_mapping\":{\"records\":\"vars.normalized_contacts\"}}",
+          "return_variable": "duplicate_list",
+          "return_type": "List of Dict",
+          "next_step_if_true": "create_todo",
+          "is_enabled": 1
+        },
+        {
+          "action_id": "create_todo",
+          "action_type": "Document Action",
+          "action_label": "Create Review ToDo",
+          "reference_doctype": "ToDo",
+          "operation": "Create ToDo",
+          "config": "{\"assigned_to\":\"{{ frappe.session.user }}\",\"description\":\"Review duplicate contacts: {{ vars.duplicate_list }}\",\"priority\":\"High\"}",
+          "is_enabled": 1
+        }
+      ]
+    },
+    {
+      "rule_name": "Phone Validation Subrule",
+      "description": "Reusable callable rule for phone validation and duplicate checks.",
+      "document_type": "Contact",
+      "trigger_type": "Callable Rule",
+      "priority": "0",
+      "exposed_as_subrule": 1,
+      "is_active": 0,
+      "actions": [
+        {
+          "action_id": "validate_phone",
+          "action_type": "Process",
+          "action_label": "Validate Phone",
+          "process_name": "Validation",
+          "operation": "phone_number",
+          "config": "{\"input_mapping\":{\"phone_number\":\"vars.phone_number\"}}",
+          "return_variable": "phone_validation",
+          "return_type": "Dict",
+          "resolved_output_schema": "[{\"fieldname\":\"is_valid\",\"fieldtype\":\"Check\"},{\"fieldname\":\"issues\",\"fieldtype\":\"Small Text\"}]",
+          "is_enabled": 1
+        }
+      ]
+    },
+    {
+      "rule_name": "Contact Before Save Validation",
+      "description": "Contact validation rule that stops on duplicates then delegates phone validation to a reusable sub-rule.",
+      "document_type": "Contact",
+      "trigger_type": "DocType Event",
+      "trigger_event": "Before Save",
+      "is_active": 0,
+      "actions": [
+        {
+          "action_id": "query_duplicates",
+          "action_type": "Query Records",
+          "action_label": "Find Duplicate Contacts",
+          "reference_doctype": "Contact",
+          "operation": "Query List",
+          "config": "{\"filters\":[[\"email_id\",\"=\",\"{{ doc.email_id }}\"]],\"fields\":[\"name\",\"email_id\"],\"limit\":5}",
+          "return_variable": "duplicate_contacts",
+          "return_type": "List of Dict",
+          "resolved_output_schema": "[{\"fieldname\":\"name\",\"fieldtype\":\"Data\"},{\"fieldname\":\"email_id\",\"fieldtype\":\"Data\"}]",
+          "next_step_if_true": "duplicate_guard",
+          "is_enabled": 1
+        },
+        {
+          "action_id": "duplicate_guard",
+          "action_type": "Condition",
+          "action_label": "Duplicate Exists?",
+          "condition_json": "[{\"field\":\"vars.duplicate_contacts\",\"operator\":\"is_set\",\"value\":1}]",
+          "next_step_if_true": "stop_duplicate",
+          "next_step_if_false": "call_phone_subrule",
+          "is_enabled": 1
+        },
+        {
+          "action_id": "stop_duplicate",
+          "action_type": "Stop",
+          "action_label": "Stop On Duplicate",
+          "operation": "Error",
+          "value_template": "Duplicate contact detected for {{ doc.email_id }}",
+          "is_enabled": 1
+        },
+        {
+          "action_id": "call_phone_subrule",
+          "action_type": "Sub-Rule",
+          "action_label": "Call Phone Validation",
+          "rule": "Phone Validation Subrule",
+          "config": "{\"input_mapping\":{\"phone_number\":\"doc.phone_nos.0.phone\"}}",
+          "return_variable": "phone_check",
+          "return_type": "Dict",
+          "resolved_output_schema": "[{\"fieldname\":\"status\",\"fieldtype\":\"Data\"},{\"fieldname\":\"outputs\",\"fieldtype\":\"JSON\"}]",
+          "is_enabled": 1
+        }
+      ]
+    },
+    {
+      "rule_name": "Normalization Pipeline",
+      "description": "Callable normalization pipeline returning structured clean data.",
+      "document_type": "Contact",
+      "trigger_type": "Callable Rule",
+      "priority": "0",
+      "is_active": 0,
+      "actions": [
+        {
+          "action_id": "normalize_contact",
+          "action_type": "Process",
+          "action_label": "Normalize Contact Fields",
+          "process_name": "Normalization",
+          "operation": "normalize_contact_payload",
+          "config": "{\"input_mapping\":{\"email\":\"vars.email\",\"name\":\"vars.full_name\",\"phone\":\"vars.phone_number\"}}",
+          "return_variable": "clean_data",
+          "return_type": "Dict",
+          "resolved_output_schema": "[{\"fieldname\":\"email\",\"fieldtype\":\"Data\"},{\"fieldname\":\"full_name\",\"fieldtype\":\"Data\"},{\"fieldname\":\"phone_number\",\"fieldtype\":\"Data\"}]",
+          "is_enabled": 1
+        }
+      ]
+    },
+    {
+      "rule_name": "Contact Audit And Enrichment",
+      "description": "After-insert audit and enrichment rule for Contact records.",
+      "document_type": "Contact",
+      "trigger_type": "DocType Event",
+      "trigger_event": "After Insert",
+      "is_active": 0,
+      "actions": [
+        {
+          "action_id": "enrich_contact",
+          "action_type": "Process",
+          "action_label": "Enrich Contact",
+          "process_name": "Enrichment",
+          "operation": "tag_record",
+          "return_variable": "enrichment_result",
+          "return_type": "Dict",
+          "next_step_if_true": "add_comment",
+          "is_enabled": 1
+        },
+        {
+          "action_id": "add_comment",
+          "action_type": "Document Action",
+          "action_label": "Add Timeline Comment",
+          "reference_doctype": "Comment",
+          "operation": "Add Comment",
+          "config": "{\"comment_type\":\"Comment\",\"comment_text\":\"FlexiRule enrichment completed for {{ doc.name }}\"}",
+          "next_step_if_true": "notify_owner",
+          "is_enabled": 1
+        },
+        {
+          "action_id": "notify_owner",
+          "action_type": "Notify",
+          "action_label": "Notify Owner",
+          "operation": "System Notification",
+          "value_template": "Contact {{ doc.name }} was enriched successfully.",
+          "is_enabled": 1
+        }
+      ]
+    }
+  ]
+}

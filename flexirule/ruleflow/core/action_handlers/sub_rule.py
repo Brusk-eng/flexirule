@@ -14,7 +14,9 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.contracts import normalize_trigger_type
 from flexirule.ruleflow.core.exceptions import CycleDetectedError, MethodExecutionError
+from flexirule.ruleflow.utils.mapping import resolve_path
 
 # Maximum nesting depth for sub-rule calls
 MAX_SUB_RULE_DEPTH = 2
@@ -58,10 +60,8 @@ class SubRuleHandler(ActionHandler):
 
 			sub_rule_doc = frappe.get_cached_doc("Rule", sub_rule_name)
 
-			if sub_rule_doc.trigger_type != "Callable Event":
-				raise MethodExecutionError(
-					_("Sub-Rule {0} must be a Callable Event rule").format(sub_rule_name)
-				)
+			if normalize_trigger_type(sub_rule_doc.trigger_type) != "Callable Rule":
+				raise MethodExecutionError(_("Sub-Rule {0} must be a Callable Rule").format(sub_rule_name))
 
 			if not sub_rule_doc.is_exposed_as_subrule():
 				raise MethodExecutionError(
@@ -71,7 +71,11 @@ class SubRuleHandler(ActionHandler):
 			if not sub_rule_doc.is_active:
 				raise MethodExecutionError(_("Sub-Rule {0} is not active").format(sub_rule_name))
 
-			if sub_rule_doc.document_type != engine.rule.document_type:
+			if (
+				sub_rule_doc.document_type
+				and engine.rule.document_type
+				and sub_rule_doc.document_type != engine.rule.document_type
+			):
 				raise MethodExecutionError(
 					_("Sub-Rule {0} expects {1}, but current context is {2}").format(
 						sub_rule_name,
@@ -144,19 +148,32 @@ class SubRuleHandler(ActionHandler):
 			sub_context["meta"]["call_depth"] = current_depth + 1
 			sub_context["meta"]["skip_conditions"] = skip_conditions
 			sub_context["meta"]["skip_permissions"] = skip_permissions
+			self._apply_input_mapping(action, context, sub_context)
 
 			# Execute sub-rule
 			# Import here to avoid circular import
 			from flexirule.ruleflow.core.engine import RuleEngine
 
 			sub_engine = RuleEngine(sub_rule_doc, execution_context=sub_context)
+			parent_vars = dict(context.get("vars", {}))
 			result_context = sub_engine.execute(context.get("doc"))
 
 			# Merge results back to parent context
 			context["vars"].update(result_context.get("vars", {}))
 			engine._log("INFO", _("END Sub-Rule: {0}").format(sub_rule_name))
 
-			return None, getattr(action, "next_step_if_true", None)
+			result_payload = {
+				"rule": sub_rule_name,
+				"status": sub_engine.get_execution_result().get("status"),
+				"path_trace": sub_engine.path_trace,
+				"outputs": {
+					key: value
+					for key, value in result_context.get("vars", {}).items()
+					if parent_vars.get(key) != value
+				},
+			}
+
+			return result_payload, getattr(action, "next_step_if_true", None)
 
 		except Exception as e:
 			engine._log("ERROR", _("Sub-Rule execution failed: {0}").format(str(e)))
@@ -175,6 +192,31 @@ class SubRuleHandler(ActionHandler):
 				pass
 
 		return 1  # Default: skip conditions
+
+	def _apply_input_mapping(self, action, parent_context, sub_context):
+		"""Map parent context values into sub-rule vars for reusable rule parameters."""
+		config = {}
+		if getattr(action, "config", None):
+			try:
+				config = json.loads(action.config) if isinstance(action.config, str) else action.config
+			except Exception:
+				config = {}
+
+		input_mapping = config.get("input_mapping") or {}
+		if isinstance(input_mapping, str):
+			try:
+				input_mapping = json.loads(input_mapping)
+			except Exception:
+				input_mapping = {}
+
+		if not isinstance(input_mapping, dict):
+			return
+
+		sub_vars = sub_context.setdefault("vars", {})
+		for target_var, source_path in input_mapping.items():
+			if not target_var or not source_path:
+				continue
+			sub_vars[target_var] = resolve_path(parent_context, source_path)
 
 
 # Register the handler

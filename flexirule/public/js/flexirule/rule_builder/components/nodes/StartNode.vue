@@ -8,8 +8,15 @@ const props = defineProps(["data", "label", "id"]);
 const store = useStore();
 
 const displayLabel = computed(() => {
-	if (props.data?.document_type && props.data?.trigger_event) {
+	if (
+		props.data?.document_type &&
+		props.data?.trigger_type === "DocType Event" &&
+		props.data?.trigger_event
+	) {
 		return `${props.data.document_type} / ${props.data.trigger_event}`;
+	}
+	if (props.data?.document_type && props.data?.trigger_type) {
+		return `${props.data.document_type} / ${props.data.trigger_type}`;
 	}
 	return props.label || __("Start");
 });

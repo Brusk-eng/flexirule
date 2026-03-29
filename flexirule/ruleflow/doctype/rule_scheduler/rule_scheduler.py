@@ -19,6 +19,8 @@ from frappe.model.document import Document
 from frappe.utils import get_datetime, now_datetime
 from frappe.utils.background_jobs import is_job_enqueued
 
+from flexirule.ruleflow.core.contracts import normalize_trigger_type
+
 
 class RuleScheduler(Document):
 	# begin: auto-generated types
@@ -60,11 +62,12 @@ class RuleScheduler(Document):
 		"""Ensure linked rule exists and has compatible trigger_type."""
 		if self.rule:
 			rule_doc = frappe.get_cached_doc("Rule", self.rule)
-			if rule_doc.trigger_type not in ("Scheduler Event", "Callable Event"):
+			trigger_type = normalize_trigger_type(rule_doc.trigger_type)
+			if trigger_type not in ("Scheduled Rule", "Callable Rule"):
 				frappe.throw(
 					_(
-						"Rule '{0}' has trigger type '{1}'. Only Scheduler Event or Callable Event rules can be scheduled."
-					).format(self.rule, rule_doc.trigger_type)
+						"Rule '{0}' has trigger type '{1}'. Only Scheduled Rule or Callable Rule entries can be scheduled."
+					).format(self.rule, trigger_type)
 				)
 			if not rule_doc.is_active:
 				frappe.msgprint(

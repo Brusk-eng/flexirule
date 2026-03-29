@@ -147,8 +147,9 @@ flexirule.utils.get_combined_fields = async function (doctype, context_vars = []
 		.map((v) => ({
 			label: `${__(v.label)} (${__("Variable")})`,
 			value: v.value,
-			fieldtype: v.type || "Data",
+			fieldtype: v.fieldtype || v.type || "Data",
 			is_variable: true,
+			source_action_id: v.source_action_id || null,
 		}));
 
 	// Clone base to avoid mutating cache

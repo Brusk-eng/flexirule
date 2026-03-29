@@ -91,12 +91,12 @@
 			"in_list_view": 1,
 			"in_standard_filter": 1,
 			"label": "Trigger Type",
-			"options": "DocType Event\nScheduler Event\nCallable Event",
+			"options": "DocType Event\nScheduled Rule\nCallable Rule",
 			"reqd": 1
 		},
 		{
 			"allow_in_quick_entry": 1,
-			"depends_on": "eval:['DocType Event', 'Scheduler Event'].includes(doc.trigger_type)",
+			"depends_on": "eval:['DocType Event', 'Scheduled Rule', 'Callable Rule'].includes(doc.trigger_type)",
 			"fieldname": "document_type",
 			"fieldtype": "Link",
 			"in_list_view": 1,
@@ -104,7 +104,7 @@
 			"in_standard_filter": 1,
 			"label": "Document Type",
 			"link_filters": "[[\"DocType\",\"issingle\",\"=\",0],[\"DocType\",\"istable\",\"=\",0]]",
-			"mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
+			"mandatory_depends_on": "eval:['DocType Event', 'Scheduled Rule', 'Callable Rule'].includes(doc.trigger_type)",
 			"options": "DocType"
 		},
 		{

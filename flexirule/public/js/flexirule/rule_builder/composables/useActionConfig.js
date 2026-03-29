@@ -27,6 +27,7 @@ export function useActionConfig(props) {
 	const mode = computed(() => props.node?.data?.operation || "");
 	const reference_doctype = computed(() => {
 		return (
+			props.node?.data?.target_doctype ||
 			props.node?.data?.reference_doctype ||
 			props.node?.data?.doctype ||
 			store.rule_doc?.document_type ||
@@ -34,7 +35,11 @@ export function useActionConfig(props) {
 		);
 	});
 	const reference_docname = computed(
-		() => props.node?.data?.reference_docname || props.node?.data?.docname || ""
+		() =>
+			props.node?.data?.target_docname ||
+			props.node?.data?.reference_docname ||
+			props.node?.data?.docname ||
+			""
 	);
 
 	function with_read_only(field) {

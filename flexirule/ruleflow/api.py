@@ -239,51 +239,29 @@ def test_rule(
 	try:
 		from flexirule.ruleflow.core.engine import RuleEngine
 
-		# Run in test_mode to prevent rollback of the rule itself during tests
-		engine = RuleEngine(rule, {"test_mode": True, "save_log": frappe.parse_json(save_log)})
+		save_log_flag = frappe.parse_json(save_log)
+		engine = RuleEngine(rule, {"test_mode": True, "save_log": save_log_flag})
 		engine.execute(doc)
-
-		# Fetch the latest log (created by engine even in test mode)
-		logs = frappe.get_all(
-			"Rule Execution Log",
-			filters={"rule": rule_name, "reference_docname": doc.name},
-			order_by="creation desc",
-			limit=1,
-			fields=["status", "message", "execution_path", "context_snapshot"],
-		)
-
-		log_data = logs[0] if logs else {}
-
-		# Parse JSON fields
-		if isinstance(log_data, dict) and log_data.get("execution_path"):
-			try:
-				log_data["execution_path"] = json.loads(log_data["execution_path"])
-			except Exception:
-				pass
-
-		if isinstance(log_data, dict) and log_data.get("context_snapshot"):
-			try:
-				log_data["context_snapshot"] = json.loads(log_data["context_snapshot"])
-			except Exception:
-				pass
+		execution_result = engine.get_execution_result()
+		log_data = execution_result.get("log_payload") or {}
 
 		# Include info about skipped trigger filters for transparency
 		info_msg = _("Rule '{0}' executed successfully").format(rule.rule_name)
 		if rule.compiled_expression:
 			info_msg += _(" (trigger filters were bypassed for manual test)")
 
-		# Capture path trace from engine
-		path_trace = getattr(engine, "path_trace", [])
-
 	except Exception as e:
 		return {"success": False, "status": _("Failed"), "error": str(e)}
 
 	return {
 		"success": True,
-		"status": _(log_data.get("status", "Success")),
+		"status": _(execution_result.get("status", "Success")),
 		"execution_log": log_data,
-		"execution_path": log_data.get("execution_path", path_trace or []),
-		"context_snapshot": log_data.get("context_snapshot", {}),
+		"execution_path": execution_result.get("path_trace", []),
+		"context_snapshot": execution_result.get("context_variables", {}),
+		"context_variables": execution_result.get("context_variables", {}),
+		"messages": execution_result.get("messages", []),
+		"log_persisted": execution_result.get("log_persisted", False),
 		"message": info_msg,
 	}
 
@@ -446,7 +424,7 @@ def get_action_context_schema(rule_name: str, action_id: str):
 			_("You do not have permission to read Rule {0}").format(rule_name), frappe.PermissionError
 		)
 
-	result: dict[str, list] = {"doc_fields": [], "predecessor_outputs": []}
+	result: dict[str, list] = {"doc_fields": [], "predecessor_outputs": [], "available_variables": []}
 
 	# Get doc fields
 	try:
@@ -481,19 +459,11 @@ def get_action_context_schema(rule_name: str, action_id: str):
 	# Get output schemas for predecessors
 	for pred_id in predecessors:
 		action = action_map.get(pred_id)
-		if not action or not action.process_name:
+		if not action:
 			continue
 
-		output_schema = None
-		try:
-			process_doc = frappe.get_cached_doc("Process", action.process_name)
-			operation_doc = process_doc.get_operation(action.operation)
-			if operation_doc and operation_doc.output_schema:
-				import json
-
-				output_schema = json.loads(operation_doc.output_schema)
-		except Exception:
-			pass
+		output_schema = _get_action_output_schema(action)
+		output_variables = _build_action_variable_dtos(action, output_schema)
 
 		result["predecessor_outputs"].append(
 			{
@@ -501,10 +471,79 @@ def get_action_context_schema(rule_name: str, action_id: str):
 				"action_label": action.action_label,
 				"return_variable": action.return_variable,
 				"output_schema": output_schema,
+				"available_variables": output_variables,
+			}
+		)
+		result["available_variables"].extend(output_variables)
+
+	return result
+
+
+def _get_action_output_schema(action):
+	"""Resolve the best available output schema for an action."""
+	resolved_schema = getattr(action, "resolved_output_schema", None)
+	if resolved_schema:
+		try:
+			return json.loads(resolved_schema) if isinstance(resolved_schema, str) else resolved_schema
+		except Exception:
+			return []
+
+	if getattr(action, "action_type", None) != "Process" or not getattr(action, "process_name", None):
+		return []
+
+	try:
+		process_doc = frappe.get_cached_doc("Process", action.process_name)
+		operation_doc = process_doc.get_operation(action.operation)
+		if operation_doc and operation_doc.output_schema:
+			return json.loads(operation_doc.output_schema)
+	except Exception:
+		return []
+
+	return []
+
+
+def _build_action_variable_dtos(action, output_schema):
+	"""Return a flat variable DTO list for one predecessor action."""
+	return_variable = getattr(action, "return_variable", None)
+	if not return_variable:
+		return []
+
+	source_action_id = action.action_id or action.name
+	return_type = getattr(action, "return_type", None)
+	items = [
+		{
+			"label": return_variable,
+			"value": return_variable,
+			"fieldtype": _map_return_type_to_fieldtype(return_type),
+			"source_action_id": source_action_id,
+		}
+	]
+
+	if not isinstance(output_schema, list):
+		return items
+
+	for field in output_schema:
+		fieldname = field.get("fieldname") if isinstance(field, dict) else None
+		if not fieldname:
+			continue
+		items.append(
+			{
+				"label": f"{return_variable}.{fieldname}",
+				"value": f"{return_variable}.{fieldname}",
+				"fieldtype": field.get("fieldtype") or "Data",
+				"source_action_id": source_action_id,
 			}
 		)
 
-	return result
+	return items
+
+
+def _map_return_type_to_fieldtype(return_type):
+	if return_type == "Boolean":
+		return "Check"
+	if return_type in ("List", "List of Dict"):
+		return "Table"
+	return "Data"
 
 
 @frappe.whitelist()

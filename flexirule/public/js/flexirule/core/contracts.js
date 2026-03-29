@@ -159,16 +159,25 @@ const DEFAULT_TRIGGER_TYPE_CONTRACT = {
 		optional_fields: ["trigger_condition", "compiled_expression"],
 		hidden_fields: [],
 	},
-	"Scheduler Event": {
-		required_fields: [],
-		optional_fields: ["document_type"],
+	"Scheduled Rule": {
+		required_fields: ["document_type"],
+		optional_fields: [],
 		hidden_fields: ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
-	"Callable Event": {
-		required_fields: [],
-		optional_fields: ["document_type"],
+	"Callable Rule": {
+		required_fields: ["document_type"],
+		optional_fields: [],
 		hidden_fields: ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
+};
+const DEFAULT_TRIGGER_TYPE_ALIASES = {
+	"Scheduler Event": "Scheduled Rule",
+	"Callable Event": "Callable Rule",
+};
+const DEFAULT_TRIGGER_TYPE_STORAGE_VALUES = {
+	"DocType Event": "DocType Event",
+	"Scheduled Rule": "Scheduler Event",
+	"Callable Rule": "Callable Event",
 };
 
 const DEFAULT_RELEASE_DISABLED_ACTION_TYPES = ["Loop", "Switch"];
@@ -190,6 +199,8 @@ const DEFAULT_CONFIG_MODAL_TYPES = [
 
 export let ACTION_TYPE_CONTRACT = withDescriptions(DEFAULT_ACTION_TYPE_CONTRACT);
 export let TRIGGER_TYPE_CONTRACT = { ...DEFAULT_TRIGGER_TYPE_CONTRACT };
+export let TRIGGER_TYPE_ALIASES = { ...DEFAULT_TRIGGER_TYPE_ALIASES };
+export let TRIGGER_TYPE_STORAGE_VALUES = { ...DEFAULT_TRIGGER_TYPE_STORAGE_VALUES };
 export let RELEASE_DISABLED_ACTION_TYPES = new Set(DEFAULT_RELEASE_DISABLED_ACTION_TYPES);
 export let RETURN_TYPE_OPTIONS = [...DEFAULT_RETURN_TYPE_OPTIONS];
 export let ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set(
@@ -218,6 +229,14 @@ function applyContractDto(dto = {}) {
 
 	if (dto.trigger_type_contract && typeof dto.trigger_type_contract === "object") {
 		TRIGGER_TYPE_CONTRACT = { ...dto.trigger_type_contract };
+	}
+
+	if (dto.trigger_type_aliases && typeof dto.trigger_type_aliases === "object") {
+		TRIGGER_TYPE_ALIASES = { ...dto.trigger_type_aliases };
+	}
+
+	if (dto.trigger_type_storage_values && typeof dto.trigger_type_storage_values === "object") {
+		TRIGGER_TYPE_STORAGE_VALUES = { ...dto.trigger_type_storage_values };
 	}
 
 	if (Array.isArray(dto.release_disabled_action_types)) {
@@ -283,6 +302,16 @@ export function normalizeActionType(actionType) {
 	return actionType;
 }
 
+export function normalizeTriggerType(triggerType) {
+	if (!triggerType) return "";
+	return TRIGGER_TYPE_ALIASES[triggerType] || triggerType;
+}
+
+export function serializeTriggerType(triggerType) {
+	triggerType = normalizeTriggerType(triggerType);
+	return TRIGGER_TYPE_STORAGE_VALUES[triggerType] || triggerType;
+}
+
 /**
  * Check if action type terminates the flow.
  */
@@ -298,6 +327,7 @@ export function getRequiredFields(actionType) {
 }
 
 export function getTriggerTypeContract(triggerType) {
+	triggerType = normalizeTriggerType(triggerType);
 	return (
 		TRIGGER_TYPE_CONTRACT[triggerType] || {
 			required_fields: [],

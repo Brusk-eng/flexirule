@@ -143,6 +143,16 @@ ACTION_TYPE_CONTRACT = {
 	},
 }
 
+TRIGGER_TYPE_ALIASES = {
+	"Scheduler Event": "Scheduled Rule",
+	"Callable Event": "Callable Rule",
+}
+TRIGGER_TYPE_STORAGE_VALUES = {
+	"DocType Event": "DocType Event",
+	"Scheduled Rule": "Scheduler Event",
+	"Callable Rule": "Callable Event",
+}
+
 ACTION_TYPES_WITH_REFERENCE_CONTEXT = {"Query Records", "Document Action", "Process"}
 ACTION_TYPES_WITH_RETURN_SCHEMA = {"Process", "Query Records", "Document Action"}
 CONFIG_MODAL_TYPES = {
@@ -168,14 +178,14 @@ TRIGGER_TYPE_CONTRACT = {
 		"optional_fields": ["trigger_condition", "compiled_expression"],
 		"hidden_fields": [],
 	},
-	"Scheduler Event": {
-		"required_fields": [],
-		"optional_fields": ["document_type"],
+	"Scheduled Rule": {
+		"required_fields": ["document_type"],
+		"optional_fields": [],
 		"hidden_fields": ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
-	"Callable Event": {
-		"required_fields": [],
-		"optional_fields": ["document_type"],
+	"Callable Rule": {
+		"required_fields": ["document_type"],
+		"optional_fields": [],
 		"hidden_fields": ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
 }
@@ -218,8 +228,22 @@ def normalize_action_type(action_type: str | None) -> str:
 	return action_type
 
 
+def normalize_trigger_type(trigger_type: str | None) -> str:
+	"""Return canonical trigger names while accepting legacy aliases."""
+	if not trigger_type:
+		return ""
+	return TRIGGER_TYPE_ALIASES.get(trigger_type, trigger_type)
+
+
+def serialize_trigger_type(trigger_type: str | None) -> str:
+	"""Convert a canonical trigger type back to the current persisted select value."""
+	trigger_type = normalize_trigger_type(trigger_type)
+	return TRIGGER_TYPE_STORAGE_VALUES.get(trigger_type, trigger_type)
+
+
 def get_trigger_type_contract(trigger_type: str) -> dict:
 	"""Get contract for a trigger type."""
+	trigger_type = normalize_trigger_type(trigger_type)
 	return TRIGGER_TYPE_CONTRACT.get(
 		trigger_type,
 		{
@@ -235,6 +259,8 @@ def get_contract_dto() -> dict:
 	return {
 		"action_type_contract": ACTION_TYPE_CONTRACT,
 		"trigger_type_contract": TRIGGER_TYPE_CONTRACT,
+		"trigger_type_aliases": TRIGGER_TYPE_ALIASES,
+		"trigger_type_storage_values": TRIGGER_TYPE_STORAGE_VALUES,
 		"release_disabled_action_types": sorted(RELEASE_DISABLED_ACTION_TYPES),
 		"return_type_options": RETURN_TYPE_OPTIONS,
 		"action_types_with_reference_context": sorted(ACTION_TYPES_WITH_REFERENCE_CONTEXT),

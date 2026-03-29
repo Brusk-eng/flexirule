@@ -2,13 +2,14 @@ frappe.listview_settings["Rule"] = {
 	add_fields: ["is_active", "document_type", "trigger_event", "rule_type"],
 
 	get_indicator: function (doc) {
+		const isCallable = ["Callable Rule", "Callable Event"].includes(doc.trigger_type);
 		// Active + Manual
-		if (doc.is_active && doc.trigger_type === "Callable Event") {
-			return [__("Active (Manual)"), "green", "is_active,=,1"];
+		if (doc.is_active && isCallable) {
+			return [__("Active (Callable)"), "green", "is_active,=,1"];
 		}
 
 		// Active + Non-manual → BLUE
-		if (doc.is_active && doc.trigger_type !== "Callable Event") {
+		if (doc.is_active && !isCallable) {
 			return [__(doc.trigger_event), "blue", "is_active,=,1"];
 		}
 

@@ -7,6 +7,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from flexirule.ruleflow.core.contracts import normalize_trigger_type, serialize_trigger_type
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
 
 
@@ -82,7 +83,7 @@ class Rule(Document):
 			"After Rename",
 			"Before Print",
 		]
-		trigger_type: DF.Literal["DocType Event", "Scheduler Event", "Callable Event"]
+		trigger_type: DF.Literal["DocType Event", "Scheduled Rule", "Callable Rule"]
 		version: DF.Int
 		visual_data: DF.Code | None
 
@@ -91,6 +92,7 @@ class Rule(Document):
 		"""
 		Validate Rule Configuration
 		"""
+		self.trigger_type = serialize_trigger_type(self.trigger_type or "DocType Event")
 		self.ensure_start_node()
 		self.reorder_actions()
 		self.compile_conditions()
@@ -128,9 +130,9 @@ class Rule(Document):
 		return bool(self.get("exposed_as_subrule"))
 
 	def validate_priority_callable(self):
-		"""If trigger_type is Callable Event, priority must be 0."""
-		if self.trigger_type == "Callable Event" and str(self.priority) != "0":
-			frappe.throw(_("Callable Event rules must have priority set to 0."))
+		"""Callable rules must remain deterministic and therefore use priority 0."""
+		if normalize_trigger_type(self.trigger_type) == "Callable Rule" and str(self.priority) != "0":
+			frappe.throw(_("Callable Rule rules must have priority set to 0."))
 
 	def normalize_trigger_type_fields(self):
 		"""Clear fields hidden by the selected trigger type."""
@@ -182,7 +184,10 @@ class Rule(Document):
 
 		# Callable/Scheduler rules are not considered 'after events' when defined.
 		# They only become 'after events' if called from an after-event parent.
-		is_non_doc_event = doc_to_check.trigger_type in ("Callable Event", "Scheduler Event")
+		is_non_doc_event = normalize_trigger_type(doc_to_check.trigger_type) in (
+			"Callable Rule",
+			"Scheduled Rule",
+		)
 		local_is_after_event = doc_to_check.trigger_event not in before_events and not is_non_doc_event
 
 		# Effective context: inherited from parent or determined locally for root rule
@@ -463,9 +468,9 @@ class Rule(Document):
 		if hasattr(target_rule, "normalize_sub_rule_exposure_flag"):
 			target_rule.normalize_sub_rule_exposure_flag()
 
-		if target_rule.trigger_type != "Callable Event":
+		if normalize_trigger_type(target_rule.trigger_type) != "Callable Rule":
 			frappe.throw(
-				_("Action '{0}' must target a Callable Event rule. Selected rule '{1}' uses '{2}'.").format(
+				_("Action '{0}' must target a Callable Rule. Selected rule '{1}' uses '{2}'.").format(
 					action.action_label, target_rule.name, target_rule.trigger_type
 				)
 			)
@@ -627,6 +632,12 @@ class Rule(Document):
 
 			matches = var_pattern.findall(template)
 			for var_name in matches:
+				if (
+					normalize_trigger_type(self.trigger_type) == "Callable Rule"
+					and self.is_exposed_as_subrule()
+				):
+					# Reusable callable rules may receive vars from the caller via Sub-Rule input mapping.
+					continue
 				if var_name not in available_vars:
 					frappe.throw(
 						_(
