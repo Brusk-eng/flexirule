@@ -206,6 +206,8 @@ def test_rule(
 	"""
 	Test a rule against a document.
 	Supports either an existing document (by docname) or a transient document (by document_json).
+
+	Returns directly from engine in test_mode to avoid DB race conditions.
 	"""
 	_require_api_access()
 
@@ -216,14 +218,12 @@ def test_rule(
 	elif document_json:
 		doc_data = json.loads(document_json)
 		doc = frappe.get_doc(doc_data)
-		# Transient docs might need to be 'local'
 		doc.flags.ignore_permissions = True
 	else:
 		frappe.throw(_("Either docname or document_json must be provided"))
 
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
-	# Check if rule is actually applicable (User Request: filters must apply)
 	is_eligible, reason = RuleCoordinator.check_eligibility(
 		rule, doc, event_name="Manual Test", skip_event_check=True
 	)
@@ -233,59 +233,51 @@ def test_rule(
 			"success": False,
 			"status": _("Skipped"),
 			"message": _("Rule Skipped: {0}").format(reason),
-			"execution_log": {},
+			"execution_path": [],
+			"context_snapshot": {},
 		}
 
 	try:
 		from flexirule.ruleflow.core.engine import RuleEngine
 
-		# Run in test_mode to prevent rollback of the rule itself during tests
 		engine = RuleEngine(rule, {"test_mode": True, "save_log": frappe.parse_json(save_log)})
-		engine.execute(doc)
+		result_context = engine.execute(doc)
 
-		# Fetch the latest log (created by engine even in test mode)
-		logs = frappe.get_all(
-			"Rule Execution Log",
-			filters={"rule": rule_name, "reference_docname": doc.name},
-			order_by="creation desc",
-			limit=1,
-			fields=["status", "message", "execution_path", "context_snapshot"],
-		)
+		path_trace = getattr(engine, "path_trace", [])
+		execution_log = getattr(engine, "execution_log", [])
 
-		log_data = logs[0] if logs else {}
+		sanitized_vars = {
+			k: v
+			for k, v in result_context.get("vars", {}).items()
+			if isinstance(v, str | int | float | bool | list | dict | type(None))
+		}
 
-		# Parse JSON fields
-		if isinstance(log_data, dict) and log_data.get("execution_path"):
-			try:
-				log_data["execution_path"] = json.loads(log_data["execution_path"])
-			except Exception:
-				pass
-
-		if isinstance(log_data, dict) and log_data.get("context_snapshot"):
-			try:
-				log_data["context_snapshot"] = json.loads(log_data["context_snapshot"])
-			except Exception:
-				pass
-
-		# Include info about skipped trigger filters for transparency
 		info_msg = _("Rule '{0}' executed successfully").format(rule.rule_name)
 		if rule.compiled_expression:
 			info_msg += _(" (trigger filters were bypassed for manual test)")
 
-		# Capture path trace from engine
-		path_trace = getattr(engine, "path_trace", [])
+		return {
+			"success": True,
+			"status": "Success",
+			"execution_path": path_trace,
+			"context_snapshot": {"vars": sanitized_vars},
+			"execution_log": [
+				{"timestamp": e.get("timestamp"), "level": e.get("level"), "message": e.get("message")}
+				for e in execution_log
+			],
+			"message": info_msg,
+		}
 
+	except frappe.ValidationError as e:
+		return {
+			"success": False,
+			"status": "Failed",
+			"error": str(e),
+			"execution_path": getattr(frappe.local, "path_trace", []),
+			"context_snapshot": {},
+		}
 	except Exception as e:
-		return {"success": False, "status": _("Failed"), "error": str(e)}
-
-	return {
-		"success": True,
-		"status": _(log_data.get("status", "Success")),
-		"execution_log": log_data,
-		"execution_path": log_data.get("execution_path", path_trace or []),
-		"context_snapshot": log_data.get("context_snapshot", {}),
-		"message": info_msg,
-	}
+		return {"success": False, "status": "Failed", "error": str(e)}
 
 
 @frappe.whitelist()

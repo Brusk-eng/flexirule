@@ -485,16 +485,17 @@ class Rule(Document):
 			)
 
 		if target_rule.document_type != self.document_type:
-			frappe.throw(
-				_(
-					"Action '{0}' targets Rule '{1}' for DocType '{2}', but the caller rule uses '{3}'."
-				).format(
-					action.action_label,
-					target_rule.name,
-					target_rule.document_type or _("None"),
-					self.document_type or _("None"),
+			if target_rule.document_type:
+				frappe.throw(
+					_(
+						"Action '{0}' targets Rule '{1}' for DocType '{2}', but the caller rule uses '{3}'."
+					).format(
+						action.action_label,
+						target_rule.name,
+						target_rule.document_type,
+						self.document_type or _("None"),
+					)
 				)
-			)
 
 	def validate_no_sub_rule_cycles(self):
 		"""
