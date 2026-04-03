@@ -20,6 +20,64 @@ from flexirule.ruleflow.core.exceptions import CycleDetectedError, MethodExecuti
 MAX_SUB_RULE_DEPTH = 2
 
 
+class SubRuleVarsOverlay(dict):
+	"""
+	Copy-on-write overlay for sub-rule context vars.
+
+	- Reads fall back to parent vars.
+	- Writes stay local to sub-rule execution.
+	- Mutable parent values are shallow-copied on first access to avoid
+	  mutating parent context state.
+	"""
+
+	def __init__(self, parent_vars=None):
+		super().__init__()
+		self._parent = parent_vars or {}
+
+	def __contains__(self, key):
+		return dict.__contains__(self, key) or key in self._parent
+
+	def __getitem__(self, key):
+		if dict.__contains__(self, key):
+			return dict.__getitem__(self, key)
+		if key not in self._parent:
+			raise KeyError(key)
+		return self._promote_parent_value(key)
+
+	def get(self, key, default=None):
+		if dict.__contains__(self, key):
+			return dict.__getitem__(self, key)
+		if key not in self._parent:
+			return default
+		return self._promote_parent_value(key)
+
+	def setdefault(self, key, default=None):
+		if key in self:
+			return self.get(key)
+		dict.__setitem__(self, key, default)
+		return default
+
+	def export_mutations(self):
+		"""Return only vars written by the sub-rule."""
+		return dict(self)
+
+	def _promote_parent_value(self, key):
+		value = self._parent.get(key)
+		if isinstance(value, dict):
+			local_dict = value.copy()
+			dict.__setitem__(self, key, local_dict)
+			return local_dict
+		if isinstance(value, list):
+			local_list = list(value)
+			dict.__setitem__(self, key, local_list)
+			return local_list
+		if isinstance(value, set):
+			local_set = set(value)
+			dict.__setitem__(self, key, local_set)
+			return local_set
+		return value
+
+
 class SubRuleHandler(ActionHandler):
 	"""Handler for Sub-Rule action type."""
 
@@ -34,7 +92,7 @@ class SubRuleHandler(ActionHandler):
 		- Depth limiting (MAX_SUB_RULE_DEPTH)
 		- Optional bypass of sub-rule trigger conditions
 		- Optional bypass of permission checks
-		- Context merging (vars propagate back to parent)
+		- Namespaced sub-rule outputs (no implicit parent var merge)
 
 		Returns:
 		    Tuple of (None, next_action_id)
@@ -127,8 +185,11 @@ class SubRuleHandler(ActionHandler):
 
 			engine._log("INFO", _("BEGIN Sub-Rule: {0}").format(sub_rule_name))
 
-			# Prepare sub-context
+			# Prepare sub-context with isolation:
+			# - vars use overlay (no deep-copy, copy-on-write)
+			# - meta gets a shallow copy
 			sub_context = context.copy()
+			sub_context["vars"] = SubRuleVarsOverlay(context.get("vars", {}))
 			sub_context["meta"] = context.get("meta", {}).copy()
 			sub_context["meta"]["parent_rule"] = engine.rule.name
 			sub_context["meta"]["execution_stack"] = [*execution_stack, engine.rule.name]
@@ -150,10 +211,32 @@ class SubRuleHandler(ActionHandler):
 			from flexirule.ruleflow.core.engine import RuleEngine
 
 			sub_engine = RuleEngine(sub_rule_doc, execution_context=sub_context)
-			result_context = sub_engine.execute(context.get("doc"))
+			result_context = sub_engine.execute(
+				context.get("doc"),
+				vars=sub_context["vars"],
+				meta=sub_context["meta"],
+			)
 
-			# Merge results back to parent context
-			context["vars"].update(result_context.get("vars", {}))
+			# No implicit merge-back. Sub-rule outputs are always namespaced.
+			return_var = (getattr(action, "return_variable", None) or "").strip()
+			namespace_key = return_var or self._auto_namespace_key(action, sub_rule_name)
+
+			sub_result_vars = result_context.get("vars", {})
+			if isinstance(sub_result_vars, SubRuleVarsOverlay):
+				sub_result_vars = sub_result_vars.export_mutations()
+			elif isinstance(sub_result_vars, dict):
+				sub_result_vars = dict(sub_result_vars)
+			else:
+				sub_result_vars = {}
+
+			context.setdefault("vars", {})[namespace_key] = sub_result_vars
+			if not return_var:
+				engine._log(
+					"INFO",
+					_("Sub-Rule {0}: return_variable not set, output stored in '{1}'").format(
+						sub_rule_name, namespace_key
+					),
+				)
 			engine._log("INFO", _("END Sub-Rule: {0}").format(sub_rule_name))
 
 			return None, getattr(action, "next_step_if_true", None)
@@ -175,6 +258,12 @@ class SubRuleHandler(ActionHandler):
 				pass
 
 		return 1  # Default: skip conditions
+
+	def _auto_namespace_key(self, action, sub_rule_name: str) -> str:
+		"""Build deterministic namespace key when return_variable is not provided."""
+		action_id = getattr(action, "action_id", None) or sub_rule_name or "subrule"
+		safe_action_id = "".join(ch if (ch.isalnum() or ch == "_") else "_" for ch in str(action_id))
+		return f"subrule_{safe_action_id}"
 
 
 # Register the handler

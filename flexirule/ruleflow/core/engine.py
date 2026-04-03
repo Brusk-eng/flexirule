@@ -1023,31 +1023,11 @@ class RuleEngine:
 			self.last_execution_log_payload = log_data
 
 			# PERSISTENCE LOGIC
-			# Use enqueue for failure logs to avoid breaking the current transaction.
-			# This ensures logs are persisted even if the main transaction rolls back.
+			# Enqueue all logs to avoid adding writes to the user's transaction.
+			# Failed logs are still persisted even if the main transaction rolls back.
 			if self.context.get("dry_run"):
-				# In dry_run mode, we don't persist logs at all
-				pass
-			elif status in ("Failed", "Error") and not active_context.get("test_mode"):
-				# Enqueue log creation to run in a separate transaction
-				# This avoids the problematic rollback+commit pattern
-				frappe.enqueue(
-					"flexirule.ruleflow.utils.logging.persist_execution_log",
-					queue="short",
-					now=frappe.flags.in_test,  # Run synchronously in tests
-					log_data=log_data,
-				)
-			elif active_context.get("save_log") and not active_context.get("test_mode"):
-				# Forced persistence - also use enqueue for consistency
-				frappe.enqueue(
-					"flexirule.ruleflow.utils.logging.persist_execution_log",
-					queue="short",
-					now=frappe.flags.in_test,
-					log_data=log_data,
-				)
+				pass  # dry_run mode: don't persist logs
 			else:
-				# Success: Also use enqueue to avoid adding write overhead
-				# to the user's document save transaction
 				frappe.enqueue(
 					"flexirule.ruleflow.utils.logging.persist_execution_log",
 					queue="short",

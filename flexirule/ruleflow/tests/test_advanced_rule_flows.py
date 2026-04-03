@@ -413,8 +413,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				},
 				{
 					"action_id": "raise_error",
-					"action_type": "Stop",
-					"operation": "Error",
+					"action_type": "Raise Error",
 					"action_label": "Raise Blocking Error",
 					"value_template": "Advanced flow blocked for {{ doc.name }}",
 				},

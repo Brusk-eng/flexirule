@@ -100,6 +100,13 @@ ACTION_TYPE_CONTRACT = {
 		"operation_label": "Notification Type",
 		"operation_options": ["Toast", "System", "Email", "System Notification", "Provider"],
 	},
+	"Raise Error": {
+		"required_fields": ["value_template"],
+		"has_next_true": False,
+		"has_next_false": False,
+		"terminal": True,
+		"css": {"icon": "fa fa-exclamation-triangle", "color": "#dc2626"},
+	},
 	"Query Records": {
 		"required_fields": ["reference_doctype", "operation"],
 		"has_next_true": True,
@@ -150,6 +157,7 @@ CONFIG_MODAL_TYPES = {
 	"Condition",
 	"Set Value",
 	"Stop",
+	"Raise Error",
 	"Notify",
 	"Wait",
 	"Sub-Rule",
