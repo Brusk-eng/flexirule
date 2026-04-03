@@ -53,7 +53,7 @@ def _action(action_id, action_label, action_type, **kw):
 		"is_enabled": 1,
 	}
 	for key, val in kw.items():
-		if key in ("config", "condition_json", "resolved_output_schema") and isinstance(val, (dict, list)):
+		if key in ("config", "condition_json", "resolved_output_schema") and isinstance(val, dict | list):
 			row[key] = json.dumps(val)
 		else:
 			row[key] = val
@@ -101,7 +101,7 @@ class TestRealRules(FrappeTestCase):
 		RuleCoordinator.clear_cache()
 
 	# ─────────────────────────────────────────────────────────
-	# Rule 1: Scheduler – Query + Normalization + ToDo
+	# Rule 1: Scheduler - Query + Normalization + ToDo
 	# ─────────────────────────────────────────────────────────
 	def test_rule_01_scheduler_cleaning_pipeline(self):
 		"""Scheduler rule: query contacts → normalize names → create todo."""
@@ -155,7 +155,7 @@ class TestRealRules(FrappeTestCase):
 		self.assertEqual(contact.first_name, "John Doe")
 
 	# ─────────────────────────────────────────────────────────
-	# Rule 2: Callable sub-rule – Phone Validation
+	# Rule 2: Callable sub-rule - Phone Validation
 	# ─────────────────────────────────────────────────────────
 	def test_rule_02_phone_validation_subrule(self):
 		"""Callable sub-rule: validates phone exists and has valid prefix."""
@@ -203,11 +203,11 @@ class TestRealRules(FrappeTestCase):
 		self.assertEqual(contact.department, "Validated")
 
 	# ─────────────────────────────────────────────────────────
-	# Rule 3: Before Save – Condition + Stop (Error)
+	# Rule 3: Before Save - Condition + Stop (Error)
 	# ─────────────────────────────────────────────────────────
 	def test_rule_03_before_save_validation(self):
 		"""Before save rule: checks first_name, raises error if empty."""
-		rule = _make_rule(
+		_make_rule(
 			f"TestReal_03_{_uid()}",
 			trigger_event="Before Save",
 			actions=[
@@ -297,7 +297,7 @@ class TestRealRules(FrappeTestCase):
 		)
 
 		engine = RuleEngine(rule, {"test_mode": True})
-		ctx = engine.execute(contact)
+		engine.execute(contact)
 
 		# Verify ToDo was created
 		todo = frappe.get_all(
@@ -358,7 +358,7 @@ class TestRealRules(FrappeTestCase):
 		)
 
 		engine = RuleEngine(rule, {"test_mode": True})
-		ctx = engine.execute(contact)
+		engine.execute(contact)
 
 		# Set Value in memory
 		self.assertEqual(contact.department, "ErrorHandled")
