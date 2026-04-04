@@ -17,10 +17,22 @@
 					v-for="r in filteredRules"
 					:key="r.name"
 					class="suggestion-item"
+					:class="{
+						'incompatible-item': r.document_type && r.document_type !== parentDocType,
+					}"
 					@click="selectRule(r)"
 				>
 					<div class="d-flex justify-content-between align-items-center w-100">
-						<div class="suggestion-name">{{ r.rule_name || r.name }}</div>
+						<div class="suggestion-name">
+							{{ r.rule_name || r.name }}
+							<span
+								v-if="r.document_type === parentDocType"
+								class="text-success ml-1"
+								style="font-size: 10px"
+							>
+								<i class="fa fa-check-circle"></i>
+							</span>
+						</div>
 						<span
 							v-if="r.trigger_event === 'Manual'"
 							class="badge badge-info"
@@ -31,12 +43,39 @@
 							r.trigger_event
 						}}</span>
 					</div>
-					<div class="suggestion-path" style="font-size: 10px">{{ r.name }}</div>
+					<div
+						class="suggestion-path d-flex justify-content-between"
+						style="font-size: 10px"
+					>
+						<span>{{ r.name }}</span>
+						<span v-if="r.document_type" class="text-muted italic">{{
+							r.document_type
+						}}</span>
+						<span v-else class="text-primary italic">{{ __("Global") }}</span>
+					</div>
 				</div>
 				<div v-if="!filteredRules.length" class="p-2 text-muted">
-					{{ __("No rules found for this DocType") }}
+					{{ __("No rules found") }}
 				</div>
 			</div>
+
+			<div v-if="selectedRuleMetadata" class="mt-2 compatibility-badge-container">
+				<div
+					v-if="!compatibilityStatus.ok"
+					class="alert alert-warning p-2 mb-0"
+					style="font-size: 11px"
+				>
+					<i class="fa fa-exclamation-triangle"></i> {{ compatibilityStatus.message }}
+				</div>
+				<div
+					v-else-if="compatibilityStatus.message"
+					class="text-muted p-1"
+					style="font-size: 10px"
+				>
+					<i class="fa fa-info-circle"></i> {{ compatibilityStatus.message }}
+				</div>
+			</div>
+
 			<div class="help-text text-muted" style="font-size: 11px">
 				{{ __("Rule to execute. Context vars are shared.") }}
 			</div>
@@ -45,6 +84,7 @@
 </template>
 
 <script setup>
+import { useStore } from "../../store";
 const props = defineProps({
 	nodeData: Object,
 	availableRules: { type: Array, default: () => [] },
@@ -55,26 +95,90 @@ const emit = defineEmits(["update-field"]);
 const subRuleSearch = ref("");
 const showSuggestions = ref(false);
 
-const filteredRules = computed(() => {
-	return props.availableRules.filter(
-		(r) =>
-			r.name.toLowerCase().includes(subRuleSearch.value.toLowerCase()) ||
-			(r.rule_name && r.rule_name.toLowerCase().includes(subRuleSearch.value.toLowerCase()))
-	);
+const parentDocType = computed(() => {
+	// Traverse parent if necessary? Usually rule_doc in store is sufficient
+	const store = useStore();
+	return store.rule_doc?.document_type;
 });
+
+const filteredRules = computed(() => {
+	const search = subRuleSearch.value.toLowerCase();
+	const store = useStore();
+	const rules = props.availableRules || [];
+
+	return rules
+		.filter(
+			(r) =>
+				r.name.toLowerCase().includes(search) ||
+				(r.rule_name && r.rule_name.toLowerCase().includes(search))
+		)
+		.sort((a, b) => {
+			// Priority 1: DocType Match
+			const aMatch = a.document_type === parentDocType.value;
+			const bMatch = b.document_type === parentDocType.value;
+			if (aMatch && !bMatch) return -1;
+			if (!aMatch && bMatch) return 1;
+
+			// Priority 2: Global (No DocType)
+			const aGlobal = !a.document_type;
+			const bGlobal = !b.document_type;
+			if (aGlobal && !bGlobal) return -1;
+			if (!aGlobal && bGlobal) return 1;
+
+			return 0;
+		});
+});
+
+const selectedRuleMetadata = computed(() => {
+	return props.availableRules.find((r) => r.name === props.nodeData?.rule);
+});
+
+const compatibilityStatus = ref({ ok: true, message: "" });
 
 watch(
 	() => props.nodeData?.rule,
-	(newVal) => {
+	async (newVal) => {
 		if (newVal) {
 			const r = props.availableRules.find((r) => r.name === newVal);
 			subRuleSearch.value = r ? r.rule_name || r.name : newVal;
+			await validateCompatibility(r);
 		} else {
 			subRuleSearch.value = "";
+			compatibilityStatus.value = { ok: true, message: "" };
 		}
 	},
 	{ immediate: true }
 );
+
+async function validateCompatibility(rule) {
+	if (!rule) return;
+
+	// 1. Basic DocType Check
+	if (rule.document_type && rule.document_type !== parentDocType.value) {
+		compatibilityStatus.value = {
+			ok: false,
+			message: __("DocType handles {0}, but parent rule is for {1}", [
+				rule.document_type,
+				parentDocType.value,
+			]),
+		};
+		return;
+	}
+
+	// 2. Condition Validation (if exists)
+	if (rule.condition_json || rule.compiled_expression) {
+		// We can't easily validate compiled_expression (Python) on frontend,
+		// but we can warn the user that this sub-rule has filters.
+		compatibilityStatus.value = {
+			ok: true,
+			message: rule.condition_json
+				? __("Sub-rule has conditions that will be checked at runtime.")
+				: "",
+		};
+	} else {
+		compatibilityStatus.value = { ok: true, message: "" };
+	}
+}
 
 function selectRule(rule) {
 	subRuleSearch.value = rule.rule_name || rule.name;
@@ -106,6 +210,16 @@ function selectRule(rule) {
 
 .suggestion-item:hover {
 	background: var(--gray-100);
+}
+
+.incompatible-item {
+	opacity: 0.7;
+	background: #fffcfb;
+}
+
+.incompatible-item:hover {
+	background: #fff5f0;
+	opacity: 1;
 }
 
 .suggestion-name {

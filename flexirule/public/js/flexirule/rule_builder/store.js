@@ -116,7 +116,11 @@ export const useStore = defineStore("rule-builder-store", () => {
 				await fetch_metadata(tf.options);
 			}
 		} catch (e) {
-			// Silent fail - metadata fetch errors are non-critical
+			console.warn("FlexiRule: Metadata fetch failed:", e);
+			frappe.show_alert({
+				message: __("Failed to fetch metadata for {0}", [doctype]),
+				indicator: "orange",
+			});
 		} finally {
 			fetch_counter.value--;
 		}
@@ -669,8 +673,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 				method: "flexirule.ruleflow.doctype.process.process.get_process_list",
 			});
 			processes.value = response.message || [];
-			// Removed eager loading of all adapters
 		} catch (e) {
+			console.error("FlexiRule: Failed to fetch processes:", e);
+			frappe.show_alert({ message: __("Failed to load processes"), indicator: "red" });
 			processes.value = [];
 		}
 	}
@@ -715,6 +720,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 					"trigger_event",
 					"is_active",
 					"exposed_as_subrule",
+					"document_type",
+					"condition_json",
+					"compiled_expression",
 				],
 				filters: {
 					trigger_type: "Callable Event",

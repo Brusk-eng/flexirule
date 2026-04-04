@@ -31,9 +31,16 @@ if (props.df?.fieldtype === "Icon") {
 }
 
 function onDrop(event) {
-	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
+	let variable = event.dataTransfer.getData("application/x-flexirule-variable");
 	if (variable) {
 		event.preventDefault();
+
+		// Sanitize variable name to prevent injection/breaking templates
+		if (/[{}"']/.test(variable)) {
+			console.warn("FlexiRule: Rejected unsafe variable name drop:", variable);
+			return;
+		}
+
 		const text = `{{ ${variable} }}`;
 		const input = event.target;
 		const start = input.selectionStart;

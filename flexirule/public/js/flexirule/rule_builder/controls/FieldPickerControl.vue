@@ -88,6 +88,21 @@ function handleBlur() {
 		showDropdown.value = false;
 	}, 200);
 }
+function onDrop(event) {
+	let variable = event.dataTransfer.getData("application/x-flexirule-variable");
+	if (variable) {
+		event.preventDefault();
+
+		// Sanitize variable name to prevent injection
+		if (/[{}"']/.test(variable)) {
+			console.warn("FlexiRule: Rejected unsafe variable name drop:", variable);
+			return;
+		}
+
+		// Field pickers usually expect the literal field name/variable name
+		emit("update:modelValue", variable);
+	}
+}
 
 // Only trigger API load if we don't have pre-fetched fields
 watch(
@@ -116,6 +131,8 @@ watch(
 				@input="handleInput"
 				@focus="handleFocus"
 				@blur="handleBlur"
+				@dragover.prevent
+				@drop="onDrop"
 				:placeholder="__('Search fields...')"
 				:disabled="read_only"
 			/>
