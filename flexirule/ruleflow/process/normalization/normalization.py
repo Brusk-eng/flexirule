@@ -127,146 +127,31 @@ def apply_transformations(value, transformations):
 # =============================================================================
 
 
-def normalize_field(context, config):
+def transform_value(context, config):
 	"""
-	Normalize a field in-place or to a target field.
+	Apply transformations to an input string evaluated from an expression or field.
+	Returns the transformed value. The engine's mutation_mode handles setting it.
 	"""
-	doc = context.get("doc")
-	if not doc:
-		return None
-
+	source_value_expr = config.get("source_value")
 	source_field = config.get("source_field")
 	transformations = config.get("transformations")
-	target_field = config.get("target_field")
 
-	# Convert frontend string (newline-separated) into a list
+	value = None
+	if source_value_expr:
+		value = frappe.safe_eval(source_value_expr, None, context)
+	elif source_field:
+		value = FieldResolver.resolve(context.get("doc"), source_field)
+
+	if value is None:
+		return None
+
 	if isinstance(transformations, str):
 		transformations = [t.strip() for t in transformations.split("\n") if t.strip()]
 
-	# Ensure we have a list
 	if not isinstance(transformations, list):
 		transformations = [transformations] if transformations else []
 
-	value = FieldResolver.resolve_picker(doc, source_field, context)
-	if value is None:
-		return None
-
-	normalized = apply_transformations(value, transformations)
-
-	# Set to target field (or source field if not specified)
-	dest_field = target_field or source_field
-	if isinstance(dest_field, list):
-		dest_field = dest_field[2]  # fieldname
-	doc.set(dest_field, normalized)
-
-	return normalized
-
-
-def normalize_field_to_context(context, config):
-	"""
-	Normalize a field value and store in context (vars).
-	Does NOT modify the document.
-	"""
-	doc = context.get("doc")
-	if not doc:
-		return None
-
-	source_field = config.get("source_field")
-	transformations = config.get("transformations")
-	context_key = config.get("context_key")
-
-	# Parse transformations if passed as string/JSON
-	if isinstance(transformations, str):
-		try:
-			import json
-
-			transformations = json.loads(transformations)
-		except (ValueError, TypeError):
-			transformations = [t.strip() for t in transformations.split(",") if t.strip()]
-
-	if not isinstance(transformations, list):
-		transformations = [transformations] if transformations else []
-
-	value = FieldResolver.resolve_picker(doc, source_field, context)
-	if value is None:
-		return None
-
-	normalized = apply_transformations(value, transformations)
-
-	if isinstance(source_field, list):
-		source_field_name = source_field[2]
-	else:
-		source_field_name = source_field
-
-	key = context_key or f"normalized_{source_field_name}"
-
-	if "vars" not in context:
-		context["vars"] = {}
-
-	context["vars"][key] = normalized
-
-	return key
-
-
-def normalize_multiple_fields(context, config):
-	"""
-	Batch normalize multiple fields with their own transformation configs.
-	"""
-	doc = context.get("doc")
-	if not doc:
-		return {}
-
-	field_config = config.get("field_config")
-	store_in_context = config.get("store_in_context")
-
-	# Parse field_config if passed as string/JSON
-	if isinstance(field_config, str):
-		import json
-
-		try:
-			field_config = json.loads(field_config)
-		except Exception:
-			field_config = []
-
-	if not field_config:
-		return {}
-
-	results = {}
-
-	for item in field_config:
-		fieldname = item.get("fieldname")
-		transformations = item.get("transformations", [])
-		target_field = item.get("target_field")
-
-		if not fieldname:
-			continue
-
-		value = FieldResolver.resolve_picker(doc, fieldname, context)
-		if value is None:
-			continue
-
-		# Handle transformations string format
-		if isinstance(transformations, str):
-			transformations = [t.strip() for t in transformations.split("\n") if t.strip()]
-
-		normalized = apply_transformations(value, transformations)
-
-		if store_in_context:
-			# Store in context
-			key = target_field or f"normalized_{fieldname}"
-			if "vars" not in context:
-				context["vars"] = {}
-			context["vars"][key] = normalized
-		else:
-			# Set on document
-			dest_field = target_field or fieldname
-			if isinstance(dest_field, list):
-				dest_field = dest_field[2]
-			doc.set(dest_field, normalized)
-
-		results[fieldname] = normalized
-
-	return results
+	return apply_transformations(value, transformations)
 
 
 # Whitelisted API for testing/preview
@@ -296,7 +181,5 @@ def preview_normalization(text: str, transformations: str | list):
 # ============================================================
 
 _OPERATIONS = {
-	"normalize_field": normalize_field,
-	"normalize_field_to_context": normalize_field_to_context,
-	"normalize_multiple_fields": normalize_multiple_fields,
+	"transform_value": transform_value,
 }

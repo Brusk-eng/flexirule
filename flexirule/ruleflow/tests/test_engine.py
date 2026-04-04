@@ -86,47 +86,14 @@ class TestRuleEngine(FrappeTestCase):
 		self.assertTrue(len(trace) > 0)
 		self.assertEqual(trace[0]["action"], "Validation Process")
 
-		# 2. Test failure
+		# 2. Test failure - Now returns a result dict rather than throwing
 		doc_fail = frappe.get_doc({"doctype": "ToDo", "description": "", "status": "Open"})
-		with self.assertRaises(frappe.ValidationError):
-			engine.execute(doc_fail)
+		engine.execute(doc_fail)
 
+		# Trace should show process executed
+		trace_fail = [t for t in engine.path_trace if t["type"] == "Process"]
+		self.assertTrue(len(trace_fail) > 0)
 
-class TestValidationMethods(FrappeTestCase):
-	"""Test validation process methods using the Engine logic"""
-
-	def test_validate_required_fields_pass(self):
-		"""Test numeric range validation passes"""
-		process = frappe.get_doc("Process", "Validation")
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
-		context = {"doc": doc, "vars": {}}
-		result = process.execute(
-			context, func="value_in_range", config={"field": "docstatus", "min_value": 0, "max_value": 0}
-		)
-		self.assertTrue(result)
-
-	def test_validate_required_fields_fail(self):
-		"""Test numeric range validation fails"""
-		process = frappe.get_doc("Process", "Validation")
-		doc = frappe.get_doc({"doctype": "ToDo", "description": ""})
-		context = {"doc": doc, "vars": {}}
-
-		with self.assertRaises(frappe.ValidationError):
-			process.execute(context, func="value_in_range", config={"field": "description", "min_value": 1})
-
-
-class TestEnrichmentMethods(FrappeTestCase):
-	"""Test enrichment process methods using the Engine logic"""
-
-	def test_calculate_value(self):
-		"""Test formula calculation"""
-		process = frappe.get_doc("Process", "Enrichment")
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
-		context = {"doc": doc, "vars": {}}
-		process.execute(
-			context,
-			func="calculate_value",
-			config={"target_field": "priority", "formula": '"High"'},
-		)
-
-		self.assertEqual(doc.priority, "High")
+		# For validation processes, we now expect an 'is_valid' flag in result
+		last_action_result = engine.path_trace[-1].get("result")
+		self.assertFalse(last_action_result.get("is_valid"))

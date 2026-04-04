@@ -136,11 +136,13 @@ class TestRealRules(FrappeTestCase):
 					"Normalize Name",
 					"Process",
 					process_name="Normalization",
-					operation="normalize_field",
+					operation="transform_value",
 					config={
 						"source_field": "first_name",
 						"transformations": ["trim", "remove_extra_spaces", "title_case"],
 					},
+					return_variable="first_name",
+					mutation_mode="Set Doc Field",
 					next_step_if_true="done",
 				),
 				_action("done", "Complete", "Stop", operation="Success"),
@@ -343,6 +345,7 @@ class TestRealRules(FrappeTestCase):
 						"target_field": "department",
 						"formula": "1 / 0",  # Division by zero = error
 					},
+					return_variable="bad_res",
 					next_step_if_true="good_step",
 				),
 				_action(
@@ -581,11 +584,13 @@ class TestRealRules(FrappeTestCase):
 					"Normalize Name",
 					"Process",
 					process_name="Normalization",
-					operation="normalize_field",
+					operation="transform_value",
 					config={
 						"source_field": "first_name",
 						"transformations": ["trim", "remove_extra_spaces", "title_case"],
 					},
+					return_variable="first_name",
+					mutation_mode="Set Doc Field",
 					next_step_if_true="done",
 				),
 				_action("done", "Complete", "Stop", operation="Success"),

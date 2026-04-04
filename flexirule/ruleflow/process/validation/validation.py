@@ -21,27 +21,31 @@ def value_in_range(context, config):
 	doc = context.get("doc")
 	field = config.get("field")
 	if not doc or not field:
-		return True
+		return {"is_valid": True}
 
 	value = doc.get(field)
 	if value is None:
-		return True
+		return {"is_valid": True}
 
+	errors = []
 	try:
 		num_value = float(value)
 	except (ValueError, TypeError):
-		frappe.throw(_("Field {0} must be a number").format(field))
+		return {"is_valid": False, "errors": [_("Field {0} must be a number").format(field)]}
 
 	min_val = config.get("min_value")
 	max_val = config.get("max_value")
 
 	if min_val is not None and num_value < float(min_val):
-		frappe.throw(_("Field {0} must be at least {1}").format(field, min_val))
+		errors.append(_("Field {0} must be at least {1}").format(field, min_val))
 
 	if max_val is not None and num_value > float(max_val):
-		frappe.throw(_("Field {0} must be at most {1}").format(field, max_val))
+		errors.append(_("Field {0} must be at most {1}").format(field, max_val))
 
-	return True
+	if errors:
+		return {"is_valid": False, "errors": errors}
+
+	return {"is_valid": True}
 
 
 def conditional_required(context, config):
@@ -51,12 +55,12 @@ def conditional_required(context, config):
 	condition_value = config.get("condition_value")
 
 	if not doc or not condition_field:
-		return True
+		return {"is_valid": True}
 
 	# Check if condition is met
 	actual_value = doc.get(condition_field)
 	if str(actual_value) != str(condition_value):
-		return True
+		return {"is_valid": True}
 
 	# Validate required fields
 	required_fields_list = parse_field_list(config.get("required_fields"))
@@ -68,13 +72,16 @@ def conditional_required(context, config):
 			missing.append(field)
 
 	if missing:
-		frappe.throw(
-			_("When {0} is {1}, the following fields are required: {2}").format(
-				condition_field, condition_value, ", ".join(missing)
-			)
-		)
+		return {
+			"is_valid": False,
+			"errors": [
+				_("When {0} is {1}, the following fields are required: {2}").format(
+					condition_field, condition_value, ", ".join(missing)
+				)
+			],
+		}
 
-	return True
+	return {"is_valid": True}
 
 
 def child_table_rows(context, config):
@@ -84,11 +91,11 @@ def child_table_rows(context, config):
 	validations = config.get("validations")
 
 	if not doc or not child_table or not validations:
-		return True
+		return {"is_valid": True}
 
 	rows = doc.get(child_table) or []
 	if not rows:
-		return True
+		return {"is_valid": True}
 
 	errors = []
 	for idx, row in enumerate(rows, start=1):
@@ -119,9 +126,9 @@ def child_table_rows(context, config):
 					pass
 
 	if errors:
-		frappe.throw("<br>".join(errors), title=_("Table Validation Error"))
+		return {"is_valid": False, "errors": errors}
 
-	return True
+	return {"is_valid": True}
 
 
 def composite_uniqueness(context, config):
@@ -133,11 +140,11 @@ def composite_uniqueness(context, config):
 	match_mode = config.get("match_mode", "any")
 
 	if not doc or not parent_fields or not child_table or not child_fields:
-		return True
+		return {"is_valid": True}
 
 	parent_filters = {f: doc.get(f) for f in parent_fields if doc.get(f)}
 	if not parent_filters:
-		return True
+		return {"is_valid": True}
 
 	if doc.name:
 		parent_filters["name"] = ["!=", doc.name]
@@ -151,13 +158,15 @@ def composite_uniqueness(context, config):
 			current_child_values.append(row_vals)
 
 	if not current_child_values:
-		return True
+		return {"is_valid": True}
 
 	candidates = frappe.get_all(doc.doctype, filters=parent_filters, pluck="name")
 	if not candidates:
-		return True
+		return {"is_valid": True}
 
 	child_dt = frappe.get_meta(doc.doctype).get_field(child_table).options
+
+	errors = []
 
 	for cand in candidates:
 		cand_rows = frappe.get_all(child_dt, filters={"parent": cand}, fields=child_fields)
@@ -166,12 +175,15 @@ def composite_uniqueness(context, config):
 		if match_mode == "any":
 			for cv in current_child_values:
 				if cv in cand_vals:
-					frappe.throw(_("Duplicate found in {0}").format(cand))
+					errors.append(_("Duplicate found in {0}").format(cand))
 		elif match_mode == "all":
 			if set(current_child_values) == set(cand_vals):
-				frappe.throw(_("Identical entry found in {0}").format(cand))
+				errors.append(_("Identical entry found in {0}").format(cand))
 
-	return True
+	if errors:
+		return {"is_valid": False, "errors": errors}
+
+	return {"is_valid": True}
 
 
 def role_check(context, config):

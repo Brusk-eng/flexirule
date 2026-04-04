@@ -38,7 +38,7 @@ def find_matching_records(context, config=None):
 	return engine.find_matches(candidates)
 
 
-def _find_duplicates_in_child_table_result(context, config=None):
+def find_duplicates_in_child_table(context, config=None):
 	"""Find parent documents whose child-table values overlap with the current document."""
 	doc = context.get("doc")
 	config = config or {}
@@ -110,65 +110,6 @@ def _find_duplicates_in_child_table_result(context, config=None):
 	}
 
 
-def find_duplicates_in_child_table(context, config=None):
-	"""Backward-compatible helper for child-table dedupe lookups."""
-	config = config or {}
-	result = _find_duplicates_in_child_table_result(context, config)
-	if config.get("structured_output") or config.get("return_result_object"):
-		return result
-	return [match.get("name") for match in result.get("matches", [])]
-
-
-def find_similar_records(context, config=None):
-	"""Backward-compatible helper returning only the match list."""
-	return find_matching_records(context, config).get("matches", [])
-
-
-def find_duplicates_by_fields(context, config=None):
-	"""Backward-compatible exact-match helper returning matching document names."""
-	result = find_matching_records(context, config)
-	return [match.get("name") for match in result.get("matches", [])]
-
-
-def check_duplicate_and_prevent_save(context, config=None):
-	"""Backward-compatible exact-match blocker."""
-	duplicates = find_duplicates_by_fields(context, config)
-	if duplicates:
-		frappe.throw(
-			_("Duplicate found: {0} has identical critical fields.").format(duplicates[0]),
-			exc=frappe.DuplicateEntryError,
-		)
-	return True
-
-
-def check_similar_and_prevent_save(context, config=None):
-	"""Backward-compatible similarity blocker."""
-	matches = find_similar_records(context, config)
-	if matches:
-		names = ", ".join([match["name"] for match in matches[:3]])
-		if len(matches) > 3:
-			names += _(" and {0} others").format(len(matches) - 3)
-		frappe.throw(
-			_("Potential duplicates found: {0}").format(names),
-			exc=frappe.DuplicateEntryError,
-		)
-	return matches
-
-
-def mark_as_duplicate(context, config=None):
-	"""Backward-compatible doc mutator for legacy flows."""
-	config = config or {}
-	doc = context.get("doc")
-	master = config.get("master_document")
-	if not doc or not master:
-		return False
-	if hasattr(doc, "is_duplicate"):
-		doc.is_duplicate = 1
-	if hasattr(doc, "master_record"):
-		doc.master_record = master
-	return master
-
-
 def execute(context, func=None, config=None):
 	"""Dispatcher for the deduplication process."""
 	if not func:
@@ -218,7 +159,7 @@ def _get_child_doctype(parent_doctype: str, child_field: str) -> str | None:
 
 _OPERATIONS = {
 	"find_matching_records": find_matching_records,
-	"find_duplicates_in_child_table": _find_duplicates_in_child_table_result,
+	"find_duplicates_in_child_table": find_duplicates_in_child_table,
 }
 
 _LEGACY_ALIASES = {
