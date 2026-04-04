@@ -23,9 +23,18 @@ async function make_control() {
 	wrapper.value.innerHTML = "";
 
 	try {
+		let normalizedOptions = props.df?.options;
+		if (typeof normalizedOptions === "string") {
+			normalizedOptions = normalizedOptions
+				.split("\n")
+				.map((opt) => opt.trim())
+				.filter(Boolean);
+		}
+
 		const control_df = {
 			...props.df,
 			fieldtype: "MultiSelect",
+			options: normalizedOptions,
 			label: props.df.label,
 			read_only: props.read_only,
 			get_data: props.get_data || props.df.get_data,

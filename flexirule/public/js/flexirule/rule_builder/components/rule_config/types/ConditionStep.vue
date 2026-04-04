@@ -153,6 +153,98 @@ const docFields = computed(() => {
 		fields = [...fields, ...oldFields];
 	}
 
+	const triggerTypeOptions = "DocType Event\nScheduler Event\nCallable Event";
+	const triggerEventOptions = (store.trigger_event_options || []).join("\n");
+	const contextFields = [
+		{
+			label: "context.doctype (Current Doctype)",
+			value: "doctype",
+			fieldname: "doctype",
+			fieldtype: "Link",
+			options: "DocType",
+			operators: [
+				"==",
+				"!=",
+				"in",
+				"not in",
+				"is_set",
+				"is_not_set",
+				"is_submittable",
+				"has_field",
+			],
+			is_context: true,
+		},
+		{
+			label: "caller.trigger_type (Caller Trigger Type)",
+			value: "caller.trigger_type",
+			fieldname: "caller_trigger_type",
+			fieldtype: "Select",
+			options: triggerTypeOptions,
+			is_context: true,
+		},
+		{
+			label: "caller.trigger_event (Caller Trigger Event)",
+			value: "caller.trigger_event",
+			fieldname: "caller_trigger_event",
+			fieldtype: "Select",
+			options: triggerEventOptions,
+			is_context: true,
+		},
+		{
+			label: "caller.document_type (Caller DocType)",
+			value: "caller.document_type",
+			fieldname: "caller_document_type",
+			fieldtype: "Link",
+			options: "DocType",
+			operators: [
+				"==",
+				"!=",
+				"in",
+				"not in",
+				"is_set",
+				"is_not_set",
+				"is_submittable",
+				"has_field",
+			],
+			is_context: true,
+		},
+		{
+			label: "rule.trigger_type (Target Trigger Type)",
+			value: "rule.trigger_type",
+			fieldname: "rule_trigger_type",
+			fieldtype: "Select",
+			options: triggerTypeOptions,
+			is_context: true,
+		},
+		{
+			label: "rule.trigger_event (Target Trigger Event)",
+			value: "rule.trigger_event",
+			fieldname: "rule_trigger_event",
+			fieldtype: "Select",
+			options: triggerEventOptions,
+			is_context: true,
+		},
+		{
+			label: "rule.document_type (Target DocType)",
+			value: "rule.document_type",
+			fieldname: "rule_document_type",
+			fieldtype: "Link",
+			options: "DocType",
+			operators: [
+				"==",
+				"!=",
+				"in",
+				"not in",
+				"is_set",
+				"is_not_set",
+				"is_submittable",
+				"has_field",
+			],
+			is_context: true,
+		},
+	];
+	fields = [...fields, ...contextFields];
+
 	return fields.sort((a, b) => a.label.localeCompare(b.label));
 });
 

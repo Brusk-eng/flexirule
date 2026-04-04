@@ -218,14 +218,6 @@ function delete_node() {
 }
 
 async function open_config_dialog() {
-	const type = selectedNode.value?.data?.action_type || selectedNode.value?.type;
-	if (
-		type === "Process" &&
-		(!selectedNode.value?.data?.process_name || !selectedNode.value?.data?.operation)
-	) {
-		frappe.msgprint(__("Please select a Process and Operation first"));
-		return;
-	}
 	store.config_modal_mode = "setup";
 	store.show_config_modal = true;
 }
@@ -245,7 +237,7 @@ onMounted(async () => {
 
 <style scoped>
 .rule-sidebar {
-	width: 280px;
+	width: 100%;
 	height: 100%;
 	display: flex;
 	flex-direction: column;

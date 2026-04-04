@@ -1,7 +1,7 @@
 <template>
 	<div class="condition-node-config">
 		<div class="form-group">
-			<label>{{ __("Expression (Legacy)") }}</label>
+			<label>{{ __("Compiled Expression") }}</label>
 			<div class="help-text text-muted mb-2" style="font-size: 11px">
 				{{ __("ReadOnly: Auto-compiled from Condition Builder") }}
 			</div>
@@ -9,7 +9,7 @@
 				class="form-control"
 				rows="3"
 				readonly
-				:value="nodeData?.condition_expression"
+				:value="nodeData?.compiled_expression"
 				placeholder="Active = True"
 			></textarea>
 
@@ -39,7 +39,7 @@ defineProps({
 defineEmits(["open-condition-builder"]);
 
 function validate() {
-	// Condition logic is handled by the builder and saved to 'condition_expression' / 'condition_json'.
+	// Condition logic is handled by the builder and saved to 'compiled_expression' / 'condition_json'.
 	// We could enforce that at least one condition exists, but optional blank conditions might be valid (always true).
 	// For now, return valid.
 	return { valid: true };

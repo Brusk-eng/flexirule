@@ -10,6 +10,14 @@
 			<div v-if="mode === 'config'" class="panel-section setup-section">
 				<div class="setup-controls">
 					<ControlFactory
+						v-if="showProcessName"
+						:df="processNameField"
+						:modelValue="node.data?.process_name"
+						:read_only="readOnly"
+						@update:modelValue="updateField('process_name', $event)"
+					/>
+
+					<ControlFactory
 						v-if="showOperation"
 						:df="dynamicOperationField"
 						:modelValue="node.data?.operation"
@@ -24,14 +32,6 @@
 						:modelValue="node.data?.reference_doctype"
 						:read_only="readOnly"
 						@update:modelValue="updateField('reference_doctype', $event)"
-					/>
-
-					<ControlFactory
-						v-if="showProcessName"
-						:df="processNameField"
-						:modelValue="node.data?.process_name"
-						:read_only="readOnly"
-						@update:modelValue="updateField('process_name', $event)"
 					/>
 
 					<ControlFactory
@@ -150,7 +150,12 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
 import { useStore } from "../../store";
-import { getContract } from "../../../core/contracts.js";
+import {
+	getContract,
+	getFieldLabel,
+	getOperationOptions,
+	getEffectiveActionPolicy,
+} from "../../../core/contracts.js";
 import ControlFactory from "../../controls/ControlFactory.vue";
 
 const props = defineProps({
@@ -195,11 +200,11 @@ const showRuleField = computed(() => {
 
 const showOperation = computed(() => {
 	if (!contract.value) return false;
+	const type = props.node.data?.action_type;
+	if (!type) return false;
 	return (
-		contract.value?.operation_options ||
-		["Notify", "Process", "Query Records", "Document Action"].includes(
-			props.node.data?.action_type
-		)
+		getOperationOptions(type, { processName: props.node.data?.process_name }).length > 0 ||
+		["Process", "Query Records", "Document Action"].includes(type)
 	);
 });
 
@@ -316,24 +321,38 @@ const inputSourceField = {
 };
 
 const dynamicOperationField = computed(() => {
-	const label = contract.value?.operation_label || __("Operation / Mode");
-	const options = contract.value?.operation_options;
+	const actionType = props.node.data?.action_type;
+	const options = getOperationOptions(actionType, {
+		processName: props.node.data?.process_name,
+	});
+	const label =
+		getFieldLabel(actionType, "operation", {
+			operation: props.node.data?.operation,
+			processName: props.node.data?.process_name,
+		}) ||
+		contract.value?.operation_label ||
+		__("Operation / Mode");
 
 	return {
 		fieldname: "operation",
-		fieldtype: options ? "Select" : "Autocomplete",
+		fieldtype: options.length ? "Select" : "Autocomplete",
 		label: label,
-		options: options ? options.join("\n") : "",
+		options: options.map((opt) => opt.value).join("\n"),
 		reqd: 1,
 		get_options: async () => {
-			if (props.node.data?.action_type === "Process" && props.node.data?.process_name) {
+			if (actionType === "Process" && !options.length && props.node.data?.process_name) {
 				const ops = await store.get_process_operations(props.node.data.process_name);
-				return ops.map((o) => ({ label: o.label || o.func_name, value: o.func_name }));
+				return ops.map((o) => ({
+					label: __(o.label || o.func_name),
+					value: o.func_name,
+					description: "",
+				}));
 			}
-			if (options) {
-				return options.map((opt) => ({ label: __(opt), value: opt }));
-			}
-			return [];
+			return options.map((opt) => ({
+				label: __(opt.label || opt.value),
+				value: opt.value,
+				description: opt.process_name ? `${opt.process_name}` : "",
+			}));
 		},
 	};
 });
@@ -423,6 +442,40 @@ function updateField(fieldname, value) {
 				props.node.data.reference_doctype = "Report";
 				props.node.data.reference_docname = null;
 			}
+
+			if (actionType === "Process" && !props.node.data.process_name && value) {
+				const matches = getOperationOptions("Process", {})
+					.filter((op) => op.value === value && op.process_name)
+					.map((op) => op.process_name);
+				const unique = [...new Set(matches)];
+				if (unique.length === 1) {
+					props.node.data.process_name = unique[0];
+				}
+			}
+
+			const policy = getEffectiveActionPolicy(actionType, {
+				operation: value,
+				processName: props.node.data?.process_name,
+			});
+			const allowedMutations = policy.allowed_mutations || [];
+			const allowedReturnTypes = policy.allowed_return_types || [];
+			if (
+				props.node.data.mutation_mode &&
+				allowedMutations.length &&
+				!allowedMutations.includes(props.node.data.mutation_mode)
+			) {
+				props.node.data.mutation_mode = null;
+			}
+			if (
+				props.node.data.return_type &&
+				allowedReturnTypes.length &&
+				!allowedReturnTypes.includes(props.node.data.return_type)
+			) {
+				props.node.data.return_type = null;
+			}
+			if (!props.node.data.return_type && policy.default_return_type) {
+				props.node.data.return_type = policy.default_return_type;
+			}
 		}
 
 		if (
@@ -439,6 +492,19 @@ function updateField(fieldname, value) {
 		store.mark_dirty();
 	}
 }
+
+watch(
+	() => props.node?.data?.process_name,
+	(processName) => {
+		const actionType = props.node?.data?.action_type;
+		if (actionType !== "Process" || !props.node?.data) return;
+		const opOptions = getOperationOptions(actionType, { processName }).map((opt) => opt.value);
+		if (props.node.data.operation && !opOptions.includes(props.node.data.operation)) {
+			props.node.data.operation = null;
+			store.mark_dirty();
+		}
+	}
+);
 
 function clearConfigKey(key) {
 	if (!props.node?.data) return;

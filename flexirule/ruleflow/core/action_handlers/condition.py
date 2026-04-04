@@ -22,25 +22,26 @@ class ConditionHandler(ActionHandler):
 		"""
 		Execute condition evaluation.
 
-		The condition_expression should already be compiled from condition_json
-		during Rule.validate(). If condition_expression is missing but
+		The compiled_expression should already be compiled from condition_json
+		during Rule.validate(). If compiled_expression is missing but
 		condition_json exists, the rule was not properly saved.
 
 		Returns:
 		    Tuple of (boolean_result, next_action_id)
 		"""
-		if not action.condition_expression:
+		compiled_expression = getattr(action, "compiled_expression", None)
+		if not compiled_expression:
 			if action.condition_json:
 				raise ValueError(
 					_(
-						"Action '{0}' has condition_json but no compiled condition_expression. "
+						"Action '{0}' has condition_json but no compiled_expression. "
 						"Please re-save the Rule to compile conditions."
 					).format(action.action_label)
 				)
 			# Empty condition passes
 			result = True
 		else:
-			result = engine._evaluate_python_condition(action.condition_expression, context)
+			result = engine._evaluate_python_condition(compiled_expression, context)
 
 		next_id = action.next_step_if_true if result else action.next_step_if_false
 		return result, next_id
@@ -48,7 +49,7 @@ class ConditionHandler(ActionHandler):
 	def validate(self, action, context):
 		"""Validate condition action configuration."""
 		errors = []
-		if action.condition_json and not action.condition_expression:
+		if action.condition_json and not getattr(action, "compiled_expression", None):
 			errors.append(
 				_("Condition '{0}' needs to be compiled. Re-save the rule.").format(action.action_label)
 			)

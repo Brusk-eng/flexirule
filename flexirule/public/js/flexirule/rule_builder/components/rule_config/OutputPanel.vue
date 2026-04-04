@@ -11,6 +11,7 @@
 				<h5 class="section-title">{{ __("Result Storage") }}</h5>
 				<div class="storage-controls mt-2">
 					<ControlFactory
+						v-if="showReturnType"
 						:df="returnTypeField"
 						:modelValue="node.data?.return_type"
 						:read_only="readOnly"
@@ -18,6 +19,7 @@
 					/>
 
 					<ControlFactory
+						v-if="showReturnVariable"
 						:df="returnVariableField"
 						:modelValue="node.data?.return_variable"
 						:read_only="readOnly"
@@ -110,7 +112,11 @@
 
 				<div
 					class="form-group mt-3"
-					v-if="node.data?.return_type && node.data?.return_type !== 'Boolean'"
+					v-if="
+						showResolvedSchema &&
+						node.data?.return_type &&
+						node.data?.return_type !== 'Yes / No'
+					"
 				>
 					<label class="section-title mini">{{ __("Manual Schema (JSON)") }}</label>
 					<ControlFactory
@@ -129,7 +135,14 @@ import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../store";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
-import { getReturnTypeOptions } from "../../../core/contracts.js";
+import {
+	getAllowedMutationModeOptions,
+	getAllowedReturnTypeOptions,
+	getEffectiveActionPolicy,
+	getFieldLabel,
+	isReturnTypeMandatory,
+	shouldShowReturnType,
+} from "../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
@@ -141,35 +154,65 @@ const store = useStore();
 const outputMappings = ref([]);
 const availableVariables = ref([]);
 
+const policyContext = computed(() => ({
+	operation: props.node?.data?.operation,
+	processName: props.node?.data?.process_name,
+}));
+
 const showMutationMode = computed(() => {
-	return ["Process", "Query Records", "Document Action"].includes(props.node.data?.action_type);
+	const actionType = props.node?.data?.action_type;
+	return getAllowedMutationModeOptions(actionType, policyContext.value).length > 0;
 });
+
+const allowedReturnTypeOptions = computed(() =>
+	getAllowedReturnTypeOptions(props.node?.data?.action_type, policyContext.value)
+);
+
+const showReturnType = computed(() =>
+	shouldShowReturnType(props.node?.data?.action_type, policyContext.value)
+);
+
+const showReturnVariable = computed(() => {
+	const policy = getEffectiveActionPolicy(props.node?.data?.action_type, policyContext.value);
+	if (policy.show_return_variable === false) return false;
+	return showMutationMode.value || allowedReturnTypeOptions.value.length > 0;
+});
+
+const showResolvedSchema = computed(() => allowedReturnTypeOptions.value.length > 0);
 
 // -- Field Definitions --
 const returnTypeField = computed(() => ({
 	fieldname: "return_type",
 	fieldtype: "Select",
-	label: __("Result Format"),
-	options: ["", ...getReturnTypeOptions()].join("\n"),
+	label:
+		getFieldLabel(props.node?.data?.action_type, "return_type", policyContext.value) ||
+		__("Result Type"),
+	options: ["", ...allowedReturnTypeOptions.value].join("\n"),
+	reqd: isReturnTypeMandatory(props.node?.data?.action_type, policyContext.value) ? 1 : 0,
 }));
 
 const returnVariableField = computed(() => ({
 	fieldname: "return_variable",
 	fieldtype: "Data",
-	label: __("Result Variable name"),
+	label:
+		getFieldLabel(props.node?.data?.action_type, "return_variable", policyContext.value) ||
+		__("Result Variable Name"),
 	description:
-		props.node.data?.return_type === "Boolean"
+		props.node.data?.return_type === "Yes / No"
 			? __("Value assigned directly.")
 			: __("Stored as this variable."),
 }));
 
-const mutationModeField = {
+const mutationModeField = computed(() => ({
 	fieldname: "mutation_mode",
 	fieldtype: "Select",
-	label: __("Mutation Mode"),
-	options:
-		"Set Doc Field\nUpdate Doc Field\nSet Context Variable\nUpdate Context Variable\nAppend to Context Variable\nBatch Database Set",
-};
+	label:
+		getFieldLabel(props.node?.data?.action_type, "mutation_mode", policyContext.value) ||
+		__("Result Handling"),
+	options: getAllowedMutationModeOptions(props.node?.data?.action_type, policyContext.value).join(
+		"\n"
+	),
+}));
 
 const resolvedSchemaField = {
 	fieldname: "resolved_output_schema",
@@ -218,6 +261,58 @@ watch(
 			}
 		} else {
 			outputMappings.value = [];
+		}
+	},
+	{ immediate: true }
+);
+
+watch(
+	() => [
+		props.node?.data?.action_type,
+		props.node?.data?.operation,
+		props.node?.data?.process_name,
+	],
+	() => {
+		if (!props.node?.data) return;
+		let changed = false;
+		const policy = getEffectiveActionPolicy(props.node.data.action_type, policyContext.value);
+		const allowedMutations = policy.allowed_mutations || [];
+		const allowedReturnTypes = policy.allowed_return_types || [];
+		if (
+			props.node.data.mutation_mode &&
+			allowedMutations.length &&
+			!allowedMutations.includes(props.node.data.mutation_mode)
+		) {
+			props.node.data.mutation_mode = null;
+			changed = true;
+		}
+		if (
+			props.node.data.return_type &&
+			allowedReturnTypes.length &&
+			!allowedReturnTypes.includes(props.node.data.return_type)
+		) {
+			props.node.data.return_type = null;
+			changed = true;
+		}
+		if (!props.node.data.return_type && policy.default_return_type) {
+			props.node.data.return_type = policy.default_return_type;
+			changed = true;
+		}
+		if (
+			policy.show_return_type === false &&
+			props.node.data.return_type &&
+			policy.default_return_type &&
+			props.node.data.return_type !== policy.default_return_type
+		) {
+			props.node.data.return_type = policy.default_return_type;
+			changed = true;
+		}
+		if (!showReturnVariable.value && props.node.data.return_variable) {
+			props.node.data.return_variable = null;
+			changed = true;
+		}
+		if (changed) {
+			store.mark_dirty();
 		}
 	},
 	{ immediate: true }

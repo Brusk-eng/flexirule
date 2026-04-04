@@ -139,6 +139,42 @@ class TestConditionCompiler(FrappeTestCase):
 		expected = "(('draft' not in str(doc.get('description')) if doc.get('description') else True))"
 		self.assertEqual(result, expected)
 
+	def test_compile_context_doctype_equals(self):
+		"""Test compiling a context doctype comparison."""
+		condition = {"left": {"ref": "doctype"}, "op": "==", "right": {"value": "Sales Invoice"}}
+		result = self.compiler.compile([condition])
+		expected = "(doctype == 'Sales Invoice')"
+		self.assertEqual(result, expected)
+
+	def test_compile_context_doctype_in_list(self):
+		"""Test compiling context doctype list comparison."""
+		condition = {
+			"left": {"ref": "doctype"},
+			"op": "in",
+			"right": {"value": ["Sales Invoice", "Purchase Invoice"]},
+		}
+		result = self.compiler.compile([condition])
+		expected = "(doctype in ['Sales Invoice', 'Purchase Invoice'])"
+		self.assertEqual(result, expected)
+
+	def test_compile_is_submittable_operator(self):
+		"""Test compiling helper operator for doctype submit capability."""
+		condition = {"left": {"ref": "doctype"}, "op": "is_submittable"}
+		result = self.compiler.compile([condition])
+		expected = "(is_submittable(doctype))"
+		self.assertEqual(result, expected)
+
+	def test_compile_has_field_operator(self):
+		"""Test compiling helper operator for doctype field existence."""
+		condition = {
+			"left": {"ref": "rule.document_type"},
+			"op": "has_field",
+			"right": {"value": "customer"},
+		}
+		result = self.compiler.compile([condition])
+		expected = "(has_field(rule.get('document_type'), 'customer'))"
+		self.assertEqual(result, expected)
+
 	def test_validation_of_compiled_expression(self):
 		"""Test validation of compiled expressions"""
 		condition = {"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}
@@ -165,6 +201,18 @@ class TestConditionCompiler(FrappeTestCase):
 		"""Test resolving nested field references"""
 		result = self.compiler._resolve_ref("doc.items.rate", {"doc", "old_doc", "vars"})
 		expected = "resolve(doc, 'items.rate')"
+		self.assertEqual(result, expected)
+
+	def test_resolve_ref_caller_scope(self):
+		"""Test resolving caller metadata references."""
+		result = self.compiler._resolve_ref("caller.trigger_type", {"caller", "rule", "doctype"})
+		expected = "caller.get('trigger_type')"
+		self.assertEqual(result, expected)
+
+	def test_resolve_ref_doctype_scope(self):
+		"""Test resolving scalar doctype scope."""
+		result = self.compiler._resolve_ref("doctype", {"caller", "rule", "doctype"})
+		expected = "doctype"
 		self.assertEqual(result, expected)
 
 	def test_compile_empty_conditions(self):

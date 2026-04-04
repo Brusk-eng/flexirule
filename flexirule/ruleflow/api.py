@@ -5,6 +5,7 @@
 Whitelisted API functions for Bolton Rule Engine
 """
 
+import hashlib
 import json
 from typing import Any
 
@@ -12,8 +13,14 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
-from flexirule.ruleflow.core.contracts import get_contract_dto as _get_contract_dto
-from flexirule.ruleflow.core.contracts import normalize_action_type
+from flexirule.ruleflow.core.contracts import (
+	ACTION_TYPE_CONTRACT,
+	infer_process_operation_policy,
+	normalize_action_type,
+)
+from flexirule.ruleflow.core.contracts import (
+	get_contract_dto as _get_contract_dto,
+)
 
 
 def _require_api_access():
@@ -201,7 +208,9 @@ def test_rule(
 	doctype: str | None = None,
 	docname: str | None = None,
 	document_json: str | None = None,
-	save_log: int | bool | str = False,
+	dry_run: int | bool | str = True,
+	skip_log_enqueue: int | bool | str = True,
+	save_log: int | bool | str | None = None,
 ):
 	"""
 	Test a rule against a document.
@@ -233,63 +242,86 @@ def test_rule(
 			"success": False,
 			"status": _("Skipped"),
 			"message": _("Rule Skipped: {0}").format(reason),
-			"execution_log": {},
+			"execution": {
+				"execution_id": None,
+				"status": "Stopped",
+				"duration": 0,
+				"path_trace": [],
+				"vars": {},
+				"messages": [],
+				"errors": [],
+				"log_enqueued": False,
+			},
+			"path_trace": [],
+			"vars": {},
 		}
 
 	try:
 		from flexirule.ruleflow.core.engine import RuleEngine
 
-		# Run in test_mode to prevent rollback of the rule itself during tests
-		engine = RuleEngine(rule, {"test_mode": True, "save_log": frappe.parse_json(save_log)})
-		engine.execute(doc)
+		dry = bool(frappe.parse_json(dry_run))
+		skip_enqueue = bool(frappe.parse_json(skip_log_enqueue))
+		if save_log is not None and bool(frappe.parse_json(save_log)):
+			dry = False
+			skip_enqueue = False
 
-		# Fetch the latest log (created by engine even in test mode)
-		logs = frappe.get_all(
-			"Rule Execution Log",
-			filters={"rule": rule_name, "reference_docname": doc.name},
-			order_by="creation desc",
-			limit=1,
-			fields=["status", "message", "execution_path", "context_snapshot"],
+		engine = RuleEngine(
+			rule,
+			{
+				"test_mode": True,
+				"dry_run": dry,
+				"skip_log_enqueue": skip_enqueue,
+			},
 		)
-
-		log_data = logs[0] if logs else {}
-
-		# Parse JSON fields
-		if isinstance(log_data, dict) and log_data.get("execution_path"):
-			try:
-				log_data["execution_path"] = json.loads(log_data["execution_path"])
-			except Exception:
-				pass
-
-		if isinstance(log_data, dict) and log_data.get("context_snapshot"):
-			try:
-				log_data["context_snapshot"] = json.loads(log_data["context_snapshot"])
-			except Exception:
-				pass
+		engine.execute(doc, event_name="Manual Test")
+		execution = engine.last_execution_payload or {
+			"execution_id": engine.execution_id,
+			"status": "Success",
+			"duration": 0,
+			"path_trace": getattr(engine, "path_trace", []),
+			"vars": {},
+			"messages": [],
+			"errors": [],
+			"log_enqueued": False,
+		}
 
 		# Include info about skipped trigger filters for transparency
 		info_msg = _("Rule '{0}' executed successfully").format(rule.rule_name)
 		if rule.compiled_expression:
 			info_msg += _(" (trigger filters were bypassed for manual test)")
 
-		# Capture path trace from engine
-		path_trace = getattr(engine, "path_trace", [])
-
 	except Exception as e:
-		return {"success": False, "status": _("Failed"), "error": str(e)}
+		fallback_execution = getattr(locals().get("engine"), "last_execution_payload", None) or {}
+		return {
+			"success": False,
+			"status": _("Failed"),
+			"error": str(e),
+			"execution": fallback_execution,
+			"path_trace": fallback_execution.get("path_trace", []),
+			"vars": fallback_execution.get("vars", {}),
+		}
 
 	return {
 		"success": True,
-		"status": _(log_data.get("status", "Success")),
-		"execution_log": log_data,
-		"execution_path": log_data.get("execution_path", path_trace or []),
-		"context_snapshot": log_data.get("context_snapshot", {}),
+		"status": _(execution.get("status", "Success")),
+		"execution": execution,
+		"execution_id": execution.get("execution_id"),
+		"path_trace": execution.get("path_trace", []),
+		"vars": execution.get("vars", {}),
+		# Legacy compatibility for existing UI consumers
+		"execution_path": execution.get("path_trace", []),
+		"context_snapshot": execution.get("vars", {}),
 		"message": info_msg,
 	}
 
 
 @frappe.whitelist()
-def execute_rule(rule_name: str, context: str | dict | None = None, dry_run: bool | str = True):
+def execute_rule(
+	rule_name: str,
+	context: str | dict | None = None,
+	dry_run: bool | str = True,
+	skip_log_enqueue: bool | str = False,
+):
 	"""
 	Pure execution API for a rule.
 	"""
@@ -300,6 +332,10 @@ def execute_rule(rule_name: str, context: str | dict | None = None, dry_run: boo
 	ctx: dict | None = json.loads(context) if isinstance(context, str) else context
 
 	dry: bool = bool(frappe.parse_json(dry_run))
+	skip_enqueue: bool = bool(frappe.parse_json(skip_log_enqueue))
+	if not isinstance(ctx, dict):
+		ctx = {}
+	ctx["skip_log_enqueue"] = skip_enqueue
 
 	try:
 		result = RuleCoordinator.execute_rule(rule_name, ctx, dry_run=dry)
@@ -310,13 +346,27 @@ def execute_rule(rule_name: str, context: str | dict | None = None, dry_run: boo
 			result.pop("doc", None)
 			result.pop("old_doc", None)
 
+		execution = getattr(frappe.local, "execution_payload", None) or {}
 		return {
 			"success": True,
+			"status": execution.get("status", "Success"),
 			"context": result,
+			"execution": execution,
+			"execution_id": execution.get("execution_id"),
+			"path_trace": execution.get("path_trace", []),
+			"vars": execution.get("vars", {}),
 			"execution_log": getattr(frappe.local, "execution_log", []),
 		}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		execution = getattr(frappe.local, "execution_payload", None) or {}
+		return {
+			"success": False,
+			"status": execution.get("status", "Failed"),
+			"error": str(e),
+			"execution": execution,
+			"path_trace": execution.get("path_trace", []),
+			"vars": execution.get("vars", {}),
+		}
 
 
 @frappe.whitelist()
@@ -348,7 +398,131 @@ def get_operator_config():
 def get_contract_dto():
 	"""Return canonical action/trigger contracts for frontend consumers."""
 	_require_api_access()
-	return _get_contract_dto()
+	contracts = _get_contract_dto()
+
+	def _existing_fields(doctype: str, candidates: list[str]) -> list[str]:
+		meta = frappe.get_meta(doctype)
+		return [
+			fieldname
+			for fieldname in candidates
+			if fieldname == "name"
+			or (
+				(meta.has_field(fieldname) or fieldname in {"parent", "parenttype", "parentfield", "idx"})
+				and frappe.db.has_column(doctype, fieldname)
+			)
+		]
+
+	try:
+		process_fields = _existing_fields("Process", ["name", "module", "is_standard", "status"])
+		process_operation_fields = _existing_fields(
+			"Process Operation",
+			[
+				"parent",
+				"func_name",
+				"label",
+				"enabled",
+				"visible_in_builder",
+				"writes_to",
+				"is_terminal",
+				"requires_doc",
+				"reads_vars",
+				"writes_vars",
+				"config_schema",
+				"output_schema",
+			],
+		)
+
+		if "parent" not in process_operation_fields:
+			process_operation_fields = ["parent", *process_operation_fields]
+
+		process_rows = frappe.get_all(
+			"Process",
+			fields=process_fields,
+			order_by="modified desc",
+			ignore_permissions=True,
+		)
+		process_operations = frappe.get_all(
+			"Process Operation",
+			fields=process_operation_fields,
+			order_by="parent asc, idx asc",
+			ignore_permissions=True,
+		)
+	except Exception:
+		process_rows = []
+		process_operations = []
+
+	process_map: dict[str, dict[str, Any]] = {row["name"]: {**row, "operations": []} for row in process_rows}
+	process_operation_policies: dict[str, dict[str, dict[str, Any]]] = {}
+	for row in process_operations:
+		parent = row.get("parent")
+		if parent in process_map:
+			process_map[parent]["operations"].append(row)
+		func_name = row.get("func_name")
+		if parent and func_name:
+			process_operation_policies.setdefault(parent, {})[func_name] = infer_process_operation_policy(row)
+
+	operation_registry: list[dict[str, Any]] = []
+	seen_ops: set[tuple[str, str, str]] = set()
+
+	def _append_operation(
+		action_type: str,
+		value: str,
+		label: str | None = None,
+		process_name: str | None = None,
+		policy: dict[str, Any] | None = None,
+	):
+		if not value:
+			return
+		key = (action_type, process_name or "", value)
+		if key in seen_ops:
+			return
+		seen_ops.add(key)
+		operation_registry.append(
+			{
+				"action_type": action_type,
+				"value": value,
+				"label": label or value,
+				"process_name": process_name,
+				"policy": policy or {},
+			}
+		)
+
+	for action_type, action_contract in ACTION_TYPE_CONTRACT.items():
+		for operation_name in action_contract.get("operation_options", []) or []:
+			op_policy = (action_contract.get("operation_policies", {}) or {}).get(operation_name, {})
+			_append_operation(
+				action_type=action_type,
+				value=operation_name,
+				label=operation_name,
+				process_name=None,
+				policy=op_policy,
+			)
+
+	for process_name, process_info in process_map.items():
+		for operation in process_info.get("operations", []) or []:
+			if operation.get("enabled", 1) == 0 or operation.get("visible_in_builder", 1) == 0:
+				continue
+			func_name = operation.get("func_name")
+			if not func_name:
+				continue
+			_append_operation(
+				action_type="Process",
+				value=func_name,
+				label=operation.get("label") or func_name,
+				process_name=process_name,
+				policy=process_operation_policies.get(process_name, {}).get(func_name, {}),
+			)
+
+	payload = {
+		**contracts,
+		"process_registry": list(process_map.values()),
+		"operation_registry": operation_registry,
+		"process_operation_policies": process_operation_policies,
+	}
+	payload["contract_version_hash"] = hashlib.sha256(
+		json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+	).hexdigest()
+	return payload
 
 
 @frappe.whitelist()

@@ -5,6 +5,7 @@
 	"engine": "InnoDB",
 	"field_order": [
 		"rule",
+		"execution_id",
 		"rule_version",
 		"status",
 		"duration",
@@ -34,6 +35,16 @@
 			"label": "Rule",
 			"options": "Rule",
 			"reqd": 1
+		},
+		{
+			"fieldname": "execution_id",
+			"fieldtype": "Data",
+			"in_list_view": 1,
+			"in_standard_filter": 1,
+			"label": "Execution ID",
+			"read_only": 1,
+			"reqd": 1,
+			"search_index": 1
 		},
 		{
 			"fieldname": "rule_version",

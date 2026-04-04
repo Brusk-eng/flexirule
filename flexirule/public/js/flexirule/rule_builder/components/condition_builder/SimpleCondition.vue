@@ -31,14 +31,23 @@ const selectedField = computed(() => {
 	return props.docFields.find((f) => f.value === ref);
 });
 
+const doctypeContextRefs = ["doctype", "rule.document_type", "caller.document_type"];
+const isDoctypeContextField = computed(() =>
+	doctypeContextRefs.includes(selectedField.value?.value)
+);
+
 // Available operators based on field type - backend-driven
 const operators = computed(() => {
 	const config = operatorConfig.value;
 	const ft = selectedField.value?.fieldtype || "Data";
+	const fieldOps = selectedField.value?.operators;
 
 	// Get valid operators for this fieldtype
-	const validOps = config.fieldtype_operators?.[ft] ||
-		config.fieldtype_operators?.["_default"] || ["==", "!=", "is_set", "is_not_set"];
+	const validOps =
+		Array.isArray(fieldOps) && fieldOps.length
+			? fieldOps
+			: config.fieldtype_operators?.[ft] ||
+			  config.fieldtype_operators?.["_default"] || ["==", "!=", "is_set", "is_not_set"];
 	const labels = config.operator_labels || {};
 
 	return validOps.map((op) => ({
@@ -51,7 +60,42 @@ const operators = computed(() => {
 const valueFieldSchema = computed(() => {
 	if (!selectedField.value) return { fieldtype: "Data" };
 
+	// Helper operators
+	if (props.node.op === "has_field") {
+		return {
+			fieldtype: "Data",
+			label: __("DocField"),
+			placeholder: __("e.g. customer"),
+		};
+	}
+
 	let schema = { ...selectedField.value };
+
+	// Use DocType picker for context doctype filters
+	if (isDoctypeContextField.value) {
+		if (["in", "not in"].includes(props.node.op)) {
+			schema = {
+				...schema,
+				fieldtype: "MultiSelectList",
+				options: [],
+				get_data: async (txt) => {
+					const rows = await frappe.db.get_link_options("DocType", txt || "");
+					return (rows || []).map((row) => ({
+						value: row.value || row,
+						description: row.description || "",
+					}));
+				},
+				placeholder: __("Select DocTypes"),
+			};
+		} else {
+			schema = {
+				...schema,
+				fieldtype: "Link",
+				options: "DocType",
+				placeholder: __("Select DocType"),
+			};
+		}
+	}
 
 	// 1. DocStatus Handling
 	if (schema.value === "doc.docstatus" || schema.fieldname === "docstatus") {
@@ -64,12 +108,19 @@ const valueFieldSchema = computed(() => {
 	}
 
 	// 2. Multi-Select Handling for IN/NOT IN
-	if (["in", "not in"].includes(props.node.op)) {
+	if (["in", "not in"].includes(props.node.op) && !isDoctypeContextField.value) {
+		const originalFieldtype = schema.fieldtype;
+		const originalOptions = schema.options;
 		schema.fieldtype = "MultiSelect";
 		// Check if we need to adjust options for MultiSelect docstatus
 		if (schema.fieldname === "docstatus") {
 			// For MultiSelect, provide simple options because standard control handles strings best
 			schema.options = ["0", "1", "2"];
+		} else if (originalFieldtype === "Select" && typeof originalOptions === "string") {
+			schema.options = originalOptions
+				.split("\n")
+				.map((opt) => opt.trim())
+				.filter(Boolean);
 		}
 	}
 
@@ -97,7 +148,7 @@ const wrappedValue = computed({
 		const op = props.node.op;
 
 		// If not a Link/Dynamic Link, return raw value
-		if (ft !== "Link" && ft !== "Dynamic Link") return val;
+		if ((ft !== "Link" && ft !== "Dynamic Link") || isDoctypeContextField.value) return val;
 
 		// If value is empty, return empty
 		if (!val) return op === "in" || op === "not in" ? [] : "";
@@ -113,7 +164,7 @@ const wrappedValue = computed({
 	set(newVal) {
 		const ft = selectedField.value?.fieldtype;
 
-		if (ft !== "Link" && ft !== "Dynamic Link") {
+		if ((ft !== "Link" && ft !== "Dynamic Link") || isDoctypeContextField.value) {
 			props.node.right.value = newVal;
 			return;
 		}
@@ -187,7 +238,10 @@ function clearMapping() {
 			</select>
 		</div>
 
-		<div class="condition-cell value-cell" v-if="!['is_set', 'is_not_set'].includes(node.op)">
+		<div
+			class="condition-cell value-cell"
+			v-if="!['is_set', 'is_not_set', 'is_submittable'].includes(node.op)"
+		>
 			<div v-if="selectedField?.fieldtype === 'Dynamic Link'" class="mb-2">
 				<label class="small text-muted d-block">{{ __("Target DocType") }}</label>
 				<!-- Using ControlFactory to render Link to DocType -->

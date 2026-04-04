@@ -194,17 +194,20 @@ class RuleBuilder {
 						rule_name: this.rule,
 						doctype: values.doctype,
 						docname: values.docname,
-						save_log: values.save_log,
+						dry_run: !values.save_log,
+						skip_log_enqueue: !values.save_log,
 					},
 					callback: (r) => {
 						if (r.message?.success) {
 							// Highlight path in builder
-							if (r.message.execution_path) {
+							const pathTrace =
+								r.message.path_trace || r.message.execution_path || [];
+							if (pathTrace.length) {
 								this.store.set_test_result(
-									r.message.execution_path,
-									r.message.context_snapshot
+									pathTrace,
+									r.message.vars || r.message.context_snapshot
 								);
-								this.update_test_ui(r.message.execution_path);
+								this.update_test_ui(pathTrace);
 							}
 
 							frappe.msgprint({

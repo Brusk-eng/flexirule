@@ -23,6 +23,7 @@ class RuleAction(Document):
 			"Condition",
 			"Process",
 			"Stop",
+			"Raise Error",
 			"Wait",
 			"Sub-Rule",
 			"Set Value",
@@ -30,11 +31,10 @@ class RuleAction(Document):
 			"Query Records",
 			"Document Action",
 		]
-		condition_expression: DF.Code | None
+		compiled_expression: DF.Code | None
 		condition_json: DF.Code | None
 		config: DF.Code | None
 		description: DF.Text | None
-		input_mapping: DF.Code | None
 		input_source: DF.Literal["", "Context Doc", "Context Variable", "Both"]
 		is_async: DF.Check
 		is_enabled: DF.Check
@@ -51,16 +51,18 @@ class RuleAction(Document):
 		next_step_if_true: DF.Autocomplete | None
 		on_error: DF.Literal["Stop", "Continue", "Retry", "Rollback", "Escalate"]
 		operation: DF.Autocomplete | None
-		output_mapping: DF.Code | None
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data
+		permission_audit_reason: DF.SmallText | None
 		process_name: DF.Link | None
 		reference_docname: DF.DynamicLink | None
 		reference_doctype: DF.Link | None
 		resolved_output_schema: DF.Code | None
 		retry_count: DF.Int
-		return_type: DF.Literal["", "Boolean", "Dict", "List", "List of Dict", "Doc as Dict"]
+		return_type: DF.Literal[
+			"", "Yes / No", "Single Record", "List of Values", "List of Records", "Full Document"
+		]
 		return_variable: DF.Data | None
 		rule: DF.Link | None
 		skip_conditions: DF.Check

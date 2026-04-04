@@ -49,7 +49,7 @@ def export_rule(rule_name):
 				"action_type": action.action_type,
 				"is_enabled": action.is_enabled,
 				"configuration": action.config,
-				"condition_expression": action.condition_expression,
+				"compiled_expression": action.compiled_expression,
 				"on_error": action.on_error,
 				"next_step_if_true": action.next_step_if_true,
 				"next_step_if_false": action.next_step_if_false,
@@ -111,6 +111,8 @@ def import_rule(import_data, overwrite=False):
 
 	# Add actions
 	for action_data in rule_data.get("actions", []):
+		if action_data.get("condition_expression") and not action_data.get("compiled_expression"):
+			action_data["compiled_expression"] = action_data.pop("condition_expression")
 		rule.append("actions", action_data)
 
 	rule.save()

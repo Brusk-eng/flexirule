@@ -1,6 +1,7 @@
 frappe.ui.form.on("Rule", {
 	onload(frm) {
 		frm._process_ops_cache = {};
+		flexirule.contracts?.loadContractsFromBackend?.();
 		apply_trigger_type_contract(frm);
 
 		const grid = frm.get_field("actions").grid;
@@ -14,10 +15,6 @@ frappe.ui.form.on("Rule", {
 				["Rule", "is_active", "=", 1],
 			];
 
-			if (frm.doc.document_type) {
-				filters.push(["Rule", "document_type", "=", frm.doc.document_type]);
-			}
-
 			if (frm.doc.name) {
 				filters.push(["Rule", "name", "!=", frm.doc.name]);
 			}
@@ -27,7 +24,20 @@ frappe.ui.form.on("Rule", {
 
 		op_field.get_data = function () {
 			const row = this.grid_row.doc;
-			if (!row || !row.process_name || row.action_type !== "Process") return [];
+			if (!row || !row.action_type) return [];
+
+			const contractOptions =
+				flexirule.contracts?.getOperationOptions?.(row.action_type, {
+					processName: row.process_name,
+				}) || [];
+			if (contractOptions.length) {
+				return contractOptions.map((op) => ({
+					value: op.value || op.func_name,
+					description: op.process_name || "",
+				}));
+			}
+
+			if (!row.process_name || row.action_type !== "Process") return [];
 
 			const cached = frm._process_ops_cache[row.process_name];
 			if (cached) {
@@ -220,7 +230,7 @@ function apply_trigger_type_contract(frm, options = {}) {
 		"document_type",
 		"trigger_event",
 		"trigger_condition",
-		"trigger_condition_expression",
+		"compiled_expression",
 	];
 	const visibleFields = new Set([
 		...(contract.required_fields || []),
@@ -332,7 +342,8 @@ function test_rule(frm) {
 					rule_name: frm.doc.name,
 					doctype: values.doctype,
 					docname: values.docname,
-					save_log: values.save_log,
+					dry_run: !values.save_log,
+					skip_log_enqueue: !values.save_log,
 				},
 				callback: (r) => {
 					if (r.message?.success) {
@@ -371,7 +382,7 @@ function toggle_action_fields(frm, cdt, cdn) {
 		"retry_count",
 		"is_async",
 		"on_error",
-		"condition_expression",
+		"compiled_expression",
 		"condition_json",
 		"next_step_if_false",
 		"rule",
@@ -405,9 +416,17 @@ function toggle_action_fields(frm, cdt, cdn) {
 
 	// 2. Additional logic for dynamic fields
 	if (type === "Process") {
-		fields_to_show.push("config", "timeout", "is_async", "on_error", "configure_operation");
+		fields_to_show.push(
+			"config",
+			"timeout",
+			"is_async",
+			"on_error",
+			"configure_operation",
+			"mutation_mode",
+			"return_variable"
+		);
 	} else if (type === "Condition") {
-		fields_to_show.push("condition_expression", "next_step_if_false");
+		fields_to_show.push("compiled_expression", "next_step_if_false");
 	} else if (type === "Sub-Rule") {
 		fields_to_show.push("skip_conditions", "skip_permissions");
 	} else if (["Query Records", "Document Action"].includes(type)) {
@@ -420,6 +439,21 @@ function toggle_action_fields(frm, cdt, cdn) {
 		["Process", "Query Records", "Document Action"].includes(type)
 	) {
 		fields_to_show.push("operation");
+	}
+
+	const policyContext = {
+		operation: row.operation,
+		processName: row.process_name,
+	};
+	const showReturnType =
+		flexirule.contracts?.shouldShowReturnType?.(type, policyContext) ?? false;
+	const requireReturnType =
+		flexirule.contracts?.isReturnTypeMandatory?.(type, policyContext) ?? false;
+	if (showReturnType) {
+		fields_to_show.push("return_type");
+	}
+	if (["Process", "Query Records", "Document Action"].includes(type)) {
+		fields_to_show.push("return_variable");
 	}
 
 	// Handle reference_docname visibility
@@ -439,9 +473,20 @@ function toggle_action_fields(frm, cdt, cdn) {
 		}
 	});
 
+	const returnTypeField = grid_row.get_field("return_type");
+	if (returnTypeField) {
+		returnTypeField.df.reqd = requireReturnType ? 1 : 0;
+		returnTypeField.refresh();
+	}
+
 	// Update Operation Label if contract provides it
-	if (contract.operation_label) {
-		grid_row.get_field("operation").df.label = contract.operation_label;
+	const dynamicOperationLabel = flexirule.contracts?.getFieldLabel?.(type, "operation", {
+		operation: row.operation,
+		processName: row.process_name,
+	});
+	if (dynamicOperationLabel || contract.operation_label) {
+		grid_row.get_field("operation").df.label =
+			dynamicOperationLabel || contract.operation_label;
 		grid_row.get_field("operation").refresh();
 	} else {
 		grid_row.get_field("operation").df.label = __("Operation / Mode");
@@ -451,7 +496,7 @@ function toggle_action_fields(frm, cdt, cdn) {
 
 function update_operation_options(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
-	if (!row || row.action_type !== "Process" || !row.process_name) return;
+	if (!row || !row.action_type) return;
 
 	const grid_row = frm.get_field("actions").grid.get_row(row.name || cdn);
 	if (!grid_row) return;
@@ -468,6 +513,17 @@ function update_operation_options(frm, cdt, cdn) {
 		field.set_data?.(cleaned);
 		field.refresh();
 	};
+
+	const contractOptions =
+		flexirule.contracts?.getOperationOptions?.(row.action_type, {
+			processName: row.process_name,
+		}) || [];
+	if (contractOptions.length) {
+		apply_ops(contractOptions);
+		return;
+	}
+
+	if (row.action_type !== "Process" || !row.process_name) return;
 
 	if (frm._process_ops_cache[row.process_name]) {
 		apply_ops(frm._process_ops_cache[row.process_name]);

@@ -1,6 +1,8 @@
 import { defineStore } from "pinia";
 import {
 	getContract,
+	getEffectiveActionPolicy,
+	getOperationOptions,
 	normalizeActionType,
 	ACTION_TYPES_WITH_REFERENCE_CONTEXT,
 	ACTION_TYPES_WITH_RETURN_SCHEMA,
@@ -411,7 +413,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 				config: configData,
 				target_field: action.target_field,
 				value_template: action.value_template,
-				condition_expression: action.condition_expression,
+				compiled_expression: action.compiled_expression,
 				condition_json: safeParse(action.condition_json),
 				is_enabled: action.is_enabled,
 				on_error: action.on_error,
@@ -436,6 +438,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 				mutation_mode: action.mutation_mode,
 				return_type: action.return_type,
 				resolved_output_schema: safeParse(action.resolved_output_schema),
+				input_mapping: configData.input_mapping || null,
+				output_mapping: configData.output_mapping || null,
 			};
 
 			if (isRoot) {
@@ -562,7 +566,24 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		const normalized = { ...data };
 		const contract = getContract(actionType);
-		const allowedMutations = contract.allowed_mutations || [];
+		const operationOptions = getOperationOptions(actionType, {
+			processName: normalized.process_name,
+		}).map((opt) => opt.value);
+		if (
+			normalized.operation &&
+			operationOptions.length &&
+			!operationOptions.includes(normalized.operation)
+		) {
+			normalized.operation = null;
+		}
+
+		const policy = getEffectiveActionPolicy(actionType, {
+			operation: normalized.operation,
+			processName: normalized.process_name,
+		});
+		const allowedMutations = policy.allowed_mutations || contract.allowed_mutations || [];
+		const allowedReturnTypes =
+			policy.allowed_return_types || contract.allowed_return_types || [];
 
 		if (
 			normalized.mutation_mode &&
@@ -580,6 +601,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 		if (!ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType)) {
 			normalized.return_type = null;
 			normalized.resolved_output_schema = null;
+		} else {
+			if (
+				normalized.return_type &&
+				allowedReturnTypes.length &&
+				!allowedReturnTypes.includes(normalized.return_type)
+			) {
+				normalized.return_type = null;
+			}
+			if (!normalized.return_type && policy.default_return_type) {
+				normalized.return_type = policy.default_return_type;
+			}
 		}
 
 		if (actionType !== "Process") {
@@ -591,7 +623,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		}
 
 		if (actionType !== "Condition") {
-			normalized.condition_expression = null;
+			normalized.compiled_expression = null;
 			normalized.condition_json = null;
 			normalized.next_step_if_false = null;
 		}
@@ -620,7 +652,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	function getSubRuleName(configStr) {
 		try {
-			return JSON.parse(configStr).rule;
+			const parsed = typeof configStr === "string" ? JSON.parse(configStr) : configStr;
+			return parsed?.sub_rule_name || parsed?.rule || null;
 		} catch {
 			return null;
 		}
@@ -672,9 +705,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return await flexirule.utils.get_operation_config_fields(process_name, operation_name, frm);
 	}
 
-	async function fetch_available_rules(doctype) {
-		const targetDoctype = doctype || rule_doc.value?.document_type;
-		if (!targetDoctype) return;
+	async function fetch_available_rules() {
 		try {
 			const rules = await frappe.db.get_list("Rule", {
 				fields: [
@@ -686,7 +717,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 					"exposed_as_subrule",
 				],
 				filters: {
-					document_type: targetDoctype,
 					trigger_type: "Callable Event",
 					exposed_as_subrule: 1,
 					is_active: 1,
@@ -867,8 +897,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 			doc.visual_data = JSON.stringify(clean_graph_data());
 
 			const startNode = nodes.value.find((el) => el.type === "start");
-			doc.compiled_expression = startNode?.data?.compiled_expression || null;
-			doc.trigger_condition = startNode?.data?.trigger_condition || null;
+			doc.trigger_condition = serializeField(startNode?.data?.trigger_condition);
+			// Always recompile trigger conditions server-side from canonical JSON.
+			doc.compiled_expression = null;
 			if (startNode?.data) {
 				doc.priority = startNode.data.priority ?? doc.priority;
 				doc.execution_mode = startNode.data.execution_mode || doc.execution_mode;
@@ -935,6 +966,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 					);
 				}
 
+				const normalizedConfig = clean_action_config(node.data?.config) || {};
+				if (node.data?.input_mapping) {
+					normalizedConfig.input_mapping = node.data.input_mapping;
+				}
+				if (node.data?.output_mapping) {
+					normalizedConfig.output_mapping = node.data.output_mapping;
+				}
+				if (action_type === "Sub-Rule" && node.data?.rule) {
+					normalizedConfig.sub_rule_name = node.data.rule;
+				}
+
 				return {
 					name: node.data?.name,
 					idx: idx + 1,
@@ -944,10 +986,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 					is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
 					process_name: node.data?.process_name,
 					operation: node.data?.operation,
-					config: serializeField(clean_action_config(node.data?.config)),
+					config: serializeField(normalizedConfig),
 					target_field: node.data?.target_field,
 					value_template: node.data?.value_template,
-					condition_expression: node.data?.condition_expression,
+					compiled_expression: node.data?.compiled_expression,
 					condition_json: serializeField(node.data?.condition_json),
 
 					on_error: node.data?.on_error || "Stop",
@@ -1042,7 +1084,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		// Type specific defaults
 		if (type === "condition") {
 			baseData.action_type = "Condition";
-			baseData.condition_expression = "";
+			baseData.compiled_expression = "";
 			baseData.condition_json = "[]";
 		} else if (type === "wait") {
 			baseData.action_type = "Wait";
@@ -1182,7 +1224,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 			if (
 				data.resolved_output_schema &&
-				!["Boolean", "List", "List of Dict"].includes(data.return_type)
+				!["Yes / No", "List of Values", "List of Records"].includes(data.return_type)
 			) {
 				let schema = data.resolved_output_schema;
 				if (typeof schema === "string") {
@@ -1213,13 +1255,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	function mapReturnTypeToFieldType(returnType) {
 		switch (returnType) {
-			case "Boolean":
+			case "Yes / No":
 				return "Check";
-			case "List":
-			case "List of Dict":
+			case "List of Values":
+			case "List of Records":
 				return "Table";
-			case "Dict":
-			case "Doc as Dict":
+			case "Single Record":
+			case "Full Document":
 				return "Data";
 			default:
 				return returnType || "Data";
