@@ -12,6 +12,7 @@ This module defines the contract for action types that is shared between:
 from __future__ import annotations
 
 import json
+from typing import Any
 
 # Action Type Contract
 # Each action type defines:
@@ -21,7 +22,7 @@ import json
 # - terminal: Whether this action ends the flow
 # - validation: Additional validation rules
 
-ACTION_TYPE_CONTRACT = {
+ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 	"Entry Action": {
 		"required_fields": [],
 		"has_next_true": True,
