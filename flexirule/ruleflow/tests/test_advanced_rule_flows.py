@@ -221,7 +221,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 						}
 					),
 					"return_variable": "contact_changed",
-					"return_type": "Boolean",
+					"return_type": "Yes / No",
 					"next_step_if_true": "dedupe_phone",
 				},
 				{
@@ -359,7 +359,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 					"config": _j({"docname_expression": "doc.name"}),
 					"mutation_mode": "Set Context Variable",
 					"return_variable": "contact_snapshot",
-					"return_type": "Doc as Dict",
+					"return_type": "Full Document",
 					"next_step_if_true": "count_followups",
 				},
 				{

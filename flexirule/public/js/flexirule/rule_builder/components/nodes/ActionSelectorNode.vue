@@ -1,14 +1,25 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import { ACTION_TYPE_CONTRACT, getActionTypeOptions } from "../../../core/contracts";
+import {
+	ACTION_TYPE_CONTRACT,
+	PROCESS_REGISTRY,
+	getActionTypeOptions,
+	getOperationOptions,
+	loadContractsFromBackend,
+} from "../../../core/contracts";
 import { useStore } from "../../store";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 
 const props = defineProps(["data", "label", "id", "selected"]);
 const store = useStore();
 
-const selectedType = ref("Process");
+const selectedPreset = ref({
+	action_type: "Process",
+	operation: null,
+	process_name: null,
+	selected_label: "Process",
+});
 const customLabel = ref("");
 const searchQuery = ref("");
 const showResults = ref(false);
@@ -79,7 +90,7 @@ const filteredResults = computed(() => {
 	// 1. Filter action types and their native operations
 	actionTypes.value.forEach((t) => {
 		const contract = ACTION_TYPE_CONTRACT[t.value] || {};
-		const ops = contract.operation_options || [];
+		const ops = getOperationOptions(t.value);
 
 		// Match the action type itself
 		const matchAction =
@@ -90,7 +101,9 @@ const filteredResults = computed(() => {
 		}
 
 		// Match operations within this action type
-		const matchingOps = ops.filter((op) => fuzzyMatch(op, q));
+		const matchingOps = ops.filter(
+			(op) => fuzzyMatch(op.label || op.value, q) || fuzzyMatch(op.value, q)
+		);
 		if (matchingOps.length) {
 			if (!matchAction) {
 				results.push({ type: "header", label: t.label });
@@ -98,9 +111,10 @@ const filteredResults = computed(() => {
 			matchingOps.forEach((op) => {
 				results.push({
 					type: "op",
-					label: `${t.label} → ${__(op)}`,
+					label: `${t.label} → ${__(op.label || op.value)}`,
 					value: t.value,
-					operation: op,
+					operation: op.value,
+					process_name: t.value === "Process" ? op.process_name || null : null,
 					icon: t.icon,
 					color: t.color,
 					description: t.description,
@@ -137,6 +151,21 @@ const filteredResults = computed(() => {
 });
 
 async function loadProcessOperations() {
+	await loadContractsFromBackend();
+	if (Array.isArray(PROCESS_REGISTRY) && PROCESS_REGISTRY.length) {
+		processOperations.value = PROCESS_REGISTRY.flatMap((proc) =>
+			(proc.operations || [])
+				.filter((op) => op.enabled !== 0 && op.visible_in_builder !== 0 && op.func_name)
+				.map((op) => ({
+					process: proc.name,
+					module: proc.module,
+					operation: op.func_name,
+					label: op.label || op.func_name,
+					description: op.description || "",
+				}))
+		);
+		return;
+	}
 	try {
 		const res = await frappe.call({
 			method: "flexirule.ruleflow.api.get_all_process_operations",
@@ -149,18 +178,27 @@ async function loadProcessOperations() {
 
 function selectItem(item) {
 	if (item.type === "header") return;
-	selectedType.value = item.value;
-
-	// Invalidate previous temp props
-	selectedType._process_name = null;
-	selectedType._operation = null;
-
 	if (item.type === "process_op") {
-		selectedType.value = "Process";
-		selectedType._process_name = item.process_name;
-		selectedType._operation = item.operation;
+		selectedPreset.value = {
+			action_type: "Process",
+			operation: item.operation,
+			process_name: item.process_name,
+			selected_label: item.label || item.operation || "Process",
+		};
 	} else if (item.type === "op") {
-		selectedType._operation = item.operation;
+		selectedPreset.value = {
+			action_type: item.value || "Process",
+			operation: item.operation || null,
+			process_name: item.process_name || null,
+			selected_label: item.label || item.operation || item.value || "Process",
+		};
+	} else {
+		selectedPreset.value = {
+			action_type: item.value || "Process",
+			operation: null,
+			process_name: null,
+			selected_label: item.label || item.value || "Process",
+		};
 	}
 
 	searchQuery.value = item.label;
@@ -173,9 +211,6 @@ function onSearchFocus() {
 
 function onSearchKeydown(e) {
 	if (!showResults.value || !filteredResults.value.length) return;
-
-	const options = filteredResults.value.filter((i) => i.type !== "header");
-	const headersCount = filteredResults.value.filter((i) => i.type === "header").length;
 
 	if (e.key === "ArrowDown") {
 		e.preventDefault();
@@ -207,13 +242,16 @@ function onSearchBlur() {
 }
 
 function onCreate() {
-	const typeConfig = actionTypes.value.find((t) => t.value === selectedType.value);
 	const nodeIndex = store.nodes.findIndex((n) => n.id === props.id);
 
 	if (nodeIndex === -1) return;
 
-	const action_type = selectedType.value;
-	const label = customLabel.value || searchQuery.value || selectedType.value;
+	const action_type = selectedPreset.value.action_type || "Process";
+	const label =
+		customLabel.value ||
+		selectedPreset.value.operation ||
+		selectedPreset.value.selected_label ||
+		action_type;
 	// Map Action Type to VueFlow node type using the same logic as App.vue
 	const nodeType = mapActionTypeToNodeType(action_type);
 
@@ -221,14 +259,21 @@ function onCreate() {
 	const suggestedParentId = store.nodes[nodeIndex].data?.suggested_parent_id;
 	const suggestedSourceHandle = store.nodes[nodeIndex].data?.suggested_source_handle || "default";
 
-	// Pre-fill process/operation data if selected from search results
-	if (selectedType._operation) {
-		nodeData.operation = selectedType._operation;
-		if (selectedType._process_name) {
-			nodeData.process_name = selectedType._process_name;
+	// Pre-fill process/operation data from selected preset
+	if (selectedPreset.value.operation) {
+		nodeData.operation = selectedPreset.value.operation;
+	}
+	if (selectedPreset.value.process_name) {
+		nodeData.process_name = selectedPreset.value.process_name;
+	}
+	if (action_type === "Process" && nodeData.operation && !nodeData.process_name) {
+		const matches = getOperationOptions("Process", {})
+			.filter((op) => op.value === nodeData.operation && op.process_name)
+			.map((op) => op.process_name);
+		const unique = [...new Set(matches)];
+		if (unique.length === 1) {
+			nodeData.process_name = unique[0];
 		}
-		selectedType._process_name = null;
-		selectedType._operation = null;
 	}
 
 	// Upgrade the node
@@ -299,7 +344,20 @@ onMounted(() => {
 							@keyup.enter="onCreate"
 						/>
 					</div>
-					<div v-if="showResults && filteredResults.length" class="search-results">
+					<div v-if="selectedPreset.operation" class="selected-operation-preview">
+						<span class="badge-chip">{{ selectedPreset.action_type }}</span>
+						<span class="selected-operation-text">
+							{{ selectedPreset.operation }}
+						</span>
+						<span v-if="selectedPreset.process_name" class="selected-process-name">
+							({{ selectedPreset.process_name }})
+						</span>
+					</div>
+					<div
+						v-if="showResults && filteredResults.length"
+						class="search-results"
+						@wheel.stop
+					>
 						<div
 							v-for="(item, idx) in filteredResults"
 							:key="idx"
@@ -452,7 +510,41 @@ onMounted(() => {
 	z-index: 100;
 	max-height: 240px;
 	overflow-y: auto;
+	overscroll-behavior: contain;
 	margin-top: 2px;
+}
+
+.search-results :deep(*) {
+	user-select: none;
+}
+
+.selected-operation-preview {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 6px;
+	flex-wrap: wrap;
+}
+
+.badge-chip {
+	background: #eef2ff;
+	color: #4338ca;
+	border: 1px solid #c7d2fe;
+	border-radius: 10px;
+	padding: 1px 6px;
+	font-size: 10px;
+	font-weight: 700;
+}
+
+.selected-operation-text {
+	font-size: 10px;
+	font-weight: 600;
+	color: #1f2937;
+}
+
+.selected-process-name {
+	font-size: 10px;
+	color: #6b7280;
 }
 
 .search-result-item {

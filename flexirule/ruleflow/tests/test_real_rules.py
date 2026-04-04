@@ -121,7 +121,7 @@ class TestRealRules(FrappeTestCase):
 					reference_doctype="Contact",
 					operation="Query List",
 					return_variable="contacts",
-					return_type="List of Dict",
+					return_type="List of Records",
 					config={
 						"filters": {"first_name": ["like", "%john%"]},
 						"fields": ["name", "first_name"],
@@ -268,7 +268,7 @@ class TestRealRules(FrappeTestCase):
 					reference_doctype="ToDo",
 					operation="Create ToDo",
 					return_variable="todo_result",
-					return_type="Dict",
+					return_type="Single Record",
 					config={
 						"assigned_to": "Administrator",
 						"description": "Review contact {{ doc.first_name }}",
@@ -430,7 +430,7 @@ class TestRealRules(FrappeTestCase):
 					reference_doctype="Contact",
 					operation="Query List",
 					return_variable="duplicates",
-					return_type="List of Dict",
+					return_type="List of Records",
 					config={
 						"filters": {"first_name": first_name},
 						"fields": ["name", "first_name"],
@@ -479,7 +479,7 @@ class TestRealRules(FrappeTestCase):
 					reference_doctype="Contact",
 					operation="Query List",
 					return_variable="stale_contacts",
-					return_type="List of Dict",
+					return_type="List of Records",
 					config={
 						"filters": {"first_name": tag},
 						"fields": ["name"],
@@ -529,7 +529,7 @@ class TestRealRules(FrappeTestCase):
 					reference_docname=contact.name,
 					operation="Query Doc",
 					return_variable="fetched_doc",
-					return_type="Doc as Dict",
+					return_type="Full Document",
 					skip_permissions=1,
 					permission_audit_reason="Test",
 					next_step_if_true="check",

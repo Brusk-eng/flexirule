@@ -15,6 +15,7 @@ from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.exceptions import CycleDetectedError, MethodExecutionError
+from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
 
 # Maximum nesting depth for sub-rule calls
 MAX_SUB_RULE_DEPTH = 2
@@ -98,14 +99,12 @@ class SubRuleHandler(ActionHandler):
 		    Tuple of (None, next_action_id)
 		"""
 		try:
+			action_config = engine._get_action_config(action)
+
 			# Determine Sub Rule name
 			sub_rule_name = getattr(action, "rule", None)
-			if not sub_rule_name and getattr(action, "config", None):
-				try:
-					cfg = json.loads(action.config)
-					sub_rule_name = cfg.get("rule")
-				except Exception:
-					engine._log("WARNING", _("Failed to parse Sub-Rule config JSON"))
+			if not sub_rule_name:
+				sub_rule_name = action_config.get("sub_rule_name") or action_config.get("rule")
 
 			if not sub_rule_name:
 				engine._log("WARNING", _("Sub-Rule action missing rule reference"))
@@ -128,15 +127,6 @@ class SubRuleHandler(ActionHandler):
 
 			if not sub_rule_doc.is_active:
 				raise MethodExecutionError(_("Sub-Rule {0} is not active").format(sub_rule_name))
-
-			if sub_rule_doc.document_type != engine.rule.document_type:
-				raise MethodExecutionError(
-					_("Sub-Rule {0} expects {1}, but current context is {2}").format(
-						sub_rule_name,
-						sub_rule_doc.document_type,
-						engine.rule.document_type,
-					)
-				)
 
 			# Cross-rule cycle detection
 			execution_stack = context.get("meta", {}).get("execution_stack", [])
@@ -164,7 +154,42 @@ class SubRuleHandler(ActionHandler):
 						sub_rule_doc.trigger_condition
 					)
 
-				is_eligible = engine._evaluate_python_condition(sub_rule_doc.compiled_expression, context)
+				caller_rule_meta = {
+					"name": engine.rule.name,
+					"trigger_type": engine.rule.trigger_type,
+					"trigger_event": context.get("event_name") or engine.rule.trigger_event,
+					"document_type": engine.rule.document_type,
+				}
+				target_rule_meta = {
+					"name": sub_rule_doc.name,
+					"trigger_type": sub_rule_doc.trigger_type,
+					"trigger_event": sub_rule_doc.trigger_event,
+					"document_type": sub_rule_doc.document_type,
+				}
+				eligibility_vars = dict(context.get("vars", {}) or {})
+				caller_doc = context.get("doc")
+				eligibility_vars.update(
+					{
+						"_caller_rule": engine.rule.name,
+						"_caller_trigger_type": engine.rule.trigger_type,
+						"_caller_trigger_event": context.get("event_name") or engine.rule.trigger_event,
+						"_caller_document_type": engine.rule.document_type,
+						"_caller_doc_type": getattr(caller_doc, "doctype", None),
+					}
+				)
+
+				eligibility_context = dict(context)
+				eligibility_context["vars"] = eligibility_vars
+				eligibility_context["caller"] = caller_rule_meta
+				eligibility_context["rule"] = target_rule_meta
+				eligibility_context["doctype"] = (
+					engine.rule.document_type
+					or getattr(caller_doc, "doctype", None)
+					or sub_rule_doc.document_type
+				)
+				is_eligible = engine._evaluate_python_condition(
+					sub_rule_doc.compiled_expression, eligibility_context
+				)
 				if not is_eligible:
 					engine._log(
 						"INFO",
@@ -205,6 +230,18 @@ class SubRuleHandler(ActionHandler):
 			sub_context["meta"]["call_depth"] = current_depth + 1
 			sub_context["meta"]["skip_conditions"] = skip_conditions
 			sub_context["meta"]["skip_permissions"] = skip_permissions
+			sub_context["meta"]["caller_rule"] = engine.rule.name
+			sub_context["meta"]["caller_trigger_type"] = engine.rule.trigger_type
+			sub_context["meta"]["caller_trigger_event"] = (
+				context.get("event_name") or engine.rule.trigger_event
+			)
+
+			# Map parent context values into child vars (reusable mapping semantics)
+			input_mapping_json = self._mapping_to_json(action_config.get("input_mapping"))
+			if input_mapping_json:
+				mapped_inputs = apply_input_mapping(context, input_mapping_json, {})
+				for key, value in mapped_inputs.items():
+					sub_context["vars"][key] = value
 
 			# Execute sub-rule
 			# Import here to avoid circular import
@@ -217,10 +254,6 @@ class SubRuleHandler(ActionHandler):
 				meta=sub_context["meta"],
 			)
 
-			# No implicit merge-back. Sub-rule outputs are always namespaced.
-			return_var = (getattr(action, "return_variable", None) or "").strip()
-			namespace_key = return_var or self._auto_namespace_key(action, sub_rule_name)
-
 			sub_result_vars = result_context.get("vars", {})
 			if isinstance(sub_result_vars, SubRuleVarsOverlay):
 				sub_result_vars = sub_result_vars.export_mutations()
@@ -229,14 +262,24 @@ class SubRuleHandler(ActionHandler):
 			else:
 				sub_result_vars = {}
 
-			context.setdefault("vars", {})[namespace_key] = sub_result_vars
-			if not return_var:
-				engine._log(
-					"INFO",
-					_("Sub-Rule {0}: return_variable not set, output stored in '{1}'").format(
-						sub_rule_name, namespace_key
-					),
-				)
+			return_var = (getattr(action, "return_variable", None) or "").strip()
+			output_mapping_json = self._mapping_to_json(action_config.get("output_mapping"))
+
+			# No implicit parent merge. Either explicit mapping or deterministic namespace.
+			if output_mapping_json:
+				apply_output_mapping(sub_result_vars, output_mapping_json, context)
+				if return_var:
+					context.setdefault("vars", {})[return_var] = sub_result_vars
+			else:
+				namespace_key = return_var or self._auto_namespace_key(action, sub_rule_name)
+				context.setdefault("vars", {})[namespace_key] = sub_result_vars
+				if not return_var:
+					engine._log(
+						"INFO",
+						_("Sub-Rule {0}: return_variable not set, output stored in '{1}'").format(
+							sub_rule_name, namespace_key
+						),
+					)
 			engine._log("INFO", _("END Sub-Rule: {0}").format(sub_rule_name))
 
 			return None, getattr(action, "next_step_if_true", None)
@@ -264,6 +307,16 @@ class SubRuleHandler(ActionHandler):
 		action_id = getattr(action, "action_id", None) or sub_rule_name or "subrule"
 		safe_action_id = "".join(ch if (ch.isalnum() or ch == "_") else "_" for ch in str(action_id))
 		return f"subrule_{safe_action_id}"
+
+	def _mapping_to_json(self, value) -> str | None:
+		"""Normalize mapping payload to JSON string for mapping utils."""
+		if not value:
+			return None
+		if isinstance(value, str):
+			return value
+		if isinstance(value, dict):
+			return json.dumps(value)
+		return None
 
 
 # Register the handler

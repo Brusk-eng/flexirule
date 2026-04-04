@@ -313,7 +313,7 @@ flexirule.validation.validate_action_types = function (
 
 		// Condition validation
 		if (action_type === "Condition") {
-			if (!action.condition_json && !action.condition_expression) {
+			if (!action.condition_json && !action.compiled_expression) {
 				errors.push(
 					__("Action '{0}' is a Condition but no condition is defined.", [label])
 				);

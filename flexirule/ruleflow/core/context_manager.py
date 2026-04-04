@@ -24,18 +24,11 @@ class ContextManager:
 
 	# Mapping of return_type strings to Python types
 	TYPE_MAP: ClassVar[dict[str, tuple]] = {
-		"Boolean": (bool,),
-		"Dict": (dict,),
-		"List": (list,),
-		"List of Dict": (list,),
-		"Doc as Dict": (dict,),
-	}
-	RETURN_TYPE_ALIASES: ClassVar[dict[str, str]] = {
-		"Yes / No": "Boolean",
-		"Single Record": "Dict",
-		"List of Values": "List",
-		"List of Records": "List of Dict",
-		"Full Document": "Doc as Dict",
+		"Yes / No": (bool,),
+		"Single Record": (dict,),
+		"List of Values": (list, tuple, str, int, float, bool),
+		"List of Records": (list,),
+		"Full Document": (dict,),
 	}
 
 	def __init__(self, context: dict):
@@ -155,8 +148,8 @@ class ContextManager:
 				)
 			)
 
-		# Additional validation for "List of Dict"
-		if return_type == "List of Dict" and isinstance(value, list):
+		# Additional validation for "List of Records"
+		if return_type == "List of Records" and isinstance(value, list):
 			for i, item in enumerate(value):
 				if item is not None and not isinstance(item, dict):
 					frappe.throw(
@@ -199,10 +192,8 @@ class ContextManager:
 			)
 
 	def normalize_return_type(self, return_type: str | None) -> str | None:
-		"""Normalize return type labels with backward-compatible aliases."""
-		if not return_type:
-			return return_type
-		return self.RETURN_TYPE_ALIASES.get(return_type, return_type)
+		"""Return normalized return type label."""
+		return return_type
 
 	def apply_mutation(self, mutation_mode: str, var_name: str, value, context: dict | None = None):
 		"""

@@ -194,6 +194,22 @@ class TestRuleCoordinator(FrappeTestCase):
 		self.assertFalse(is_eligible)
 		# The reason might vary, so we'll just check that it's not eligible
 
+	def test_check_eligibility_trigger_condition_context_helpers(self):
+		"""Test eligibility check with context helper operators."""
+		trigger_condition = [
+			{"left": {"ref": "doctype"}, "op": "==", "right": {"value": "ToDo"}},
+			{
+				"left": {"ref": "rule.document_type"},
+				"op": "has_field",
+				"right": {"value": "description"},
+			},
+		]
+		rule = self.create_test_rule("Test Cond Context Helpers", trigger_condition=trigger_condition)
+
+		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
+		is_eligible, _reason = RuleCoordinator.check_eligibility(rule, doc, "Validate")
+		self.assertTrue(is_eligible)
+
 	def test_execute_rules_no_applicable(self):
 		"""Test execute_rules when no rules are applicable"""
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})

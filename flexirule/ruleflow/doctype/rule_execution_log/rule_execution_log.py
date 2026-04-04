@@ -18,6 +18,7 @@ class RuleExecutionLog(Document):
 		duration: DF.Float
 		error_trace: DF.Code | None
 		executed_by: DF.Link | None
+		execution_id: DF.Data | None
 		execution_path: DF.Code | None
 		message: DF.SmallText | None
 		reference_docname: DF.DynamicLink | None

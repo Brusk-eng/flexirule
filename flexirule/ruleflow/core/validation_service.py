@@ -19,6 +19,7 @@ from frappe import _
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 from flexirule.ruleflow.core.contracts import (
 	get_contract,
+	get_effective_action_policy,
 	get_required_fields,
 	get_trigger_type_contract,
 	is_release_disabled_action,
@@ -56,7 +57,13 @@ def validate_rule_definition(rule_doc) -> dict:
 		if is_release_disabled_action(action_type):
 			errors.append(_("Action '{0}' uses disabled type '{1}'").format(action_label, action_type))
 
-		_validate_action_contracts(action, action_type, action_label, errors)
+		_validate_action_contracts(
+			action,
+			action_type,
+			action_label,
+			operation_metadata,
+			errors,
+		)
 		_validate_action_specifics(rule, action, action_type, action_label, warnings, errors)
 
 		handler = HandlerRegistry.get(action_type)
@@ -138,9 +145,24 @@ def _validate_action_json(action, action_label: str, errors: list[str]) -> None:
 		_validate_json_value(output_mapping, _("Action {0}: Output Mapping").format(action_label), errors)
 
 
-def _validate_action_contracts(action, action_type: str, action_label: str, errors: list[str]) -> None:
+def _validate_action_contracts(
+	action,
+	action_type: str,
+	action_label: str,
+	operation_metadata: dict | None,
+	errors: list[str],
+) -> None:
 	contract = get_contract(action_type)
 	operation = _safe_get(action, "operation")
+	operation_metadata = operation_metadata or {}
+	process_operation = None
+	if action_type == "Process" and _safe_get(action, "process_name") and operation:
+		process_operation = operation_metadata.get(f"{_safe_get(action, 'process_name')}:{operation}")
+	effective_policy = get_effective_action_policy(
+		action_type,
+		operation=operation,
+		process_operation=process_operation,
+	)
 
 	for fieldname in get_required_fields(action_type):
 		if _is_empty(_safe_get(action, fieldname)):
@@ -159,11 +181,14 @@ def _validate_action_contracts(action, action_type: str, action_label: str, erro
 
 	mutation_mode = _safe_get(action, "mutation_mode")
 	if mutation_mode:
-		allowed_mutations = contract.get("allowed_mutations")
+		allowed_mutations = effective_policy.get("allowed_mutations") or contract.get("allowed_mutations")
 		if allowed_mutations and mutation_mode not in allowed_mutations:
 			errors.append(
-				_("Action '{0}' ({1}) does not allow mutation mode '{2}'").format(
-					action_label, action_type, mutation_mode
+				_("Action '{0}' ({1}/{2}) does not allow mutation mode '{3}'").format(
+					action_label,
+					action_type,
+					operation or _("default"),
+					mutation_mode,
 				)
 			)
 
@@ -180,6 +205,27 @@ def _validate_action_contracts(action, action_type: str, action_label: str, erro
 		errors.append(
 			_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
 				action_label, action_type
+			)
+		)
+
+	allowed_return_types = effective_policy.get("allowed_return_types") or []
+	return_type = _safe_get(action, "return_type")
+	require_return_type = bool(effective_policy.get("require_return_type"))
+	if require_return_type and _is_empty(return_type):
+		errors.append(
+			_("Action '{0}' ({1}/{2}) requires a return type selection").format(
+				action_label,
+				action_type,
+				operation or _("default"),
+			)
+		)
+	if return_type and allowed_return_types and return_type not in allowed_return_types:
+		errors.append(
+			_("Action '{0}' ({1}/{2}) does not allow return type '{3}'").format(
+				action_label,
+				action_type,
+				operation or _("default"),
+				return_type,
 			)
 		)
 
@@ -228,7 +274,7 @@ def _validate_action_specifics(
 
 	elif action_type == "Condition":
 		if _is_empty(_safe_get(action, "condition_json")) and _is_empty(
-			_safe_get(action, "condition_expression")
+			_safe_get(action, "compiled_expression")
 		):
 			errors.append(_("Action '{0}' is a Condition but no condition is defined.").format(action_label))
 

@@ -264,10 +264,41 @@ class RuleCoordinator:
 				# Use SafeFrappeAPI to prevent write operations in trigger conditions
 				from flexirule.ruleflow.core.engine import SafeFrappeAPI
 
+				rule_meta = {
+					"name": rule_doc.name,
+					"trigger_type": rule_doc.trigger_type,
+					"trigger_event": rule_doc.trigger_event,
+					"document_type": rule_doc.document_type,
+				}
+				doctype_name = rule_doc.document_type or getattr(doc, "doctype", None)
+
+				def _get_meta(doctype):
+					if not doctype:
+						return None
+					try:
+						return frappe.get_meta(doctype)
+					except Exception:
+						return None
+
+				def _is_submittable(doctype):
+					meta = _get_meta(doctype)
+					return bool(getattr(meta, "is_submittable", 0)) if meta else False
+
+				def _has_field(doctype, fieldname):
+					meta = _get_meta(doctype)
+					return bool(meta and fieldname and meta.has_field(fieldname))
+
 				eval_globals = {
 					"doc": doc,
 					"old_doc": old_doc,
+					"vars": {},
 					"frappe": SafeFrappeAPI(),
+					"caller": frappe._dict({}),
+					"rule": frappe._dict(rule_meta),
+					"doctype": doctype_name,
+					"is_submittable": _is_submittable,
+					"has_field": _has_field,
+					"get_meta": _get_meta,
 					"resolve": FieldResolver.resolve,
 					"check_link_match": check_link_match,
 					"True": True,

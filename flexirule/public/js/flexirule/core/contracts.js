@@ -166,13 +166,27 @@ const DEFAULT_TRIGGER_TYPE_CONTRACT = {
 	},
 	"Callable Event": {
 		required_fields: [],
-		optional_fields: ["document_type"],
-		hidden_fields: ["trigger_event", "trigger_condition", "compiled_expression"],
+		optional_fields: ["document_type", "trigger_condition", "compiled_expression"],
+		hidden_fields: ["trigger_event"],
 	},
 };
 
 const DEFAULT_RELEASE_DISABLED_ACTION_TYPES = ["Loop", "Switch"];
-const DEFAULT_RETURN_TYPE_OPTIONS = ["Boolean", "Dict", "List", "List of Dict", "Doc as Dict"];
+const DEFAULT_RETURN_TYPE_OPTIONS = [
+	"Yes / No",
+	"Single Record",
+	"List of Values",
+	"List of Records",
+	"Full Document",
+];
+const DEFAULT_MUTATION_MODE_OPTIONS = [
+	"Set Doc Field",
+	"Update Doc Field",
+	"Set Context Variable",
+	"Update Context Variable",
+	"Append to Context Variable",
+	"Batch Database Set",
+];
 
 const DEFAULT_ACTION_TYPES_WITH_REFERENCE_CONTEXT = ["Query Records", "Document Action", "Process"];
 const DEFAULT_ACTION_TYPES_WITH_RETURN_SCHEMA = ["Process", "Query Records", "Document Action"];
@@ -181,6 +195,7 @@ const DEFAULT_CONFIG_MODAL_TYPES = [
 	"Condition",
 	"Set Value",
 	"Stop",
+	"Raise Error",
 	"Notify",
 	"Wait",
 	"Sub-Rule",
@@ -192,13 +207,19 @@ export let ACTION_TYPE_CONTRACT = withDescriptions(DEFAULT_ACTION_TYPE_CONTRACT)
 export let TRIGGER_TYPE_CONTRACT = { ...DEFAULT_TRIGGER_TYPE_CONTRACT };
 export let RELEASE_DISABLED_ACTION_TYPES = new Set(DEFAULT_RELEASE_DISABLED_ACTION_TYPES);
 export let RETURN_TYPE_OPTIONS = [...DEFAULT_RETURN_TYPE_OPTIONS];
+export let MUTATION_MODE_OPTIONS = [...DEFAULT_MUTATION_MODE_OPTIONS];
 export let ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set(
 	DEFAULT_ACTION_TYPES_WITH_REFERENCE_CONTEXT
 );
 export let ACTION_TYPES_WITH_RETURN_SCHEMA = new Set(DEFAULT_ACTION_TYPES_WITH_RETURN_SCHEMA);
 export let CONFIG_MODAL_TYPES = new Set(DEFAULT_CONFIG_MODAL_TYPES);
+export let PROCESS_REGISTRY = [];
+export let OPERATION_REGISTRY = [];
+export let PROCESS_OPERATION_POLICIES = {};
+export let RUNTIME_FIELD_ALIASES = {};
 
 let _contractsLoaded = false;
+const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v1";
 
 function withDescriptions(contractMap) {
 	const merged = {};
@@ -228,6 +249,10 @@ function applyContractDto(dto = {}) {
 		RETURN_TYPE_OPTIONS = [...dto.return_type_options];
 	}
 
+	if (Array.isArray(dto.mutation_mode_options) && dto.mutation_mode_options.length) {
+		MUTATION_MODE_OPTIONS = [...dto.mutation_mode_options];
+	}
+
 	if (Array.isArray(dto.action_types_with_reference_context)) {
 		ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set(dto.action_types_with_reference_context);
 	}
@@ -239,11 +264,61 @@ function applyContractDto(dto = {}) {
 	if (Array.isArray(dto.config_modal_types)) {
 		CONFIG_MODAL_TYPES = new Set(dto.config_modal_types);
 	}
+
+	if (dto.runtime_field_aliases && typeof dto.runtime_field_aliases === "object") {
+		RUNTIME_FIELD_ALIASES = { ...dto.runtime_field_aliases };
+	}
+
+	if (Array.isArray(dto.process_registry)) {
+		PROCESS_REGISTRY = [...dto.process_registry];
+	}
+
+	if (Array.isArray(dto.operation_registry)) {
+		OPERATION_REGISTRY = [...dto.operation_registry];
+	}
+
+	if (dto.process_operation_policies && typeof dto.process_operation_policies === "object") {
+		PROCESS_OPERATION_POLICIES = { ...dto.process_operation_policies };
+	}
+}
+
+function getCachedContractDto() {
+	try {
+		const raw = window.sessionStorage?.getItem(CONTRACT_CACHE_KEY);
+		if (!raw) return null;
+		return JSON.parse(raw);
+	} catch (_error) {
+		return null;
+	}
+}
+
+function setCachedContractDto(dto) {
+	try {
+		window.sessionStorage?.setItem(CONTRACT_CACHE_KEY, JSON.stringify(dto || {}));
+	} catch (_error) {
+		// Ignore storage failures.
+	}
 }
 
 export async function loadContractsFromBackend(force = false) {
 	if (_contractsLoaded && !force) return;
 	if (!window.frappe?.call) return;
+
+	const bootDto = window.frappe?.boot?.flexirule_contract_dto;
+	if (bootDto && typeof bootDto === "object" && !force) {
+		applyContractDto(bootDto);
+		setCachedContractDto(bootDto);
+		_contractsLoaded = true;
+		return;
+	}
+
+	if (!force) {
+		const cachedDto = getCachedContractDto();
+		if (cachedDto && typeof cachedDto === "object") {
+			applyContractDto(cachedDto);
+			_contractsLoaded = true;
+		}
+	}
 
 	try {
 		const response = await frappe.call({
@@ -251,6 +326,7 @@ export async function loadContractsFromBackend(force = false) {
 		});
 		if (response?.message) {
 			applyContractDto(response.message);
+			setCachedContractDto(response.message);
 			_contractsLoaded = true;
 		}
 	} catch (_error) {
@@ -311,6 +387,115 @@ export function getReturnTypeOptions() {
 	return [...RETURN_TYPE_OPTIONS];
 }
 
+export function getMutationModeOptions() {
+	return [...MUTATION_MODE_OPTIONS];
+}
+
+function mergePolicy(basePolicy = {}, overridePolicy = {}) {
+	const merged = {
+		...(basePolicy || {}),
+		...(overridePolicy || {}),
+	};
+	if (basePolicy.field_labels || overridePolicy.field_labels) {
+		merged.field_labels = {
+			...(basePolicy.field_labels || {}),
+			...(overridePolicy.field_labels || {}),
+		};
+	}
+	return merged;
+}
+
+export function getProcessOperationPolicy(processName, operation) {
+	if (!processName || !operation) return {};
+	return PROCESS_OPERATION_POLICIES?.[processName]?.[operation] || {};
+}
+
+export function getOperationOptions(actionType, ctx = {}) {
+	const normalizedType = normalizeActionType(actionType);
+	const processName = ctx?.processName || null;
+
+	const fromRegistry = (OPERATION_REGISTRY || []).filter((row) => {
+		if (row?.action_type !== normalizedType) return false;
+		if (normalizedType !== "Process") return !row?.process_name;
+		if (!processName) return true;
+		return row?.process_name === processName;
+	});
+
+	if (fromRegistry.length) {
+		return fromRegistry.map((row) => ({
+			value: row.value,
+			label: row.label || row.value,
+			process_name: row.process_name || null,
+			policy: row.policy || {},
+		}));
+	}
+
+	const contract = getContract(normalizedType);
+	return (contract.operation_options || []).map((value) => ({
+		value,
+		label: value,
+		process_name: null,
+		policy: (contract.operation_policies || {})[value] || {},
+	}));
+}
+
+export function getEffectiveActionPolicy(actionType, ctx = {}) {
+	const normalizedType = normalizeActionType(actionType);
+	const operation = ctx?.operation || null;
+	const processName = ctx?.processName || null;
+	const contract = getContract(normalizedType);
+	let effective = {
+		allowed_mutations: [...(contract.allowed_mutations || [])],
+		allowed_return_types: [...(contract.allowed_return_types || [])],
+		default_return_type: contract.default_return_type || null,
+		field_labels: { ...(contract.field_labels || {}) },
+		show_return_type: contract.show_return_type,
+		require_return_type: contract.require_return_type || false,
+	};
+
+	if (operation) {
+		effective = mergePolicy(effective, (contract.operation_policies || {})[operation] || {});
+	}
+
+	if (normalizedType === "Process" && operation) {
+		effective = mergePolicy(effective, getProcessOperationPolicy(processName, operation));
+	}
+
+	return effective;
+}
+
+export function getAllowedReturnTypeOptions(actionType, ctx = {}) {
+	const normalizedType = normalizeActionType(actionType);
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	const allowed = policy.allowed_return_types || [];
+	if (allowed.length) return [...allowed];
+	if (ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalizedType)) return [...RETURN_TYPE_OPTIONS];
+	return [];
+}
+
+export function getAllowedMutationModeOptions(actionType, ctx = {}) {
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	const allowed = policy.allowed_mutations || [];
+	return allowed.length ? [...allowed] : [...MUTATION_MODE_OPTIONS];
+}
+
+export function getFieldLabel(actionType, fieldname, ctx = {}) {
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	return policy?.field_labels?.[fieldname] || null;
+}
+
+export function shouldShowReturnType(actionType, ctx = {}) {
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	const options = getAllowedReturnTypeOptions(actionType, ctx);
+	if (!options.length) return false;
+	return policy.show_return_type !== false;
+}
+
+export function isReturnTypeMandatory(actionType, ctx = {}) {
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	return Boolean(policy.require_return_type);
+}
+
 /**
  * Validate node data against contract.
  * @param {Object} nodeData - The node's data object
@@ -322,6 +507,10 @@ export function validateAgainstContract(nodeData) {
 	}
 
 	const contract = getContract(nodeData.action_type);
+	const policy = getEffectiveActionPolicy(nodeData.action_type, {
+		operation: nodeData.operation,
+		processName: nodeData.process_name,
+	});
 	const errors = [];
 
 	if (RELEASE_DISABLED_ACTION_TYPES.has(nodeData.action_type)) {
@@ -367,7 +556,7 @@ export function validateAgainstContract(nodeData) {
 	}
 
 	if (nodeData.mutation_mode) {
-		const allowed = contract.allowed_mutations;
+		const allowed = policy.allowed_mutations || [];
 		if (Array.isArray(allowed) && allowed.length && !allowed.includes(nodeData.mutation_mode)) {
 			errors.push(
 				__("Mutation mode '{0}' is not allowed for {1}", [
@@ -379,6 +568,26 @@ export function validateAgainstContract(nodeData) {
 		if (!nodeData.return_variable) {
 			errors.push(__("Mutation Mode requires a Return Variable Name"));
 		}
+	}
+
+	if (nodeData.return_type) {
+		const allowedReturnTypes = policy.allowed_return_types || [];
+		if (
+			Array.isArray(allowedReturnTypes) &&
+			allowedReturnTypes.length &&
+			!allowedReturnTypes.includes(nodeData.return_type)
+		) {
+			errors.push(
+				__("Return type '{0}' is not allowed for {1}", [
+					nodeData.return_type,
+					nodeData.action_type,
+				])
+			);
+		}
+	}
+
+	if (policy.require_return_type && !nodeData.return_type) {
+		errors.push(__("Return type is required for this operation"));
 	}
 
 	if ((nodeData.return_type || nodeData.resolved_output_schema) && !nodeData.return_variable) {

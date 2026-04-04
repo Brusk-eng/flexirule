@@ -174,7 +174,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { VueFlow, Panel, PanelPosition } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
@@ -563,6 +563,7 @@ function onEdgeClick({ edge, event }) {
 	display: flex;
 	position: relative;
 	overflow: hidden;
+	gap: 10px;
 }
 /* ... */
 .controls-panel {
@@ -587,15 +588,20 @@ function onEdgeClick({ edge, event }) {
 }
 .sidebar-container {
 	position: relative;
+	width: 360px;
+	min-width: 320px;
+	max-width: 440px;
 	height: 100%;
-	margin-left: 10px;
 	border-radius: var(--border-radius-lg);
 	border: 1px solid var(--border-color);
 	background-color: var(--fg-color);
 	order: 2;
+	overflow: hidden;
+	z-index: 5;
 }
 .canvas-container {
 	flex: 1;
+	min-width: 0;
 	height: 100%;
 	border-radius: var(--border-radius-lg);
 	border: 1px solid var(--border-color);
@@ -734,8 +740,6 @@ input:checked + .slider:before {
 /* RTL sidebar positioning */
 .sidebar-rtl {
 	order: 0;
-	margin-left: 0;
-	margin-right: 10px;
 }
 
 .divider-horizontal {
@@ -762,5 +766,38 @@ input:checked + .slider:before {
 	width: 14px;
 	margin-right: 6px;
 	text-align: center;
+}
+
+@media (max-width: 1200px) {
+	.sidebar-container {
+		position: absolute;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		width: min(420px, 55vw);
+		min-width: 320px;
+		border-radius: 0;
+	}
+	.sidebar-rtl {
+		left: 0;
+		right: auto;
+	}
+}
+
+@media (max-width: 768px) {
+	.rule-builder-container {
+		height: calc(100vh - var(--navbar-height) - 16px);
+	}
+	.sidebar-container {
+		left: 0;
+		right: 0;
+		top: auto;
+		bottom: 0;
+		width: 100%;
+		min-width: 0;
+		max-width: none;
+		height: 58%;
+		border-radius: 12px 12px 0 0;
+	}
 }
 </style>

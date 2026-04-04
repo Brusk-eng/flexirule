@@ -15,6 +15,8 @@ import ControlFactory from "../controls/ControlFactory.vue";
 import {
 	getActionTypeOptions,
 	getContract,
+	getFieldLabel,
+	getOperationOptions,
 	isTerminalAction,
 	CONFIG_MODAL_TYPES,
 } from "../../core/contracts";
@@ -79,13 +81,20 @@ const doc_fields = computed(() => {
 			return true;
 		})
 		.map((df) => {
+			const actionType = props.nodeData?.action_type;
+			const policyLabel = actionType
+				? getFieldLabel(actionType, df.fieldname, {
+						operation: props.nodeData?.operation,
+						processName: props.nodeData?.process_name,
+				  })
+				: null;
 			if (df.fieldname === "action_type") {
 				return {
 					...df,
 					options: getActionTypeOptions().join("\n"),
 				};
 			}
-			return df;
+			return policyLabel ? { ...df, label: __(policyLabel) } : df;
 		});
 });
 
@@ -130,7 +139,7 @@ function get_visible_fieldnames(nodeData) {
 			}
 			break;
 		case "Condition":
-			fieldnames.add("condition_expression");
+			fieldnames.add("compiled_expression");
 			fieldnames.add("set_conditions");
 			fieldnames.add("next_step_if_false");
 			break;
@@ -254,13 +263,23 @@ function update_value(fieldname, value) {
 async function get_autocomplete_options(df) {
 	const options_ref = df.options;
 
-	// operation field - get from process adapter
-	if (df.fieldname === "operation" && props.nodeData?.process_name) {
-		const operations = await store.get_process_operations(props.nodeData.process_name);
-		return operations.map((op) => ({
-			value: op.func_name,
-			label: op.label || op.func_name,
-			description: op.description,
+	// operation field from canonical contract registry
+	if (df.fieldname === "operation") {
+		const actionType = props.nodeData?.action_type;
+		const processName = props.nodeData?.process_name;
+		let options = getOperationOptions(actionType, { processName });
+		if (actionType === "Process" && !options.length && processName) {
+			const operations = await store.get_process_operations(processName);
+			options = operations.map((op) => ({
+				value: op.func_name,
+				label: op.label || op.func_name,
+				description: op.description || "",
+			}));
+		}
+		return options.map((op) => ({
+			value: op.value || op.func_name,
+			label: op.label || op.value || op.func_name,
+			description: op.description || "",
 		}));
 	}
 
@@ -336,6 +355,7 @@ function is_button_field(df) {
 function needs_autocomplete(df) {
 	return (
 		df.fieldtype === "Autocomplete" ||
+		df.fieldname === "operation" ||
 		df.options === "action_id" ||
 		(df.options === "process_name" && df.fieldname === "operation")
 	);

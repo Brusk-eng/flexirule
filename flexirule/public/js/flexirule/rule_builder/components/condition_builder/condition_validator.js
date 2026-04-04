@@ -62,7 +62,7 @@ export function validateConditions(node, isRoot = false) {
 		}
 
 		// Operators that don't need a value
-		const valueNotRequired = ["is_set", "is_not_set"];
+		const valueNotRequired = ["is_set", "is_not_set", "is_submittable"];
 		if (!valueNotRequired.includes(node.op)) {
 			const hasValue =
 				(node.right && node.right.value !== undefined && node.right.value !== "") ||

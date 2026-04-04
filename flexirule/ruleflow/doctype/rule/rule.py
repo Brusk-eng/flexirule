@@ -323,14 +323,16 @@ class Rule(Document):
 				frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
 			except Exception as e:
 				frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
+		else:
+			self.compiled_expression = None
 
 		# Compile Action Conditions
 		for action in self.actions:
 			if action.action_type == "Condition" and action.condition_json:
 				try:
-					action.condition_expression = compiler.compile(action.condition_json)
+					action.compiled_expression = compiler.compile(action.condition_json)
 					# Validate compiled expression
-					is_valid, error = compiler.validate(action.condition_expression)
+					is_valid, error = compiler.validate(action.compiled_expression)
 					if not is_valid:
 						frappe.throw(
 							_("Invalid Condition in Action {0}: {1}").format(action.action_label, error)
@@ -484,17 +486,9 @@ class Rule(Document):
 				)
 			)
 
-		if target_rule.document_type != self.document_type:
-			frappe.throw(
-				_(
-					"Action '{0}' targets Rule '{1}' for DocType '{2}', but the caller rule uses '{3}'."
-				).format(
-					action.action_label,
-					target_rule.name,
-					target_rule.document_type or _("None"),
-					self.document_type or _("None"),
-				)
-			)
+		# Callable sub-rules are selected by trigger_type + exposure.
+		# Compatibility is evaluated at runtime via target trigger_condition/compiled_expression
+		# using caller and document metadata.
 
 	def validate_no_sub_rule_cycles(self):
 		"""

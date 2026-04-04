@@ -14,6 +14,7 @@ Enhanced Rule Engine with:
 import json
 import time
 import traceback
+import uuid
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from contextlib import contextmanager
 
@@ -26,6 +27,7 @@ from jsonschema import validate
 from flexirule.ruleflow.core.context_manager import ContextManager
 from flexirule.ruleflow.core.contracts import (
 	get_contract,
+	get_effective_action_policy,
 	is_release_disabled_action,
 	normalize_action_type,
 )
@@ -251,6 +253,9 @@ class RuleEngine:
 
 		self.execution_log = []
 		self.cache = {}
+		self.execution_id = self.context.get("execution_id")
+		self.last_execution_payload = None
+		self.last_log_enqueued = False
 
 		# Build action maps for fast lookup
 		self.action_map_by_id = {a.action_id: a for a in self.actions if a.action_id}
@@ -285,11 +290,18 @@ class RuleEngine:
 		status = "Success"
 		error_detail = None
 		self.path_trace = []
+		self.execution_id = self.execution_id or str(uuid.uuid4())
+		self.context["execution_id"] = self.execution_id
 		self.context["event_name"] = event_name or self.rule.trigger_event
+		context = None
 
 		try:
 			# Pre-execution validation
 			self._validate_execution()
+
+			# Initialize context
+			context = self._initialize_context(doc, **kwargs)
+			self.context = context
 
 			# Check role-based skipping
 			skip_for_roles_docs = self.rule.get("skip_for_roles")
@@ -302,10 +314,7 @@ class RuleEngine:
 						f"Skipping rule execution for user with role(s): {skip_roles}",
 					)
 					status = "Skipped"
-					return self.context
-
-			# Initialize context
-			context = self._initialize_context(doc, **kwargs)
+					return context
 
 			# Log start
 			self._log("INFO", f"Starting rule execution: {self.rule.name}")
@@ -355,13 +364,21 @@ class RuleEngine:
 		finally:
 			# Persist Log
 			duration = time.time() - start_time
-			self._save_execution_log(
+			self.last_log_enqueued = self._save_execution_log(
 				self._normalize_execution_status(status),
 				duration,
 				error_detail,
-				context=context if "context" in locals() else None,
+				context=context,
 				message=self.execution_log[-1]["message"] if self.execution_log else None,
 			)
+			self.last_execution_payload = self._build_execution_payload(
+				context=context,
+				status=self._normalize_execution_status(status),
+				duration=duration,
+				error_detail=error_detail,
+				log_enqueued=self.last_log_enqueued,
+			)
+			frappe.local.execution_payload = self.last_execution_payload
 
 			# Update last_error on Rule for get_computed_status()
 			if not self.context.get("dry_run") and not self.context.get("test_mode"):
@@ -398,19 +415,31 @@ class RuleEngine:
 					)
 
 	def _initialize_context(self, doc, **kwargs):
+		meta_overrides = kwargs.pop("meta", None) if isinstance(kwargs, dict) else None
+		vars_payload = kwargs.pop("vars", None) if isinstance(kwargs, dict) else None
+		if not isinstance(vars_payload, dict):
+			vars_payload = self.context.get("vars", {})
+		if not isinstance(vars_payload, dict):
+			vars_payload = {}
+
+		base_meta = {
+			"rule": self.rule.name,
+			"rule_version": self.rule.version,
+			"engine_version": "1.0",
+			"user": frappe.session.user,
+			"timestamp": frappe.utils.now(),
+			"test_mode": self.context.get("test_mode", False),
+			"execution_id": self.execution_id,
+		}
+		if isinstance(meta_overrides, dict):
+			base_meta.update(meta_overrides)
+
 		return {
 			**self.context,
 			"doc": doc,
 			"frappe": self._get_safe_frappe_api(),
-			"vars": {},
-			"meta": {
-				"rule": self.rule.name,
-				"rule_version": self.rule.version,
-				"engine_version": "1.0",
-				"user": frappe.session.user,
-				"timestamp": frappe.utils.now(),
-				"test_mode": self.context.get("test_mode", False),
-			},
+			"vars": vars_payload,
+			"meta": base_meta,
 			"stop": False,
 			**kwargs,
 		}
@@ -663,11 +692,56 @@ class RuleEngine:
 		if not expression:
 			return True
 
+		doc = context.get("doc")
+		rule_meta = context.get("rule") or {
+			"name": self.rule.name,
+			"trigger_type": self.rule.trigger_type,
+			"trigger_event": context.get("event_name") or self.rule.trigger_event,
+			"document_type": self.rule.document_type,
+		}
+		caller_meta = context.get("caller")
+		if not isinstance(caller_meta, dict):
+			meta_ctx = context.get("meta", {}) or {}
+			caller_meta = {
+				"name": meta_ctx.get("caller_rule"),
+				"trigger_type": meta_ctx.get("caller_trigger_type"),
+				"trigger_event": meta_ctx.get("caller_trigger_event"),
+				"document_type": meta_ctx.get("caller_document_type"),
+			}
+		doctype_name = (
+			context.get("doctype")
+			or rule_meta.get("document_type")
+			or getattr(doc, "doctype", None)
+			or self.rule.document_type
+		)
+
+		def _get_meta(doctype):
+			if not doctype:
+				return None
+			try:
+				return frappe.get_meta(doctype)
+			except Exception:
+				return None
+
+		def _is_submittable(doctype):
+			meta = _get_meta(doctype)
+			return bool(getattr(meta, "is_submittable", 0)) if meta else False
+
+		def _has_field(doctype, fieldname):
+			meta = _get_meta(doctype)
+			return bool(meta and fieldname and meta.has_field(fieldname))
+
 		safe_locals = {
-			"doc": context.get("doc"),
+			"doc": doc,
 			"old_doc": context.get("old_doc"),
 			"vars": context.get("vars", {}),
 			"frappe": context.get("frappe", _safe_frappe),
+			"caller": frappe._dict(caller_meta or {}),
+			"rule": frappe._dict(rule_meta or {}),
+			"doctype": doctype_name,
+			"is_submittable": _is_submittable,
+			"has_field": _has_field,
+			"get_meta": _get_meta,
 			"resolve": FieldResolver.resolve,
 			"check_link_match": check_link_match,
 			"True": True,
@@ -708,6 +782,38 @@ class RuleEngine:
 		return_variable = getattr(action, "return_variable", None)
 		return_type = getattr(action, "return_type", None)
 		resolved_output_schema = getattr(action, "resolved_output_schema", None)
+		process_operation_def = None
+		if (
+			getattr(action, "action_type", None) == "Process"
+			and getattr(action, "process_name", None)
+			and getattr(action, "operation", None)
+		):
+			try:
+				process_doc = frappe.get_cached_doc("Process", action.process_name)
+				process_operation = process_doc.get_operation(action.operation)
+				if process_operation:
+					process_operation_def = (
+						process_operation.as_dict()
+						if hasattr(process_operation, "as_dict")
+						else dict(process_operation)
+					)
+			except Exception:
+				process_operation_def = None
+
+		effective_policy = get_effective_action_policy(
+			getattr(action, "action_type", None),
+			operation=getattr(action, "operation", None),
+			process_operation=process_operation_def,
+		)
+		allowed_return_types = effective_policy.get("allowed_return_types") or []
+		if return_type and allowed_return_types and return_type not in allowed_return_types:
+			raise MethodExecutionError(
+				_("Return Type '{0}' is not allowed for {1} / {2}").format(
+					return_type,
+					getattr(action, "action_type", _("Action")),
+					getattr(action, "operation", _("default")),
+				)
+			)
 
 		if return_variable and validation_result is not None:
 			cm.set_variable(return_variable, validation_result, return_type)
@@ -732,10 +838,12 @@ class RuleEngine:
 		mutation_mode = getattr(action, "mutation_mode", None)
 		if mutation_mode:
 			contract = get_contract(action.action_type)
-			allowed = contract.get("allowed_mutations")
+			allowed = effective_policy.get("allowed_mutations") or contract.get("allowed_mutations")
 			if not allowed:
 				# Ignore mutation_mode for action types that don't declare it
-				return
+				raise MethodExecutionError(
+					_("Mutation mode is not supported for action type '{0}'").format(action.action_type)
+				)
 			if mutation_mode not in allowed:
 				raise MethodExecutionError(
 					_("Mutation mode '{0}' is not allowed for action type '{1}'").format(
@@ -998,6 +1106,7 @@ class RuleEngine:
 				{
 					"doctype": "Rule Execution Log",
 					"rule": self.rule.name,
+					"execution_id": self.execution_id,
 					"rule_version": self.rule.version,
 					"status": status,
 					"duration": duration,
@@ -1025,8 +1134,11 @@ class RuleEngine:
 			# PERSISTENCE LOGIC
 			# Enqueue all logs to avoid adding writes to the user's transaction.
 			# Failed logs are still persisted even if the main transaction rolls back.
-			if self.context.get("dry_run"):
-				pass  # dry_run mode: don't persist logs
+			skip_log_enqueue = bool(
+				(self.context or {}).get("skip_log_enqueue") or (active_context or {}).get("skip_log_enqueue")
+			)
+			if self.context.get("dry_run") or skip_log_enqueue:
+				return False
 			else:
 				frappe.enqueue(
 					"flexirule.ruleflow.utils.logging.persist_execution_log",
@@ -1034,7 +1146,35 @@ class RuleEngine:
 					now=frappe.flags.in_test,
 					log_data=log_data,
 				)
+				return True
 
 		except Exception as e:
 			# Fallback if logging itself fails
 			frappe.logger().error(f"Failed to save Rule Execution Log: {e!s}")
+			return False
+
+	def _build_execution_payload(self, context, status, duration, error_detail, log_enqueued):
+		"""Build deterministic execution payload for API/UI consumers."""
+		active_context = context or self.context or {}
+		vars_snapshot = {}
+		for key, value in (active_context.get("vars") or {}).items():
+			if isinstance(value, str | int | float | bool | list | dict | type(None)):
+				vars_snapshot[key] = value
+			else:
+				vars_snapshot[key] = str(value)
+
+		messages = [entry.get("message") for entry in self.execution_log if entry.get("message")]
+		errors = [entry.get("message") for entry in self.execution_log if entry.get("level") == "ERROR"]
+		if error_detail:
+			errors.append(error_detail)
+
+		return {
+			"execution_id": self.execution_id,
+			"status": status,
+			"duration": duration,
+			"path_trace": list(self.path_trace or []),
+			"vars": vars_snapshot,
+			"messages": messages,
+			"errors": errors,
+			"log_enqueued": bool(log_enqueued),
+		}

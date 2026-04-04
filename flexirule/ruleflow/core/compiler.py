@@ -45,6 +45,8 @@ class ConditionCompiler:
 		"not like": "not contains",
 		"is_set": "is set",
 		"is_not_set": "is not set",
+		"is_submittable": "is submittable",
+		"has_field": "has field",
 		"contains": "contains",
 		"not_contains": "not contains",
 	}
@@ -122,14 +124,16 @@ class ConditionCompiler:
 		if not isinstance(conditions, dict):
 			raise ValueError("Condition must be a dictionary or list")
 
-		return self._compile_node(conditions, scopes={"doc", "old_doc", "row", "vars", "item"})
+		return self._compile_node(
+			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+		)
 
 	def _compile_node(self, node, scopes=None):
 		if not isinstance(node, dict):
 			return ""
 
 		if scopes is None:
-			scopes = {"doc", "old_doc", "row", "vars", "item"}
+			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
 
 		# 1. Detect Type
 		# Collection
@@ -195,6 +199,11 @@ class ConditionCompiler:
 			return f"({lhs_code} is not None and {lhs_code} != '')"
 		if op == "is_not_set":
 			return f"({lhs_code} is None or {lhs_code} == '')"
+		if op == "is_submittable":
+			return f"is_submittable({lhs_code})"
+		if op == "has_field":
+			rhs_code = self._compile_operand(right, scopes)
+			return f"has_field({lhs_code}, {rhs_code})"
 		if op == "has_changed":
 			# DEPRECATED: has_changed in conditions is architecturally incorrect.
 			# Change detection should use the 'On Field Change' Process instead.

@@ -23,7 +23,7 @@ def test_lead_nurturing_save():
 					"action_id": "cond_email",
 					"action_type": "Condition",
 					"action_label": "Has Email?",
-					"condition_expression": "doc.email_id",
+					"compiled_expression": "doc.email_id",
 					"next_step_if_true": "wait_2_hours",
 					"next_step_if_false": "notify_missing",
 				},
