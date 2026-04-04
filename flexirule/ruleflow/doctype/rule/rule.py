@@ -24,11 +24,12 @@ class Rule(Document):
 		from flexirule.ruleflow.doctype.rule_permission.rule_permission import RulePermission
 
 		actions: DF.Table[RuleAction]
+		compiled_expression: DF.Code | None
 		debug_mode: DF.Check
 		description: DF.Text | None
 		document_type: DF.Link | None
-		exposed_as_subrule: DF.Check
 		execution_mode: DF.Literal["Synchronous", "Asynchronous"]
+		exposed_as_subrule: DF.Check
 		is_active: DF.Check
 		last_error: DF.Text | None
 		max_execution_time: DF.Int
@@ -62,7 +63,6 @@ class Rule(Document):
 		skip_for_roles: DF.TableMultiSelect[HasRole]
 		status: DF.Literal["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]
 		trigger_condition: DF.Code | None
-		compiled_expression: DF.Code | None
 		trigger_event: DF.Literal[
 			"",
 			"Before Naming",

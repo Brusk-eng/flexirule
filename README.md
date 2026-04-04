@@ -71,7 +71,10 @@ FlexiRule is built around three core pillars that bridge the gap between design 
 
 ### 1. The Rule (The Entry Point)
 
-A **Rule** defines _when_ logic should trigger. It maps to a DocType and an event (e.g., `Before Save`, `On Submit`). It handles the initial filtering, ensuring logic only runs for the right documents and roles.
+A **Rule** defines _when_ logic should trigger. It serves as the gateway to the graph and binds to one of three context sources:
+- **DocType Event**: Tied to database hooks (e.g., `Before Save`, `On Submit`).
+- **Scheduler Event**: Scheduled CRON-based executions via background jobs.
+- **Callable Event**: A sub-rule meant strictly to be executed by other parent rules via `Priority: 0`.
 
 ### 2. The Rule Action (The Node)
 
@@ -88,7 +91,7 @@ A **Process** is a file-backed module (similar to Frappe Reports/Dashboards) tha
 
 ## ⚡ Execution Flow Example
 
-FlexiRule uses a deterministic graph-based execution engine with built-in cycle detection.
+FlexiRule uses a deterministic graph-based execution engine with built-in cycle detection (preventing infinite loops over 100 iterations natively).
 
 ```mermaid
 graph LR
@@ -105,10 +108,12 @@ graph LR
 
 ## 🛠️ Key Features
 
--   **Deterministic Graph**: Zero ambiguity in execution order.
+-   **Vue 3 Visual Builder**: Smooth graph-editing via a VueFlow canvas rendered dynamically from Frappe backend schemas.
+-   **Condition Compilation**: The visual engine builds JSON `trigger_conditions` that are transparently pre-compiled into ultra-fast, single-pass pure Python strings `compiled_expression` on Save to avoid runtime overhead.
+-   **Deterministic Graph**: Zero ambiguity in execution order. Handlers resolve path branches dynamically using the Registry strategy pattern.
 -   **Role-Based Security**: Control which rules run for specific user roles.
 -   **Monitoring & Logs**: Full execution trace for every rule run, including input/output states and performance stats.
--   **Safety First**: Sandboxed execution context, controlled retries, and centralized exception handling.
+-   **Safety First**: Sandboxed execution context via `SafeFrappeAPI`, exponential backoff retries, and centralized savepoint rollbacks.
 -   **Pure Terminology**: Evolved from _UPH → Bolton_ into a clean, standardized, and scalable architecture.
 
 ---
