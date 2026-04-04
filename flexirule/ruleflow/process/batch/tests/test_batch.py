@@ -8,7 +8,6 @@ from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.process.batch.batch import (
 	execute_for_documents,
-	execute_from_filter,
 )
 
 
@@ -66,18 +65,6 @@ class TestBatchProcess(FrappeTestCase):
 			fields=["reference_docname"],
 		)
 		self.assertEqual(len(logs), 2)
-
-	def test_execute_from_filter(self):
-		config = {
-			"rule": self.rule.name,
-			"doctype": "ToDo",
-			"filters": {"description": ["like", "Batch Proc%"]},
-			"limit": 5,
-		}
-
-		result = execute_from_filter({}, config)
-		# Should match at least the 2 we created
-		self.assertGreaterEqual(result["success"], 2)
 
 	def test_json_parsing(self):
 		# Test string input for documents/filters (common from UI/API)

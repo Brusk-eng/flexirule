@@ -69,6 +69,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 					"process_name": "Validation",
 					"operation": "value_in_range",
 					"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+					"return_variable": "test_res",
 					"on_error": "Stop",
 				},
 			]
@@ -191,6 +192,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "res_true",
 				"on_error": "Stop",
 			},
 			{
@@ -201,6 +203,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "res_false",
 				"on_error": "Stop",
 			},
 		]
@@ -248,6 +251,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "res_true",
 				"on_error": "Stop",
 			},
 			{
@@ -258,6 +262,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "res_false",
 				"on_error": "Stop",
 			},
 		]
@@ -295,6 +300,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "res",
 				"on_error": "Stop",
 			},
 		]
@@ -348,6 +354,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "loop_res",
 				"on_error": "Stop",
 				"next_step_if_true": "ACT-AFTER-LOOP",  # Go to after loop to avoid cycle
 			},
@@ -359,6 +366,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "after_res",
 				"on_error": "Stop",
 			},
 		]
@@ -439,6 +447,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "switch_res",
 				"on_error": "Stop",
 			},
 		]
@@ -477,6 +486,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "sub_res",
 				"on_error": "Stop",
 			},
 		]
@@ -557,6 +567,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "after_wait_res",
 				"on_error": "Stop",
 			},
 		]
@@ -637,6 +648,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",  # This will fail if description is empty
 				"config": '{"field": "description", "min_value": 1}',  # This should cause an error
+				"return_variable": "error_res",
 				"on_error": "Continue",  # Should continue despite error
 				"next_step_if_true": "ACT-AFTER-ERROR",
 			},
@@ -648,6 +660,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "after_error_res",
 				"on_error": "Stop",
 			},
 		]
@@ -686,9 +699,10 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"action_type": "Process",
 				"action_label": "Fail Process",
 				"is_enabled": 1,
-				"process_name": "Validation",
-				"operation": "value_in_range",  # This will fail if description is empty
-				"config": '{"field": "description", "min_value": 1}',  # This should cause an error
+				"process_name": "Enrichment",
+				"operation": "calculate_value",
+				"config": '{"target_field": "description", "formula": "1/0"}',
+				"return_variable": "fail_res",
 				"on_error": "Stop",  # Should stop on error
 				"next_step_if_true": "ACT-AFTER-ERROR",
 			},
@@ -700,6 +714,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "after_fail_res",
 				"on_error": "Stop",
 			},
 		]
@@ -733,6 +748,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "cycle_res",
 				"on_error": "Stop",
 				"next_step_if_true": "root",  # Points back, creating cycle
 			},
@@ -761,6 +777,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "timeout_res",
 				"on_error": "Stop",
 			},
 		]
@@ -805,6 +822,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "test_mode_res",
 				"on_error": "Stop",
 			},
 		]
@@ -890,6 +908,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "next_res",
 				"on_error": "Stop",
 			},
 		]
@@ -918,6 +937,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "sec_res",
 				"on_error": "Stop",
 			},
 		]
@@ -947,6 +967,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				"process_name": "Validation",
 				"operation": "value_in_range",
 				"config": '{"field": "docstatus", "min_value": 0, "max_value": 0}',
+				"return_variable": "b_res",
 				"on_error": "Stop",
 			},
 		]

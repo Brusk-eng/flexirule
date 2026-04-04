@@ -1,53 +1,29 @@
 {
-	"creation": "2026-01-05 16:27:27.797584",
-	"docstatus": 0,
-	"doctype": "Process",
-	"idx": 0,
-	"is_standard": "Yes",
-	"modified": "2026-01-13 22:30:35.239527",
-	"modified_by": "Administrator",
-	"module": "Ruleflow",
-	"name": "Normalization",
-	"operations": [
-		{
-			"allows_async": 0,
-			"can_stop_save": 0,
-			"enabled": 1,
-			"func_name": "normalize_field",
-			"is_terminal": 0,
-			"label": "Normalize Field",
-			"requires_doc": 1,
-			"transactional": 0,
-			"visible_in_builder": 1,
-			"writes_to": "Document"
-		},
-		{
-			"allows_async": 0,
-			"can_stop_save": 0,
-			"enabled": 1,
-			"func_name": "normalize_field_to_context",
-			"is_terminal": 0,
-			"label": "Normalize to Variable",
-			"requires_doc": 1,
-			"transactional": 0,
-			"visible_in_builder": 1,
-			"writes_to": "Context",
-			"writes_vars": "[{\"fieldname\":\"normalized_value\",\"fieldtype\":\"Data\",\"label\":\"Normalized Value\"}]"
-		},
-		{
-			"allows_async": 0,
-			"can_stop_save": 0,
-			"enabled": 1,
-			"func_name": "normalize_multiple_fields",
-			"is_terminal": 0,
-			"label": "Batch Normalize",
-			"requires_doc": 1,
-			"transactional": 0,
-			"visible_in_builder": 1,
-			"writes_to": "Document",
-			"writes_vars": "[{\"fieldname\":\"normalization_results\",\"fieldtype\":\"JSON\",\"label\":\"Normalization Results\"}]"
-		}
-	],
-	"owner": "Administrator",
-	"process_name": "Normalization"
+ "creation": "2026-01-05 16:27:27.797584",
+ "docstatus": 0,
+ "doctype": "Process",
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2026-04-05 00:01:39.192123",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Normalization",
+ "operations": [
+  {
+   "allows_async": 0,
+   "can_stop_save": 0,
+   "enabled": 1,
+   "func_name": "transform_value",
+   "has_side_effect": 0,
+   "is_terminal": 0,
+   "label": "Transform Value",
+   "output_schema": "{\"type\":\"string\"}",
+   "requires_doc": 0,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "Document"
+  }
+ ],
+ "owner": "Administrator",
+ "process_name": "Normalization"
 }

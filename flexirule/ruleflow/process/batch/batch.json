@@ -24,21 +24,6 @@
 			"visible_in_builder": 1,
 			"writes_to": "Context",
 			"config_schema": "[\n\t{\n\t\t\"fieldname\": \"rule\",\n\t\t\"fieldtype\": \"Link\",\n\t\t\"options\": \"Rule\",\n\t\t\"label\": \"Rule\",\n\t\t\"reqd\": 1\n\t},\n\t{\n\t\t\"fieldname\": \"doctype\",\n\t\t\"fieldtype\": \"Link\",\n\t\t\"options\": \"DocType\",\n\t\t\"label\": \"DocType\",\n\t\t\"reqd\": 1\n\t},\n\t{\n\t\t\"fieldname\": \"documents\",\n\t\t\"fieldtype\": \"Code\",\n\t\t\"label\": \"Document Names (List/JSON)\",\n\t\t\"options\": \"JSON\"\n\t}\n]"
-		},
-		{
-			"allows_async": 1,
-			"can_stop_save": 0,
-			"color": "#10b981",
-			"enabled": 1,
-			"func_name": "execute_from_filter",
-			"icon": "filter",
-			"is_terminal": 0,
-			"label": "Execute From Filter",
-			"requires_doc": 0,
-			"transactional": 0,
-			"visible_in_builder": 1,
-			"writes_to": "Context",
-			"config_schema": "[\n\t{\n\t\t\"fieldname\": \"rule\",\n\t\t\"fieldtype\": \"Link\",\n\t\t\"options\": \"Rule\",\n\t\t\"label\": \"Rule\",\n\t\t\"reqd\": 1\n\t},\n\t{\n\t\t\"fieldname\": \"doctype\",\n\t\t\"fieldtype\": \"Link\",\n\t\t\"options\": \"DocType\",\n\t\t\"label\": \"Filter DocType\",\n\t\t\"reqd\": 1\n\t},\n\t{\n\t\t\"fieldname\": \"filters\",\n\t\t\"fieldtype\": \"Code\",\n\t\t\"label\": \"Filters (JSON)\",\n\t\t\"options\": \"JSON\"\n\t},\n\t{\n\t\t\"fieldname\": \"limit\",\n\t\t\"fieldtype\": \"Int\",\n\t\t\"label\": \"Limit\",\n\t\t\"default\": 1000\n\t}\n]"
 		}
 	]
 }

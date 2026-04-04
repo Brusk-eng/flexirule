@@ -52,7 +52,8 @@ class TestContactDeduplication(FrappeTestCase):
 			context, {"child_table_field": "phone_nos", "child_search_field": "phone"}
 		)
 
-		self.assertIn(self.contact1.name, duplicates)
+		match_names = [m["name"] for m in duplicates.get("matches", [])]
+		self.assertIn(self.contact1.name, match_names)
 
 	def test_dedup_multiple_numbers(self):
 		"""Test matching when one of multiple numbers matches"""
@@ -72,7 +73,8 @@ class TestContactDeduplication(FrappeTestCase):
 			context, {"child_table_field": "phone_nos", "child_search_field": "phone"}
 		)
 
-		self.assertIn(self.contact1.name, duplicates)
+		match_names = [m["name"] for m in duplicates.get("matches", [])]
+		self.assertIn(self.contact1.name, match_names)
 
 	def test_no_false_positive(self):
 		"""Test unique number returns no duplicates"""
@@ -91,4 +93,4 @@ class TestContactDeduplication(FrappeTestCase):
 			context, {"child_table_field": "phone_nos", "child_search_field": "phone"}
 		)
 
-		self.assertEqual(len(duplicates), 0)
+		self.assertEqual(duplicates.get("match_count"), 0)

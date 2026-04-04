@@ -66,31 +66,6 @@ def execute_for_documents(context, config):
 	return results
 
 
-def execute_from_filter(context, config):
-	"""
-	Execute rule for documents matching a filter.
-
-	Config:
-	    rule: Rule name
-	    doctype: Target DocType
-	    filters: Frappe filter dict or JSON
-	    limit: Max documents (default: 1000)
-	"""
-	doctype = config.get("doctype")
-	filters = config.get("filters", {})
-	limit = int(config.get("limit") or 1000)
-
-	if isinstance(filters, str):
-		try:
-			filters = json.loads(filters)
-		except Exception:
-			filters = {}
-
-	documents = frappe.get_all(doctype, filters=filters, pluck="name", limit=limit)
-
-	return execute_for_documents(context, {**config, "documents": documents})
-
-
 def _execute_single(rule_name, doctype, doc_name, batch_id, index, total):
 	"""Execute rule for single document with logging."""
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
@@ -118,7 +93,6 @@ def _publish_progress(batch_id, processed, total):
 
 _OPERATIONS = {
 	"execute_for_documents": execute_for_documents,
-	"execute_from_filter": execute_from_filter,
 }
 
 

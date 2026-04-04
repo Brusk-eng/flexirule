@@ -42,8 +42,7 @@ def calculate_value(context, config=None, **kwargs):
 
 	try:
 		result = frappe.safe_eval(formula, None, eval_context)
-		doc.set(target_field, result)
-		return result
+		return {target_field: result}
 	except Exception as e:
 		frappe.log_error(
 			f"Enrichment: Formula evaluation failed for {target_field}: {e}",
@@ -85,7 +84,6 @@ def linked_doc_autocomplete(context, config=None, **kwargs):
 	for source_field, target_field in mapping.items():
 		value = linked_doc.get(source_field)
 		if value is not None:
-			doc.set(target_field, value)
 			results[target_field] = value
 
 	return results
@@ -118,7 +116,6 @@ def copy_from_template(context, config=None, **kwargs):
 	for field in field_list:
 		value = template.get(field)
 		if value is not None:
-			doc.set(field, value)
 			results[field] = value
 
 	return results
