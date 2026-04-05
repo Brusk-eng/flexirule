@@ -75,29 +75,14 @@
 		</div>
 
 		<!-- Date / Datetime -->
-		<div
+		<TimePickerControl
 			v-else-if="['Date', 'Datetime'].includes(df?.fieldtype)"
-			class="control frappe-control"
-		>
-			<div
-				v-if="df.label && !hideLabel"
-				class="control-label label"
-				:class="{ reqd: df.reqd }"
-			>
-				{{ __(df.label) }}
-			</div>
-			<input
-				:type="df.fieldtype === 'Date' ? 'date' : 'datetime-local'"
-				class="form-control input-sm"
-				:value="modelValue"
-				:disabled="df.read_only"
-				:aria-label="__(df.label)"
-				@input="$emit('update:modelValue', $event.target.value)"
-			/>
-			<div v-if="df.description" class="description text-muted mt-1">
-				{{ __(df.description) }}
-			</div>
-		</div>
+			:df="df"
+			:modelValue="modelValue"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
 
 		<!-- Time -->
 		<div v-else-if="df?.fieldtype === 'Time'" class="control frappe-control">
@@ -219,6 +204,7 @@
 <script setup>
 import FlexiGrid from "./FlexiGrid.vue";
 import MultiSelectListControl from "./MultiSelectListControl.vue";
+import TimePickerControl from "./TimePickerControl.vue";
 
 const props = defineProps({
 	df: Object,
