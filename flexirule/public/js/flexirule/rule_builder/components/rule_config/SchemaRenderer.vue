@@ -14,10 +14,16 @@
 			<div
 				v-else
 				class="form-group"
-				:class="{ 'has-error': fieldState(field).reqd && !getValue(field) }"
+				:class="{
+					'has-error':
+						getFieldState(field, props.row ? props.row.name : 'root').reqd &&
+						!getValue(field),
+				}"
 			>
 				<ControlFactory
-					:df="getNormalizedDf(field)"
+					:df="
+						getNormalizedDf(field, props.row ? props.row.name : 'root', props.readOnly)
+					"
 					:modelValue="getValue(field)"
 					:doc="engine._get_context(row).doc"
 					:engine="engine"
@@ -31,6 +37,7 @@
 <script setup>
 import { computed } from "vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
+import { useFieldNormalization } from "../../composables/useFieldNormalization";
 
 const props = defineProps({
 	fields: { type: Array, default: () => [] },
@@ -39,35 +46,13 @@ const props = defineProps({
 	row: { type: Object, default: null }, // If rendering for a child table row
 });
 
+const { getNormalizedDf, getFieldState } = useFieldNormalization(props.engine);
+
 const visibleFields = computed(() => {
-	return props.fields.filter((f) => !fieldState(f).hidden);
+	return props.fields.filter(
+		(f) => !getFieldState(f, props.row ? props.row.name : "root").hidden
+	);
 });
-
-function fieldState(field) {
-	const contextId = props.row ? props.row.name : "root";
-	const state = props.engine.dependency_states[contextId]?.[field.fieldname] || {
-		reqd: field.reqd,
-		read_only: field.read_only,
-		hidden: field.hidden,
-		options: field.options,
-	};
-
-	if (props.readOnly) {
-		state.read_only = true;
-	}
-	return state;
-}
-
-function getNormalizedDf(field) {
-	const state = fieldState(field);
-	return {
-		...field,
-		reqd: state.reqd,
-		read_only: state.read_only,
-		hidden: state.hidden,
-		options: state.options || field.options,
-	};
-}
 
 function getValue(field) {
 	const target = props.row || props.engine.config;

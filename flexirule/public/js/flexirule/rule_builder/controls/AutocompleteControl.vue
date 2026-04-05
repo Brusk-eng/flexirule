@@ -212,9 +212,16 @@ watch(
 );
 
 function onDrop(event) {
-	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
+	let variable = event.dataTransfer.getData("application/x-flexirule-variable");
 	if (variable) {
 		event.preventDefault();
+
+		// Sanitize variable name to prevent injection/breaking templates
+		if (/[{}"']/.test(variable)) {
+			console.warn("FlexiRule: Rejected unsafe variable name drop:", variable);
+			return;
+		}
+
 		if (frappe_control) {
 			// In Autocomplete, we usually replace the whole value with the variable name (no brackets)
 			emit("update:modelValue", variable);

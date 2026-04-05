@@ -5,8 +5,8 @@
 			<div class="canvas-container" ref="flowWrapper" @dragover="onDragOver" @drop="onDrop">
 				<VueFlow
 					:edges-editable="false"
-					v-model:nodes="nodes"
-					v-model:edges="edges"
+					v-model:nodes="store.nodes"
+					v-model:edges="store.edges"
 					:default-viewport="{ zoom: 1 }"
 					:min-zoom="0.2"
 					:max-zoom="2"
@@ -95,9 +95,24 @@
 							<span class="small text-muted">{{ __("Disabled") }}</span>
 						</div>
 
-						<div v-if="isReadOnly" class="read-only-badge">
+						<div v-if="isReadOnly" class="read-only-badge mr-2">
 							<i class="fa fa-lock"></i> {{ __("Read Only") }}
 						</div>
+
+						<button
+							v-if="!isReadOnly"
+							class="btn btn-sm btn-primary btn-activate"
+							@click="store.activate_rule"
+						>
+							<i class="fa fa-rocket"></i> {{ __("Set to Active") }}
+						</button>
+						<button
+							v-else
+							class="btn btn-sm btn-outline-warning btn-unlock"
+							@click="store.deactivate_rule"
+						>
+							<i class="fa fa-unlock"></i> {{ __("Unlock for Editing") }}
+						</button>
 					</Panel>
 				</VueFlow>
 
@@ -253,29 +268,22 @@ function toggleCollapse() {
 
 const showDisabledNodes = ref(true);
 
-const nodes = computed({
-	get: () => {
-		return (store.nodes || []).filter((el) => {
-			if (el.type === "start") return true;
-			// Filtering
-			if (!showDisabledNodes.value && el.data?.is_enabled === 0) return false;
-			return true;
+// Watch for changes in showDisabledNodes or store.nodes to update 'hidden' flag
+watch(
+	[showDisabledNodes, () => store.nodes],
+	() => {
+		const showAll = showDisabledNodes.value;
+		store.nodes.forEach((node) => {
+			if (node.type === "start") {
+				node.hidden = false;
+				return;
+			}
+			const isDisabled = node.data?.is_enabled === 0;
+			node.hidden = !showAll && isDisabled;
 		});
 	},
-	set: (val) => {
-		const currentIds = new Set(val.map((n) => n.id));
-		// Preserve hidden nodes
-		const hiddenNodes = store.nodes.filter((el) => !currentIds.has(el.id));
-		store.nodes = [...val, ...hiddenNodes];
-	},
-});
-
-const edges = computed({
-	get: () => store.edges || [],
-	set: (val) => {
-		store.edges = val;
-	},
-});
+	{ immediate: true, deep: false }
+);
 
 const showSidebar = computed(() => store.selected_id !== null);
 const isRTL = computed(() => document.documentElement.dir === "rtl");
@@ -385,13 +393,16 @@ function autoConnectNode(nodeId, parentNode = null) {
 	);
 	if (exists) return;
 
-	store.edges.push({
-		id: edgeId,
-		source: sourceNode.id,
-		target: nodeId,
-		sourceHandle: sourceHandle || "default",
-		animated: sourceNode.type === "start",
-	});
+	store.edges = [
+		...store.edges,
+		{
+			id: edgeId,
+			source: sourceNode.id,
+			target: nodeId,
+			sourceHandle: sourceHandle || "default",
+			animated: sourceNode.type === "start",
+		},
+	];
 }
 
 function addNode(type, position) {
@@ -416,7 +427,7 @@ function addNode(type, position) {
 		},
 	};
 
-	store.nodes.push(newNode);
+	store.nodes = [...store.nodes, newNode];
 	autoConnectNode(id, parentNode);
 	store.selected_id = id;
 	store.mark_dirty();
@@ -489,7 +500,7 @@ function onConnect(params) {
 		sourceHandle,
 		animated: store.nodes.find((el) => el.id === params.source)?.type === "start",
 	};
-	store.edges.push(newEdge);
+	store.edges = [...store.edges, newEdge];
 	store.mark_dirty();
 }
 
@@ -799,5 +810,17 @@ input:checked + .slider:before {
 		height: 58%;
 		border-radius: 12px 12px 0 0;
 	}
+}
+
+.sub-rule-group-node {
+	background: rgba(246, 248, 250, 0.4) !important;
+	border: 2px dashed #94a3b8 !important;
+	border-radius: 16px !important;
+	min-width: 450px !important;
+	min-height: 320px !important;
+}
+
+.sub-rule-group-node :deep(.vue-flow__node-default) {
+	border-style: solid !important;
 }
 </style>

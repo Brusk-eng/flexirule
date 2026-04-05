@@ -78,7 +78,7 @@ def validate_rule_definition(rule_doc) -> dict:
 	errors.extend(dependency_result["errors"])
 	warnings.extend(dependency_result["warnings"])
 
-	flow_result = _validate_flow_constraints(actions, operation_metadata)
+	flow_result = _validate_flow_constraints(rule, actions, operation_metadata)
 	errors.extend(flow_result["errors"])
 	warnings.extend(flow_result["warnings"])
 
@@ -271,6 +271,8 @@ def _validate_action_specifics(
 
 	if action_type == "Sub-Rule":
 		_capture_validation(errors, rule_doc.validate_sub_rule_target, action)
+		if action.rule:
+			_validate_sub_rule_input_mapping(action, errors)
 
 	elif action_type == "Condition":
 		if _is_empty(_safe_get(action, "condition_json")) and _is_empty(
@@ -362,11 +364,12 @@ def _validate_variable_dependencies(actions, operation_metadata=None) -> dict:
 	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
 
-def _validate_flow_constraints(actions, operation_metadata=None) -> dict:
+def _validate_flow_constraints(rule, actions, operation_metadata=None) -> dict:
 	errors: list[str] = []
 	warnings: list[str] = []
 	operation_metadata = operation_metadata or {}
 	outgoing: dict[str, list[str]] = {}
+	is_active = _is_truthy(_safe_get(rule, "is_active"))
 
 	for action in actions:
 		source = _safe_get(action, "action_id") or _safe_get(action, "name")
@@ -401,7 +404,13 @@ def _validate_flow_constraints(actions, operation_metadata=None) -> dict:
 			action_id = _safe_get(action, "action_id") or _safe_get(action, "name")
 			label = _safe_get(action, "action_label") or action_id or _("(unnamed)")
 			if action_id and action_id not in reachable:
-				errors.append(_("Action '{0}' is unreachable from the start node.").format(label))
+				msg = _("Action '{0}' is unreachable from the start node.").format(label)
+				if is_active:
+					errors.append(msg)
+				else:
+					# For Drafts, we allow unreachable nodes to enable incremental building
+					# warnings.append(msg)
+					pass
 
 	for action in actions:
 		if _safe_get(action, "action_type") == "Entry Action" or _safe_get(action, "action_id") == "root":
@@ -507,6 +516,94 @@ def _safe_set(obj, key, value) -> None:
 
 def _is_empty(value) -> bool:
 	return value in (None, "", [])
+
+
+def _validate_sub_rule_input_mapping(action, errors: list[str]) -> None:
+	"""
+	Verify that all variables required by the target sub-rule are mapped
+	in the parent action's input_mapping.
+	"""
+	if not action.rule:
+		return
+
+	try:
+		target_rule = frappe.get_doc("Rule", action.rule)
+	except Exception:
+		return
+
+	required_vars = _get_required_variables_for_rule(target_rule)
+	if not required_vars:
+		return
+
+	config = _parse_json_value(action.config, {})
+	input_mapping = config.get("input_mapping", [])
+	if not isinstance(input_mapping, list):
+		input_mapping = []
+
+	mapped_vars = {m.get("target") for m in input_mapping if m.get("target")}
+
+	missing = [v for v in required_vars if v not in mapped_vars]
+	if missing:
+		errors.append(
+			_("Sub-Rule '{0}' requires input mappings for: {1}").format(
+				action.action_label, ", ".join(missing)
+			)
+		)
+
+
+def _get_required_variables_for_rule(rule_doc) -> list[str]:
+	"""
+	Scan a rule for required variables (vars.*) that are not provided
+	by the system context or produced within the rule itself before use.
+	"""
+	required = set()
+	available = {"doc", "old_doc", "frappe", "utils"}
+
+	import re
+
+	var_pattern = re.compile(r"\{\{\s*vars\.(\w+)")
+
+	actions = rule_doc.actions or []
+	operation_metadata = _build_operation_metadata(actions)
+
+	for action in actions:
+		if action.action_type == "Entry Action" or action.action_id == "root":
+			continue
+
+		# 1. Check Jinja templates
+		templates = [
+			getattr(action, "value_template", ""),
+			getattr(action, "condition_json", ""),  # Might contain Jinja in some versions
+		]
+		for t in templates:
+			if not t or not isinstance(t, str):
+				continue
+			matches = var_pattern.findall(t)
+			for v in matches:
+				if v not in available:
+					required.add(v)
+
+		# 2. Check Process operations
+		op_key = f"{action.process_name}:{action.operation}"
+		op_meta = operation_metadata.get(op_key, {})
+		reads_vars = _load_json_list(op_meta.get("reads_vars"), [], action.action_label, "reads_vars")
+		for var_def in reads_vars:
+			var_name = var_def if isinstance(var_def, str) else _safe_get(var_def, "fieldname")
+			is_required = 1 if isinstance(var_def, str) else _safe_get(var_def, "reqd", 1)
+			if is_required and var_name and var_name not in available:
+				required.add(var_name)
+
+		# Update available for next actions
+		if action.return_variable:
+			available.add(action.return_variable)
+
+		writes_vars = _load_json_list(op_meta.get("writes_vars"), [], action.action_label, "writes_vars")
+		for var_def in writes_vars:
+			var_name = var_def if isinstance(var_def, str) else _safe_get(var_def, "fieldname")
+			if var_name:
+				available.add(var_name)
+
+	return sorted(list(required))
 
 
 def _is_truthy(value) -> bool:

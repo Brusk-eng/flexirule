@@ -95,6 +95,7 @@
 </template>
 <script setup>
 import ControlFactory from "./ControlFactory.vue";
+import { useFieldNormalization } from "../composables/useFieldNormalization";
 
 const props = defineProps({
 	df: Object,
@@ -189,7 +190,7 @@ watch(
 function updateCell(idx, field, value) {
 	const row = localRows.value[idx];
 	row[field] = value;
-	emit("update:modelValue", localRows.value);
+	emit("update:modelValue", [...localRows.value]);
 
 	// If engine is available, trigger logical change handling
 	if (props.engine && props.engine.handleFieldChange) {
@@ -214,7 +215,7 @@ async function addRow() {
 	});
 
 	localRows.value.push(newRow);
-	emit("update:modelValue", localRows.value);
+	emit("update:modelValue", [...localRows.value]);
 
 	// Trigger initial evaluation for this row
 	if (props.engine && props.engine.evaluate_dependencies) {
@@ -242,8 +243,10 @@ function toggleAll() {
 		: localRows.value.forEach((r) => selectedRows.value.add(r.name));
 }
 
+const { getNormalizedDf, getFieldState } = useFieldNormalization(props.engine);
+
 function getCellState(row, field) {
-	return props.engine?.dependency_states?.[row.name]?.[field] || {};
+	return getFieldState({ fieldname: field }, row.name);
 }
 
 function isCellHidden(row, field) {
@@ -251,13 +254,7 @@ function isCellHidden(row, field) {
 }
 
 function getEffectiveDf(row, col) {
-	const state = getCellState(row, col.fieldname);
-	return {
-		...col,
-		options: state.options ?? col.options,
-		reqd: state.reqd ?? col.reqd,
-		read_only: state.read_only || props.read_only,
-	};
+	return getNormalizedDf(col, row.name, props.read_only);
 }
 </script>
 

@@ -99,6 +99,7 @@ class TestV1Compliance(FrappeTestCase):
 		V1 Contract: Connected Graph (No orphans)
 		"""
 		rule = frappe.new_doc("Rule")
+		rule.is_active = 1  # Enable orphan detection for active rules
 		rule.append(
 			"actions",
 			{
@@ -106,10 +107,9 @@ class TestV1Compliance(FrappeTestCase):
 				"action_type": "Process",
 				"action_label": "Step A",
 				"is_entry_action": 1,
-				"next_step_if_true": "B",  # B doesn't exist yet
 			},
 		)
-		# Valid so far if B was added, but let's add C which is disconnected
+		# Valid so far. Now let's add C which is disconnected.
 		rule.append(
 			"actions",
 			{"action_id": "C", "action_type": "Process", "action_label": "Step C"},

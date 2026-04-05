@@ -79,7 +79,7 @@ export_python_type_annotations = True
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/flexirule/css/flexirule.css"
+app_include_css = "/assets/flexirule/css/rule_builder.css"
 # app_include_js = "/assets/flexirule/js/flexirule.js"
 
 # include js, css files in header of web template

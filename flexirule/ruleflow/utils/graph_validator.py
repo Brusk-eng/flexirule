@@ -112,7 +112,14 @@ def validate_graph_integrity(rule_doc):
 		message = _("Unreachable (Orphan) Actions found: {0}").format(", ".join(orphan_labels))
 		if missing_references:
 			message = "{0}. {1}".format(message, missing_references[0])
-		frappe.throw(message)
+
+		# ONLY throw if rule is active. For Drafts, we allow orphans to enable incremental building.
+		if getattr(rule_doc, "is_active", 0):
+			frappe.throw(message)
+		else:
+			# Just log as a warning for now (or let the UI handle it)
+			# frappe.msgprint(message, alert=True)
+			pass
 
 	if missing_references:
 		frappe.throw(missing_references[0])

@@ -257,7 +257,8 @@ onMounted(async () => {
 });
 
 function validate() {
-	const result = validateConditions(localConditions.value, true);
+	const isMandatory = props.node?.type !== "start";
+	const result = validateConditions(localConditions.value, isMandatory);
 	if (!result.valid) {
 		return { valid: false, errors: [result.message] };
 	}

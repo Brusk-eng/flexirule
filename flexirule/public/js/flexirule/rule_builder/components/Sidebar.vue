@@ -112,6 +112,7 @@ const isConfigurable = computed(() => {
 		"Wait",
 		"Query Records",
 		"Document Action",
+		"Sub-Rule",
 	].includes(type);
 });
 
@@ -151,7 +152,18 @@ function update_action_field(fieldname, value) {
 		selectedNode.value.type = map_action_type(value);
 	}
 
+	const oldValue = selectedNode.value.data[fieldname];
 	selectedNode.value.data[fieldname] = value;
+
+	// Support nested nodes natively when mapped
+	if (
+		fieldname === "rule" &&
+		selectedNode.value.data.action_type === "Sub-Rule" &&
+		oldValue !== value
+	) {
+		// store.expand_sub_rule_in_graph removed per user request
+	}
+
 	store.touch_node(selectedNode.value.id);
 	store.mark_dirty();
 }
@@ -181,6 +193,8 @@ function map_action_type(actionType) {
 			return "documentaction";
 		case "Process":
 			return "process";
+		case "Sub-Rule":
+			return "sub-rule";
 	}
 	return "process";
 }

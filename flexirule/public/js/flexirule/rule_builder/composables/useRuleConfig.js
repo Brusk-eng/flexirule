@@ -93,6 +93,14 @@ export function useRuleConfig(props, emit) {
 			}
 		}
 
+		// 4. Permission Audit Reason (Global requirement when skipping)
+		if (
+			draftNode.value.data?.skip_permissions &&
+			!draftNode.value.data?.permission_audit_reason
+		) {
+			errors.push(__("Permission Audit Reason is required when bypassing permissions."));
+		}
+
 		return {
 			valid: errors.length === 0,
 			errors: errors,
@@ -116,8 +124,17 @@ export function useRuleConfig(props, emit) {
 
 		// Commit changes
 		if (props.node && draftNode.value) {
+			const oldValue = props.node.data?.rule;
+			const newValue = draftNode.value.data?.rule;
+
 			props.node.data = JSON.parse(JSON.stringify(draftNode.value.data));
 			props.node.label = draftNode.value.label || draftNode.value.data?.action_label;
+
+			// Redraw nested nodes when Sub-Rule LinkControl target changes
+			if (props.node.data.action_type === "Sub-Rule" && oldValue !== newValue) {
+				// store.expand_sub_rule_in_graph removed per user request
+			}
+
 			store.touch_node(props.node.id);
 			store.mark_dirty();
 		}

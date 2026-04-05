@@ -45,6 +45,11 @@ async function init_control() {
 
 	// Handle table field logic
 	apply_table_logic();
+
+	// Explicitly set get_query if provided in df
+	if (props.df.get_query) {
+		link_control.get_query = props.df.get_query;
+	}
 }
 
 function destroy_control() {

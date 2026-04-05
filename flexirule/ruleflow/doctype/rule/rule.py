@@ -100,6 +100,7 @@ class Rule(Document):
 		self.validate_variable_availability()
 		self.validate_active_rule_lock()
 		self.validate_priority_callable()
+		self.set_callable_permissions()
 		self.validate_version_constraints()
 
 		self.status = self.get_computed_status()
@@ -130,7 +131,18 @@ class Rule(Document):
 	def validate_priority_callable(self):
 		"""If trigger_type is Callable Event, priority must be 0."""
 		if self.trigger_type == "Callable Event" and str(self.priority) != "0":
-			frappe.throw(_("Callable Event rules must have priority set to 0."))
+			self.priority = "0"
+			frappe.msgprint(_("Priority reset to 0 for Callable Event rule."), alert=True)
+
+	def set_callable_permissions(self):
+		"""
+		Automatically add 'All' role permission for callable sub-rules.
+		Req: when a rule is callable and exposed as sub rule it must set permission to role: 'all'
+		"""
+		if self.trigger_type == "Callable Event" and self.exposed_as_subrule:
+			has_all = any(p.role == "All" for p in self.permissions)
+			if not has_all:
+				self.append("permissions", {"role": "All", "can_execute": 1})
 
 	def normalize_trigger_type_fields(self):
 		"""Clear fields hidden by the selected trigger type."""

@@ -59,6 +59,7 @@
 				class="form-control input-sm"
 				:value="modelValue"
 				:disabled="df.read_only"
+				:aria-label="__(df.label)"
 				@input="
 					$emit(
 						'update:modelValue',
@@ -90,6 +91,7 @@
 				class="form-control input-sm"
 				:value="modelValue"
 				:disabled="df.read_only"
+				:aria-label="__(df.label)"
 				@input="$emit('update:modelValue', $event.target.value)"
 			/>
 			<div v-if="df.description" class="description text-muted mt-1">
@@ -112,6 +114,7 @@
 				class="form-control input-sm"
 				:value="modelValue"
 				:disabled="df.read_only"
+				:aria-label="__(df.label)"
 				@input="$emit('update:modelValue', $event.target.value)"
 			/>
 			<div v-if="df.description" class="description text-muted mt-1">
@@ -146,6 +149,7 @@
 				rows="3"
 				:value="modelValue"
 				:disabled="df.read_only"
+				:aria-label="__(df.label)"
 				@input="$emit('update:modelValue', $event.target.value)"
 				@dragover.prevent
 				@drop="onDrop"
@@ -249,9 +253,17 @@ function check_default() {
 }
 
 function onDrop(event) {
-	const variable = event.dataTransfer.getData("application/x-flexirule-variable");
+	let variable = event.dataTransfer.getData("application/x-flexirule-variable");
 	if (variable) {
 		event.preventDefault();
+
+		// Sanitize variable name to prevent injection/breaking templates
+		// Reject common injection characters
+		if (/[{}"']/.test(variable)) {
+			console.warn("FlexiRule: Rejected unsafe variable name drop:", variable);
+			return;
+		}
+
 		const text = `{{ ${variable} }}`;
 		const input = event.target;
 		const start = input.selectionStart;
