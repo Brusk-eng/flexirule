@@ -4,57 +4,64 @@ frappe.ui.form.on("Rule", {
 		flexirule.contracts?.loadContractsFromBackend?.();
 		apply_trigger_type_contract(frm);
 
-		const grid = frm.get_field("actions").grid;
-		const op_field = grid.get_field("operation");
-		const rule_field = grid.get_field("rule");
+		const actions_field = frm.get_field("actions");
+		if (actions_field && actions_field.grid) {
+			const grid = actions_field.grid;
+			const op_field = grid.get_field("operation");
+			const rule_field = grid.get_field("rule");
 
-		rule_field.get_query = function () {
-			const filters = [
-				["Rule", "trigger_type", "=", "Callable Event"],
-				["Rule", "exposed_as_subrule", "=", 1],
-				["Rule", "is_active", "=", 1],
-			];
+			if (rule_field) {
+				rule_field.get_query = function () {
+					const filters = [
+						["Rule", "trigger_type", "=", "Callable Event"],
+						["Rule", "exposed_as_subrule", "=", 1],
+						["Rule", "is_active", "=", 1],
+					];
 
-			if (frm.doc.name) {
-				filters.push(["Rule", "name", "!=", frm.doc.name]);
+					if (frm.doc.name) {
+						filters.push(["Rule", "name", "!=", frm.doc.name]);
+					}
+
+					return { filters };
+				};
 			}
 
-			return { filters };
-		};
+			if (op_field) {
+				op_field.get_data = function () {
+					const row = this.grid_row.doc;
+					if (!row || !row.action_type) return [];
 
-		op_field.get_data = function () {
-			const row = this.grid_row.doc;
-			if (!row || !row.action_type) return [];
+					const contractOptions =
+						flexirule.contracts?.getOperationOptions?.(row.action_type, {
+							processName: row.process_name,
+						}) || [];
+					if (contractOptions.length) {
+						return contractOptions.map((op) => ({
+							value: op.value || op.func_name,
+							description: op.process_name || "",
+						}));
+					}
 
-			const contractOptions =
-				flexirule.contracts?.getOperationOptions?.(row.action_type, {
-					processName: row.process_name,
-				}) || [];
-			if (contractOptions.length) {
-				return contractOptions.map((op) => ({
-					value: op.value || op.func_name,
-					description: op.process_name || "",
-				}));
+					if (!row.process_name || row.action_type !== "Process") return [];
+
+					const cached = frm._process_ops_cache[row.process_name];
+					if (cached) {
+						return cached.map((op) => ({ value: op, description: "" }));
+					}
+
+					return frappe
+						.call({
+							method: "flexirule.ruleflow.api.get_process_operations",
+							args: { process_name: row.process_name },
+						})
+						.then((r) => {
+							const ops = r.message || [];
+							frm._process_ops_cache[row.process_name] = ops;
+							return ops.map((op) => ({ value: op, description: "" }));
+						});
+				};
 			}
-
-			if (!row.process_name || row.action_type !== "Process") return [];
-
-			const cached = frm._process_ops_cache[row.process_name];
-			if (cached) {
-				return cached.map((op) => ({ value: op, description: "" }));
-			}
-
-			return frappe
-				.call({
-					method: "flexirule.ruleflow.api.get_process_operations",
-					args: { process_name: row.process_name },
-				})
-				.then((r) => {
-					const ops = r.message || [];
-					frm._process_ops_cache[row.process_name] = ops;
-					return ops.map((op) => ({ value: op, description: "" }));
-				});
-		};
+		}
 	},
 
 	is_active(frm) {
@@ -168,13 +175,12 @@ function apply_active_lock(frm) {
 		f.grid.wrapper.find(".grid-row, .grid-add-row").toggleClass("disabled", is_active);
 	});
 
+	frm.dashboard.clear_headline();
 	if (is_active) {
 		frm.dashboard.set_headline_alert(
 			__("This rule is active and locked. Deactivate it to edit."),
 			"orange"
 		);
-	} else {
-		frm.dashboard.clear_headline();
 	}
 }
 
@@ -185,15 +191,21 @@ function show_deactivation_dialog(frm) {
 			{
 				fieldtype: "HTML",
 				fieldname: "info",
-				options: `<p>This rule is active. How would you like to proceed?</p>`,
+				options: `<p>${__("This rule is active. How would you like to proceed?")}</p>`,
 			},
 		],
 		primary_action_label: __("Edit Current Rule"),
 		primary_action() {
-			frm.set_value("is_active", 0);
-			apply_active_lock(frm);
-			frm.refresh_fields();
 			d.hide();
+			// Temporarily bypass the "was_active" check to prevent an infinite dialog loop
+			frm._was_active = 0;
+
+			// Explicitly set value and refresh to ensure UI state syncs
+			frm.set_value("is_active", 0).then(() => {
+				apply_active_lock(frm);
+				frm.refresh_fields();
+				frappe.show_alert({ message: __("Rule unlocked"), indicator: "blue" });
+			});
 		},
 		secondary_action_label: __("Create Amendment & Edit"),
 		secondary_action() {

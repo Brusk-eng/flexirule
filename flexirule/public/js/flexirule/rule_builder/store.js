@@ -10,17 +10,17 @@ import {
 import { mapActionTypeToNodeType } from "./composables/useActionTypeMapper";
 
 export const useStore = defineStore("rule-builder-store", () => {
-	let rule_name = ref(null);
-	let rule_doc = ref(null);
-	let nodes = ref([]);
-	let edges = ref([]);
-	let selected_id = ref(null);
-	let show_config_modal = ref(false);
-	let config_modal_mode = ref("setup"); // "setup" or "logic"
-	let processes = ref([]); // File-backed processes
-	let available_rules = ref([]);
-	let is_dirty = ref(false);
-	let initial_state = ref(null);
+	const rule_name = ref(null);
+	const rule_doc = ref(null);
+	const nodes = ref([]);
+	const edges = ref([]);
+	const selected_id = ref(null);
+	const show_config_modal = ref(false);
+	const config_modal_mode = ref("setup"); // "setup" or "logic"
+	const processes = ref([]); // File-backed processes
+	const available_rules = ref([]);
+	const is_dirty = ref(false);
+	const initial_state = ref(null);
 	let trigger_event_options = ref([]);
 	let doc_meta = ref({});
 	let fetch_counter = ref(0);
@@ -42,8 +42,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return frappe.get_meta(doctype);
 	});
 
-	const is_read_only = computed(() => {
+	const is_active = computed(() => {
 		return rule_doc.value?.is_active === 1;
+	});
+
+	const is_read_only = computed(() => {
+		return is_active.value;
 	});
 
 	async function fetch_metadata(doctype) {
@@ -197,7 +201,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		const visual_data = flexirule.utils.safe_json_parse(rule_doc.value.visual_data, null);
 
 		if (rule_doc.value.actions && rule_doc.value.actions.length > 0) {
-			sync_actions_to_graph();
+			await sync_actions_to_graph();
 
 			if (visual_data && visual_data.length > 0) {
 				merge_visual_layout(visual_data);
@@ -352,9 +356,29 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return JSON.stringify(getStateSnapshot()) !== initial_state.value;
 	}
 
-	function sync_actions_to_graph() {
+	async function get_graph_as_actions() {
+		return nodes.value
+			.filter((n) => n.type !== "start")
+			.map((n) => {
+				const rawType = n.data?.action_type || n.type;
+				// Standardize type to canonical contract names (e.g. Sub-Rule instead of sub-rule)
+				const action_type = normalizeActionType(rawType);
+
+				return {
+					...n.data,
+					action_id: n.id,
+					action_type: action_type,
+				};
+			});
+	}
+
+	async function sync_actions_to_graph(customActions = null) {
 		const actionNodes = [];
 		const actionEdges = [];
+
+		const actionsList = customActions || rule_doc.value.actions || [];
+		const visualData = flexirule.utils.safe_json_parse(rule_doc.value.visual_data, {});
+		const visualNodes = new Map((visualData.nodes || []).map((n) => [n.id, n]));
 
 		// Check if we have an existing root/entry action
 		const rootAction = rule_doc.value.actions.find(
@@ -379,7 +403,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 			});
 		}
 
-		rule_doc.value.actions.forEach((action, index) => {
+		for (const [index, action] of rule_doc.value.actions.entries()) {
 			const nodeId = action.action_id || `act_${index}`;
 			const originalActionType = (action.action_type || "Process").trim();
 			const actionTypeRaw = normalizeActionType(originalActionType);
@@ -398,11 +422,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 			}
 
 			const nodeLabel = isRoot ? "Start" : action.action_label || `Action ${index + 1}`;
-			// Parse JSON-like payloads while preserving already-parsed objects.
 			const safeParse = (val, defaultVal = null) => {
-				if (val && typeof val === "object") {
-					return val;
-				}
+				if (val && typeof val === "object") return val;
 				return flexirule.utils.safe_json_parse(val, defaultVal);
 			};
 
@@ -435,7 +456,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 				skip_permissions: action.skip_permissions || 0,
 				next_step_if_true: action.next_step_if_true,
 				next_step_if_false: action.next_step_if_false,
-				// New RC fields
 				input_source: action.input_source,
 				reference_doctype: action.reference_doctype,
 				reference_docname: action.reference_docname,
@@ -480,11 +500,14 @@ export const useStore = defineStore("rule-builder-store", () => {
 				},
 				label: nodeLabel,
 				data: nodeData,
+				className: "",
+				style: {},
 			});
-		});
+		}
 
-		// Edges
-		rule_doc.value.actions.forEach((action, index) => {
+		// Edges for main flow
+		const sourceActions = customActions || rule_doc.value.actions || [];
+		sourceActions.forEach((action, index) => {
 			const nodeId = action.action_id || `act_${index}`;
 			if (action.next_step_if_true) {
 				actionEdges.push({
@@ -508,8 +531,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 			}
 		});
 
-		nodes.value = actionNodes;
-		edges.value = actionEdges;
+		nodes.value = [...actionNodes];
+		edges.value = [...actionEdges];
 	}
 
 	function merge_visual_layout(visual_data) {
@@ -525,44 +548,81 @@ export const useStore = defineStore("rule-builder-store", () => {
 				])
 		);
 
-		nodes.value = nodes.value.map((node) => {
+		// 1. Update existing nodes and track which ones we've seen
+		const seenNodeIds = new Set();
+		const mergedNodes = nodes.value.map((node) => {
+			seenNodeIds.add(node.id);
 			const visualNode = visualNodes.get(node.id);
 			if (!visualNode) return node;
 
 			const {
-				data: visualNodeData,
 				position,
 				type: _visualType,
 				label: _visualLabel,
 				id: _visualId,
+				data: _visualData, // ALWAYS discard visual data to prevent stale state merge
 				...visualNodeMeta
 			} = visualNode;
+
 			return {
 				...node,
 				...visualNodeMeta,
 				position: position || node.position,
-				data: {
-					...(visualNodeData || {}),
-					...(node.data || {}),
-				},
+				data: { ...(node.data || {}) },
+				type: node.type,
+				label: node.label,
 			};
 		});
 
-		edges.value = edges.value.map((edge) => {
+		// 2. Add orphaned nodes from visual_data that aren't represented in actions yet
+		// This prevents "disappearing" nodes that aren't connected to the flow.
+		visualNodes.forEach((vNode, id) => {
+			if (!seenNodeIds.has(id)) {
+				mergedNodes.push({
+					...vNode,
+					data: { ...(vNode.data || {}) },
+				});
+				seenNodeIds.add(id);
+			}
+		});
+
+		nodes.value = [...mergedNodes];
+
+		// 3. Edges reconstruction: include all visual edges that still have valid source/target
+		const seenEdgeKeys = new Set();
+		const mergedEdges = edges.value.map((edge) => {
 			const key = `${edge.source}:${edge.target}:${edge.sourceHandle || "default"}`;
+			seenEdgeKeys.add(key);
 			const visualEdge = visualEdges.get(key);
 			if (!visualEdge) return edge;
 
-			const { data: visualEdgeData, ...visualEdgeMeta } = visualEdge;
+			const {
+				id: _vId,
+				source: _vSource,
+				target: _vTarget,
+				sourceHandle: _vSourceHandle,
+				data: _vData,
+				...visualEdgeMeta
+			} = visualEdge;
+
 			return {
 				...edge,
 				...visualEdgeMeta,
-				data: {
-					...(visualEdgeData || {}),
-					...(edge.data || {}),
-				},
 			};
 		});
+
+		// Add orphaned edges (e.g. from unconnected nodes)
+		visualEdges.forEach((vEdge, key) => {
+			if (!seenEdgeKeys.has(key)) {
+				// Verify both nodes still exist
+				if (seenNodeIds.has(vEdge.source) && seenNodeIds.has(vEdge.target)) {
+					mergedEdges.push(vEdge);
+					seenEdgeKeys.add(key);
+				}
+			}
+		});
+
+		edges.value = [...mergedEdges];
 	}
 
 	function normalize_action_data(actionType, data = {}) {
@@ -712,29 +772,83 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	async function fetch_available_rules() {
 		try {
-			const rules = await frappe.db.get_list("Rule", {
-				fields: [
-					"name",
-					"rule_name",
-					"trigger_type",
-					"trigger_event",
-					"is_active",
-					"exposed_as_subrule",
-					"document_type",
-					"condition_json",
-					"compiled_expression",
-				],
-				filters: {
-					trigger_type: "Callable Event",
-					exposed_as_subrule: 1,
-					is_active: 1,
-					name: ["!=", rule_name.value || ""],
+			// US-818: Use frappe.call for client get_list to avoid "Field not permitted" errors
+			// for ghost fields or contract-induced fields like condition_json
+			const result = await frappe.call({
+				method: "frappe.client.get_list",
+				args: {
+					doctype: "Rule",
+					fields: [
+						"name",
+						"rule_name",
+						"trigger_type",
+						"trigger_event",
+						"is_active",
+						"exposed_as_subrule",
+						"document_type",
+					],
+					filters: {
+						trigger_type: "Callable Event",
+						exposed_as_subrule: 1,
+						is_active: 1,
+						name: ["!=", rule_name.value || ""],
+					},
+					limit: 0,
 				},
-				limit: 0,
 			});
-			available_rules.value = rules || [];
-		} catch {
+			available_rules.value = result.message || [];
+		} catch (e) {
+			console.error("FlexiRule: Failed to fetch rules:", e);
 			available_rules.value = [];
+		}
+	}
+
+	async function activate_rule() {
+		if (is_active.value) return;
+
+		// 1. Validate via Backend API
+		const validation = await frappe.call({
+			method: "flexirule.ruleflow.api.validate_rule_document",
+			args: { doc: rule_doc.value },
+		});
+
+		if (validation.message && !validation.message.valid) {
+			const errors = validation.message.errors || [__("Validation failed")];
+			frappe.msgprint({
+				title: __("Cannot Activate"),
+				message: errors.join("<br>"),
+				indicator: "red",
+			});
+			return;
+		}
+
+		// 2. Set Active
+		try {
+			await frappe.db.set_value("Rule", rule_name.value, "is_active", 1);
+			await fetch(); // Reload
+			frappe.show_alert({ message: __("Rule activated and locked"), indicator: "green" });
+		} catch (e) {
+			frappe.msgprint({
+				title: __("Activation Failed"),
+				message: e.message || __("Unknown error"),
+				indicator: "red",
+			});
+		}
+	}
+
+	async function deactivate_rule() {
+		if (!is_active.value) return;
+
+		try {
+			await frappe.db.set_value("Rule", rule_name.value, "is_active", 0);
+			await fetch(); // Reload
+			frappe.show_alert({ message: __("Rule unlocked for editing"), indicator: "blue" });
+		} catch (e) {
+			frappe.msgprint({
+				title: __("Unlock Failed"),
+				message: e.message || __("Unknown error"),
+				indicator: "red",
+			});
 		}
 	}
 
@@ -974,12 +1088,32 @@ export const useStore = defineStore("rule-builder-store", () => {
 					);
 				}
 
-				const normalizedConfig = clean_action_config(node.data?.config) || {};
-				if (node.data?.input_mapping) {
-					normalizedConfig.input_mapping = node.data.input_mapping;
+				// Unify mapping storage. Prioritize data.config but allow sync from direct aliases.
+				// This ensures SubRuleConfig and previous versions both work.
+				let rawConfig = node.data?.config || {};
+				if (typeof rawConfig === "string") {
+					try {
+						rawConfig = JSON.parse(rawConfig);
+					} catch (e) {
+						rawConfig = {};
+					}
 				}
-				if (node.data?.output_mapping) {
-					normalizedConfig.output_mapping = node.data.output_mapping;
+				const normalizedConfig = clean_action_config(rawConfig) || {};
+
+				const finalInputMapping =
+					node.data?.input_mapping && node.data.input_mapping.length > 0
+						? node.data.input_mapping
+						: normalizedConfig.input_mapping;
+				if (finalInputMapping) {
+					normalizedConfig.input_mapping = finalInputMapping;
+				}
+
+				const finalOutputMapping =
+					node.data?.output_mapping && node.data.output_mapping.length > 0
+						? node.data.output_mapping
+						: normalizedConfig.output_mapping;
+				if (finalOutputMapping) {
+					normalizedConfig.output_mapping = finalOutputMapping;
 				}
 				if (action_type === "Sub-Rule" && node.data?.rule) {
 					normalizedConfig.sub_rule_name = node.data.rule;
@@ -1164,11 +1298,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 		if (!nodeId) return;
 		const idx = nodes.value.findIndex((n) => n.id === nodeId);
 		if (idx === -1) return;
-		const node = nodes.value[idx];
-		nodes.value.splice(idx, 1, {
-			...node,
-			data: { ...(node.data || {}) },
-		});
+
+		const current = nodes.value[idx];
+		// Update object in-place to trigger Vue reactive dependency on that specific index
+		nodes.value[idx] = {
+			...current,
+			data: { ...(current.data || {}) },
+		};
 	}
 
 	function getTopologicalSort(nodes, edges) {

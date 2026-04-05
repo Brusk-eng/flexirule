@@ -42,7 +42,7 @@
 						@update:modelValue="(val) => update_action_field('skip_permissions', val)"
 					/>
 				</div>
-				<div class="grid-item span-2" v-if="node.data?.skip_permissions">
+				<div class="grid-item span-2" v-if="!!node.data?.skip_permissions">
 					<ControlFactory
 						:df="
 							with_read_only({
@@ -54,9 +54,9 @@
 								),
 							})
 						"
-						:modelValue="configValue('permission_audit_reason')"
+						:modelValue="node.data?.permission_audit_reason"
 						@update:modelValue="
-							(val) => update_config_field('permission_audit_reason', val)
+							(val) => update_action_field('permission_audit_reason', val)
 						"
 					/>
 				</div>

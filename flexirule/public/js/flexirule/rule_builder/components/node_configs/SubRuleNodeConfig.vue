@@ -1,7 +1,20 @@
 <template>
-	<div class="subrule-node-config">
+	<div class="subrule-node-config" ref="containerRef">
 		<div class="form-group relative">
-			<label>{{ __("Select Rule") }}</label>
+			<div class="d-flex justify-content-between align-items-center mb-1">
+				<label class="mb-0">{{ __("Select Rule") }}</label>
+				<div class="custom-control custom-switch custom-switch-sm">
+					<input
+						type="checkbox"
+						class="custom-control-input"
+						id="filterCompatible"
+						v-model="onlyCompatible"
+					/>
+					<label class="custom-control-label small" for="filterCompatible">{{
+						__("Only Compatible")
+					}}</label>
+				</div>
+			</div>
 			<div class="input-group">
 				<input
 					type="text"
@@ -10,6 +23,15 @@
 					@focus="showSuggestions = true"
 					:placeholder="__('Search rule...')"
 				/>
+				<div class="input-group-append" v-if="nodeData?.rule">
+					<button
+						class="btn btn-outline-secondary btn-xs"
+						type="button"
+						@click="clearRule"
+					>
+						<i class="fa fa-times"></i>
+					</button>
+				</div>
 			</div>
 
 			<div v-if="showSuggestions" class="suggestions-dropdown">
@@ -84,34 +106,44 @@
 </template>
 
 <script setup>
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useStore } from "../../store";
+
 const props = defineProps({
 	nodeData: Object,
 	availableRules: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["update-field"]);
+const store = useStore();
 
 const subRuleSearch = ref("");
 const showSuggestions = ref(false);
+const onlyCompatible = ref(true);
 
 const parentDocType = computed(() => {
 	// Traverse parent if necessary? Usually rule_doc in store is sufficient
-	const store = useStore();
 	return store.rule_doc?.document_type;
 });
 
 const filteredRules = computed(() => {
 	const search = subRuleSearch.value.toLowerCase();
-	const store = useStore();
 	const rules = props.availableRules || [];
 
 	return rules
-		.filter(
-			(r) =>
+		.filter((r) => {
+			const matchesSearch =
 				r.name.toLowerCase().includes(search) ||
-				(r.rule_name && r.rule_name.toLowerCase().includes(search))
-		)
+				(r.rule_name && r.rule_name.toLowerCase().includes(search));
+
+			if (!matchesSearch) return false;
+
+			if (onlyCompatible.value) {
+				const isCompatible = !r.document_type || r.document_type === parentDocType.value;
+				return isCompatible;
+			}
+			return true;
+		})
 		.sort((a, b) => {
 			// Priority 1: DocType Match
 			const aMatch = a.document_type === parentDocType.value;
@@ -166,14 +198,12 @@ async function validateCompatibility(rule) {
 	}
 
 	// 2. Condition Validation (if exists)
-	if (rule.condition_json || rule.compiled_expression) {
-		// We can't easily validate compiled_expression (Python) on frontend,
-		// but we can warn the user that this sub-rule has filters.
+	if (rule.trigger_condition || rule.compiled_expression) {
 		compatibilityStatus.value = {
 			ok: true,
-			message: rule.condition_json
-				? __("Sub-rule has conditions that will be checked at runtime.")
-				: "",
+			message: rule.trigger_condition
+				? __("Target rule has conditions; ensure input mapping satisfies them.")
+				: null,
 		};
 	} else {
 		compatibilityStatus.value = { ok: true, message: "" };
@@ -184,7 +214,35 @@ function selectRule(rule) {
 	subRuleSearch.value = rule.rule_name || rule.name;
 	emit("update-field", "rule", rule.name);
 	showSuggestions.value = false;
+	nextTick().then(() => {
+		// Surgical expansion removed per user request
+	});
 }
+
+function clearRule() {
+	subRuleSearch.value = "";
+	emit("update-field", "rule", "");
+	showSuggestions.value = false;
+	nextTick().then(() => {
+		// Expansion removed per user request
+	});
+}
+
+// Click outside handler
+const containerRef = ref(null);
+function handleClickOutside(e) {
+	if (containerRef.value && !containerRef.value.contains(e.target)) {
+		showSuggestions.value = false;
+	}
+}
+
+onMounted(() => {
+	document.addEventListener("mousedown", handleClickOutside);
+});
+
+onUnmounted(() => {
+	document.removeEventListener("mousedown", handleClickOutside);
+});
 </script>
 
 <style scoped>

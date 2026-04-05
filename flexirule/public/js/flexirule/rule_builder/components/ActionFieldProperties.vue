@@ -12,6 +12,7 @@
 <script setup>
 import { useStore } from "../store";
 import ControlFactory from "../controls/ControlFactory.vue";
+import AutocompleteControl from "../controls/AutocompleteControl.vue";
 import {
 	getActionTypeOptions,
 	getContract,
@@ -92,6 +93,25 @@ const doc_fields = computed(() => {
 				return {
 					...df,
 					options: getActionTypeOptions().join("\n"),
+				};
+			}
+			// Inject get_query for Sub-Rule reference
+			if (df.fieldname === "rule" && actionType === "Sub-Rule") {
+				return {
+					...df,
+					label: policyLabel ? __(policyLabel) : df.label,
+					get_query: () => {
+						const parentDocType = store.rule_doc?.document_type;
+						return {
+							filters: {
+								trigger_type: "Callable Event",
+								exposed_as_subrule: 1,
+								is_active: 1,
+								document_type: ["in", parentDocType ? [parentDocType, ""] : [""]],
+								name: ["!=", store.rule_name || ""],
+							},
+						};
+					},
 				};
 			}
 			return policyLabel ? { ...df, label: __(policyLabel) } : df;
@@ -411,7 +431,6 @@ onMounted(async () => {
 				/>
 			</template>
 
-			<!-- Standard fields via ControlFactory -->
 			<template v-else>
 				<ControlFactory
 					:df="{

@@ -157,6 +157,7 @@ import {
 	getEffectiveActionPolicy,
 } from "../../../core/contracts.js";
 import ControlFactory from "../../controls/ControlFactory.vue";
+import SubRuleNodeConfig from "../node_configs/SubRuleNodeConfig.vue";
 
 const props = defineProps({
 	node: Object,
@@ -269,6 +270,18 @@ const ruleField = {
 	label: __("Sub-Rule"),
 	options: "Rule",
 	reqd: 1,
+	get_query: () => {
+		const parentDocType = store.rule_doc?.document_type;
+		return {
+			filters: {
+				trigger_type: "Callable Event",
+				exposed_as_subrule: 1,
+				is_active: 1,
+				document_type: ["in", parentDocType ? [parentDocType, ""] : [""]],
+				name: ["!=", store.rule_name || ""],
+			},
+		};
+	},
 };
 
 const referenceDocnameField = computed(() => {

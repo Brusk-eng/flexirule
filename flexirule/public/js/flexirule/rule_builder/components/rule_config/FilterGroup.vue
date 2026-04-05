@@ -67,9 +67,103 @@
 					<!-- Value / Expression -->
 					<div class="filter-col value-col">
 						<div class="value-input-group">
-							<template v-if="row.value_type === 'Expression'">
-								<div class="expression-wrapper">
-									<span class="expr-bracket">{</span>
+							<template v-if="row.operator === 'Between'">
+								<div class="dual-value-wrapper">
+									<div class="value-input-item">
+										<template
+											v-if="
+												row.value_type === 'Variable' ||
+												row.value_type === 'Expression'
+											"
+										>
+											<AutocompleteControl
+												:df="{ fieldtype: 'Autocomplete', label: '' }"
+												:modelValue="
+													stripBracket(getBetweenValue(row.value, 0))
+												"
+												:get_options="getVariableOptions"
+												:hideLabel="true"
+												:read_only="readOnly"
+												@update:modelValue="
+													(val) =>
+														setBetweenValue(
+															idx,
+															0,
+															row.value_type === 'Value'
+																? val
+																: `{${val}}`
+														)
+												"
+											/>
+										</template>
+										<template v-else>
+											<ControlFactory
+												:df="getControlFactorySchema(row)"
+												:modelValue="getBetweenValue(row.value, 0)"
+												:read_only="readOnly"
+												:hideLabel="true"
+												@update:modelValue="
+													(val) => setBetweenValue(idx, 0, val)
+												"
+											/>
+										</template>
+									</div>
+									<span class="between-sep">{{ __("and") }}</span>
+									<div class="value-input-item">
+										<template
+											v-if="
+												row.value_type === 'Variable' ||
+												row.value_type === 'Expression'
+											"
+										>
+											<AutocompleteControl
+												:df="{ fieldtype: 'Autocomplete', label: '' }"
+												:modelValue="
+													stripBracket(getBetweenValue(row.value, 1))
+												"
+												:get_options="getVariableOptions"
+												:hideLabel="true"
+												:read_only="readOnly"
+												@update:modelValue="
+													(val) =>
+														setBetweenValue(
+															idx,
+															1,
+															row.value_type === 'Value'
+																? val
+																: `{${val}}`
+														)
+												"
+											/>
+										</template>
+										<template v-else>
+											<ControlFactory
+												:df="getControlFactorySchema(row)"
+												:modelValue="getBetweenValue(row.value, 1)"
+												:read_only="readOnly"
+												:hideLabel="true"
+												@update:modelValue="
+													(val) => setBetweenValue(idx, 1, val)
+												"
+											/>
+										</template>
+									</div>
+								</div>
+							</template>
+							<template
+								v-else-if="
+									row.value_type === 'Expression' || row.value_type === 'Variable'
+								"
+							>
+								<div
+									class="expression-wrapper"
+									:class="{ 'variable-mode': row.value_type === 'Variable' }"
+								>
+									<span
+										class="expr-bracket"
+										v-if="row.value_type === 'Expression'"
+										>{</span
+									>
 									<AutocompleteControl
 										:df="{ fieldtype: 'Autocomplete', label: '' }"
 										:modelValue="stripBracket(row.value)"
@@ -80,20 +174,12 @@
 											(val) => updateRow(idx, { value: `{${val}}` })
 										"
 									/>
-									<span class="expr-bracket">}</span>
+									<span
+										class="expr-bracket"
+										v-if="row.value_type === 'Expression'"
+										>}</span
+									>
 								</div>
-							</template>
-							<template v-else-if="row.value_type === 'Variable'">
-								<AutocompleteControl
-									:df="{ fieldtype: 'Autocomplete', label: '' }"
-									:modelValue="stripBracket(row.value)"
-									:get_options="getVariableOptions"
-									:hideLabel="true"
-									:read_only="readOnly"
-									@update:modelValue="
-										(val) => updateRow(idx, { value: `{${val}}` })
-									"
-								/>
 							</template>
 							<template v-else>
 								<select
@@ -446,6 +532,11 @@ const getControlFactorySchema = (row) => {
 	// Native Frappe Filter Manipulation (perfect parity)
 	if (window.frappe && frappe.ui && frappe.ui.filter_utils) {
 		frappe.ui.filter_utils.set_fieldtype(schema, null, row.operator);
+		// Force restore fieldtype for Between if it's a date/time field,
+		// as set_fieldtype might sometimes generalize it to Data for multiple values
+		if (row.operator === "Between" && ["Date", "Datetime", "Time"].includes(field?.fieldtype)) {
+			schema.fieldtype = field.fieldtype;
+		}
 	} else {
 		// Fallback if filter_utils is somehow missing
 		if (schema.fieldname === "docstatus") {
@@ -507,11 +598,37 @@ const updateRow = (idx, data) => {
 		if (!operators.includes(merged.operator)) {
 			merged.operator = operators[0] || "=";
 		}
-		// Reset value if switching between types that might conflict
+	}
+
+	// Handle operator change to/from Between
+	if (data.operator && data.operator !== row.operator) {
+		if (data.operator === "Between" && !Array.isArray(merged.value)) {
+			merged.value = [merged.value || "", ""];
+		} else if (row.operator === "Between" && Array.isArray(merged.value)) {
+			merged.value = merged.value[0] || "";
+		}
 	}
 
 	filters.value[idx] = merged;
 	emitUpdate();
+};
+
+const getBetweenValue = (value, idx) => {
+	if (Array.isArray(value)) return value[idx] || "";
+	if (typeof value === "string" && value.includes(",")) {
+		return value.split(",")[idx]?.trim() || "";
+	}
+	return idx === 0 ? value : "";
+};
+
+const setBetweenValue = (idx, valIdx, newVal) => {
+	const row = filters.value[idx];
+	let currentVal = row.value;
+	if (!Array.isArray(currentVal)) {
+		currentVal = [getBetweenValue(currentVal, 0), getBetweenValue(currentVal, 1)];
+	}
+	currentVal[valIdx] = newVal;
+	updateRow(idx, { value: [...currentVal] });
 };
 
 const toggleValueType = (idx, type) => {
@@ -639,6 +756,33 @@ onMounted(syncFromProps);
 	height: 24px;
 	padding: 2px 4px;
 	background: #f1f3f5;
+}
+
+.dual-value-wrapper {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+}
+
+.value-input-item {
+	flex: 1;
+	min-width: 0;
+}
+
+.between-sep {
+	font-size: 11px;
+	color: #6c757d;
+	font-weight: 500;
+}
+
+.expression-wrapper.variable-mode {
+	background: #f3f0ff;
+	border-color: #d1c4e9;
+}
+
+.expression-wrapper.variable-mode .expr-bracket {
+	color: #673ab7;
 }
 
 .border-dashed {
