@@ -32,13 +32,16 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"field_labels": {},
 	},
 	"Condition": {
-		"required_fields": ["condition_json"],
+		"required_fields": ["config"],
 		"has_next_true": True,
 		"has_next_false": True,
 		"terminal": False,
 		"css": {"icon": "fa fa-code-fork", "color": "#3b82f6"},
 		"validation": {"frontend": "validate_condition"},
-		"field_labels": {"compiled_expression": "Compiled Expression (Python)"},
+		"field_labels": {
+			"compiled_expression": "Compiled Expression (Python)",
+			"config": "Condition Builder Config",
+		},
 	},
 	"Process": {
 		"required_fields": ["process_name", "operation"],
@@ -380,7 +383,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 		"Rule": [],
 		"Rule Action": [
 			{"fieldname": "action_type", "default": "Condition"},
-			{"fieldname": "condition_json", "reqd": 1},
+			{"fieldname": "config", "reqd": 1},
 			{"fieldname": "next_step_if_false", "mandatory_depends_on": "eval:doc.parent.is_active===1"},
 			{"fieldname": "description", "description": "Evaluates a condition to branch execution"},
 		],

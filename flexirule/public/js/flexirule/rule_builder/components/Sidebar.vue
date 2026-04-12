@@ -35,18 +35,27 @@
 					</p>
 				</div>
 
-				<!-- Quick Action Button -->
+				<!-- Quick Action Button (Shows if Dialog mode) -->
 				<div
 					class="sidebar-v2-preview mb-3"
-					v-if="isConfigurable && selectedNode.type !== 'selector'"
+					v-if="
+						isConfigurable &&
+						selectedNode.type !== 'selector' &&
+						store.settings?.action_config_mode === 'Dialog'
+					"
 				>
 					<button class="btn btn-sm btn-primary-light w-100" @click="open_config_dialog">
-						<i class="fa fa-cog"></i> {{ __("Configure Action") }}
+						<i class="fa fa-cog"></i> {{ __("Configure Action via Dialog") }}
 					</button>
 				</div>
 
+				<!-- Inline Properties (Shows if Sidebar mode) -->
 				<ActionFieldProperties
-					v-if="selectedNode.type !== 'selector'"
+					v-if="
+						selectedNode.type !== 'selector' &&
+						(store.settings?.action_config_mode === 'Sidebar' ||
+							!store.settings?.action_config_mode)
+					"
 					:nodeData="selectedNode.data"
 					:readOnly="store.is_read_only"
 					@update:field="update_action_field"

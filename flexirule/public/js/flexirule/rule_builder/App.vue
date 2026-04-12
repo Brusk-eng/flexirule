@@ -83,6 +83,13 @@
 							>
 								{{ __("Fit") }}
 							</button>
+							<button
+								class="btn btn-sm btn-default"
+								@click="layoutGraph('TB')"
+								:title="__('Auto Layout')"
+							>
+								<i class="fa fa-sitemap"></i> {{ __("Auto Layout") }}
+							</button>
 						</div>
 
 						<div class="divider-vertical"></div>
@@ -194,6 +201,7 @@ import { VueFlow, Panel, PanelPosition } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { useStore } from "./store";
+import { useRuleGraph } from "./composables/useRuleGraph";
 import { isTerminalAction } from "../core/contracts";
 import { mapActionTypeToNodeType } from "./composables/useActionTypeMapper";
 
@@ -213,6 +221,7 @@ import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
 const props = defineProps({ rule: String });
 const store = useStore();
 const { zoomIn, zoomOut, removeEdges } = useVueFlow();
+const { layoutGraph } = useRuleGraph();
 let vfInstance = null;
 
 const toolbarRef = ref(null);
@@ -303,6 +312,12 @@ onMounted(async () => {
 	await store.fetch();
 	autoConnectStartNode();
 	window.addEventListener("keydown", handleKeydown);
+
+	setTimeout(() => {
+		if (store.nodes.length > 0) {
+			layoutGraph("TB");
+		}
+	}, 100);
 });
 
 onUnmounted(() => {

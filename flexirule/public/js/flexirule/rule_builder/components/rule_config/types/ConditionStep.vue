@@ -35,6 +35,7 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useStore } from "../../../store";
 import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
 import { validateConditions } from "../../condition_builder/condition_validator.js";
+import { getConditionPayload } from "../../../utils/condition_payload";
 
 const props = defineProps({
 	node: Object,
@@ -86,14 +87,17 @@ function dehydrate(tree) {
 	return clean;
 }
 
-// field name for conditions based on node type
-const conditionField = computed(() =>
-	props.node?.type === "start" ? "trigger_condition" : "condition_json"
-);
-
 // Initial hydration
 watch(
-	() => props.node.data?.[conditionField.value],
+	() => {
+		if (props.node?.type === "start") {
+			return props.node?.data?.trigger_condition;
+		}
+		return getConditionPayload({
+			config: props.node?.data?.config,
+			condition_json: props.node?.data?.condition_json,
+		});
+	},
 	(val) => {
 		if (val) {
 			try {
@@ -130,7 +134,12 @@ function save() {
 	// Strip IDs
 	const clean = dehydrate(localConditions.value);
 
-	props.node.data[conditionField.value] = clean;
+	if (props.node?.type === "start") {
+		props.node.data.trigger_condition = clean;
+	} else {
+		props.node.data.config = clean;
+		props.node.data.condition_json = null;
+	}
 	// DO NOT mark dirty here. useRuleConfig will handle it on modal Save.
 }
 

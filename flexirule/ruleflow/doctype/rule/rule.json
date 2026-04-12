@@ -45,18 +45,30 @@
    "unique": 1
   },
   {
+   "default": "0",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Is Active",
+   "no_copy": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "no_copy": 1,
+   "options": "Draft\nActive\nDisabled\nInvalid\nError\nArchived",
+   "read_only": 1
+  },
+  {
    "description": "Brief explanation of what this rule does",
    "fieldname": "description",
    "fieldtype": "Text",
    "label": "Description"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "in_standard_filter": 1,
-   "label": "Active",
-   "no_copy": 1
   },
   {
    "allow_in_quick_entry": 1,
@@ -156,6 +168,14 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "parent_rule",
+   "fieldtype": "Link",
+   "options": "Rule",
+   "label": "Parent Rule",
+   "read_only": 1,
+   "description": "Rule this was cloned from (for versioning)"
+  },
+  {
    "allow_in_quick_entry": 1,
    "default": "Synchronous",
    "description": "Async mode runs in background (non-blocking)",
@@ -240,13 +260,14 @@
    "read_only": 1
   },
   {
-   "fieldname": "status",
+   "fieldname": "lifecycle_state",
    "fieldtype": "Select",
+   "label": "Lifecycle State",
+   "options": "Draft\nActive\nInactive\nArchived",
+   "default": "Draft",
    "in_list_view": 1,
-   "label": "Status",
-   "no_copy": 1,
-   "options": "Draft\nActive\nDisabled\nInvalid\nError\nArchived",
-   "read_only": 1
+   "in_standard_filter": 1,
+   "allow_on_submit": 1
   },
   {
    "allow_in_quick_entry": 1,
@@ -303,6 +324,24 @@
  "search_fields": "rule_name, document_type, trigger_type, trigger_event",
  "sort_field": "priority",
  "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+ "states": [
+  {
+   "color": "Blue",
+   "title": "Draft"
+  },
+  {
+   "color": "Green",
+   "title": "Active"
+  },
+  {
+   "color": "Gray",
+   "title": "Inactive"
+  },
+  {
+   "color": "Red",
+   "title": "Archived"
+  }
+ ],
+ "track_changes": 1,
+ "is_submittable": 1
 }

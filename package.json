@@ -16,6 +16,7 @@
 		"@vue-flow/controls": "^1.1.1",
 		"@vue-flow/core": "^1.33.0",
 		"@vue-flow/minimap": "^1.4.0",
+		"dagre": "^0.8.5",
 		"vue": "^3.3.0"
 	},
 	"devDependencies": {

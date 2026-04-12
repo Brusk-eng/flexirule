@@ -526,14 +526,22 @@ def get_contract_dto():
 
 
 @frappe.whitelist()
-def validate_rule_document(doc: str | dict):
-	"""Validate a draft rule payload and return structured errors/warnings."""
+def validate_rule_document(doc: str | dict, mode: str = "full"):
+	"""Validate a rule payload and return structured errors/warnings.
+
+	Args:
+	    doc: Rule document (JSON string or dict)
+	    mode: Validation mode — 'full' | 'draft' | 'node'
+	        - 'full':  Complete validation for activation
+	        - 'draft': Relaxed for building (skips activation checks)
+	        - 'node':  Single-action validation
+	"""
 	_require_api_access()
 	payload = json.loads(doc) if isinstance(doc, str) else (doc or {})
 
 	from flexirule.ruleflow.core.validation_service import validate_rule_definition
 
-	return validate_rule_definition(payload)
+	return validate_rule_definition(payload, mode=mode)
 
 
 @frappe.whitelist()
@@ -638,7 +646,7 @@ def get_action_context_schema(rule_name: str, action_id: str):
 	# Find predecessors by traversing graph backwards
 	predecessors = set()
 	queue = [action_id]
-	visited = set()
+	visited: set[str] = set()
 
 	while queue:
 		current_id = queue.pop(0)
@@ -1066,3 +1074,364 @@ def get_rule_stats(rule_name: str):
 		"success_rate": success_rate,
 		"last_executed": result.last_executed,
 	}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Phase 2: Lifecycle & Testing APIs
+# ═══════════════════════════════════════════════════════════════
+
+
+@frappe.whitelist()
+def transition_rule(rule_name: str, target_status: str):
+	"""Transition a rule to a new lifecycle state.
+
+	Uses the state machine in RuleLifecycleService to enforce valid
+	transitions and run appropriate validation/hooks.
+
+	Args:
+	    rule_name: Rule document name
+	    target_status: Target status — 'Active' | 'Draft' | 'Archived'
+
+	Returns:
+	    dict: {"status": str, "is_active": int, "message": str}
+	"""
+	_require_api_access()
+
+	from flexirule.ruleflow.core.lifecycle_service import RuleLifecycleService
+
+	rule = frappe.get_doc("Rule", rule_name)
+	return RuleLifecycleService.transition(rule, target_status)
+
+
+@frappe.whitelist()
+def get_allowed_transitions(rule_name: str):
+	"""Get allowed lifecycle transitions for a rule's current status.
+
+	Used by the frontend to dynamically render status action buttons.
+
+	Args:
+	    rule_name: Rule document name
+
+	Returns:
+	    list: [{"target": "Active", "label": "Activate", "key": "activate"}, ...]
+	"""
+	_require_api_access()
+
+	from flexirule.ruleflow.core.lifecycle_service import RuleLifecycleService
+
+	rule = frappe.get_doc("Rule", rule_name)
+	current_status = rule.status or "Draft"
+	return RuleLifecycleService.get_allowed_transitions(current_status)
+
+
+@frappe.whitelist()
+def validate_node(rule_name: str, action_id: str):
+	"""Validate a single node/action in isolation.
+
+	Called by the config modal's "Save" button to check one action
+	against its contract + handler without running full rule validation.
+
+	Args:
+	    rule_name: Rule document name
+	    action_id: The action_id of the node to validate
+
+	Returns:
+	    dict: {"valid": bool, "errors": [], "warnings": [], "mode": "node"}
+	"""
+	_require_api_access()
+
+	from flexirule.ruleflow.core.validation_service import validate_single_action
+
+	return validate_single_action(rule_name, action_id)
+
+
+@frappe.whitelist()
+def simulate_rule(
+	rule_name: str,
+	doctype: str | None = None,
+	docname: str | None = None,
+	test_context: str | dict | None = None,
+):
+	"""Simulate rule execution without side effects.
+
+	Runs the rule engine in dry-run + test mode for a given document,
+	returning the execution path and variable state at each step.
+
+	Args:
+	    rule_name: Rule document name
+	    doctype: Target document type (optional, inferred from rule)
+	    docname: Target document name
+	    test_context: Optional JSON context variables
+
+	Returns:
+	    dict: {
+	        "success": bool,
+	        "path_trace": [...],
+	        "vars": {...},
+	        "step_details": [...],
+	        "message": str
+	    }
+	"""
+	_require_api_access()
+
+	rule = frappe.get_doc("Rule", rule_name)
+	doctype = doctype or rule.document_type
+
+	if not docname:
+		frappe.throw(_("Document name (docname) is required for simulation"))
+
+	doc = frappe.get_doc(doctype, docname)
+
+	from flexirule.ruleflow.core.engine import RuleEngine
+
+	try:
+		engine = RuleEngine(
+			rule,
+			{
+				"test_mode": True,
+				"dry_run": True,
+				"skip_log_enqueue": True,
+				"simulation": True,
+			},
+		)
+		engine.execute(doc, event_name="Simulation")
+		execution = engine.last_execution_payload or {
+			"execution_id": engine.execution_id,
+			"status": "Success",
+			"duration": 0,
+			"path_trace": getattr(engine, "path_trace", []),
+			"vars": {},
+			"messages": [],
+			"errors": [],
+		}
+
+		return {
+			"success": True,
+			"status": execution.get("status", "Success"),
+			"path_trace": execution.get("path_trace", []),
+			"vars": execution.get("vars", {}),
+			"step_details": execution.get("step_details", []),
+			"duration": execution.get("duration", 0),
+			"message": _("Simulation completed successfully"),
+		}
+	except Exception as e:
+		fallback = getattr(locals().get("engine"), "last_execution_payload", None) or {}
+		return {
+			"success": False,
+			"status": "Failed",
+			"error": str(e),
+			"path_trace": fallback.get("path_trace", []),
+			"vars": fallback.get("vars", {}),
+			"step_details": [],
+			"message": _("Simulation failed: {0}").format(str(e)),
+		}
+
+
+@frappe.whitelist()
+def get_execution_preview(rule_name: str, docname: str):
+	"""Preview which path a rule would take for a given document.
+
+	This is a lightweight check that evaluates conditions without executing
+	any action handlers. Useful for "what would happen?" previews.
+
+	Args:
+	    rule_name: Rule document name
+	    docname: Target document name
+
+	Returns:
+	    dict: {
+	        "eligible": bool,
+	        "reason": str,
+	        "predicted_path": [action_id, ...],
+	        "skipped_actions": [action_id, ...]
+	    }
+	"""
+	_require_api_access()
+
+	rule = frappe.get_doc("Rule", rule_name)
+	doc = frappe.get_doc(rule.document_type, docname)
+
+	from flexirule.ruleflow.core.coordinator import RuleCoordinator
+
+	# Check eligibility first
+	is_eligible, reason = RuleCoordinator.check_eligibility(
+		rule, doc, event_name="Preview", skip_event_check=True
+	)
+
+	if not is_eligible:
+		return {
+			"eligible": False,
+			"reason": reason,
+			"predicted_path": [],
+			"skipped_actions": [],
+		}
+
+	# Walk the graph evaluating conditions to predict the path
+	predicted_path = []
+	skipped_actions = []
+	actions_by_id = {a.action_id: a for a in (rule.actions or [])}
+
+	# Start from the entry action
+	current_id = None
+	for action in rule.actions or []:
+		if action.action_type == "Entry Action" or action.action_id == "root":
+			current_id = action.action_id
+			break
+
+	visited: set[str] = set()
+	max_steps = 100  # Safety limit
+
+	while current_id and current_id not in visited and len(visited) < max_steps:
+		visited.add(current_id)
+		action = actions_by_id.get(current_id)
+		if not action:
+			break
+
+		predicted_path.append(current_id)
+
+		# Check if disabled
+		if not action.is_enabled:
+			skipped_actions.append(current_id)
+			break
+
+		# Terminal actions
+		contract = None
+		try:
+			from flexirule.ruleflow.core.contracts import get_contract
+
+			contract = get_contract(normalize_action_type(action.action_type))
+		except Exception:
+			pass
+
+		if contract and contract.get("terminal"):
+			break
+
+		# For conditions, try to evaluate which branch
+		if action.action_type == "Condition" and action.compiled_expression:
+			try:
+				from flexirule.ruleflow.core.evaluator import evaluate_condition
+
+				result = evaluate_condition(
+					action.compiled_expression, {"doc": doc, "old_doc": None, "frappe": frappe}
+				)
+				current_id = action.next_step_if_true if result else action.next_step_if_false
+			except Exception:
+				# If evaluation fails, follow the true path
+				current_id = action.next_step_if_true
+		else:
+			current_id = action.next_step_if_true
+
+	return {
+		"eligible": True,
+		"reason": _("Rule is eligible"),
+		"predicted_path": predicted_path,
+		"skipped_actions": skipped_actions,
+	}
+
+
+# ═══════════════════════════════════════════════════════════════
+# Phase 4: Backend Alignment APIs
+# ═══════════════════════════════════════════════════════════════
+
+
+@frappe.whitelist()
+def initialize_rule_graph(rule_name: str):
+	"""Ensure a rule has a valid Trigger → End graph structure.
+
+	Called on new Rule creation or when resetting a rule's graph.
+	If the rule already has actions/visual_data, this is a no-op.
+
+	Args:
+	    rule_name: Rule document name
+
+	Returns:
+	    dict: {"initialized": bool, "rule": {...}}
+	"""
+	_require_api_access()
+
+	from flexirule.ruleflow.core.graph_service import ensure_default_graph
+
+	rule = frappe.get_doc("Rule", rule_name)
+	initialized = ensure_default_graph(rule)
+
+	if initialized:
+		rule.save(ignore_permissions=True)
+
+	return {
+		"initialized": initialized,
+		"rule": rule.as_dict(),
+	}
+
+
+@frappe.whitelist()
+def get_node_config_schema(
+	action_type: str,
+	operation: str | None = None,
+	process_name: str | None = None,
+):
+	"""Return the full field schema for configuring a node.
+
+	Merges DocType metadata (Rule Action fields) with contract overrides
+	to generate a complete, dynamic config form schema. Used by the
+	frontend to render node config forms without hardcoded field lists.
+
+	Args:
+	    action_type: Action type (e.g., "Process", "Condition")
+	    operation: Optional operation name
+	    process_name: Optional process name
+
+	Returns:
+	    dict: {
+	        "fields": [...],
+	        "contract": {...},
+	        "policy": {...},
+	        "sections": [...]
+	    }
+	"""
+	_require_api_access()
+
+	from flexirule.ruleflow.core.graph_service import (
+		get_node_config_schema as _get_schema,
+	)
+
+	return _get_schema(action_type, operation=operation, process_name=process_name)
+
+
+@frappe.whitelist()
+def search_actions(query: str = "", filters: str | dict | None = None, limit: int | str = 20):
+	"""Fuzzy search across all available action types and operations.
+
+	Used by the ActionSelector node to provide a searchable list
+	of available actions, organized by category.
+
+	Args:
+	    query: Search query string
+	    filters: Optional JSON filters
+	    limit: Max results (default 20)
+
+	Returns:
+	    list: [{
+	        "action_type": str,
+	        "operation": str|null,
+	        "process_name": str|null,
+	        "label": str,
+	        "description": str,
+	        "icon": str,
+	        "color": str,
+	        "category": str,
+	        "score": float
+	    }, ...]
+	"""
+	_require_api_access()
+
+	from flexirule.ruleflow.core.search_service import search_actions as _search
+
+	parsed_filters: dict | None = None
+	if isinstance(filters, str):
+		parsed_filters = json.loads(filters)
+	elif isinstance(filters, dict):
+		parsed_filters = filters
+	elif filters is not None:
+		frappe.throw("filters must be dict or json string")
+
+	return _search(query, filters=parsed_filters, limit=int(limit))
