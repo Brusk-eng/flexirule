@@ -31,6 +31,7 @@ class Rule(Document):
 		execution_mode: DF.Literal["Synchronous", "Asynchronous"]
 		exposed_as_subrule: DF.Check
 		is_active: DF.Check
+		lifecycle_state: DF.Literal["Draft", "Active", "Inactive", "Archived"]
 		last_error: DF.Text | None
 		max_execution_time: DF.Int
 		module: DF.Link | None
@@ -87,10 +88,51 @@ class Rule(Document):
 		visual_data: DF.Code | None
 
 	# end: auto-generated types
+	def _sync_lifecycle_flags(self):
+		"""Keep lifecycle_state, is_active, and status compatible."""
+		status_to_state = {
+			"Draft": "Draft",
+			"Active": "Active",
+			"Disabled": "Inactive",
+			"Archived": "Archived",
+		}
+		state_to_status = {
+			"Draft": "Draft",
+			"Active": "Active",
+			"Inactive": "Disabled",
+			"Archived": "Archived",
+		}
+
+		state = self.get("lifecycle_state")
+		status = self.get("status")
+		active_flag = self.get("is_active")
+
+		if not state and status in status_to_state:
+			state = status_to_state.get(status)
+
+		if not state:
+			state = "Active" if active_flag in (1, True, "1") else "Draft"
+		elif active_flag in (1, True, "1"):
+			state = "Active"
+		elif active_flag in (0, False, "0") and state == "Active":
+			state = "Draft"
+
+		self.lifecycle_state = state
+		self.is_active = 1 if self.lifecycle_state == "Active" else 0
+
+		# Preserve explicit runtime/error statuses when set by execution pipeline.
+		if status not in ("Error", "Invalid"):
+			self.status = state_to_status.get(self.lifecycle_state, "Draft")
+
 	def validate(self):
 		"""
 		Validate Rule Configuration
 		"""
+		self._sync_lifecycle_flags()
+
+		if not self.visual_data:
+			self._initialize_default_graph()
+
 		self.ensure_start_node()
 		self.reorder_actions()
 		self.compile_conditions()
@@ -103,13 +145,15 @@ class Rule(Document):
 		self.set_callable_permissions()
 		self.validate_version_constraints()
 
-		self.status = self.get_computed_status()
+		# Removed status computation for lifecycle_state
 
 	def validate_with_service(self):
 		"""Shared structured validation layer used by form save and builder precheck."""
 		from flexirule.ruleflow.core.validation_service import validate_rule_definition
 
-		result = validate_rule_definition(self)
+		# Use 'full' mode for active rules, 'draft' mode for drafts
+		mode = "full" if self.is_active else "draft"
+		result = validate_rule_definition(self, mode=mode)
 		if result.get("warnings"):
 			for warning in result.get("warnings", []):
 				frappe.msgprint(warning, alert=True)
@@ -121,6 +165,9 @@ class Rule(Document):
 
 	def before_save(self):
 		"""Initialize version for new rules."""
+		self._sync_lifecycle_flags()
+		if not self.visual_data:
+			self._initialize_default_graph()
 		if self.is_new() and not self.version:
 			self.version = 1
 
@@ -265,9 +312,87 @@ class Rule(Document):
 			)
 
 	def before_insert(self):
+		self._initialize_default_graph()
 		self.ensure_start_node()
 		if not self.version:
 			self.version = 1
+
+	def _initialize_default_graph(self):
+		"""
+		Initialize default visual_data with Trigger -> End nodes
+		if it is empty or missing valid nodes.
+		"""
+		# Respect explicitly provided actions (tests and API payloads).
+		# Default root/end graph is only for truly empty rules.
+		if self.actions:
+			return
+
+		if self.visual_data:
+			try:
+				data = json.loads(self.visual_data)
+				if data and data.get("nodes"):
+					return
+			except ValueError:
+				pass
+
+		root_id = "root"
+		end_id = "node_end"
+
+		has_root = any(a.action_id == root_id or a.action_type == "Entry Action" for a in self.actions)
+		has_end = any(a.action_id == end_id for a in self.actions)
+
+		if not has_root:
+			self.append(
+				"actions",
+				{
+					"action_type": "Entry Action",
+					"action_label": _(self.trigger_event or "Start"),
+					"action_id": root_id,
+					"is_enabled": 1,
+					"next_step_if_true": end_id,
+				},
+			)
+		else:
+			for a in self.actions:
+				if (a.action_id == root_id or a.action_type == "Entry Action") and not a.next_step_if_true:
+					a.next_step_if_true = end_id
+
+		if not has_end:
+			self.append(
+				"actions",
+				{
+					"action_type": "Stop",
+					"action_label": _("End"),
+					"action_id": end_id,
+					"is_enabled": 1,
+				},
+			)
+
+		default_visual = {
+			"nodes": [
+				{
+					"id": root_id,
+					"type": "TriggerNode",
+					"position": {"x": 250, "y": 50},
+					"data": {"action_id": root_id, "label": _(self.trigger_event or "Start")},
+				},
+				{
+					"id": end_id,
+					"type": "EndNode",
+					"position": {"x": 250, "y": 200},
+					"data": {"action_id": end_id, "label": "End"},
+				},
+			],
+			"edges": [
+				{
+					"id": f"edge_{root_id}_{end_id}",
+					"source": root_id,
+					"target": end_id,
+					"sourceHandle": "true",
+				}
+			],
+		}
+		self.visual_data = json.dumps(default_visual)
 
 	def ensure_start_node(self):
 		"""Ensure a Start Node (Entry Action) exists"""
@@ -320,6 +445,11 @@ class Rule(Document):
 
 	def compile_conditions(self):
 		from flexirule.ruleflow.core.compiler import ConditionCompiler
+		from flexirule.ruleflow.core.condition_payload import (
+			get_condition_payload,
+			parse_condition_payload,
+			set_condition_payload_on_action,
+		)
 
 		compiler = ConditionCompiler()
 
@@ -340,41 +470,43 @@ class Rule(Document):
 
 		# Compile Action Conditions
 		for action in self.actions:
-			if action.action_type == "Condition" and action.condition_json:
-				try:
-					action.compiled_expression = compiler.compile(action.condition_json)
-					# Validate compiled expression
-					is_valid, error = compiler.validate(action.compiled_expression)
-					if not is_valid:
-						frappe.throw(
-							_("Invalid Condition in Action {0}: {1}").format(action.action_label, error)
-						)
-				except ValueError as e:
-					frappe.throw(
-						_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
-					)
-				except Exception as e:
-					frappe.throw(
-						_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
-					)
+			if action.action_type != "Condition":
+				continue
 
-	def get_computed_status(self):
-		if not self.is_active:
-			# New rule or rule that has never been executed
-			if self.is_new() or not frappe.db.exists("Rule Execution Log", {"rule": self.name}):
-				return "Draft"
-			return "Disabled"
+			condition_payload = get_condition_payload(action)
+			if condition_payload is None:
+				# Keep strict behavior for malformed/non-empty JSON strings
+				raw_config = action.get("config")
+				raw_legacy = action.get("condition_json")
+				if raw_config not in (None, ""):
+					condition_payload = raw_config
+				elif raw_legacy not in (None, ""):
+					condition_payload = raw_legacy
 
-		if not self.actions:
-			return "Invalid"
+			if condition_payload in (None, ""):
+				action.compiled_expression = None
+				continue
 
-		if self.trigger_condition and not self.compiled_expression:
-			return "Invalid"
+			try:
+				action.compiled_expression = compiler.compile(condition_payload)
 
-		if self.last_error:
-			return "Error"
+				# Persist canonical payload in config for deprecated-condition_json migration.
+				parsed_payload = parse_condition_payload(condition_payload)
+				if parsed_payload is not None:
+					set_condition_payload_on_action(action, parsed_payload)
 
-		return "Active"
+				# Validate compiled expression
+				is_valid, error = compiler.validate(action.compiled_expression)
+				if not is_valid:
+					frappe.throw(_("Invalid Condition in Action {0}: {1}").format(action.action_label, error))
+			except ValueError as e:
+				frappe.throw(
+					_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
+				)
+			except Exception as e:
+				frappe.throw(
+					_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
+				)
 
 	def _validate_action_config(self, action):
 		if not frappe.db.exists("Process", action.process_name):

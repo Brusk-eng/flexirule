@@ -309,3 +309,11 @@ def check_link_match(lhs, rhs, op="=="):
 		return False
 
 	return op_func(lhs, target_value)
+
+
+def evaluate_condition(expression: str, context: dict) -> bool:
+	"""Evaluate a compiled Python condition expression."""
+	from flexirule.ruleflow.core.engine import RuleEngine
+
+	engine = RuleEngine(None)
+	return engine._evaluate_python_condition(expression, context)

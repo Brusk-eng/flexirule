@@ -6,6 +6,14 @@ Central rule validation service.
 
 Provides structured validation results that can be reused from
 backend form save and frontend builder prechecks.
+
+Validation Modes:
+  - 'full':  Complete validation (activation). Graph integrity, single
+             entry node, trigger alignment all enforced.
+  - 'draft': Relaxed validation (building). Skips activation-only checks.
+             Allows unreachable nodes, incomplete graphs.
+  - 'node':  Single-action validation. Validates one action in isolation
+             against its contract + handler. Used by config modal "save".
 """
 
 from __future__ import annotations
@@ -17,6 +25,7 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
+from flexirule.ruleflow.core.condition_payload import get_condition_payload
 from flexirule.ruleflow.core.contracts import (
 	get_contract,
 	get_effective_action_policy,
@@ -27,12 +36,30 @@ from flexirule.ruleflow.core.contracts import (
 )
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
 
+# Valid validation modes
+VALIDATION_MODES = {"full", "draft", "node"}
 
-def validate_rule_definition(rule_doc) -> dict:
-	"""Validate rule payload/doc and return structured errors/warnings."""
+
+def validate_rule_definition(rule_doc, mode="full") -> dict:
+	"""Validate rule payload/doc and return structured errors/warnings.
+
+	Args:
+	    rule_doc: Rule document (Frappe doc or dict payload)
+	    mode: Validation mode — 'full' | 'draft' | 'node'
+	        - 'full':  Complete validation for activation
+	        - 'draft': Relaxed validation for building (skips activation checks)
+	        - 'node':  Single-action validation (requires action_id in rule_doc)
+	"""
+	if mode not in VALIDATION_MODES:
+		mode = "full"
+
 	rule = _coerce_rule_doc(rule_doc)
 	errors: list[str] = []
 	warnings: list[str] = []
+
+	# Node mode: validate a single action in isolation
+	if mode == "node":
+		return _validate_single_action(rule, rule_doc, errors, warnings)
 
 	_normalize_hidden_trigger_fields(rule)
 	_validate_trigger_requirements(rule, errors)
@@ -85,7 +112,9 @@ def validate_rule_definition(rule_doc) -> dict:
 	if hasattr(rule, "validate_no_sub_rule_cycles"):
 		_capture_validation(errors, rule.validate_no_sub_rule_cycles)
 
-	if _is_truthy(_safe_get(rule, "is_active")):
+	# Activation-only checks: skip in 'draft' mode
+	is_active = _is_truthy(_safe_get(rule, "is_active"))
+	if mode == "full" or is_active:
 		_capture_validation(errors, validate_graph_integrity, rule)
 
 		entry_nodes = [
@@ -99,7 +128,74 @@ def validate_rule_definition(rule_doc) -> dict:
 		if hasattr(rule, "validate_trigger_alignment"):
 			_capture_validation(errors, rule.validate_trigger_alignment)
 
-	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
+	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings, "mode": mode}
+
+
+def validate_single_action(rule_name, action_id) -> dict:
+	"""Validate a single action within a rule in isolation.
+
+	Useful for the frontend config modal to validate on "Save" without
+	running full rule validation.
+
+	Args:
+	    rule_name: Rule document name
+	    action_id: The action_id to validate
+
+	Returns:
+	    dict: {"valid": bool, "errors": [], "warnings": []}
+	"""
+	try:
+		rule = frappe.get_doc("Rule", rule_name)
+	except frappe.DoesNotExistError:
+		return {"valid": False, "errors": [_("Rule not found: {0}").format(rule_name)], "warnings": []}
+
+	action = None
+	for a in rule.actions or []:
+		if _safe_get(a, "action_id") == action_id:
+			action = a
+			break
+
+	if not action:
+		return {"valid": False, "errors": [_("Action not found: {0}").format(action_id)], "warnings": []}
+
+	errors: list[str] = []
+	warnings: list[str] = []
+	return _validate_single_action(rule, action, errors, warnings)
+
+
+def _validate_single_action(rule, action, errors, warnings) -> dict:
+	"""Internal: validate one action against contracts + handlers."""
+	action_label = _safe_get(action, "action_label") or _safe_get(action, "action_id") or _("(unnamed)")
+	action_type_raw = _safe_get(action, "action_type")
+	action_type = normalize_action_type(action_type_raw)
+
+	if _is_empty(action_type):
+		errors.append(_("Action '{0}' has no action_type").format(action_label))
+		return {"valid": False, "errors": errors, "warnings": warnings, "mode": "node"}
+
+	_validate_action_json(action, action_label, errors)
+
+	if action_type == "Stop" and _is_empty(_safe_get(action, "operation")):
+		_safe_set(action, "operation", "Success")
+
+	if is_release_disabled_action(action_type):
+		errors.append(_("Action '{0}' uses disabled type '{1}'").format(action_label, action_type))
+
+	actions = list(_safe_get(rule, "actions", []) or [])
+	operation_metadata = _build_operation_metadata(actions)
+
+	_validate_action_contracts(action, action_type, action_label, operation_metadata, errors)
+	_validate_action_specifics(rule, action, action_type, action_label, warnings, errors)
+
+	handler = HandlerRegistry.get(action_type)
+	if handler:
+		handler_errors = handler.validate(action, {"doc": None, "vars": {}}) or []
+		for err in handler_errors:
+			errors.append(
+				_("Action '{0}' ({1}) validation failed: {2}").format(action_label, action_type, err)
+			)
+
+	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings, "mode": "node"}
 
 
 def _coerce_rule_doc(rule_doc):
@@ -230,6 +326,8 @@ def _validate_action_contracts(
 		)
 
 	config_data = _parse_json_value(_safe_get(action, "config"), {})
+	if not isinstance(config_data, Mapping):
+		config_data = {}
 	if config_data.get("output_mapping") and _is_truthy(_safe_get(action, "is_async")):
 		errors.append(
 			_("Action '{0}' ({1}) cannot use Output Mapping with Async enabled").format(
@@ -275,9 +373,7 @@ def _validate_action_specifics(
 			_validate_sub_rule_input_mapping(action, errors)
 
 	elif action_type == "Condition":
-		if _is_empty(_safe_get(action, "condition_json")) and _is_empty(
-			_safe_get(action, "compiled_expression")
-		):
+		if get_condition_payload(action) is None and _is_empty(_safe_get(action, "compiled_expression")):
 			errors.append(_("Action '{0}' is a Condition but no condition is defined.").format(action_label))
 
 	elif action_type == "Loop":
@@ -573,8 +669,13 @@ def _get_required_variables_for_rule(rule_doc) -> list[str]:
 		# 1. Check Jinja templates
 		templates = [
 			getattr(action, "value_template", ""),
-			getattr(action, "condition_json", ""),  # Might contain Jinja in some versions
 		]
+		condition_payload = get_condition_payload(action)
+		if condition_payload is not None:
+			templates.append(json.dumps(condition_payload, ensure_ascii=False))
+		else:
+			# Legacy fallback while condition_json is deprecated
+			templates.append(getattr(action, "condition_json", ""))
 		for t in templates:
 			if not t or not isinstance(t, str):
 				continue

@@ -21,6 +21,7 @@ import {
 	isTerminalAction,
 	CONFIG_MODAL_TYPES,
 } from "../../core/contracts";
+import { useNodeConfigPolicy } from "../composables/useNodeConfigPolicy";
 
 const props = defineProps({
 	nodeData: Object,
@@ -30,11 +31,16 @@ const props = defineProps({
 const emit = defineEmits(["update:field", "open:conditions", "open:config"]);
 
 const store = useStore();
+const { getPolicyField, getPolicyValue } = useNodeConfigPolicy({
+	actionType: () => props.nodeData?.action_type || "",
+	operation: () => props.nodeData?.operation || "",
+	processName: () => props.nodeData?.process_name || "",
+});
 
 const excluded_fields = computed(() => {
 	const base = [
 		"action_id", // Auto-generated
-		"condition_json", // Managed by V2 modal
+		"condition_json", // Deprecated
 
 		"process_method", // Obsolete
 	];
@@ -51,6 +57,10 @@ const excluded_fields = computed(() => {
 			"resolved_output_schema",
 			"return_type"
 		);
+	}
+
+	if (props.nodeData?.action_type === "Condition") {
+		base.push("config"); // Managed by condition builder modal
 	}
 
 	return base;
@@ -78,10 +88,12 @@ const doc_fields = computed(() => {
 
 			// Skip always hidden fields
 			if (df.hidden) return false;
+			if (getPolicyValue(df.fieldname, "hidden", false)) return false;
 
 			return true;
 		})
 		.map((df) => {
+			let resolved = { ...df };
 			const actionType = props.nodeData?.action_type;
 			const policyLabel = actionType
 				? getFieldLabel(actionType, df.fieldname, {
@@ -89,17 +101,18 @@ const doc_fields = computed(() => {
 						processName: props.nodeData?.process_name,
 				  })
 				: null;
-			if (df.fieldname === "action_type") {
-				return {
-					...df,
+			if (resolved.fieldname === "action_type") {
+				resolved = {
+					...resolved,
 					options: getActionTypeOptions().join("\n"),
 				};
 			}
+			resolved = getPolicyField(resolved.fieldname, resolved);
 			// Inject get_query for Sub-Rule reference
-			if (df.fieldname === "rule" && actionType === "Sub-Rule") {
+			if (resolved.fieldname === "rule" && actionType === "Sub-Rule") {
 				return {
-					...df,
-					label: policyLabel ? __(policyLabel) : df.label,
+					...resolved,
+					label: policyLabel ? __(policyLabel) : resolved.label,
 					get_query: () => {
 						const parentDocType = store.rule_doc?.document_type;
 						return {
@@ -114,7 +127,10 @@ const doc_fields = computed(() => {
 					},
 				};
 			}
-			return policyLabel ? { ...df, label: __(policyLabel) } : df;
+			if (policyLabel) {
+				resolved = { ...resolved, label: __(policyLabel) };
+			}
+			return resolved;
 		});
 });
 

@@ -1,88 +1,130 @@
 {
-	"actions": [],
-	"creation": "2026-03-18 00:00:00.000000",
-	"doctype": "DocType",
-	"engine": "InnoDB",
-	"field_order": [
-		"general_section",
-		"enable_debug_logging",
-		"log_retention_days",
-		"column_break_1",
-		"max_execution_time_default",
-		"allow_async_actions",
-		"exclusions_section",
-		"excluded_doctypes"
-	],
-	"fields": [
-		{
-			"fieldname": "general_section",
-			"fieldtype": "Section Break",
-			"label": "General"
-		},
-		{
-			"default": "0",
-			"fieldname": "enable_debug_logging",
-			"fieldtype": "Check",
-			"label": "Enable Debug Logging"
-		},
-		{
-			"default": "30",
-			"description": "Number of days to keep rule execution logs.",
-			"fieldname": "log_retention_days",
-			"fieldtype": "Int",
-			"label": "Log Retention (Days)"
-		},
-		{
-			"fieldname": "column_break_1",
-			"fieldtype": "Column Break"
-		},
-		{
-			"default": "30",
-			"description": "Default max execution time for rules in seconds.",
-			"fieldname": "max_execution_time_default",
-			"fieldtype": "Int",
-			"label": "Default Max Execution Time"
-		},
-		{
-			"default": "1",
-			"description": "Allow rules to execute actions asynchronously.",
-			"fieldname": "allow_async_actions",
-			"fieldtype": "Check",
-			"label": "Allow Async Actions"
-		},
-		{
-			"fieldname": "exclusions_section",
-			"fieldtype": "Section Break",
-			"label": "Exclusions"
-		},
-		{
-			"description": "Select doctypes to exclude from rule evaluation.",
-			"fieldname": "excluded_doctypes",
-			"fieldtype": "Table",
-			"label": "Excluded DocTypes",
-			"options": "RuleFlow Excluded DocType"
-		}
-	],
-	"issingle": 1,
-	"links": [],
-	"modified": "2026-03-18 00:00:00.000000",
-	"modified_by": "Administrator",
-	"module": "Ruleflow",
-	"name": "RuleFlow Settings",
-	"owner": "Administrator",
-	"permissions": [
-		{
-			"create": 1,
-			"delete": 1,
-			"email": 1,
-			"print": 1,
-			"read": 1,
-			"role": "System Manager",
-			"share": 1,
-			"write": 1
-		}
-	],
-	"sort_field": "modified",
-	"sort_order": "DESC",
-	"states": []
+ "actions": [],
+ "creation": "2026-03-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "general_section",
+  "enable_debug_logging",
+  "log_retention_days",
+  "column_break_1",
+  "max_execution_time_default",
+  "allow_async_actions",
+  "exclusions_section",
+  "excluded_doctypes",
+  "ui_configuration",
+  "action_config_mode",
+  "theme",
+  "lifecycle_config",
+  "require_approval_for_active",
+  "allow_editing_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "general_section",
+   "fieldtype": "Section Break",
+   "label": "General"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_debug_logging",
+   "fieldtype": "Check",
+   "label": "Enable Debug Logging"
+  },
+  {
+   "default": "30",
+   "description": "Number of days to keep rule execution logs.",
+   "fieldname": "log_retention_days",
+   "fieldtype": "Int",
+   "label": "Log Retention (Days)"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "30",
+   "description": "Default max execution time for rules in seconds.",
+   "fieldname": "max_execution_time_default",
+   "fieldtype": "Int",
+   "label": "Default Max Execution Time"
+  },
+  {
+   "default": "1",
+   "description": "Allow rules to execute actions asynchronously.",
+   "fieldname": "allow_async_actions",
+   "fieldtype": "Check",
+   "label": "Allow Async Actions"
+  },
+  {
+   "fieldname": "exclusions_section",
+   "fieldtype": "Section Break",
+   "label": "Exclusions"
+  },
+  {
+   "description": "Select doctypes to exclude from rule evaluation.",
+   "fieldname": "excluded_doctypes",
+   "fieldtype": "Table",
+   "label": "Excluded DocTypes",
+   "options": "RuleFlow Excluded DocType"
+  },
+  {
+   "fieldname": "ui_configuration",
+   "fieldtype": "Section Break",
+   "label": "UI Configuration"
+  },
+  {
+   "fieldname": "action_config_mode",
+   "fieldtype": "Select",
+   "label": "Action Configuration Mode",
+   "options": "Sidebar\nDialog",
+   "default": "Sidebar",
+   "description": "Choose how node configuration forms are displayed"
+  },
+  {
+   "fieldname": "theme",
+   "fieldtype": "Select",
+   "label": "Canvas Theme",
+   "options": "System\nLight\nDark",
+   "default": "System"
+  },
+  {
+   "fieldname": "lifecycle_config",
+   "fieldtype": "Section Break",
+   "label": "Lifecycle Configuration"
+  },
+  {
+   "fieldname": "require_approval_for_active",
+   "fieldtype": "Check",
+   "label": "Require Approval to Activate"
+  },
+  {
+   "fieldname": "allow_editing_active",
+   "fieldtype": "Check",
+   "label": "Allow Editing Active Rules (Warning)",
+   "description": "If disabled, active rules must be cloned to create a new Draft version."
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-03-18 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "RuleFlow Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
 }

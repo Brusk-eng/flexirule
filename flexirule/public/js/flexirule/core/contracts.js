@@ -33,7 +33,7 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		css: { icon: "fa fa-play", color: "#22c55e" },
 	},
 	Condition: {
-		required_fields: ["condition_json"],
+		required_fields: ["config"],
 		has_next_true: true,
 		has_next_false: true,
 		terminal: false,

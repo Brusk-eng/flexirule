@@ -21,7 +21,7 @@
 			</button>
 
 			<div
-				v-if="nodeData?.condition_json && nodeData.condition_json !== '{}'"
+				v-if="hasConfiguredConditions"
 				class="mt-2"
 				style="font-size: 12px; color: var(--text-muted)"
 			>
@@ -32,14 +32,24 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+import { hasConditionPayload } from "../../utils/condition_payload";
+
+const props = defineProps({
 	nodeData: Object,
 });
 
 defineEmits(["open-condition-builder"]);
 
+const hasConfiguredConditions = computed(() =>
+	hasConditionPayload({
+		config: props.nodeData?.config,
+		condition_json: props.nodeData?.condition_json,
+	})
+);
+
 function validate() {
-	// Condition logic is handled by the builder and saved to 'compiled_expression' / 'condition_json'.
+	// Condition logic is handled by the builder and saved to 'compiled_expression' / 'config'.
 	// We could enforce that at least one condition exists, but optional blank conditions might be valid (always true).
 	// For now, return valid.
 	return { valid: true };

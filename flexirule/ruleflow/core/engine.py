@@ -771,7 +771,8 @@ class RuleEngine:
 			validation_result = result["result"]
 
 		# 1. Output Mapping (Result -> Context)
-		action_config = frappe.parse_json(getattr(action, "config", "{}") or "{}")
+		action_config_raw = frappe.parse_json(getattr(action, "config", "{}") or "{}")
+		action_config = action_config_raw if isinstance(action_config_raw, dict) else {}
 		output_mapping = action_config.get("output_mapping")
 		if output_mapping:
 			if getattr(action, "is_async", 0):

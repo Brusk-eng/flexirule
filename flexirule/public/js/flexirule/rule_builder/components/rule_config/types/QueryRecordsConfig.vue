@@ -408,6 +408,7 @@ import ControlFactory from "../../../controls/ControlFactory.vue";
 import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
 import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
 import FilterGroup from "../FilterGroup.vue";
+import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 
 const props = defineProps({
 	node: Object,
@@ -432,6 +433,11 @@ const {
 	is_field_valid,
 	refresh_variables,
 } = useActionConfig(props);
+const { getPolicyField } = useNodeConfigPolicy({
+	actionType: () => props.node?.data?.action_type || "Query Records",
+	operation: mode,
+	processName: () => props.node?.data?.process_name || "",
+});
 
 const test_status = ref("");
 
@@ -703,51 +709,69 @@ async function update_report_columns() {
 	}
 }
 
-const limitField = {
-	fieldname: "limit",
-	fieldtype: "Int",
-	label: __("Limit"),
-	description: __("Max rows to return."),
-};
+function resolveFieldPolicy(fieldname, fallback) {
+	return with_read_only(getPolicyField(fieldname, fallback));
+}
 
-const groupByField = {
-	fieldname: "group_by",
-	fieldtype: "Data",
-	label: __("Group By"),
-	description: __("Optional group by field."),
-};
+const limitField = computed(() =>
+	resolveFieldPolicy("limit", {
+		fieldname: "limit",
+		fieldtype: "Int",
+		label: __("Limit"),
+		description: __("Max rows to return."),
+	})
+);
 
-const fieldField = {
-	fieldname: "field",
-	fieldtype: "Data",
-	label: __("Field to Aggregate"),
-};
+const groupByField = computed(() =>
+	resolveFieldPolicy("group_by", {
+		fieldname: "group_by",
+		fieldtype: "Data",
+		label: __("Group By"),
+		description: __("Optional group by field."),
+	})
+);
 
-const aggGroupByField = {
-	fieldname: "group_by_field",
-	fieldtype: "Data",
-	label: __("Group By Field"),
-};
+const fieldField = computed(() =>
+	resolveFieldPolicy("field", {
+		fieldname: "field",
+		fieldtype: "Data",
+		label: __("Field to Aggregate"),
+	})
+);
 
-const aggFunctionField = {
-	fieldname: "agg_function",
-	fieldtype: "Select",
-	label: __("Aggregate Function"),
-	options: "count\nsum\navg\nmin\nmax",
-};
+const aggGroupByField = computed(() =>
+	resolveFieldPolicy("group_by_field", {
+		fieldname: "group_by_field",
+		fieldtype: "Data",
+		label: __("Group By Field"),
+	})
+);
 
-const aggFieldField = {
-	fieldname: "agg_field",
-	fieldtype: "Data",
-	label: __("Aggregate Field"),
-};
+const aggFunctionField = computed(() =>
+	resolveFieldPolicy("agg_function", {
+		fieldname: "agg_function",
+		fieldtype: "Select",
+		label: __("Aggregate Function"),
+		options: "count\nsum\navg\nmin\nmax",
+	})
+);
 
-const docnameExprField = {
-	fieldname: "docname_expression",
-	fieldtype: "Code",
-	label: __("Docname Expression"),
-	options: "PythonExpression",
-};
+const aggFieldField = computed(() =>
+	resolveFieldPolicy("agg_field", {
+		fieldname: "agg_field",
+		fieldtype: "Data",
+		label: __("Aggregate Field"),
+	})
+);
+
+const docnameExprField = computed(() =>
+	resolveFieldPolicy("docname_expression", {
+		fieldname: "docname_expression",
+		fieldtype: "Code",
+		label: __("Docname Expression"),
+		options: "PythonExpression",
+	})
+);
 
 function update_config_key(key, value) {
 	config[key] = value;
