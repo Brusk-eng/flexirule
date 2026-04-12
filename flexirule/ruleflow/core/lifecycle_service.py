@@ -29,14 +29,16 @@ TRANSITIONS = {
 	("Archived", "Draft"): "_on_unarchive",
 }
 
+
 # Human-readable transition labels for UI
-TRANSITION_LABELS = {
-	("Draft", "Active"): _("Activate"),
-	("Active", "Draft"): _("Unlock for Editing"),
-	("Active", "Archived"): _("Archive"),
-	("Draft", "Archived"): _("Archive"),
-	("Archived", "Draft"): _("Restore as Draft"),
-}
+def get_transition_labels():
+	return {
+		("Draft", "Active"): _("Activate"),
+		("Active", "Draft"): _("Unlock for Editing"),
+		("Active", "Archived"): _("Archive"),
+		("Draft", "Archived"): _("Archive"),
+		("Archived", "Draft"): _("Restore as Draft"),
+	}
 
 
 class RuleLifecycleService:
@@ -55,7 +57,7 @@ class RuleLifecycleService:
 		    list of dicts: [{"target": "Active", "label": "Activate", "key": "activate"}, ...]
 		"""
 		result = []
-		for (source, target), label in TRANSITION_LABELS.items():
+		for (source, target), label in get_transition_labels().items():
 			if source == current_status:
 				result.append(
 					{

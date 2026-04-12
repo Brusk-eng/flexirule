@@ -3,7 +3,7 @@ from frappe import _
 
 
 @frappe.whitelist()
-def get_node_schema_meta(doctype):
+def get_node_schema_meta(doctype: str):
 	"""
 	Returns the relevant metadata for a specific DocType, specifically
 	to be used by the Vue GUI for dynamic node configuration.

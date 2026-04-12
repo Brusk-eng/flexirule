@@ -1432,6 +1432,6 @@ def search_actions(query: str = "", filters: str | dict | None = None, limit: in
 	elif isinstance(filters, dict):
 		parsed_filters = filters
 	elif filters is not None:
-		frappe.throw("filters must be dict or json string")
+		frappe.throw(_("filters must be dict or json string"))
 
 	return _search(query, filters=parsed_filters, limit=int(limit))
