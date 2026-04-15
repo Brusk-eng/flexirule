@@ -15,6 +15,10 @@
   "ui_configuration",
   "action_config_mode",
   "theme",
+  "builder_settings_section",
+  "layout_direction",
+  "sidebar_position",
+  "enable_edge_insertion",
   "lifecycle_config",
   "require_approval_for_active",
   "allow_editing_active"
@@ -87,6 +91,31 @@
    "label": "Canvas Theme",
    "options": "System\nLight\nDark",
    "default": "System"
+  },
+  {
+   "fieldname": "builder_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Builder Settings"
+  },
+  {
+   "default": "Top to Bottom",
+   "fieldname": "layout_direction",
+   "fieldtype": "Select",
+   "label": "Auto-Layout Direction",
+   "options": "Top to Bottom\nLeft to Right"
+  },
+  {
+   "default": "Left",
+   "fieldname": "sidebar_position",
+   "fieldtype": "Select",
+   "label": "Sidebar Position",
+   "options": "Left\nRight"
+  },
+  {
+   "default": "1",
+   "fieldname": "enable_edge_insertion",
+   "fieldtype": "Check",
+   "label": "Enable Edge Insertion (+ Button)"
   },
   {
    "fieldname": "lifecycle_config",

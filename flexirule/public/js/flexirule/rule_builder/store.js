@@ -66,6 +66,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		get: () => _rule().is_dirty,
 		set: (v) => (_rule().is_dirty = v),
 	});
+	const settings = computed(() => _rule().settings);
 
 	// Graph
 	const nodes = computed({
@@ -162,6 +163,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 	function touch_node(nodeId) {
 		_graph().touch_node(nodeId);
+	}
+
+	function insert_node_on_edge(edgeId, nodeType) {
+		const id = _graph().insert_node_on_edge(edgeId, nodeType);
+		if (id) mark_dirty();
+		return id;
 	}
 
 	function get_default_node_data(type, label) {
@@ -283,6 +290,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		delete_node,
 		delete_edge,
 		touch_node,
+		insert_node_on_edge,
 		get_default_node_data,
 		getEffectivelyDisabledIds,
 

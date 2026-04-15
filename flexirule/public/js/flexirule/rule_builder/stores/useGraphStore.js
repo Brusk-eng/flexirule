@@ -293,6 +293,60 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		return true;
 	}
 
+	function insert_node_on_edge(edgeId, nodeType = "selector") {
+		const edge = edges.value.find((e) => e.id === edgeId);
+		if (!edge) return;
+
+		const sourceId = edge.source;
+		const targetId = edge.target;
+		const sourceHandle = edge.sourceHandle || "default";
+
+		// 1. Create new node
+		const newNodeId = flexirule.utils.generate_short_id();
+		const nodeData = get_default_node_data(nodeType);
+		const newNode = {
+			id: newNodeId,
+			type: mapActionTypeToNodeType(nodeData.action_type),
+			position: { x: 0, y: 0 }, // Will be fixed by auto-layout
+			label: nodeData.action_label,
+			data: {
+				...nodeData,
+				action_id: newNodeId,
+			},
+		};
+
+		// 2. Remove old edge
+		delete_edge(edgeId);
+
+		// 3. Add new node
+		nodes.value = [...nodes.value, newNode];
+
+		// 4. Create new edges
+		const edge1Id = `e-${sourceId}-${newNodeId}-${sourceHandle}`;
+		const edge2Id = `e-${newNodeId}-${targetId}-default`;
+
+		edges.value = [
+			...edges.value,
+			{
+				id: edge1Id,
+				source: sourceId,
+				target: newNodeId,
+				sourceHandle: sourceHandle,
+				type: "add",
+				animated: nodes.value.find((n) => n.id === sourceId)?.type === "start",
+			},
+			{
+				id: edge2Id,
+				source: newNodeId,
+				target: targetId,
+				sourceHandle: "default",
+				type: "add",
+			},
+		];
+
+		return newNodeId;
+	}
+
 	function touch_node(nodeId) {
 		if (!nodeId) return;
 		const idx = nodes.value.findIndex((n) => n.id === nodeId);
@@ -629,6 +683,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 						action.action_type === "Condition" || action.action_type === "Loop"
 							? "true"
 							: "default",
+					type: "add",
 					animated: action.action_type === "Entry Action",
 				});
 			}
@@ -638,6 +693,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					source: nodeId,
 					target: action.next_step_if_false,
 					sourceHandle: "false",
+					type: "add",
 				});
 			}
 		});
@@ -777,6 +833,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				source: "root",
 				target: "node_end",
 				sourceHandle: "true",
+				type: "add",
 				animated: true,
 			},
 		];
@@ -805,6 +862,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		delete_node,
 		delete_edge,
 		touch_node,
+		insert_node_on_edge,
 
 		// Sync
 		sync_actions_to_graph,

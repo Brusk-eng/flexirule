@@ -8,8 +8,12 @@ export function useRuleGraph() {
 		const dagreGraph = new dagre.graphlib.Graph();
 		dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-		// Top to Bottom layout by default to match Salesforce
-		dagreGraph.setGraph({ rankdir: direction, nodesep: 60, ranksep: 100 });
+		const isHorizontal = direction === "LR";
+		dagreGraph.setGraph({
+			rankdir: direction,
+			nodesep: isHorizontal ? 40 : 60,
+			ranksep: isHorizontal ? 80 : 100,
+		});
 
 		nodes.value.forEach((node) => {
 			// standardizing node width/height for dagre layout
@@ -30,6 +34,9 @@ export function useRuleGraph() {
 					x: nodeWithPosition.x - 150, // shift back by half width
 					y: nodeWithPosition.y - 60, // shift back by half height
 				},
+				// Reset source/target handles to match direction if needed
+				sourcePosition: isHorizontal ? "right" : "bottom",
+				targetPosition: isHorizontal ? "left" : "top",
 			};
 		});
 
