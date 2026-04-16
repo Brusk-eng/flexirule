@@ -11,13 +11,15 @@ export function useRuleGraph() {
 		const isHorizontal = direction === "LR";
 		dagreGraph.setGraph({
 			rankdir: direction,
-			nodesep: isHorizontal ? 40 : 60,
-			ranksep: isHorizontal ? 80 : 100,
+			nodesep: isHorizontal ? 60 : 80,
+			ranksep: isHorizontal ? 100 : 120,
+			marginx: 40,
+			marginy: 40,
 		});
 
 		nodes.value.forEach((node) => {
-			// standardizing node width/height for dagre layout
-			dagreGraph.setNode(node.id, { width: 300, height: 120 });
+			// Using consistent dimensions to ensure perfect center alignment
+			dagreGraph.setNode(node.id, { width: 280, height: 100 });
 		});
 
 		edges.value.forEach((edge) => {

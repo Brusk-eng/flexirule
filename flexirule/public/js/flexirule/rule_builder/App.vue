@@ -90,7 +90,7 @@
 							</button>
 							<button
 								class="btn btn-sm btn-default"
-								@click="layoutGraph('TB')"
+								@click="() => layoutGraph('LR')"
 								:title="__('Auto Layout')"
 							>
 								<i class="fa fa-sitemap"></i> {{ __("Auto Layout") }}
@@ -327,8 +327,8 @@ onMounted(async () => {
 
 	setTimeout(() => {
 		if (store.nodes.length > 0) {
-			const dir = store.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
-			layoutGraph(dir);
+			// Restricted to Left to Right for this release
+			layoutGraph("LR");
 		}
 	}, 100);
 });
@@ -471,8 +471,12 @@ function addNode(type, position) {
 	}
 }
 
-function insertNodeOnEdge({ edgeId }) {
-	const newNodeId = store.insert_node_on_edge(edgeId, "selector");
+function insertNodeOnEdge(payload) {
+	const newNodeId = store.insert_node_on_edge(
+		payload.edgeId,
+		payload.actionType || "selector",
+		payload
+	);
 	if (newNodeId) {
 		const dir = store.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
 		setTimeout(() => layoutGraph(dir), 50);
