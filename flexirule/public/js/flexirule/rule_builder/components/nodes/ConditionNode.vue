@@ -74,12 +74,12 @@ function openConfig() {
 			<div class="condition-text">{{ label }}</div>
 		</div>
 
-		<!-- True Output (Top) -->
+		<!-- True Output (Right) -->
 		<div class="out-port out-true">
 			<span class="port-label">{{ __("YES") }}</span>
 			<Handle
 				type="source"
-				:position="Position.Top"
+				:position="Position.Right"
 				id="true"
 				class="handle-out handle-true"
 			/>
@@ -222,10 +222,15 @@ function openConfig() {
 }
 
 .out-true {
-	top: -20px;
+	right: -30px;
+	top: 50%;
+	transform: translateY(-50%);
 }
 .out-false {
-	bottom: -20px;
+	bottom: -22px;
+	left: 50%;
+	transform: translateX(-50%);
+	flex-direction: column;
 }
 
 .port-label {

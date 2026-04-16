@@ -21,6 +21,7 @@ import {
 } from "../../core/contracts";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { getConditionPayload } from "../utils/condition_payload";
+import { generateShortId } from "../../utils/index.js";
 
 export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Core graph state ──
@@ -209,7 +210,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	// ── Node operations ──
 	function get_default_node_data(type, label = "") {
-		const id = flexirule.utils.generate_short_id();
+		const id = generateShortId();
 		const actionType = normalizeActionType(flexirule.utils.to_title_case(type));
 		const baseData = {
 			action_id: id,
@@ -293,7 +294,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		return true;
 	}
 
-	function insert_node_on_edge(edgeId, nodeType = "selector") {
+	function insert_node_on_edge(edgeId, nodeType = "selector", options = {}) {
 		const edge = edges.value.find((e) => e.id === edgeId);
 		if (!edge) return;
 
@@ -302,8 +303,13 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const sourceHandle = edge.sourceHandle || "default";
 
 		// 1. Create new node
-		const newNodeId = flexirule.utils.generate_short_id();
-		const nodeData = get_default_node_data(nodeType);
+		const newNodeId = generateShortId();
+		const nodeData = get_default_node_data(nodeType, options.label);
+
+		// Apply options (operation, process_name)
+		if (options.operation) nodeData.operation = options.operation;
+		if (options.process_name) nodeData.process_name = options.process_name;
+
 		const newNode = {
 			id: newNodeId,
 			type: mapActionTypeToNodeType(nodeData.action_type),
@@ -312,16 +318,27 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			data: {
 				...nodeData,
 				action_id: newNodeId,
+				next_step_if_true: targetId,
 			},
 		};
 
 		// 2. Remove old edge
 		delete_edge(edgeId);
 
-		// 3. Add new node
+		// 3. Update source node pointer to new node
+		const sourceNode = nodes.value.find((n) => n.id === sourceId);
+		if (sourceNode && sourceNode.data) {
+			if (sourceHandle === "false") {
+				sourceNode.data.next_step_if_false = newNodeId;
+			} else {
+				sourceNode.data.next_step_if_true = newNodeId;
+			}
+		}
+
+		// 4. Add new node
 		nodes.value = [...nodes.value, newNode];
 
-		// 4. Create new edges
+		// 5. Create new edges
 		const edge1Id = `e-${sourceId}-${newNodeId}-${sourceHandle}`;
 		const edge2Id = `e-${newNodeId}-${targetId}-default`;
 
@@ -333,7 +350,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				target: newNodeId,
 				sourceHandle: sourceHandle,
 				type: "add",
-				animated: nodes.value.find((n) => n.id === sourceId)?.type === "start",
 			},
 			{
 				id: edge2Id,
@@ -777,14 +793,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				...visualEdgeMeta
 			} = visualEdge;
 
-			return { ...edge, ...visualEdgeMeta };
+			return { ...edge, ...visualEdgeMeta, type: "add" };
 		});
 
 		// Add orphaned edges with valid endpoints
 		visualEdges.forEach((vEdge, key) => {
 			if (!seenEdgeKeys.has(key)) {
 				if (seenNodeIds.has(vEdge.source) && seenNodeIds.has(vEdge.target)) {
-					mergedEdges.push(vEdge);
+					mergedEdges.push({ ...vEdge, type: "add" });
 					seenEdgeKeys.add(key);
 				}
 			}

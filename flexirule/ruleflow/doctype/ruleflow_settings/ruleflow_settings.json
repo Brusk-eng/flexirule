@@ -98,11 +98,11 @@
    "label": "Builder Settings"
   },
   {
-   "default": "Top to Bottom",
+   "default": "Left to Right",
    "fieldname": "layout_direction",
    "fieldtype": "Select",
    "label": "Auto-Layout Direction",
-   "options": "Top to Bottom\nLeft to Right"
+   "options": "Left to Right"
   },
   {
    "default": "Left",
