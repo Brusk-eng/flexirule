@@ -13,6 +13,7 @@
 					:snap-to-grid="true"
 					:snap-grid="[15, 15]"
 					fit-view-on-init
+					:edge-types="edgeTypes"
 					@node-click="onNodeClick"
 					@node-dblclick="onNodeDblClick"
 					@pane-click="onPaneClick"
@@ -59,6 +60,10 @@
 						<ProcessNode v-bind="nodeProps" />
 					</template>
 
+					<template #edge-add="edgeProps">
+						<AddNodeEdge v-bind="edgeProps" @insert-node="insertNodeOnEdge" />
+					</template>
+
 					<Background :gap="15" />
 					<Panel :position="PanelPosition.BottomLeft" class="controls-panel">
 						<div class="btn-group">
@@ -85,7 +90,7 @@
 							</button>
 							<button
 								class="btn btn-sm btn-default"
-								@click="layoutGraph('TB')"
+								@click="() => layoutGraph('LR')"
 								:title="__('Auto Layout')"
 							>
 								<i class="fa fa-sitemap"></i> {{ __("Auto Layout") }}
@@ -180,6 +185,7 @@
 			<div
 				class="sidebar-container"
 				:class="{ 'sidebar-rtl': isRTL }"
+				:style="{ order: sidebarOrder }"
 				v-if="showSidebar"
 				@click.stop
 			>
@@ -217,6 +223,11 @@ import ActionSelectorNode from "./components/nodes/ActionSelectorNode.vue";
 
 import Sidebar from "./components/Sidebar.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
+import AddNodeEdge from "./components/AddNodeEdge.vue";
+
+const edgeTypes = {
+	add: AddNodeEdge,
+};
 
 const props = defineProps({ rule: String });
 const store = useStore();
@@ -295,6 +306,7 @@ watch(
 );
 
 const showSidebar = computed(() => store.selected_id !== null);
+const sidebarOrder = computed(() => (store.settings?.sidebar_position === "Right" ? 2 : 0));
 const isRTL = computed(() => document.documentElement.dir === "rtl");
 const isReadOnly = computed(() => store.is_read_only);
 
@@ -315,7 +327,8 @@ onMounted(async () => {
 
 	setTimeout(() => {
 		if (store.nodes.length > 0) {
-			layoutGraph("TB");
+			// Restricted to Left to Right for this release
+			layoutGraph("LR");
 		}
 	}, 100);
 });
@@ -415,6 +428,7 @@ function autoConnectNode(nodeId, parentNode = null) {
 			source: sourceNode.id,
 			target: nodeId,
 			sourceHandle: sourceHandle || "default",
+			type: "add",
 			animated: sourceNode.type === "start",
 		},
 	];
@@ -456,6 +470,18 @@ function addNode(type, position) {
 		}, 50);
 	}
 }
+
+function insertNodeOnEdge(payload) {
+	const newNodeId = store.insert_node_on_edge(
+		payload.edgeId,
+		payload.actionType || "selector",
+		payload
+	);
+	if (newNodeId) {
+		const dir = store.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
+		setTimeout(() => layoutGraph(dir), 50);
+	}
+}
 function autoConnectStartNode() {
 	const startNode = (store.nodes || []).find((el) => el.id === "start" || el.type === "start");
 	if (!startNode) return;
@@ -473,6 +499,7 @@ function autoConnectStartNode() {
 			source: startNode.id,
 			target: firstNode.id,
 			sourceHandle: "default",
+			type: "add",
 			animated: true,
 		});
 	}
@@ -513,6 +540,7 @@ function onConnect(params) {
 		source: params.source,
 		target: params.target,
 		sourceHandle,
+		type: "add",
 		animated: store.nodes.find((el) => el.id === params.source)?.type === "start",
 	};
 	store.edges = [...store.edges, newEdge];
