@@ -544,15 +544,10 @@ const sourceOptionsNormalized = computed(() => {
 });
 
 const scalarSourceOptions = computed(() => {
-	const sourceBase = (ui.value.source_path || "doc").trim() || "doc";
-	const generated = scalarTargetOptions.value
-		.map((f) => f?.value)
-		.filter(Boolean)
-		.map((target) => ({
-			label: `${sourceBase}.${target}`,
-			value: `${sourceBase}.${target}`,
-		}));
-	return uniqueOptions([...sourceOptionsNormalized.value, ...generated]);
+	// Source options come only from real upstream context (variable_options),
+	// NOT generated from target fields. This prevents invalid mappings
+	// like doc.grand_total when the source doctype doesn't have that field.
+	return uniqueOptions([...sourceOptionsNormalized.value]);
 });
 
 function addScalarRow() {
@@ -622,17 +617,43 @@ function preferredSource(targetField, options, prefix = "") {
 	return candidates.find((c) => String(c.value).startsWith("doc.")) || candidates[0];
 }
 
+// System / internal fields that should never be auto-mapped
+const AUTOMAP_EXCLUDE_FIELDS = new Set([
+	"name",
+	"owner",
+	"creation",
+	"modified",
+	"modified_by",
+	"docstatus",
+	"idx",
+	"parent",
+	"parentfield",
+	"parenttype",
+	"lft",
+	"rgt",
+	"old_parent",
+	"naming_series",
+	"_user_tags",
+	"_comments",
+	"_assign",
+	"_liked_by",
+	"_seen",
+	"doctype",
+	"amended_from",
+]);
+
 function collectScalarAutoMapRows() {
 	const existing = new Set(ui.value.scalars.map((row) => row.target).filter(Boolean));
-	const sourceBase = (ui.value.source_path || "doc").trim() || "doc";
 	const suggestions = [];
 
 	scalarTargetOptions.value.forEach((field) => {
 		const target = field.value || field.fieldname;
 		if (!target || existing.has(target)) return;
-		const source = preferredSource(target, scalarSourceOptions.value) || {
-			value: buildPath(sourceBase, target),
-		};
+		// Skip system / internal fields
+		if (AUTOMAP_EXCLUDE_FIELDS.has(target)) return;
+		// Only suggest a mapping when a real source match exists in the context
+		const source = preferredSource(target, scalarSourceOptions.value);
+		if (!source) return;
 		suggestions.push({
 			target,
 			source_type: "path",
@@ -672,9 +693,11 @@ function collectTableAutoMapRows(table) {
 	childFields.forEach((cf) => {
 		const target = cf.value;
 		if (!target || existing.has(target)) return;
-		const source = preferredSource(target, rowSourceOptions, `${rowAlias}.`) || {
-			value: buildPath(rowAlias, target),
-		};
+		// Skip system / internal fields
+		if (AUTOMAP_EXCLUDE_FIELDS.has(target)) return;
+		// Only suggest a mapping when a real source match exists
+		const source = preferredSource(target, rowSourceOptions, `${rowAlias}.`);
+		if (!source) return;
 		suggestions.push({
 			target,
 			source_type: "path",
@@ -715,15 +738,9 @@ function getChildFieldOptions(tableField) {
 }
 
 function getTableRowSourceOptions(table) {
-	const rowAlias = (table?.item_alias || "item").trim() || "item";
-	const rowFieldHints = getChildFieldOptions(table?.target_table)
-		.map((field) => field?.value)
-		.filter(Boolean)
-		.map((fieldname) => ({
-			label: `${rowAlias}.${fieldname}`,
-			value: `${rowAlias}.${fieldname}`,
-		}));
-	return uniqueOptions([...sourceOptionsNormalized.value, ...rowFieldHints]);
+	// Derive from upstream context variables only, as requested.
+	// Removed rowFieldHints which were speculative guesses based on target fields.
+	return uniqueOptions([...sourceOptionsNormalized.value]);
 }
 
 async function loadTargetMeta(doctype) {

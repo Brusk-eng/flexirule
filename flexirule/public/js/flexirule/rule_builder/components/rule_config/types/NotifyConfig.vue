@@ -181,16 +181,6 @@ function update_config_key(key, value) {
 	sync_local_config();
 }
 
-function sync_local_config() {
-	const new_config = {};
-	Object.entries(config).forEach(([key, value]) => {
-		if (value !== undefined && value !== null && value !== "") {
-			new_config[key] = value;
-		}
-	});
-	sync_config(new_config);
-}
-
 function load_local_config(val) {
 	let parsed = {};
 	if (typeof val === "string") {
@@ -203,15 +193,33 @@ function load_local_config(val) {
 		parsed = val;
 	}
 
-	Object.keys(config).forEach((key) => delete config[key]);
-	Object.assign(config, parsed);
-
-	if (!config.text_generator_ui && props.node?.data?.value_template) {
-		config.text_generator_ui = {
+	// Backwards compat: value_template
+	if (!parsed.text_generator_ui && props.node?.data?.value_template) {
+		parsed.text_generator_ui = {
 			version: 2,
 			segments: [{ type: "text", content: props.node.data.value_template }],
 		};
 	}
+
+	// Compare with current local state to avoid re-triggering watchers
+	const current_str = JSON.stringify(config);
+	const next_str = JSON.stringify(parsed);
+	if (current_str === next_str) return;
+
+	Object.keys(config).forEach((key) => delete config[key]);
+	Object.assign(config, parsed);
+}
+
+function sync_local_config() {
+	const new_config = {};
+	Object.entries(config).forEach(([key, value]) => {
+		if (value !== undefined && value !== null && value !== "") {
+			new_config[key] = value;
+		}
+	});
+
+	// sync_config in useActionConfig already performs a string compare against props.node.data.config
+	sync_config(new_config);
 }
 
 watch(

@@ -6,6 +6,18 @@
 		</div>
 
 		<div class="sidebar-content" v-if="selectedNode">
+			<!-- Validation Errors -->
+			<div v-if="store.validation_errors?.length" class="sidebar-errors mb-3">
+				<div
+					v-for="(err, idx) in store.validation_errors"
+					:key="idx"
+					class="d-flex align-items-start gap-2 text-danger small mb-1"
+				>
+					<i class="fa fa-exclamation-circle mt-1"></i>
+					<span>{{ err }}</span>
+				</div>
+			</div>
+
 			<!-- Start Node: Keep existing behavior -->
 			<template v-if="selectedNode.type === 'start'">
 				<StartNodeProperties

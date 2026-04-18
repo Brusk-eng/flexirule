@@ -186,20 +186,20 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:['Query Records', 'Document Action'].includes(doc.action_type)",
+   "depends_on": "eval:['Query Records', 'Document Action', 'Set Value', 'Process'].includes(doc.action_type)",
    "fieldname": "section_break_query",
    "fieldtype": "Section Break",
    "label": "Action Input"
   },
   {
-   "depends_on": "eval:['Query Records', 'Document Action'].includes(doc.action_type)",
+   "depends_on": "eval:['Query Records', 'Document Action', 'Set Value'].includes(doc.action_type)",
    "fieldname": "input_source",
    "fieldtype": "Select",
    "label": "Input Source",
    "options": "\nContext Doc\nContext Variable\nBoth"
   },
   {
-   "depends_on": "eval:['Query Records', 'Document Action'].includes(doc.action_type)",
+   "depends_on": "eval:['Query Records', 'Document Action', 'Set Value', 'Process'].includes(doc.action_type)",
    "description": "Target DocType for query or document creation",
    "fieldname": "reference_doctype",
    "fieldtype": "Link",
@@ -216,7 +216,7 @@
    "options": "reference_doctype"
   },
   {
-   "depends_on": "eval:['Query Records', 'Document Action'].includes(doc.action_type)",
+   "depends_on": "eval:['Query Records', 'Document Action', 'Set Value', 'Process'].includes(doc.action_type)",
    "description": "How to apply this step's result (e.g. save to document or context)",
    "fieldname": "mutation_mode",
    "fieldtype": "Select",

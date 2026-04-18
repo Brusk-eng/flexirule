@@ -25,6 +25,7 @@ class Rule(Document):
 		from flexirule.ruleflow.doctype.rule_permission.rule_permission import RulePermission
 
 		actions: DF.Table[RuleAction]
+		amended_from: DF.Link | None
 		compiled_expression: DF.Code | None
 		debug_mode: DF.Check
 		description: DF.Text | None
@@ -32,10 +33,11 @@ class Rule(Document):
 		execution_mode: DF.Literal["Synchronous", "Asynchronous"]
 		exposed_as_subrule: DF.Check
 		is_active: DF.Check
-		lifecycle_state: DF.Literal["Draft", "Active", "Inactive", "Archived"]
 		last_error: DF.Text | None
+		lifecycle_state: DF.Literal["Draft", "Active", "Inactive", "Archived"]
 		max_execution_time: DF.Int
 		module: DF.Link | None
+		parent_rule: DF.Link | None
 		permissions: DF.Table[RulePermission]
 		previous_rule: DF.Link | None
 		priority: DF.Literal[

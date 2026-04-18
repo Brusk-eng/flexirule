@@ -62,7 +62,8 @@ def validate_rule_definition(rule_doc, mode="full") -> dict:
 		return _validate_single_action(rule, rule_doc, errors, warnings)
 
 	_normalize_hidden_trigger_fields(rule)
-	_validate_trigger_requirements(rule, errors)
+	if mode == "full":
+		_validate_trigger_requirements(rule, errors)
 
 	actions = list(_safe_get(rule, "actions", []) or [])
 	operation_metadata = _build_operation_metadata(actions)
@@ -90,6 +91,7 @@ def validate_rule_definition(rule_doc, mode="full") -> dict:
 			action_label,
 			operation_metadata,
 			errors,
+			mode=mode,
 		)
 		_validate_action_specifics(rule, action, action_type, action_label, warnings, errors)
 
@@ -184,7 +186,7 @@ def _validate_single_action(rule, action, errors, warnings) -> dict:
 	actions = list(_safe_get(rule, "actions", []) or [])
 	operation_metadata = _build_operation_metadata(actions)
 
-	_validate_action_contracts(action, action_type, action_label, operation_metadata, errors)
+	_validate_action_contracts(action, action_type, action_label, operation_metadata, errors, mode="node")
 	_validate_action_specifics(rule, action, action_type, action_label, warnings, errors)
 
 	handler = HandlerRegistry.get(action_type)
@@ -247,6 +249,7 @@ def _validate_action_contracts(
 	action_label: str,
 	operation_metadata: dict | None,
 	errors: list[str],
+	mode: str = "full",
 ) -> None:
 	contract = get_contract(action_type)
 	operation = _safe_get(action, "operation")
@@ -260,13 +263,14 @@ def _validate_action_contracts(
 		process_operation=process_operation,
 	)
 
-	for fieldname in get_required_fields(action_type):
-		if _is_empty(_safe_get(action, fieldname)):
-			errors.append(
-				_("Action '{0}' ({1}) requires field '{2}'").format(action_label, action_type, fieldname)
-			)
+	if mode == "full":
+		for fieldname in get_required_fields(action_type):
+			if _is_empty(_safe_get(action, fieldname)):
+				errors.append(
+					_("Action '{0}' ({1}) requires field '{2}'").format(action_label, action_type, fieldname)
+				)
 
-	if operation:
+	if operation and mode == "full":
 		for fieldname in contract.get("mandatory_fields", {}).get(operation, []):
 			if _is_empty(_safe_get(action, fieldname)):
 				errors.append(

@@ -447,7 +447,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	function normalize_action_data(actionType, data = {}) {
 		if (!actionType || !data) return data;
 
-		const normalized = { ...data };
+		// Bridging machine node types to canonical contract keys
+		actionType = normalizeActionType(actionType);
+
+		const normalized = { ...data, action_type: actionType };
 		const contract = getContract(actionType);
 		const operationOptions = getOperationOptions(actionType, {
 			processName: normalized.process_name,
@@ -513,6 +516,23 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		}
 		if (actionType === "Stop" && normalized.operation !== "Error") {
 			normalized.value_template = null;
+		}
+
+		// Ensure Set Value always maintains its template
+		if (actionType === "Set Value" && !normalized.value_template && normalized.config) {
+			try {
+				let cfg = normalized.config;
+				if (typeof cfg === "string") cfg = JSON.parse(cfg);
+				const text_ui = cfg.text_generator_ui;
+				if (text_ui?.segments) {
+					// Fallback re-compile if somehow lost
+					normalized.value_template = (text_ui.segments || [])
+						.map((s) => s.content || s.text || "")
+						.join("");
+				}
+			} catch (e) {
+				// ignore parse error
+			}
 		}
 
 		return normalized;
@@ -855,6 +875,92 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		];
 	}
 
+	/**
+	 * Paste nodes and edges from clipboard into the current graph.
+	 * Remaps IDs to prevent collisions and preserves internal connections.
+	 */
+	function pasteNodes(pastedNodes, pastedEdges, position = { x: 0, y: 0 }) {
+		if (!pastedNodes || !pastedNodes.length) return [];
+
+		const idMap = {};
+		const newNodes = [];
+		const newEdges = [];
+
+		// 1. Calculate bounding box of pasted nodes to find offset
+		const minX = Math.min(...pastedNodes.map((n) => n.position?.x || 0));
+		const minY = Math.min(...pastedNodes.map((n) => n.position?.y || 0));
+
+		// 2. Map IDs and create new nodes
+		pastedNodes.forEach((node) => {
+			const oldId = node.id;
+			const newId = generateShortId();
+			idMap[oldId] = newId;
+
+			// Deep clone
+			const newNode = JSON.parse(JSON.stringify(node));
+			newNode.id = newId;
+			if (newNode.data) {
+				newNode.data.action_id = newId;
+				newNode.data.name = null; // Clear backend name to force new record
+				// Ensure mandatory fields are at least present
+				if (
+					newNode.data.action_type === "Document Action" &&
+					!newNode.data.permission_audit_reason
+				) {
+					newNode.data.permission_audit_reason = "System Rule Execution";
+				}
+			}
+
+			// Shift position relative to paste point
+			newNode.position = {
+				x: (node.position?.x || 0) - minX + position.x,
+				y: (node.position?.y || 0) - minY + position.y,
+			};
+
+			newNodes.push(newNode);
+		});
+
+		// 3. Remap next_step pointers in node data
+		newNodes.forEach((node) => {
+			if (node.data) {
+				if (node.data.next_step_if_true && idMap[node.data.next_step_if_true]) {
+					node.data.next_step_if_true = idMap[node.data.next_step_if_true];
+				} else {
+					node.data.next_step_if_true = null;
+				}
+
+				if (node.data.next_step_if_false && idMap[node.data.next_step_if_false]) {
+					node.data.next_step_if_false = idMap[node.data.next_step_if_false];
+				} else {
+					node.data.next_step_if_false = null;
+				}
+			}
+		});
+
+		// 4. Create new edges for internal connections
+		(pastedEdges || []).forEach((edge) => {
+			if (idMap[edge.source] && idMap[edge.target]) {
+				const newSourceId = idMap[edge.source];
+				const newTargetId = idMap[edge.target];
+				const newEdgeId = `e-${newSourceId}-${newTargetId}-${
+					edge.sourceHandle || "default"
+				}`;
+				newEdges.push({
+					...edge,
+					id: newEdgeId,
+					source: newSourceId,
+					target: newTargetId,
+				});
+			}
+		});
+
+		// 5. Add to store
+		nodes.value = [...nodes.value, ...newNodes];
+		edges.value = [...edges.value, ...newEdges];
+
+		return newNodes;
+	}
+
 	return {
 		// State
 		nodes,
@@ -879,6 +985,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		delete_edge,
 		touch_node,
 		insert_node_on_edge,
+		pasteNodes,
 
 		// Sync
 		sync_actions_to_graph,

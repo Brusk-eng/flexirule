@@ -26,12 +26,25 @@ export function useActionConfig(props) {
 
 	const mode = computed(() => props.node?.data?.operation || "");
 	const reference_doctype = computed(() => {
-		return (
-			props.node?.data?.reference_doctype ||
-			props.node?.data?.doctype ||
-			store.rule_doc?.document_type ||
-			""
-		);
+		const explicit = props.node?.data?.reference_doctype || props.node?.data?.doctype || "";
+		if (explicit) return explicit;
+
+		// Only fall back to rule's document_type for types that operate on the trigger doc.
+		// Document Action / Query Records target a separate doctype and must set it explicitly.
+		const actionType = props.node?.data?.action_type;
+		const op = props.node?.data?.operation;
+
+		// Default mappings for common Document Action operations
+		if (actionType === "Document Action") {
+			if (op === "Create ToDo") return "ToDo";
+			if (op === "Add Comment") return "Comment";
+		}
+
+		const TRIGGER_DOC_TYPES = ["Set Value", "Entry Action", "Notify", "Document Action"];
+		if (!actionType || TRIGGER_DOC_TYPES.includes(actionType)) {
+			return store.rule_doc?.document_type || "";
+		}
+		return "";
 	});
 	const reference_docname = computed(
 		() => props.node?.data?.reference_docname || props.node?.data?.docname || ""

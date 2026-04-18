@@ -322,15 +322,21 @@ function load_local_config(val) {
 		parsed = val;
 	}
 
+	// Backwards compat: mapper
+	if (!parsed.resource_mapper_ui && hasLegacyMapperConfig(parsed)) {
+		parsed.resource_mapper_ui = buildMapperUiFromLegacy(parsed);
+	}
+
+	// Compare with current local state to avoid re-triggering watchers
+	const current_str = JSON.stringify(config);
+	const next_str = JSON.stringify(parsed);
+	if (current_str === next_str) return;
+
 	Object.keys(config).forEach((k) => delete config[k]);
 	Object.assign(config, parsed);
 
 	if (parsed.assigned_to) {
 		assignToType.value = detectAssignToType(parsed.assigned_to);
-	}
-
-	if (!config.resource_mapper_ui && hasLegacyMapperConfig(config)) {
-		config.resource_mapper_ui = buildMapperUiFromLegacy(config);
 	}
 }
 
@@ -341,6 +347,8 @@ function sync_local_config() {
 			new_config[key] = value;
 		}
 	});
+
+	// sync_config in useActionConfig already performs a string compare against props.node.data.config
 	sync_config(new_config);
 }
 

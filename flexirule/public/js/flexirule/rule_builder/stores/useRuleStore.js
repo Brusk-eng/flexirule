@@ -25,6 +25,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	const is_dirty = ref(false);
 	const initial_state = ref(null);
 	const settings = ref(null);
+	const validation_errors = ref([]);
 	// ── Process / Sub-Rule state ──
 	const processes = ref([]);
 	const available_rules = ref([]);
@@ -45,6 +46,16 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const doctype = rule_doc.value?.document_type;
 		if (!doctype) return null;
 		return frappe.get_meta(doctype);
+	});
+
+	const nodes = computed({
+		get: () => useGraphStore().nodes,
+		set: (val) => (useGraphStore().nodes = val),
+	});
+
+	const edges = computed({
+		get: () => useGraphStore().edges,
+		set: (val) => (useGraphStore().edges = val),
 	});
 
 	// ── Fetch ──
@@ -136,6 +147,12 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		setup_breadcrumbs();
 		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
 		is_dirty.value = false;
+
+		// Ensure App.vue bindings see the nodes/edges immediately
+		// by triggering a reactivity update if needed
+		nodes.value = [...graphStore.nodes];
+		edges.value = [...graphStore.edges];
+
 		historyStore.reset(() => graphStore.getGraphSnapshot());
 	}
 
@@ -169,8 +186,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				return !!doc[expr];
 			};
 
-			graphStore.nodes.forEach((node) => {
-				if (node.type === "start") return;
+			for (const node of graphStore.nodes) {
+				if (node.type === "start") continue;
 
 				const label = node.data?.action_label || node.label || node.id;
 
@@ -178,11 +195,56 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					errors.push(
 						`${label}: ${__("Please configure this action type before saving")}`
 					);
-					return;
+					continue;
 				}
 
 				const doc = node.data;
+
+				// Deep sync value_template from text_generator_ui if missing (extra robustness)
+				if (doc.action_type === "Set Value" && !doc.value_template && doc.config) {
+					try {
+						let cfg = doc.config;
+						if (typeof cfg === "string") cfg = JSON.parse(cfg);
+						const text_ui = cfg.text_generator_ui;
+						if (text_ui?.segments) {
+							const { compileSegmentsToJinja } = await import(
+								"../utils/text_generator"
+							);
+							doc.value_template = compileSegmentsToJinja(text_ui.segments);
+						}
+					} catch (e) {
+						console.warn("Failed to auto-sync value_template", e);
+					}
+				}
+
+				// Special handling for Set Value validation: ensure they are in node.data
+				if (doc.action_type === "Set Value") {
+					if (!doc.target_field)
+						errors.push(`${label}: ${__("Target Field is required")}`);
+					if (!doc.value_template)
+						errors.push(`${label}: ${__("Value Template is required")}`);
+				}
+
+				// Auto-populate hidden mandatory fields
+				if (["Document Action", "Set Value", "Notify"].includes(doc.action_type)) {
+					if (doc.action_type === "Document Action" && !doc.permission_audit_reason) {
+						doc.permission_audit_reason = "System Rule Execution";
+					}
+					if (!doc.reference_doctype) {
+						doc.reference_doctype = rule_doc.value?.document_type;
+					}
+				}
+
+				// Generic meta-based validation
 				action_meta.fields.forEach((df) => {
+					// Skip fields we've already checked or handled
+					if (
+						["target_field", "value_template", "permission_audit_reason"].includes(
+							df.fieldname
+						)
+					)
+						return;
+
 					if (df.depends_on && !eval_depends(df.depends_on, doc)) return;
 					const is_mandatory =
 						df.reqd ||
@@ -194,7 +256,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 						}
 					}
 				});
-			});
+			}
 
 			if (errors.length > 0) {
 				const message = errors.map((e) => `<li>${e}</li>`).join("");
@@ -352,6 +414,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			});
 
 			// 3. Backend validation precheck (draft mode: relaxed for building)
+			validation_errors.value = []; // Clear previous errors
+
 			const validationPayload = {
 				name: doc.name,
 				is_active: doc.is_active,
@@ -365,9 +429,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				args: { doc: validationPayload, mode: "draft" },
 			});
 			if (backendValidation?.message && backendValidation.message.valid === false) {
-				const message = (backendValidation.message.errors || [])
-					.map((e) => `<li>${e}</li>`)
-					.join("");
+				validation_errors.value = backendValidation.message.errors || [];
+				const message = validation_errors.value.map((e) => `<li>${e}</li>`).join("");
 				frappe.msgprint({
 					title: __("Validation Error"),
 					message: `<ul class="text-left">${message}</ul>`,
@@ -673,6 +736,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		processes,
 		available_rules,
 		trigger_event_options,
+		nodes,
+		edges,
 
 		// Computed
 		is_active,

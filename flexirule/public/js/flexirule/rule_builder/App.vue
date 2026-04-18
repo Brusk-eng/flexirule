@@ -231,14 +231,20 @@ const edgeTypes = {
 
 const props = defineProps({ rule: String });
 const store = useStore();
-const { zoomIn, zoomOut, removeEdges } = useVueFlow();
+const { zoomIn, zoomOut, removeEdges, getSelectedNodes, getSelectedEdges, project } = useVueFlow();
 const { layoutGraph } = useRuleGraph();
 let vfInstance = null;
+
+const mousePos = ref({ x: 0, y: 0 });
 
 const toolbarRef = ref(null);
 const toolbarPos = ref({ x: 20, y: 20 });
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
+
+function handleGlobalMouseMove(e) {
+	mousePos.value = { x: e.clientX, y: e.clientY };
+}
 
 function startDrag(e) {
 	// Only allow dragging from the handle or the container background, not buttons
@@ -324,6 +330,7 @@ onMounted(async () => {
 	await store.fetch();
 	autoConnectStartNode();
 	window.addEventListener("keydown", handleKeydown);
+	window.addEventListener("mousemove", handleGlobalMouseMove);
 
 	setTimeout(() => {
 		if (store.nodes.length > 0) {
@@ -335,9 +342,150 @@ onMounted(async () => {
 
 onUnmounted(() => {
 	window.removeEventListener("keydown", handleKeydown);
+	window.removeEventListener("mousemove", handleGlobalMouseMove);
 });
 
+async function copySelectedToClipboard() {
+	const selectedNodes = getSelectedNodes.value;
+	if (!selectedNodes.length) return;
+
+	// Don't allow copying start node
+	const filterNodes = selectedNodes.filter((n) => n.id !== "start" && n.type !== "start");
+	if (!filterNodes.length) {
+		frappe.show_alert({ message: __("Start node cannot be copied"), indicator: "orange" }, 2);
+		return;
+	}
+
+	const selectedEdges = getSelectedEdges.value;
+
+	// Map to clean objects to avoid circular references and VueFlow internal state
+	const payload = {
+		type: "flexirule-clipboard",
+		version: 1,
+		nodes: filterNodes.map((n) => ({
+			id: n.id,
+			type: n.type,
+			position: { ...n.position },
+			label: n.label,
+			data: JSON.parse(JSON.stringify(n.data || {})),
+		})),
+		edges: selectedEdges.map((e) => ({
+			id: e.id,
+			source: e.source,
+			target: e.target,
+			sourceHandle: e.sourceHandle,
+		})),
+	};
+
+	const payloadStr = JSON.stringify(payload);
+	store.local_clipboard = payloadStr;
+	localStorage.setItem("flexirule-clipboard", payloadStr); // Cross-tab fallback
+
+	try {
+		// Try modern clipboard API first
+		if (navigator?.clipboard && window.isSecureContext) {
+			await navigator.clipboard.writeText(payloadStr);
+			frappe.show_alert({ message: __("Nodes copied to clipboard"), indicator: "blue" }, 2);
+		} else {
+			throw new Error("Clipboard API unavailable");
+		}
+	} catch (e) {
+		// Fallback for insecure contexts or API failure
+		const textArea = document.createElement("textarea");
+		textArea.value = payloadStr;
+		textArea.style.position = "fixed";
+		textArea.style.left = "-9999px";
+		textArea.style.top = "0";
+		document.body.appendChild(textArea);
+		textArea.focus();
+		textArea.select();
+
+		try {
+			const successful = document.execCommand("copy");
+			if (successful) {
+				frappe.show_alert(
+					{
+						message: __("Nodes copied to clipboard (system fallback)"),
+						indicator: "blue",
+					},
+					2
+				);
+			} else {
+				throw new Error("execCommand copy failed");
+			}
+		} catch (err) {
+			console.warn("FlexiRule: All clipboard copy methods failed", err);
+			frappe.show_alert(
+				{
+					message: __("Nodes copied to local session only (cross-browser copy failed)"),
+					indicator: "orange",
+				},
+				3
+			);
+		}
+		document.body.removeChild(textArea);
+	}
+}
+
+async function pasteFromClipboard() {
+	if (isReadOnly.value) return;
+
+	let payload = null;
+
+	// 1. Try system clipboard
+	try {
+		if (navigator?.clipboard && window.isSecureContext) {
+			const text = await navigator.clipboard.readText();
+			const parsed = JSON.parse(text);
+			if (parsed.type === "flexirule-clipboard") {
+				payload = parsed;
+			}
+		}
+	} catch (e) {
+		console.warn("FlexiRule: System clipboard read failed, trying local fallback", e);
+	}
+
+	// 2. Fallback to local clipboard (Pinia or localStorage for cross-tab)
+	if (!payload) {
+		try {
+			const local = localStorage.getItem("flexirule-clipboard") || store.local_clipboard;
+			if (local) {
+				const parsed = JSON.parse(local);
+				if (parsed.type === "flexirule-clipboard") {
+					payload = parsed;
+				}
+			}
+		} catch (e) {
+			console.error("FlexiRule: Local clipboard fallback failed", e);
+		}
+	}
+
+	if (!payload) {
+		frappe.show_alert({ message: __("Clipboard is empty or invalid"), indicator: "orange" }, 3);
+		return;
+	}
+
+	// Calculate paste position: mouse position in flow coordinates
+	// Fallback to center if mouse is outside canvas
+	const bounds = flowWrapper.value.getBoundingClientRect();
+	const flowX = mousePos.value.x - bounds.left;
+	const flowY = mousePos.value.y - bounds.top;
+
+	const position = project({ x: flowX, y: flowY });
+
+	const newNodes = store.pasteNodes(payload.nodes, payload.edges, position);
+
+	if (newNodes.length) {
+		// Select the first pasted node
+		store.selected_id = newNodes[0].id;
+		frappe.show_alert({ message: __("Nodes pasted"), indicator: "green" }, 2);
+	}
+}
+
 function handleKeydown(e) {
+	// Don't trigger if typing in an input
+	if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
+
 	// Save: Ctrl+S
 	if ((e.ctrlKey || e.metaKey) && e.key === "s") {
 		e.preventDefault();
@@ -352,6 +500,14 @@ function handleKeydown(e) {
 	if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
 		e.preventDefault();
 		if (store.can_redo()) store.redo();
+	}
+	// Copy: Ctrl+C
+	if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+		copySelectedToClipboard();
+	}
+	// Paste: Ctrl+V
+	if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+		pasteFromClipboard();
 	}
 }
 
