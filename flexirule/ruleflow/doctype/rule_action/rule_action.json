@@ -240,12 +240,12 @@
    "label": "Ignore Permissions"
   },
   {
-   "depends_on": "eval:doc.skip_permissions",
+   "depends_on": "skip_permissions",
    "description": "Reason for bypassing permission checks (for audit)",
    "fieldname": "permission_audit_reason",
    "fieldtype": "Small Text",
    "label": "Permission Audit Reason",
-   "mandatory_depends_on": "eval:doc.skip_permissions"
+   "mandatory_depends_on": "skip_permissions"
   },
   {
    "collapsible": 1,

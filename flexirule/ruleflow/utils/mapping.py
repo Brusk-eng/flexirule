@@ -27,9 +27,8 @@ def apply_input_mapping(context: dict, mapping_json: str, config: dict) -> dict:
 	if not mapping_json:
 		return config
 
-	try:
-		mapping = json.loads(mapping_json)
-	except json.JSONDecodeError:
+	mapping = _parse_mapping(mapping_json)
+	if not isinstance(mapping, dict):
 		return config
 
 	result = dict(config)
@@ -60,9 +59,8 @@ def apply_output_mapping(result: Any, mapping_json: str, context: dict) -> dict:
 	if not mapping_json:
 		return context
 
-	try:
-		mapping = json.loads(mapping_json)
-	except json.JSONDecodeError:
+	mapping = _parse_mapping(mapping_json)
+	if not isinstance(mapping, dict):
 		return context
 
 	for source_key, target_var in mapping.items():
@@ -101,6 +99,11 @@ def resolve_path(data: Any, path: str) -> Any:
 
 		if isinstance(current, dict):
 			current = current.get(part)
+		elif isinstance(current, list) and part.isdigit():
+			idx = int(part)
+			if idx < 0 or idx >= len(current):
+				return None
+			current = current[idx]
 		else:
 			current = getattr(current, part, None)
 
@@ -137,3 +140,19 @@ def update_context(context: dict, path: str, value: Any):
 				target[part] = {}
 			target = target[part]
 		target[parts[-1]] = value
+
+
+def _parse_mapping(mapping_json: Any) -> dict | None:
+	"""Parse mapping payload from JSON string or dict."""
+	if isinstance(mapping_json, dict):
+		return mapping_json
+
+	if not isinstance(mapping_json, str):
+		return None
+
+	try:
+		parsed = json.loads(mapping_json)
+	except (json.JSONDecodeError, TypeError):
+		return None
+
+	return parsed if isinstance(parsed, dict) else None

@@ -451,7 +451,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			},
 			{
 				"fieldname": "permission_audit_reason",
-				"mandatory_depends_on": "eval:doc.skip_permissions",
+				"mandatory_depends_on": "skip_permissions",
 				"hidden": "eval:!doc.skip_permissions",
 			},
 			{"fieldname": "description", "description": "Executes another rule as a subroutine"},
@@ -785,7 +785,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			},
 			{
 				"fieldname": "permission_audit_reason",
-				"mandatory_depends_on": "eval:doc.skip_permissions",
+				"mandatory_depends_on": "skip_permissions",
 				"hidden": "eval:!doc.skip_permissions",
 			},
 			{"fieldname": "description", "description": "⚠️ Creates a new document record"},

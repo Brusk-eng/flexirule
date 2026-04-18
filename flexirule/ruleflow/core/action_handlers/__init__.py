@@ -154,7 +154,18 @@ class ActionHandler(ABC):
 		import frappe
 
 		safe_frappe = context.get("frappe") or frappe
-		return frappe.safe_eval(expression, eval_globals={"frappe": safe_frappe}, eval_locals=context)
+		eval_locals = {
+			"doc": context.get("doc"),
+			"old_doc": context.get("old_doc"),
+			"vars": context.get("vars", {}),
+			"item": context.get("item"),
+			"loop": context.get("loop"),
+		}
+		return frappe.safe_eval(
+			expression,
+			eval_globals={"frappe": safe_frappe},
+			eval_locals=eval_locals,
+		)
 
 	def __repr__(self):
 		return f"<{self.__class__.__name__}(action_type='{self.action_type}')>"

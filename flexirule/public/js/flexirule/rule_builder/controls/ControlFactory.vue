@@ -184,6 +184,30 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
+		<TextGeneratorControl
+			v-else-if="df?.fieldtype === 'Text Generator'"
+			:df="df"
+			:modelValue="modelValue"
+			:read_only="df?.read_only"
+			:variableOptions="df?.variable_options || []"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
+
+		<ResourceMapperControl
+			v-else-if="df?.fieldtype === 'Resource Mapper'"
+			:df="df"
+			:modelValue="modelValue"
+			:targetDoctype="df?.target_doctype || ''"
+			:targetFields="df?.target_fields || []"
+			:sourceOptions="df?.source_options || []"
+			:read_only="df?.read_only"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
+
 		<!-- Default (Data, Duration, Valid types defaulting to text) -->
 		<DataControl
 			v-else-if="!['Table', 'Signature', 'Button', 'Heading'].includes(df?.fieldtype)"
@@ -204,11 +228,13 @@
 <script setup>
 import FlexiGrid from "./FlexiGrid.vue";
 import MultiSelectListControl from "./MultiSelectListControl.vue";
+import ResourceMapperControl from "./ResourceMapperControl.vue";
+import TextGeneratorControl from "./TextGeneratorControl.vue";
 import TimePickerControl from "./TimePickerControl.vue";
 
 const props = defineProps({
 	df: Object,
-	modelValue: [String, Number, Boolean, Array],
+	modelValue: [String, Number, Boolean, Array, Object],
 	doc: { type: Object, default: null }, // Context doc for autocomplete
 	engine: { type: Object, default: null }, // Passed down to components like FlexiGrid
 	hideLabel: { type: Boolean, default: false },

@@ -13,6 +13,7 @@ import json
 
 import frappe
 from frappe import _
+from frappe.model import child_table_fields, default_fields, table_fields
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.permissions import can_skip_permissions
@@ -119,6 +120,7 @@ class DocumentActionHandler(ActionHandler):
 		]
 		"""
 		resolved = {}
+		eval_cache: dict = {}
 		for mapping in mappings:
 			source = mapping.get("source", "")
 			target = mapping.get("target", "")
@@ -126,8 +128,12 @@ class DocumentActionHandler(ActionHandler):
 				continue
 
 			try:
-				# Resolve source expression
-				value = self._safe_eval(source, context)
+				if source in eval_cache:
+					value = eval_cache[source]
+				else:
+					# Resolve source expression
+					value = self._safe_eval(source, context)
+					eval_cache[source] = value
 				resolved[target] = value
 			except Exception as e:
 				frappe.logger().warning(f"Failed to resolve field mapping '{source}' -> '{target}': {e}")
@@ -138,17 +144,30 @@ class DocumentActionHandler(ActionHandler):
 		"""Create a new document with field mappings."""
 		field_mappings = config.get("field_mappings", [])
 		static_values = config.get("static_values", {})
+		table_mappings = config.get("table_mappings", [])
+		mapper_options = config.get("mapper_options") or {}
 
 		# Build document data
 		doc_data = {"doctype": reference_doctype}
 
-		# Apply static values first
-		doc_data.update(static_values)
+		# 1) Optional same-field copy (Frappe mapper style)
+		doc_data.update(self._get_same_field_mappings(reference_doctype, mapper_options, context))
 
-		# Apply dynamic field mappings (overrides static)
-		if field_mappings:
+		# 2) Apply dynamic field mappings
+		compiled_scalars = config.get("compiled_scalars")
+		if compiled_scalars:
+			try:
+				resolved = self._safe_eval(compiled_scalars, context)
+				if isinstance(resolved, dict):
+					doc_data.update(resolved)
+			except Exception as e:
+				frappe.logger().warning(f"Failed to resolve compiled field mappings: {e}")
+		elif field_mappings:
 			resolved = self._resolve_field_mappings(field_mappings, context)
 			doc_data.update(resolved)
+
+		# 3) Apply static values last (explicit user constants should win)
+		doc_data.update(static_values)
 
 		if is_async:
 			# Enqueue document creation
@@ -162,6 +181,7 @@ class DocumentActionHandler(ActionHandler):
 
 		# Synchronous creation
 		new_doc = frappe.get_doc(doc_data)
+		self._apply_table_mappings(new_doc, table_mappings, context)
 		new_doc.insert(ignore_permissions=ignore_permissions)
 
 		return new_doc.as_dict()
@@ -184,16 +204,33 @@ class DocumentActionHandler(ActionHandler):
 		# Apply field mappings
 		field_mappings = config.get("field_mappings", [])
 		static_values = config.get("static_values", {})
+		table_mappings = config.get("table_mappings", [])
+		mapper_options = config.get("mapper_options") or {}
+
+		# Optional same-field copy (Frappe mapper style)
+		for field, value in self._get_same_field_mappings(reference_doctype, mapper_options, context).items():
+			doc.set(field, value)
 
 		# Apply static values
 		for field, value in static_values.items():
 			doc.set(field, value)
 
 		# Apply dynamic field mappings
-		if field_mappings:
+		compiled_scalars = config.get("compiled_scalars")
+		if compiled_scalars:
+			try:
+				resolved = self._safe_eval(compiled_scalars, context)
+				if isinstance(resolved, dict):
+					for field, value in resolved.items():
+						doc.set(field, value)
+			except Exception as e:
+				frappe.logger().warning(f"Failed to resolve compiled field mappings: {e}")
+		elif field_mappings:
 			resolved = self._resolve_field_mappings(field_mappings, context)
 			for field, value in resolved.items():
 				doc.set(field, value)
+
+		self._apply_table_mappings(doc, table_mappings, context)
 
 		doc.save(ignore_permissions=ignore_permissions)
 
@@ -202,7 +239,204 @@ class DocumentActionHandler(ActionHandler):
 	def _safe_eval(self, expression, context):
 		"""Evaluate expressions using SafeFrappeAPI from context."""
 		safe_frappe = context.get("frappe") or frappe
-		return frappe.safe_eval(expression, eval_globals={"frappe": safe_frappe}, eval_locals=context)
+		eval_locals = {
+			"doc": context.get("doc"),
+			"old_doc": context.get("old_doc"),
+			"vars": context.get("vars", {}),
+			"item": context.get("item"),
+			"loop": context.get("loop"),
+		}
+		return frappe.safe_eval(
+			expression,
+			eval_globals={"frappe": safe_frappe},
+			eval_locals=eval_locals,
+		)
+
+	def _apply_table_mappings(self, doc, table_mappings, context):
+		"""Apply compiled child table mappings using Frappe-native row append."""
+		if not table_mappings or not isinstance(table_mappings, list):
+			return
+
+		for table_cfg in table_mappings:
+			table_field = table_cfg.get("target_table")
+			source_expr = table_cfg.get("source")
+			assignments = table_cfg.get("assignments", [])
+			item_alias = table_cfg.get("item_alias") or "item"
+			reset_value = table_cfg.get("reset_value", True)
+			add_if_empty = bool(table_cfg.get("add_if_empty"))
+			condition_expr = (table_cfg.get("condition") or "").strip()
+			filter_expr = (table_cfg.get("filter") or "").strip()
+
+			if not table_field or not source_expr or not assignments:
+				continue
+
+			try:
+				rows = self._safe_eval(source_expr, context)
+			except Exception as exc:
+				frappe.logger().warning(
+					f"Document Action: table mapping source eval failed ({table_field}): {exc}"
+				)
+				continue
+
+			if not isinstance(rows, list | tuple):
+				continue
+
+			existing_rows = doc.get(table_field) or []
+			if add_if_empty and existing_rows:
+				continue
+
+			if reset_value:
+				# Preserve existing behavior unless explicitly disabled.
+				doc.set(table_field, [])
+
+			total_rows = len(rows)
+			for idx, row_item in enumerate(rows):
+				item_value = row_item.as_dict() if hasattr(row_item, "as_dict") else row_item
+				item_proxy = frappe._dict(item_value) if isinstance(item_value, dict) else item_value
+
+				row_context = dict(context)
+				row_context[item_alias] = item_proxy
+				row_context["item"] = item_proxy
+				row_context["loop"] = {
+					"index": idx,
+					"first": idx == 0,
+					"last": idx == total_rows - 1,
+					"length": total_rows,
+				}
+
+				if condition_expr:
+					try:
+						if not bool(self._safe_eval(condition_expr, row_context)):
+							continue
+					except Exception as exc:
+						frappe.logger().warning(
+							f"Document Action: table condition eval failed ({table_field}): {exc}"
+						)
+						continue
+
+				if filter_expr:
+					try:
+						if bool(self._safe_eval(filter_expr, row_context)):
+							continue
+					except Exception as exc:
+						frappe.logger().warning(
+							f"Document Action: table filter eval failed ({table_field}): {exc}"
+						)
+						continue
+
+				row_payload = {}
+				compiled_row_eval = table_cfg.get("compiled_row_eval")
+				if compiled_row_eval:
+					try:
+						row_payload = self._safe_eval(compiled_row_eval, row_context)
+					except Exception as exc:
+						frappe.logger().warning(
+							f"Document Action: compiled table field eval failed ({table_field}): {exc}"
+						)
+				else:
+					for assignment in assignments:
+						target = assignment.get("target")
+						if not target:
+							continue
+
+						source_type = assignment.get("source_type") or "expr"
+						if source_type == "literal":
+							row_payload[target] = assignment.get("literal")
+							continue
+
+						source = assignment.get("source")
+						if not source:
+							continue
+
+						try:
+							row_payload[target] = self._safe_eval(source, row_context)
+						except Exception as exc:
+							frappe.logger().warning(
+								f"Document Action: table field eval failed ({table_field}.{target}): {exc}"
+							)
+
+				if row_payload:
+					doc.append(table_field, row_payload)
+
+	def _get_same_field_mappings(self, target_doctype, mapper_options, context):
+		"""Map same field names from source object to target doctype (Frappe mapper style)."""
+		if not mapper_options or not mapper_options.get("copy_same_fields"):
+			return {}
+
+		source_path = (mapper_options.get("source_path") or "doc").strip() or "doc"
+		source_obj = self._resolve_source_object(source_path, context)
+		if source_obj is None:
+			return {}
+
+		field_no_map = [
+			f.strip() for f in (mapper_options.get("field_no_map") or []) if isinstance(f, str) and f.strip()
+		]
+		return self._map_same_fields(source_obj, target_doctype, field_no_map)
+
+	def _resolve_source_object(self, source_path, context):
+		"""Resolve mapper source object from context expression/path."""
+		if source_path in ("", "doc"):
+			return context.get("doc")
+		try:
+			return self._safe_eval(source_path, context)
+		except Exception:
+			return None
+
+	def _map_same_fields(self, source_obj, target_doctype, field_no_map=None):
+		"""Equivalent of frappe.model.mapper.map_fields for same-name scalar fields."""
+		target_meta = frappe.get_meta(target_doctype)
+		source_meta = getattr(source_obj, "meta", None)
+
+		no_copy_fields = set(default_fields).union(set(child_table_fields))
+		no_copy_fields.update(field_no_map or [])
+
+		# Exclude table and no_copy fields from source/target definitions.
+		if source_meta:
+			no_copy_fields.update(
+				{
+					d.fieldname
+					for d in source_meta.get("fields")
+					if (d.no_copy == 1 or d.fieldtype in table_fields)
+				}
+			)
+		no_copy_fields.update(
+			{
+				d.fieldname
+				for d in target_meta.get("fields")
+				if (d.no_copy == 1 or d.fieldtype in table_fields)
+			}
+		)
+
+		mapped = {}
+		for df in target_meta.get("fields"):
+			if df.fieldname in no_copy_fields:
+				continue
+
+			val = self._get_source_value(source_obj, df.fieldname)
+			if val not in (None, ""):
+				mapped[df.fieldname] = val
+				continue
+
+			# Map link-to-source fallback as frappe mapper does.
+			if df.fieldtype == "Link" and df.options == getattr(source_obj, "doctype", None):
+				source_name = getattr(source_obj, "name", None)
+				if source_name:
+					mapped[df.fieldname] = source_name
+
+		return mapped
+
+	def _get_source_value(self, source_obj, fieldname):
+		"""Read field value from frappe document, dict, or generic object."""
+		if source_obj is None:
+			return None
+		if isinstance(source_obj, dict):
+			return source_obj.get(fieldname)
+		if hasattr(source_obj, "get"):
+			try:
+				return source_obj.get(fieldname)
+			except Exception:
+				pass
+		return getattr(source_obj, fieldname, None)
 
 	def _template_context(self, context):
 		return {

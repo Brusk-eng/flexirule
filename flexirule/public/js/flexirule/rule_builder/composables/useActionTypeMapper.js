@@ -6,19 +6,25 @@ import { normalizeActionType } from "../../core/contracts";
  */
 export function mapActionTypeToNodeType(actionType) {
 	if (!actionType) return "process";
-	const type = normalizeActionType(actionType).toLowerCase().trim();
+	const normalized = String(normalizeActionType(actionType) || "")
+		.toLowerCase()
+		.replace(/[_-]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	const compact = normalized.replace(/\s+/g, "");
 
-	if (type === "selector") return "selector";
-	if (type === "entry action" || type === "start") return "start";
-	if (type === "condition") return "condition";
-	if (type === "loop") return "loop";
-	if (type === "wait") return "wait";
-	if (type === "stop") return "stop";
-	if (type === "notify") return "notify";
-	if (type === "sub-rule") return "sub-rule";
-	if (type === "query records") return "query";
-	if (type === "document action") return "documentaction";
-	if (type === "set value") return "set-value";
+	if (compact === "selector") return "selector";
+	if (compact === "entryaction" || compact === "start") return "start";
+	if (compact === "condition") return "condition";
+	if (compact === "loop") return "loop";
+	if (compact === "wait") return "wait";
+	if (compact === "stop") return "stop";
+	if (compact === "raiseerror") return "raise-error";
+	if (compact === "notify") return "notify";
+	if (compact === "subrule") return "sub-rule";
+	if (compact === "queryrecords") return "query";
+	if (compact === "documentaction") return "documentaction";
+	if (compact === "setvalue") return "set-value";
 
 	return "process";
 }
