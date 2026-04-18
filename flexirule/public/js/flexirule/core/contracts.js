@@ -93,6 +93,13 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
+		allowed_mutations: [
+			"Set Doc Field",
+			"Update Doc Field",
+			"Set Context Variable",
+			"Update Context Variable",
+		],
+		allowed_return_types: ["Yes / No", "Single Record", "List of Values"],
 		css: { icon: "fa fa-edit", color: "#14b8a6" },
 		validation: {
 			check_target_field_editable: true,
@@ -188,7 +195,12 @@ const DEFAULT_MUTATION_MODE_OPTIONS = [
 	"Batch Database Set",
 ];
 
-const DEFAULT_ACTION_TYPES_WITH_REFERENCE_CONTEXT = ["Query Records", "Document Action", "Process"];
+const DEFAULT_ACTION_TYPES_WITH_REFERENCE_CONTEXT = [
+	"Query Records",
+	"Document Action",
+	"Process",
+	"Set Value",
+];
 const DEFAULT_ACTION_TYPES_WITH_RETURN_SCHEMA = ["Process", "Query Records", "Document Action"];
 const DEFAULT_CONFIG_MODAL_TYPES = [
 	"Process",
@@ -356,6 +368,26 @@ export function getContract(actionType) {
 
 export function normalizeActionType(actionType) {
 	if (!actionType) return "";
+
+	const raw = String(actionType).trim();
+
+	// 1. Direct match with canonical keys
+	if (ACTION_TYPE_CONTRACT[raw]) return raw;
+
+	// 2. Try to map hyphenated/machine types back to canonical
+	// Normalized for easy lookup: e.g. "set-value" -> "set value"
+	const normalized = raw.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+
+	// Case-insensitive direct match: "set value" -> "Set Value"
+	const canonicalKeys = Object.keys(ACTION_TYPE_CONTRACT);
+	const match = canonicalKeys.find((k) => k.toLowerCase() === normalized);
+	if (match) return match;
+
+	// 3. Compact match for common UI variants: "setvalue" -> "Set Value"
+	const compact = normalized.replace(/\s+/g, "");
+	const compactMatch = canonicalKeys.find((k) => k.toLowerCase().replace(/\s+/g, "") === compact);
+	if (compactMatch) return compactMatch;
+
 	return actionType;
 }
 

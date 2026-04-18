@@ -12,6 +12,7 @@ import { ref, computed } from "vue";
 export const useUIStore = defineStore("rule-builder-ui", () => {
 	// ── Selection ──
 	const selected_id = ref(null);
+	const local_clipboard = ref(null);
 
 	// ── Config Modal ──
 	const show_config_modal = ref(false);

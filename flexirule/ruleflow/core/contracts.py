@@ -137,6 +137,13 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"has_next_true": True,
 		"has_next_false": False,
 		"terminal": False,
+		"allowed_mutations": [
+			"Set Doc Field",
+			"Update Doc Field",
+			"Set Context Variable",
+			"Update Context Variable",
+		],
+		"allowed_return_types": ["Yes / No", "Single Record", "List of Values"],
 		"css": {"icon": "fa fa-edit", "color": "#14b8a6"},
 		"validation": {
 			"check_target_field_editable": True,
@@ -451,7 +458,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			},
 			{
 				"fieldname": "permission_audit_reason",
-				"mandatory_depends_on": "eval:doc.skip_permissions",
+				"mandatory_depends_on": "skip_permissions",
 				"hidden": "eval:!doc.skip_permissions",
 			},
 			{"fieldname": "description", "description": "Executes another rule as a subroutine"},
@@ -553,6 +560,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "mutation_mode",
 				"options": ["Set Context Variable", "Append to Context Variable", "Update Context Variable"],
+				"reqd": 1,
 			},
 			{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
 			{
@@ -589,7 +597,11 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			},
 			{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype"},
-			{"fieldname": "mutation_mode", "options": ["Set Context Variable", "Update Context Variable"]},
+			{
+				"fieldname": "mutation_mode",
+				"options": ["Set Context Variable", "Update Context Variable"],
+				"reqd": 1,
+			},
 			{"fieldname": "return_type", "options": ["Single Record", "Full Document"], "reqd": 1},
 			{"fieldname": "description", "description": "Queries a single record by name/ID"},
 		],
@@ -776,7 +788,11 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 				"reqd": 1,
 				"description": "⚠️ Document data to create",
 			},
-			{"fieldname": "mutation_mode", "options": ["Set Context Variable", "Update Context Variable"]},
+			{
+				"fieldname": "mutation_mode",
+				"options": ["Set Context Variable", "Update Context Variable"],
+				"reqd": 1,
+			},
 			{"fieldname": "return_type", "options": ["Single Record", "Full Document"], "reqd": 1},
 			{
 				"fieldname": "skip_permissions",
@@ -785,7 +801,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			},
 			{
 				"fieldname": "permission_audit_reason",
-				"mandatory_depends_on": "eval:doc.skip_permissions",
+				"mandatory_depends_on": "skip_permissions",
 				"hidden": "eval:!doc.skip_permissions",
 			},
 			{"fieldname": "description", "description": "⚠️ Creates a new document record"},
@@ -812,6 +828,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "mutation_mode",
 				"options": ["Set Context Variable", "Update Context Variable", "Set Doc Field"],
+				"reqd": 1,
 			},
 			{"fieldname": "return_type", "options": ["Single Record", "Full Document"], "reqd": 1},
 			{"fieldname": "description", "description": "⚠️ Updates an existing document record"},
@@ -853,7 +870,11 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 				"reqd": 1,
 				"description": "⚠️ ToDo details (description, assigned_to, etc.)",
 			},
-			{"fieldname": "mutation_mode", "options": ["Set Context Variable", "Update Context Variable"]},
+			{
+				"fieldname": "mutation_mode",
+				"options": ["Set Context Variable", "Update Context Variable"],
+				"reqd": 1,
+			},
 			{"fieldname": "return_type", "default": "Single Record", "read_only": 1},
 			{"fieldname": "description", "description": "⚠️ Creates a ToDo task for users"},
 		],
@@ -879,7 +900,11 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 				"reqd": 1,
 				"description": "⚠️ Comment content and settings",
 			},
-			{"fieldname": "mutation_mode", "options": ["Set Context Variable", "Update Context Variable"]},
+			{
+				"fieldname": "mutation_mode",
+				"options": ["Set Context Variable", "Update Context Variable"],
+				"reqd": 1,
+			},
 			{"fieldname": "return_type", "default": "Single Record", "read_only": 1},
 			{"fieldname": "description", "description": "⚠️ Adds a comment to the document"},
 		],
@@ -1071,7 +1096,7 @@ def apply_field_overrides(base_fields: list, overrides: list) -> list:
 	return list(field_map.values())
 
 
-ACTION_TYPES_WITH_REFERENCE_CONTEXT = {"Query Records", "Document Action", "Process"}
+ACTION_TYPES_WITH_REFERENCE_CONTEXT = {"Query Records", "Document Action", "Process", "Set Value"}
 ACTION_TYPES_WITH_RETURN_SCHEMA = {"Process", "Query Records", "Document Action"}
 CONFIG_MODAL_TYPES = {
 	"Process",

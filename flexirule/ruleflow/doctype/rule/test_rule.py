@@ -60,8 +60,10 @@ class TestRule(FrappeTestCase):
 				"document_type": "User",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Before Save",
+				"is_active": 1,
 				"actions": [
 					{
+						"action_id": "stop_1",
 						"action_label": "Stop Error",
 						"action_type": "Stop",
 						"operation": "Error",
@@ -82,8 +84,10 @@ class TestRule(FrappeTestCase):
 				"document_type": "User",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Before Save",
+				"is_active": 1,
 				"actions": [
 					{
+						"action_id": "stop_2",
 						"action_label": "Stop Error",
 						"action_type": "Stop",
 						"operation": "Error",

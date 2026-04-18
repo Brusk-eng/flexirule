@@ -3,7 +3,11 @@
 		<div class="config-section section-card">
 			<h5>{{ __("Set Value Configuration") }}</h5>
 			<p class="text-muted small">
-				{{ __("Configure the target field and the value to set using Jinja.") }}
+				{{
+					__(
+						"Configure target field and build the template using text, variables, and if blocks."
+					)
+				}}
 			</p>
 		</div>
 
@@ -26,82 +30,118 @@
 			</div>
 
 			<div class="form-group mb-3">
-				<label class="form-label"
-					>{{ __("Value Template") }} <span class="text-danger">*</span></label
-				>
-				<ControlFactory
-					:df="with_read_only(valueTemplateField)"
-					:modelValue="props.node?.data?.value_template"
-					@update:modelValue="(val) => update_action_field('value_template', val)"
+				<TextGeneratorControl
+					:df="with_read_only(textGeneratorField)"
+					:modelValue="config.text_generator_ui"
+					:read_only="readOnly"
+					:variableOptions="variable_options"
+					:docFieldOptions="doctype_fields"
+					@update:modelValue="update_template_ui"
 				/>
-				<small class="text-muted">
-					{{
-						__("Jinja template. Use {0}, {1}, etc.", [
-							double_left + " doc.fieldname " + double_right,
-							double_left + " vars.variable " + double_right,
-						])
-					}}
-				</small>
-			</div>
-
-			<div class="template-helpers">
-				<span class="helper-label">{{ __("Quick Insert:") }}</span>
-				<button
-					v-for="helper in helpers"
-					:key="helper.label"
-					class="btn btn-xs btn-outline-secondary"
-					:disabled="readOnly"
-					@click="insert_template(helper.value)"
-				>
-					{{ helper.label }}
-				</button>
 			</div>
 		</div>
 	</div>
 </template>
 
 <script setup>
+import { watch } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
-import ControlFactory from "../../../controls/ControlFactory.vue";
 import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
+import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
+import { compileSegmentsToJinja } from "../../../utils/text_generator";
 
 const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 });
 
-const { store, doctype_fields, reference_doctype, with_read_only, update_action_field } =
-	useActionConfig(props);
+const {
+	config,
+	doctype_fields,
+	variable_options,
+	reference_doctype,
+	with_read_only,
+	update_action_field,
+	sync_config,
+} = useActionConfig(props);
 
-const double_left = "{{";
-const double_right = "}}";
-
-const valueTemplateField = {
-	fieldname: "value_template",
-	fieldtype: "Code",
-	label: "",
-	options: "Jinja",
-	rows: 5,
+const textGeneratorField = {
+	fieldname: "text_generator_ui",
+	fieldtype: "Text Generator",
+	label: __("Value Builder"),
+	reqd: 1,
 };
 
-const helpers = [
-	{ label: "doc.name", value: "{{ doc.name }}" },
-	{ label: "now()", value: "{{ frappe.utils.now() }}" },
-	{ label: "user", value: "{{ frappe.session.user }}" },
-];
-
-function insert_template(text) {
-	const current = props.node?.data?.value_template || "";
-	update_action_field("value_template", current + text);
+function update_template_ui(value) {
+	config.text_generator_ui = value;
+	// Compile segments to Jinja and store in value_template
+	const jinja = compileSegmentsToJinja(value?.segments || []);
+	update_action_field("value_template", jinja);
+	sync_local_config();
+	store.mark_dirty();
 }
+
+function load_local_config(val) {
+	let parsed = {};
+	if (typeof val === "string") {
+		try {
+			parsed = JSON.parse(val);
+		} catch (e) {
+			parsed = {};
+		}
+	} else if (val && typeof val === "object") {
+		parsed = val;
+	}
+
+	// Backwards compat: if no text_generator_ui but value_template exists, create a text segment
+	if (!parsed.text_generator_ui && props.node?.data?.value_template) {
+		parsed.text_generator_ui = {
+			version: 2,
+			segments: [{ type: "text", content: props.node.data.value_template }],
+		};
+	}
+
+	// Compare with current local state to avoid re-triggering watchers
+	const current_str = JSON.stringify(config);
+	const next_str = JSON.stringify(parsed);
+	if (current_str === next_str) return;
+
+	Object.keys(config).forEach((key) => delete config[key]);
+	Object.assign(config, parsed);
+}
+
+function sync_local_config() {
+	const next_config = {};
+	for (const [key, value] of Object.entries(config)) {
+		if (value !== undefined && value !== null && value !== "") {
+			next_config[key] = value;
+		}
+	}
+
+	// sync_config in useActionConfig already performs a string compare against props.node.data.config
+	sync_config(next_config);
+}
+
+watch(
+	() => props.node?.data?.config,
+	(val) => load_local_config(val),
+	{ immediate: true, deep: true }
+);
+
+watch(
+	() => config,
+	() => sync_local_config(),
+	{ deep: true }
+);
 
 function validate() {
 	const errors = [];
 	if (!props.node?.data?.target_field) {
 		errors.push(__("Target Field is required"));
 	}
-	if (!props.node?.data?.value_template) {
-		errors.push(__("Value Template is required"));
+	const ui = config.text_generator_ui;
+	if (!ui || !Array.isArray(ui.segments) || !ui.segments.length) {
+		errors.push(__("Value Builder content is required"));
 	}
 	return { valid: errors.length === 0, errors };
 }
@@ -128,18 +168,5 @@ defineExpose({ validate });
 	margin-bottom: 6px;
 	display: block;
 	font-size: 13px;
-}
-
-.template-helpers {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-top: 12px;
-	flex-wrap: wrap;
-}
-
-.helper-label {
-	font-size: 12px;
-	color: var(--text-muted);
 }
 </style>

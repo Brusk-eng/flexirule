@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Bolton and contributors
 # For license information, please see license.txt
 
+import ast
 import json
 
 import frappe
@@ -24,6 +25,7 @@ class Rule(Document):
 		from flexirule.ruleflow.doctype.rule_permission.rule_permission import RulePermission
 
 		actions: DF.Table[RuleAction]
+		amended_from: DF.Link | None
 		compiled_expression: DF.Code | None
 		debug_mode: DF.Check
 		description: DF.Text | None
@@ -31,10 +33,11 @@ class Rule(Document):
 		execution_mode: DF.Literal["Synchronous", "Asynchronous"]
 		exposed_as_subrule: DF.Check
 		is_active: DF.Check
-		lifecycle_state: DF.Literal["Draft", "Active", "Inactive", "Archived"]
 		last_error: DF.Text | None
+		lifecycle_state: DF.Literal["Draft", "Active", "Inactive", "Archived"]
 		max_execution_time: DF.Int
 		module: DF.Link | None
+		parent_rule: DF.Link | None
 		permissions: DF.Table[RulePermission]
 		previous_rule: DF.Link | None
 		priority: DF.Literal[
@@ -136,6 +139,8 @@ class Rule(Document):
 		self.ensure_start_node()
 		self.reorder_actions()
 		self.compile_conditions()
+		self.compile_action_templates()
+		self.compile_action_mappings()
 		self.normalize_trigger_type_fields()
 		self.validate_with_service()
 		self.validate_no_sub_rule_cycles()
@@ -145,7 +150,7 @@ class Rule(Document):
 		self.set_callable_permissions()
 		self.validate_version_constraints()
 
-		# Removed status computation for lifecycle_state
+	# Removed status computation for lifecycle_state
 
 	def validate_with_service(self):
 		"""Shared structured validation layer used by form save and builder precheck."""
@@ -442,6 +447,480 @@ class Rule(Document):
 		# Re-assign idx
 		for i, action in enumerate(self.actions):
 			action.idx = i + 1
+
+	def _parse_action_config(self, action):
+		"""Parse action config to mutable dict."""
+		raw = action.get("config")
+		if not raw:
+			return {}
+		if isinstance(raw, dict):
+			return dict(raw)
+		try:
+			parsed = json.loads(raw)
+			return parsed if isinstance(parsed, dict) else {}
+		except Exception:
+			return {}
+
+	def _extract_expression_roots(self, expression: str) -> set[str]:
+		"""Extract top-level variable roots from a Python expression."""
+		if not expression or not isinstance(expression, str):
+			return set()
+
+		tree = ast.parse(expression, mode="eval")
+		roots = set()
+
+		class RootVisitor(ast.NodeVisitor):
+			def visit_Name(self, node):
+				roots.add(node.id)
+
+			def visit_Attribute(self, node):
+				root = node
+				while isinstance(root, ast.Attribute):
+					root = root.value
+				if isinstance(root, ast.Name):
+					roots.add(root.id)
+				self.generic_visit(node)
+
+			def visit_Subscript(self, node):
+				root = node.value
+				while isinstance(root, ast.Attribute):
+					root = root.value
+				if isinstance(root, ast.Name):
+					roots.add(root.id)
+				self.generic_visit(node)
+
+		RootVisitor().visit(tree)
+		return roots
+
+	def _validate_allowed_roots(
+		self, expression: str, label: str = "expression", extra_roots: set[str] | None = None
+	):
+		"""Validate expression only references allowed context roots."""
+		if not expression:
+			return
+
+		allowed = {"doc", "old_doc", "vars", "item", "loop", "True", "False", "None"}
+		if extra_roots:
+			allowed = allowed.union(set(extra_roots))
+		try:
+			roots = self._extract_expression_roots(expression)
+		except Exception as exc:
+			frappe.throw(_("Invalid {0}: {1}").format(label, str(exc)))
+
+		disallowed = sorted(root for root in roots if root not in allowed)
+		if disallowed:
+			frappe.throw(_("{0} uses unsupported context roots: {1}").format(label, ", ".join(disallowed)))
+
+	def compile_action_templates(self):
+		"""Compile config.text_generator_ui (v2) into action.value_template.
+
+		Supports:
+		- text segments with inline {{ var }} markers
+		- variable segments
+		- conditional segments with condition tree objects (from ConditionBuilder)
+		  including elif branches and else blocks
+		"""
+		for action in self.actions or []:
+			config = self._parse_action_config(action)
+			text_ui = config.get("text_generator_ui")
+			if not isinstance(text_ui, dict):
+				continue
+
+			segments = text_ui.get("segments") or []
+			compiled = self._compile_segments_v2(segments, action.action_label or action.action_id)
+
+			action.value_template = compiled
+			action.config = json.dumps(config)
+
+	def _compile_segments_v2(self, segments, action_label):
+		"""Compile v2 segment list to Jinja template string."""
+		if not isinstance(segments, list):
+			return ""
+
+		out = []
+		for segment in segments:
+			if not isinstance(segment, dict):
+				continue
+
+			seg_type = (segment.get("type") or "text").strip().lower()
+
+			if seg_type == "text":
+				# Content may contain inline {{ var }} markers from TipTap
+				out.append(segment.get("content") or segment.get("text") or "")
+				continue
+
+			if seg_type == "variable":
+				path = (segment.get("path") or "").strip()
+				if not path:
+					continue
+				self._validate_allowed_roots(path, _("Action '{0}' variable path").format(action_label))
+				out.append("{{ " + path + " }}")
+				continue
+
+			if seg_type == "conditional":
+				condition = segment.get("condition")
+				if isinstance(condition, dict):
+					# ConditionBuilder tree — compile to expression
+					cond_expr = self._compile_condition_tree(condition)
+				elif isinstance(condition, str):
+					cond_expr = condition.strip()
+				else:
+					cond_expr = "True"
+
+				if cond_expr:
+					self._validate_allowed_roots(
+						cond_expr,
+						_("Action '{0}' conditional expression").format(action_label),
+					)
+
+				then_block = self._compile_segments_v2(segment.get("then_segments") or [], action_label)
+				block = "{% if " + (cond_expr or "True") + " %}" + then_block
+
+				# elif branches
+				for elif_b in segment.get("elif_branches") or []:
+					elif_cond = elif_b.get("condition")
+					if isinstance(elif_cond, dict):
+						elif_expr = self._compile_condition_tree(elif_cond)
+					elif isinstance(elif_cond, str):
+						elif_expr = elif_cond.strip()
+					else:
+						elif_expr = "True"
+
+					if elif_expr:
+						self._validate_allowed_roots(
+							elif_expr,
+							_("Action '{0}' elif expression").format(action_label),
+						)
+					elif_content = self._compile_segments_v2(elif_b.get("segments") or [], action_label)
+					block += "{% elif " + (elif_expr or "True") + " %}" + elif_content
+
+				# else
+				else_block = self._compile_segments_v2(segment.get("else_segments") or [], action_label)
+				if else_block:
+					block += "{% else %}" + else_block
+
+				block += "{% endif %}"
+				out.append(block)
+				continue
+
+		return "".join(out)
+
+	def _compile_condition_tree(self, node):
+		"""Compile a ConditionBuilder JSON tree to a Python boolean expression."""
+		if not node or not isinstance(node, dict):
+			return "True"
+
+		# Group node (and/or)
+		if "conditions" in node:
+			conditions = node.get("conditions") or []
+			if not conditions:
+				return "True"
+
+			parts = []
+			for child in conditions:
+				compiled = self._compile_condition_tree(child)
+				if compiled:
+					parts.append(compiled)
+
+			if not parts:
+				return "True"
+			if len(parts) == 1:
+				return parts[0]
+
+			joiner = " or " if node.get("op") == "or" else " and "
+			return "(" + joiner.join(parts) + ")"
+
+		# Collection node (any/all)
+		if "collection" in node:
+			alias = node.get("alias") or "row"
+			collection = node.get("collection") or "[]"
+			where_expr = self._compile_condition_tree(node.get("where") or {})
+			quantifier = "all" if node.get("op") == "all" else "any"
+			return f"{quantifier}({where_expr} for {alias} in {collection})"
+
+		# Simple condition (left op right)
+		if "left" in node:
+			left = (node.get("left") or {}).get("ref", "")
+			if not left:
+				return ""
+
+			op = node.get("op") or "=="
+
+			if op == "is_set":
+				return left
+			if op == "is_not_set":
+				return f"not {left}"
+
+			right_obj = node.get("right") or {}
+			if right_obj.get("ref"):
+				right = right_obj["ref"]
+			else:
+				right = self._format_condition_value(right_obj.get("value"))
+
+			op_map = {
+				"==": "==",
+				"!=": "!=",
+				">": ">",
+				"<": "<",
+				">=": ">=",
+				"<=": "<=",
+				"in": "in",
+				"not in": "not in",
+				"like": "like",
+				"not like": "not like",
+				"contains": "in",
+				"not_contains": "not in",
+			}
+			py_op = op_map.get(op, op)
+
+			if op in ("contains", "not_contains"):
+				return f"{right} {py_op} {left}"
+
+			return f"{left} {py_op} {right}"
+
+		return "True"
+
+	@staticmethod
+	def _format_condition_value(val):
+		"""Format a condition value for Python expression output."""
+		if val is None:
+			return "None"
+		if isinstance(val, bool):
+			return "True" if val else "False"
+		if isinstance(val, int | float):
+			return str(val)
+		if isinstance(val, list):
+			if len(val) == 2 and isinstance(val[0], str):
+				return Rule._format_condition_value(val[1])
+			return "[" + ", ".join(Rule._format_condition_value(v) for v in val) + "]"
+		escaped = str(val).replace("'", "\\'")
+		return f"'{escaped}'"
+
+	def compile_action_mappings(self):
+		"""Compile config.resource_mapper_ui into backend mapping keys."""
+		for action in self.actions or []:
+			config = self._parse_action_config(action)
+			mapper_ui = config.get("resource_mapper_ui")
+			if not isinstance(mapper_ui, dict):
+				continue
+
+			target_doctype = action.reference_doctype or self.document_type
+			if not target_doctype:
+				frappe.throw(
+					_("Action '{0}' requires target DocType for Resource Mapper.").format(
+						action.action_label or action.action_id
+					)
+				)
+
+			meta = frappe.get_meta(target_doctype)
+			table_meta = {
+				df.fieldname: frappe.get_meta(df.options)
+				for df in meta.fields
+				if df.fieldtype in ("Table", "Table MultiSelect") and df.options
+			}
+			allowed_scalar_fields = {
+				df.fieldname for df in meta.fields if df.fieldtype not in ("Table", "Table MultiSelect")
+			}
+
+			static_values = {}
+			field_mappings = []
+			input_mapping = {}
+			table_mappings = []
+			mode = (mapper_ui.get("mode") or "field_mappings").strip().lower()
+			mapper_source_path = (mapper_ui.get("source_path") or "doc").strip() or "doc"
+			copy_same_fields = bool(mapper_ui.get("copy_same_fields"))
+			field_no_map = [
+				(f or "").strip()
+				for f in (mapper_ui.get("field_no_map") or [])
+				if isinstance(f, str) and (f or "").strip()
+			]
+			field_no_map = [f for f in field_no_map if f in allowed_scalar_fields]
+			scalars = mapper_ui.get("scalars") or []
+
+			self._validate_allowed_roots(
+				mapper_source_path,
+				_("Action '{0}' mapper source base").format(action.action_label or action.action_id),
+			)
+
+			for row in scalars:
+				if not isinstance(row, dict):
+					continue
+				target = (row.get("target") or "").strip()
+				if not target:
+					continue
+				if target not in allowed_scalar_fields:
+					frappe.throw(
+						_("Action '{0}': invalid mapper target field '{1}' for {2}.").format(
+							action.action_label or action.action_id,
+							target,
+							target_doctype,
+						)
+					)
+
+				source_type = (row.get("source_type") or "path").strip().lower()
+				if source_type == "literal":
+					static_values[target] = row.get("literal")
+					continue
+
+				if source_type == "path":
+					source_expr = (row.get("path") or "").strip()
+				else:
+					source_expr = (row.get("expr") or "").strip()
+
+				if not source_expr:
+					continue
+
+				self._validate_allowed_roots(
+					source_expr,
+					_("Action '{0}' mapper source").format(action.action_label or action.action_id),
+				)
+
+				if mode == "input_mapping" and source_type == "path":
+					input_mapping[target] = source_expr
+				else:
+					field_mappings.append({"source": source_expr, "target": target})
+
+			for table in mapper_ui.get("tables") or []:
+				if not isinstance(table, dict):
+					continue
+
+				target_table = (table.get("target_table") or "").strip()
+				table_source_path = (table.get("source_path") or "").strip()
+				if not target_table or not table_source_path:
+					continue
+				if target_table not in table_meta:
+					frappe.throw(
+						_("Action '{0}': invalid table mapping target '{1}'.").format(
+							action.action_label or action.action_id, target_table
+						)
+					)
+
+				self._validate_allowed_roots(
+					table_source_path,
+					_("Action '{0}' table mapping source").format(action.action_label or action.action_id),
+				)
+
+				child_meta = table_meta[target_table]
+				child_fields = {df.fieldname for df in child_meta.fields}
+				item_alias = (table.get("item_alias") or "item").strip() or "item"
+				condition_expr = (table.get("condition") or "").strip()
+				filter_expr = (table.get("filter") or "").strip()
+				if condition_expr:
+					self._validate_allowed_roots(
+						condition_expr,
+						_("Action '{0}' table mapping condition").format(
+							action.action_label or action.action_id
+						),
+						extra_roots={item_alias},
+					)
+				if filter_expr:
+					self._validate_allowed_roots(
+						filter_expr,
+						_("Action '{0}' table mapping filter").format(
+							action.action_label or action.action_id
+						),
+						extra_roots={item_alias},
+					)
+
+				assignments = []
+				for mapping in table.get("mappings") or []:
+					if not isinstance(mapping, dict):
+						continue
+					child_target = (mapping.get("target") or "").strip()
+					if not child_target:
+						continue
+					if child_target not in child_fields:
+						frappe.throw(
+							_("Action '{0}': invalid child field '{1}' for table '{2}'.").format(
+								action.action_label or action.action_id,
+								child_target,
+								target_table,
+							)
+						)
+
+					source_type = (mapping.get("source_type") or "path").strip().lower()
+					if source_type == "literal":
+						assignments.append(
+							{
+								"target": child_target,
+								"source_type": "literal",
+								"literal": mapping.get("literal"),
+							}
+						)
+						continue
+
+					if source_type == "path":
+						source_expr = (mapping.get("path") or "").strip()
+					else:
+						source_expr = (mapping.get("expr") or "").strip()
+					if not source_expr:
+						continue
+
+					self._validate_allowed_roots(
+						source_expr,
+						_("Action '{0}' child table mapper source").format(
+							action.action_label or action.action_id
+						),
+						extra_roots={item_alias},
+					)
+					assignments.append(
+						{
+							"target": child_target,
+							"source_type": "expr",
+							"source": source_expr,
+						}
+					)
+
+				if assignments:
+					table_mappings.append(
+						{
+							"target_table": target_table,
+							"source": table_source_path,
+							"item_alias": item_alias,
+							"reset_value": bool(table.get("reset_value", True)),
+							"add_if_empty": bool(table.get("add_if_empty", False)),
+							"condition": condition_expr,
+							"filter": filter_expr,
+							"assignments": assignments,
+						}
+					)
+
+			# Optimization: Compile scalars into a single dictionary AST string
+			compiled_scalars_parts = []
+			for fm in field_mappings:
+				compiled_scalars_parts.append(f"{fm['target']!r}: ({fm['source']})")
+			config["compiled_scalars"] = "{" + ", ".join(compiled_scalars_parts) + "}"
+
+			compiled_input_mapping_parts = []
+			for target, source in input_mapping.items():
+				compiled_input_mapping_parts.append(f"{target!r}: ({source})")
+			config["compiled_input_mapping"] = "{" + ", ".join(compiled_input_mapping_parts) + "}"
+
+			if not isinstance(table_mappings, list):
+				table_mappings = []
+
+			for tmap in table_mappings:
+				if not isinstance(tmap, dict):
+					continue
+				row_dict_parts = []
+				for mapping in tmap.get("assignments", []):
+					target = mapping["target"]
+					if mapping.get("source_type") == "literal":
+						row_dict_parts.append(f"{target!r}: {mapping.get('literal')!r}")
+					else:
+						row_dict_parts.append(f"{target!r}: ({mapping['source']})")
+				tmap["compiled_row_eval"] = "{" + ", ".join(row_dict_parts) + "}"
+
+			config["mapper_options"] = {
+				"source_path": mapper_source_path,
+				"copy_same_fields": copy_same_fields,
+				"field_no_map": field_no_map,
+			}
+			config["static_values"] = static_values
+			config["field_mappings"] = field_mappings
+			config["input_mapping"] = input_mapping
+			config["table_mappings"] = table_mappings
+			action.config = json.dumps(config)
 
 	def compile_conditions(self):
 		from flexirule.ruleflow.core.compiler import ConditionCompiler

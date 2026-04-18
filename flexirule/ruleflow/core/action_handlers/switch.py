@@ -48,7 +48,7 @@ class SwitchHandler(ActionHandler):
 				return None, getattr(action, "next_step_if_true", None)
 
 			# Evaluate expression to get switch value
-			val = engine._evaluate_python_condition(expression, context)
+			val = engine._evaluate_python_value(expression, context)
 
 			# Match case - try both original value and string conversion
 			# (JSON keys are always strings)

@@ -99,6 +99,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 		get: () => _ui().test_context,
 		set: (v) => (_ui().test_context = v),
 	});
+	const local_clipboard = computed({
+		get: () => _ui().local_clipboard,
+		set: (v) => (_ui().local_clipboard = v),
+	});
 
 	// Processes & Rules
 	const processes = computed({
@@ -250,6 +254,11 @@ export const useStore = defineStore("rule-builder-store", () => {
 	function prev_config_node() {
 		_ui().navigate_node(_graph().nodes, -1);
 	}
+	function pasteNodes(nodes, edges, position) {
+		const pasted = _graph().pasteNodes(nodes, edges, position);
+		if (pasted.length) mark_dirty();
+		return pasted;
+	}
 
 	return {
 		// State
@@ -325,5 +334,8 @@ export const useStore = defineStore("rule-builder-store", () => {
 		// Test
 		set_test_result,
 		clear_test_result,
+
+		// Node operations
+		pasteNodes,
 	};
 });

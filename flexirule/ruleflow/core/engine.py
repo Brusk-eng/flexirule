@@ -39,6 +39,7 @@ from flexirule.ruleflow.core.exceptions import (
 	RuleDisabledError,
 )
 from flexirule.ruleflow.core.exceptions import TimeoutError as BoltonTimeoutError
+from flexirule.ruleflow.core.runtime_eval import eval_condition_bool, eval_value
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
 from flexirule.ruleflow.utils.mapping import apply_output_mapping
 from flexirule.ruleflow.utils.schema_validator import (
@@ -687,11 +688,8 @@ class RuleEngine:
 	# Legacy _execute_* methods removed - now using Handler Strategy Pattern
 	# See flexirule/ruleflow/core/action_handlers/ for implementations
 
-	def _evaluate_python_condition(self, expression, context):
-		"""Evaluate Python expression safely"""
-		if not expression:
-			return True
-
+	def _build_eval_locals(self, context):
+		"""Build safe locals for expression evaluation."""
 		doc = context.get("doc")
 		rule_meta = context.get("rule") or {
 			"name": self.rule.name,
@@ -731,10 +729,12 @@ class RuleEngine:
 			meta = _get_meta(doctype)
 			return bool(meta and fieldname and meta.has_field(fieldname))
 
-		safe_locals = {
+		return {
 			"doc": doc,
 			"old_doc": context.get("old_doc"),
 			"vars": context.get("vars", {}),
+			"item": context.get("item"),
+			"loop": context.get("loop"),
 			"frappe": context.get("frappe", _safe_frappe),
 			"caller": frappe._dict(caller_meta or {}),
 			"rule": frappe._dict(rule_meta or {}),
@@ -749,11 +749,31 @@ class RuleEngine:
 			"None": None,
 		}
 
+	def _evaluate_python_condition(self, expression, context):
+		"""Evaluate Python expression safely and coerce to bool."""
+		if not expression:
+			return True
+
+		safe_locals = self._build_eval_locals(context)
+
 		try:
-			return bool(frappe.safe_eval(expression, None, safe_locals))
+			return eval_condition_bool(expression, safe_locals, default=False)
 		except Exception as e:
 			self._log("ERROR", f"Condition evaluation failed: {e}")
 			return False
+
+	def _evaluate_python_value(self, expression, context, default=None):
+		"""Evaluate Python expression safely and return raw value."""
+		if not expression:
+			return default
+
+		safe_locals = self._build_eval_locals(context)
+
+		try:
+			return eval_value(expression, safe_locals, default=default)
+		except Exception as e:
+			self._log("ERROR", f"Value evaluation failed: {e}")
+			return default
 
 	def _post_process_action_result(self, action, result, context):
 		"""

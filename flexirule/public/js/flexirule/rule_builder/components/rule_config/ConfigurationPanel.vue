@@ -21,14 +21,7 @@
 				/>
 				<div v-else class="empty-config text-center">
 					<i class="fa fa-sliders fa-3x text-muted mb-3"></i>
-					<p class="text-muted">
-						{{
-							__("No configuration UI available for '{0}'").replace(
-								"{0}",
-								node.data?.action_type || node.type
-							)
-						}}
-					</p>
+					<p class="text-muted">{{ emptyStateMessage }}</p>
 				</div>
 			</div>
 		</div>
@@ -66,20 +59,67 @@ const configComponents = {
 	loop: LoopConfig,
 	switch: SwitchConfig,
 	"sub-rule": SubRuleConfig,
+	subrule: SubRuleConfig,
 	wait: WaitConfig,
+	"set-value": SetValueConfig,
 	"set value": SetValueConfig,
+	setvalue: SetValueConfig,
 	notify: NotifyConfig,
 	query: QueryRecordsConfig,
+	"query-records": QueryRecordsConfig,
+	"query records": QueryRecordsConfig,
+	queryrecords: QueryRecordsConfig,
 	documentaction: DocumentActionConfig,
+	"document-action": DocumentActionConfig,
+	"document action": DocumentActionConfig,
 };
 
+function normalizeKey(value) {
+	return String(value || "")
+		.toLowerCase()
+		.replace(/[_-]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
 const configComponent = computed(() => {
-	let type = mapActionTypeToNodeType(props.node?.data?.action_type || props.node?.type);
-	type = type?.toLowerCase();
-	return configComponents[type] || null;
+	const mappedType = normalizeKey(
+		mapActionTypeToNodeType(props.node?.data?.action_type || props.node?.type) || ""
+	);
+	const rawType = normalizeKey(props.node?.data?.action_type || props.node?.type || "");
+	const compactRaw = rawType.replace(/\s+/g, "");
+	return (
+		configComponents[mappedType] ||
+		configComponents[rawType] ||
+		configComponents[compactRaw] ||
+		null
+	);
 });
 
 const configRef = ref(null);
+const NO_DYNAMIC_CONFIG_TYPES = new Set([
+	"entry action",
+	"start",
+	"stop",
+	"raise error",
+	"raise-error",
+]);
+
+const normalizedActionType = computed(() =>
+	String(props.node?.data?.action_type || props.node?.type || "")
+		.toLowerCase()
+		.trim()
+);
+
+const emptyStateMessage = computed(() => {
+	const label = props.node?.data?.action_type || props.node?.type || __("Action");
+	if (NO_DYNAMIC_CONFIG_TYPES.has(normalizedActionType.value)) {
+		return __(
+			"Dynamic configuration is not required for '{0}'. Use Setup/Input/Output panels."
+		).replace("{0}", label);
+	}
+	return __("No configuration UI available for '{0}'").replace("{0}", label);
+});
 
 function on_update_field(fieldname, value) {
 	if (!props.node?.data) return;

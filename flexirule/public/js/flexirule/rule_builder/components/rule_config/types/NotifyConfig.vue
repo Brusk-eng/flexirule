@@ -49,13 +49,6 @@
 						:modelValue="config.for_user"
 						@update:modelValue="(val) => update_config_key('for_user', val)"
 					/>
-					<small class="text-muted">
-						{{
-							__(
-								"Leave blank to default to the document owner or current session user."
-							)
-						}}
-					</small>
 				</div>
 
 				<div v-if="is_provider" class="form-group mb-3">
@@ -81,22 +74,13 @@
 				</div>
 
 				<div class="form-group mb-3">
-					<label class="form-label"
-						>{{ body_label }} <span class="text-danger">*</span></label
-					>
-					<ControlFactory
-						:df="with_read_only(valueTemplateField)"
-						:modelValue="props.node?.data?.value_template"
-						@update:modelValue="(val) => update_action_field('value_template', val)"
+					<TextGeneratorControl
+						:df="with_read_only(textGeneratorField)"
+						:modelValue="config.text_generator_ui"
+						:read_only="readOnly"
+						:variableOptions="variable_options"
+						@update:modelValue="update_template_ui"
 					/>
-					<small class="text-muted">
-						{{
-							__("Jinja template for message. Use {0}, {1}, etc.", [
-								double_left + " doc.name " + double_right,
-								double_left + " vars.result " + double_right,
-							])
-						}}
-					</small>
 				</div>
 
 				<div v-if="is_email" class="form-group mb-3">
@@ -107,29 +91,6 @@
 						@update:modelValue="(val) => update_config_key('attach_doc', val)"
 					/>
 				</div>
-
-				<div class="template-helpers">
-					<span class="helper-label">{{ __("Quick Insert:") }}</span>
-					<button
-						v-for="helper in helpers"
-						:key="helper.label"
-						class="btn btn-xs btn-outline-secondary"
-						:disabled="readOnly"
-						@click="insert_template(helper.value)"
-					>
-						{{ helper.label }}
-					</button>
-				</div>
-
-				<div class="preview-section mt-4" v-if="props.node?.data?.value_template">
-					<label class="form-label text-muted small uppercase font-weight-bold">{{
-						__("Preview")
-					}}</label>
-					<div class="notify-preview" :class="preview_class">
-						<i :class="preview_icon"></i>
-						<span>{{ preview_text }}</span>
-					</div>
-				</div>
 			</div>
 		</div>
 	</div>
@@ -139,28 +100,20 @@
 import { computed, watch } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
+import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
+import { compileSegmentsToJinja } from "../../../utils/text_generator";
 
 const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 });
 
-const { config, with_read_only, update_action_field, sync_config } = useActionConfig(props);
+const { config, variable_options, with_read_only, sync_config, update_action_field } =
+	useActionConfig(props);
 
-const double_left = "{{";
-const double_right = "}}";
 const EMAIL_MODE = "Email";
 const SYSTEM_NOTIFICATION_MODE = "System Notification";
 const PROVIDER_MODE = "Provider";
-
-const valueTemplateField = {
-	fieldname: "value_template",
-	fieldtype: "Code",
-	label: __("Body Template"),
-	options: "Jinja",
-	rows: 4,
-	reqd: 1,
-};
 
 const subjectField = {
 	fieldname: "subject",
@@ -195,7 +148,6 @@ const providerField = {
 	fieldtype: "Data",
 	label: __("Provider"),
 	reqd: 1,
-	description: __("Hook key registered in flexirule_notification_providers."),
 };
 
 const recipientField = {
@@ -205,62 +157,28 @@ const recipientField = {
 	reqd: 1,
 };
 
-const helpers = [
-	{ label: "doc.name", value: "{{ doc.name }}" },
-	{ label: "owner", value: "{{ doc.owner }}" },
-	{ label: "user", value: "{{ frappe.session.user }}" },
-];
+const textGeneratorField = {
+	fieldname: "text_generator_ui",
+	fieldtype: "Text Generator",
+	label: __("Message Builder"),
+	reqd: 1,
+};
 
 const notify_mode = computed(() => props.node?.data?.operation || "");
 const is_email = computed(() => notify_mode.value === EMAIL_MODE);
 const is_system_notification = computed(() => notify_mode.value === SYSTEM_NOTIFICATION_MODE);
 const is_provider = computed(() => notify_mode.value === PROVIDER_MODE);
 
-const body_label = computed(() => {
-	if (is_email.value) return __("Email Body");
-	if (is_system_notification.value) return __("Notification Message");
-	if (is_provider.value) return __("Provider Message");
-	return __("Message Template");
-});
-
-const preview_icon = computed(() => {
-	const icons = {
-		Toast: "fa fa-check-circle",
-		System: "fa fa-bell",
-		Email: "fa fa-envelope",
-		"System Notification": "fa fa-list-alt",
-		Provider: "fa fa-paper-plane",
-	};
-	return icons[notify_mode.value || "Toast"] || "fa fa-bell";
-});
-
-const preview_text = computed(() => {
-	return props.node?.data?.value_template?.replace(/\{\{[^}]+\}\}/g, "[...]") || "";
-});
-
-const preview_class = computed(() => {
-	const mode = notify_mode.value || "Toast";
-	return `type-${mode.toLowerCase().replace(/\s+/g, "-")}`;
-});
-
-function insert_template(text) {
-	const current = props.node?.data?.value_template || "";
-	update_action_field("value_template", current + text);
+function update_template_ui(value) {
+	config.text_generator_ui = value;
+	const jinja = compileSegmentsToJinja(value?.segments || []);
+	update_action_field("value_template", jinja);
+	sync_local_config();
 }
 
 function update_config_key(key, value) {
 	config[key] = value;
 	sync_local_config();
-}
-
-function sync_local_config() {
-	const new_config = {};
-	Object.entries(config).forEach(([key, value]) => {
-		if (value !== undefined && value !== null && value !== "") {
-			new_config[key] = value;
-		}
-	});
-	sync_config(new_config);
 }
 
 function load_local_config(val) {
@@ -275,14 +193,48 @@ function load_local_config(val) {
 		parsed = val;
 	}
 
+	// Backwards compat: value_template
+	if (!parsed.text_generator_ui && props.node?.data?.value_template) {
+		parsed.text_generator_ui = {
+			version: 2,
+			segments: [{ type: "text", content: props.node.data.value_template }],
+		};
+	}
+
+	// Compare with current local state to avoid re-triggering watchers
+	const current_str = JSON.stringify(config);
+	const next_str = JSON.stringify(parsed);
+	if (current_str === next_str) return;
+
 	Object.keys(config).forEach((key) => delete config[key]);
 	Object.assign(config, parsed);
 }
 
+function sync_local_config() {
+	const new_config = {};
+	Object.entries(config).forEach(([key, value]) => {
+		if (value !== undefined && value !== null && value !== "") {
+			new_config[key] = value;
+		}
+	});
+
+	// sync_config in useActionConfig already performs a string compare against props.node.data.config
+	sync_config(new_config);
+}
+
+watch(
+	() => props.node?.data?.config,
+	(val) => {
+		load_local_config(val);
+	},
+	{ immediate: true, deep: true }
+);
+
 function validate() {
 	const errors = [];
-	if (!props.node?.data?.value_template) {
-		errors.push(__("Notification message/body is required"));
+	const ui = config.text_generator_ui;
+	if (!ui || !Array.isArray(ui.segments) || !ui.segments.length) {
+		errors.push(__("Message Builder content is required"));
 	}
 	if (is_email.value) {
 		if (!config.subject) errors.push(__("Subject is required for email notifications"));
@@ -297,14 +249,6 @@ function validate() {
 	}
 	return { valid: errors.length === 0, errors };
 }
-
-watch(
-	() => props.node?.data?.config,
-	(val) => {
-		load_local_config(val);
-	},
-	{ immediate: true, deep: true }
-);
 
 defineExpose({ validate });
 </script>
@@ -328,72 +272,5 @@ defineExpose({ validate });
 	margin-bottom: 6px;
 	display: block;
 	font-size: 13px;
-}
-
-.template-helpers {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-top: 12px;
-	flex-wrap: wrap;
-}
-
-.helper-label {
-	font-size: 12px;
-	color: var(--text-muted);
-}
-
-.notify-preview {
-	border-radius: 6px;
-	padding: 12px;
-	display: flex;
-	align-items: flex-start;
-	gap: 10px;
-	font-size: 13px;
-}
-
-.notify-preview.type-toast {
-	background: #ecfdf5;
-	border: 1px solid #a7f3d0;
-	color: #047857;
-}
-
-.notify-preview.type-alert {
-	background: #eff6ff;
-	border: 1px solid #bfdbfe;
-	color: #1d4ed8;
-}
-
-.notify-preview.type-realtime {
-	background: #fef3c7;
-	border: 1px solid #fcd34d;
-	color: #b45309;
-}
-
-.notify-preview.type-email {
-	background: #f3f4f6;
-	border: 1px solid #d1d5db;
-	color: #374151;
-}
-
-.notify-preview.type-system {
-	background: #fef3c7;
-	border: 1px solid #fcd34d;
-	color: #b45309;
-}
-
-.notify-preview.type-system-notification {
-	background: #eff6ff;
-	border: 1px solid #bfdbfe;
-	color: #1d4ed8;
-}
-
-.notify-preview i {
-	margin-top: 2px;
-}
-
-.uppercase {
-	text-transform: uppercase;
-	letter-spacing: 0.025em;
 }
 </style>

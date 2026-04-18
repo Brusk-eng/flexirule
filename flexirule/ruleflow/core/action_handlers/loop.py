@@ -51,7 +51,7 @@ class LoopHandler(ActionHandler):
 		items = []
 		if iterator_name:
 			# Resolve iterator expression
-			items = engine._evaluate_python_condition(iterator_name, context)
+			items = engine._evaluate_python_value(iterator_name, context, default=[])
 
 		if not isinstance(items, list | tuple):
 			engine._log(
