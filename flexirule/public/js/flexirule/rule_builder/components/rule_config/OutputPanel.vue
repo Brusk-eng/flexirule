@@ -18,10 +18,11 @@
 						@update:modelValue="updateField('return_type', $event)"
 					/>
 
-					<ControlFactory
+					<AutocompleteControl
 						v-if="showReturnVariable"
 						:df="returnVariableField"
 						:modelValue="node.data?.return_variable"
+						:get_options="getVariableOptions"
 						:read_only="readOnly"
 						@update:modelValue="updateField('return_variable', $event)"
 					/>
@@ -193,7 +194,7 @@ const returnTypeField = computed(() => ({
 
 const returnVariableField = computed(() => ({
 	fieldname: "return_variable",
-	fieldtype: "Data",
+	fieldtype: "Autocomplete",
 	label:
 		getFieldLabel(props.node?.data?.action_type, "return_variable", policyContext.value) ||
 		__("Result Variable Name"),

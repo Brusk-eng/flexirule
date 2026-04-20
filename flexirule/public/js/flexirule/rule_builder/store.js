@@ -169,10 +169,49 @@ export const useStore = defineStore("rule-builder-store", () => {
 		_graph().touch_node(nodeId);
 	}
 
+	function toggle_node_enabled(nodeId) {
+		_graph().toggle_node_enabled(nodeId);
+		mark_dirty();
+	}
+
 	function insert_node_on_edge(edgeId, nodeType) {
 		const id = _graph().insert_node_on_edge(edgeId, nodeType);
 		if (id) mark_dirty();
 		return id;
+	}
+
+	/**
+	 * Live-updates an edge on the canvas when the user changes a next-step via
+	 * the ActionSettings autocomplete (without going through insert_node_on_edge).
+	 *
+	 * @param {string} sourceId    - ID of the source node
+	 * @param {string} handle      - "true" | "false" | "default"
+	 * @param {string} newTargetId - ID of the new target node
+	 */
+	function reconnect_node_edge(sourceId, handle, newTargetId) {
+		const graph = _graph();
+		const edges = graph.edges;
+
+		// Remove the existing edge on this handle
+		const existingIdx = edges.value.findIndex(
+			(e) => e.source === sourceId && e.sourceHandle === handle
+		);
+		if (existingIdx !== -1) {
+			edges.value.splice(existingIdx, 1);
+		}
+
+		// Add new edge if a target was selected
+		if (newTargetId) {
+			edges.value.push({
+				id: `e-${sourceId}-${newTargetId}-${handle}`,
+				source: sourceId,
+				target: newTargetId,
+				sourceHandle: handle,
+				type: "add",
+			});
+		}
+
+		mark_dirty();
 	}
 
 	function paste_on_edge(edgeId, pastedNodes, pastedEdges) {
@@ -278,6 +317,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		processes,
 		available_rules,
 		is_dirty,
+		settings,
 
 		// Computed
 		effectiveDisabledIds,
@@ -305,7 +345,9 @@ export const useStore = defineStore("rule-builder-store", () => {
 		delete_node,
 		delete_edge,
 		touch_node,
+		toggle_node_enabled,
 		insert_node_on_edge,
+		reconnect_node_edge,
 		paste_on_edge,
 		get_default_node_data,
 		getEffectivelyDisabledIds,

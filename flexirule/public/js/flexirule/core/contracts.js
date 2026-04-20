@@ -101,8 +101,13 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		],
 		allowed_return_types: ["Yes / No", "Single Record", "List of Values"],
 		css: { icon: "fa fa-edit", color: "#14b8a6" },
+		default_return_type: "Single Record",
 		validation: {
 			check_target_field_editable: true,
+		},
+		field_labels: {
+			target_field: "Field to Update",
+			value_template: "Value Template",
 		},
 	},
 	Notify: {
@@ -178,7 +183,7 @@ const DEFAULT_TRIGGER_TYPE_CONTRACT = {
 	},
 };
 
-const DEFAULT_RELEASE_DISABLED_ACTION_TYPES = ["Loop", "Switch"];
+const DEFAULT_RELEASE_DISABLED_ACTION_TYPES = ["Switch"];
 const DEFAULT_RETURN_TYPE_OPTIONS = [
 	"Yes / No",
 	"Single Record",
@@ -211,8 +216,8 @@ const DEFAULT_CONFIG_MODAL_TYPES = [
 	"Notify",
 	"Wait",
 	"Sub-Rule",
-	"Query Records",
 	"Document Action",
+	"Loop",
 ];
 
 export let ACTION_TYPE_CONTRACT = withDescriptions(DEFAULT_ACTION_TYPE_CONTRACT);

@@ -3,8 +3,13 @@ import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 import { getContract } from "../../../core/contracts";
 
-const props = defineProps(["data", "label", "id", "selected"]);
+const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
+
+const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+
+const targetPos = computed(() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top));
+const sourcePos = computed(() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom));
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -80,7 +85,7 @@ function openConfig() {
 		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
 			{{ store.test_execution_path.indexOf(testResult) + 1 }}
 		</div>
-		<Handle type="target" :position="Position.Left" class="handle-target" />
+		<Handle type="target" :position="targetPos" class="handle-target" />
 
 		<!-- Header with Type and Icon -->
 		<div class="node-header">
@@ -115,7 +120,7 @@ function openConfig() {
 			</div>
 		</div>
 
-		<Handle type="source" :position="Position.Right" id="default" class="handle-source" />
+		<Handle type="source" :position="sourcePos" id="default" class="handle-source" />
 	</div>
 </template>
 

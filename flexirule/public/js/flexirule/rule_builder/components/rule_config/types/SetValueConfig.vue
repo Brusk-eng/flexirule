@@ -14,7 +14,7 @@
 		<div class="config-section section-card">
 			<div class="form-group mb-3">
 				<label class="form-label"
-					>{{ __("Target Field") }} <span class="text-danger">*</span></label
+					>{{ getFieldLabel(props.node?.data?.action_type || "Set Value", "target_field") || __("Target Field") }} <span class="text-danger">*</span></label
 				>
 				<FieldPickerControl
 					:df="with_read_only({ label: '' })"
@@ -65,12 +65,12 @@ const {
 	sync_config,
 } = useActionConfig(props);
 
-const textGeneratorField = {
+const textGeneratorField = computed(() => ({
 	fieldname: "text_generator_ui",
 	fieldtype: "Text Generator",
-	label: __("Value Builder"),
+	label: getFieldLabel(props.node?.data?.action_type || "Set Value", "value_template") || __("Value Builder"),
 	reqd: 1,
-};
+}));
 
 function update_template_ui(value) {
 	config.text_generator_ui = value;

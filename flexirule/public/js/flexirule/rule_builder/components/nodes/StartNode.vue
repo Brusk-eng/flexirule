@@ -4,8 +4,11 @@ import { useStore } from "../../store";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 
-const props = defineProps(["data", "label", "id"]);
+const props = defineProps(["data", "label", "id", "sourcePosition"]);
 const store = useStore();
+
+const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+const sourcePos = computed(() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom));
 
 const displayLabel = computed(() => {
 	if (props.data?.document_type && props.data?.trigger_event) {
@@ -44,7 +47,13 @@ function openConfig() {
 </script>
 
 <template>
-	<div class="start-node-d" :class="{ 'test-executed': !!testResult }">
+	<div
+		class="start-node-d"
+		:class="{
+			'test-executed': !!testResult,
+			'is-vertical': !isHorizontal,
+		}"
+	>
 		<!-- Execution Badge -->
 		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
 			{{ store.test_execution_path.indexOf(testResult) + 1 }}
@@ -68,21 +77,10 @@ function openConfig() {
 		</div>
 		<Handle
 			type="source"
-			:position="Position.Right"
+			:position="sourcePos"
 			id="default"
 			class="handle-source"
 			:connectable="true"
-			style="
-				display: block !important;
-				opacity: 1 !important;
-				visibility: visible !important;
-				right: -8px !important;
-				z-index: 9999 !important;
-				width: 14px !important;
-				height: 14px !important;
-				background: #fff !important;
-				pointer-events: all !important;
-			"
 		/>
 	</div>
 </template>
@@ -103,6 +101,19 @@ function openConfig() {
 	box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
 	transition: all 0.2s ease;
 	border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.is-vertical .node-body {
+	border-radius: 4px 4px 40px 40px;
+	flex-direction: column;
+	text-align: center;
+	padding: 12px 10px;
+	width: 120px;
+}
+
+.is-vertical .icon-section {
+	margin-right: 0;
+	margin-bottom: 6px;
 }
 
 .node-body:hover {
@@ -152,9 +163,21 @@ function openConfig() {
 	border: 3px solid var(--accent-color) !important;
 	width: 12px !important;
 	height: 12px !important;
-	right: -6px !important;
 	z-index: 10 !important;
 	cursor: crosshair !important;
+}
+
+/* Position handles based on direction */
+.start-node-d:not(.is-vertical) .handle-source {
+	right: -6px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
+}
+
+.is-vertical .handle-source {
+	bottom: -6px !important;
+	left: 50% !important;
+	transform: translateX(-50%) !important;
 }
 
 .start-node-d.test-executed .node-body {

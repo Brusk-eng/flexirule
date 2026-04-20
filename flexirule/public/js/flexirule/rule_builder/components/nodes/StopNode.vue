@@ -2,8 +2,11 @@
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 
-const props = defineProps(["data", "label", "id", "selected"]);
+const props = defineProps(["data", "label", "id", "selected", "targetPosition"]);
 const store = useStore();
+
+const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+const targetPos = computed(() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top));
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -32,13 +35,14 @@ function openConfig() {
 			selected: selected,
 			disabled: isEffectiveDisabled,
 			'test-executed': !!testResult,
+			'is-vertical': !isHorizontal,
 		}"
 	>
 		<!-- Execution Badge -->
 		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
 			{{ store.test_execution_path.indexOf(testResult) + 1 }}
 		</div>
-		<Handle type="target" :position="Position.Left" class="handle-target" />
+		<Handle type="target" :position="targetPos" class="handle-target" />
 
 		<div class="node-content" @dblclick.stop="openConfig">
 			<div class="icon-section">
@@ -69,6 +73,20 @@ function openConfig() {
 	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 	transition: all 0.2s ease;
 	border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.is-vertical {
+	min-width: 100px;
+	padding: 12px 8px;
+}
+
+.is-vertical .node-content {
+	flex-direction: column;
+	text-align: center;
+}
+
+.is-vertical .icon-section {
+	margin-bottom: 4px;
 }
 
 .stop-node-card:hover {
@@ -159,6 +177,18 @@ function openConfig() {
 	height: 10px !important;
 	background-color: #fff !important;
 	border: 2px solid #dc3545 !important;
+	z-index: 10 !important;
+}
+
+.stop-node-card:not(.is-vertical) .handle-target {
 	left: -5px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
+}
+
+.is-vertical .handle-target {
+	top: -5px !important;
+	left: 50% !important;
+	transform: translateX(-50%) !important;
 }
 </style>

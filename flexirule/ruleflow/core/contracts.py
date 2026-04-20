@@ -1109,9 +1109,10 @@ CONFIG_MODAL_TYPES = {
 	"Sub-Rule",
 	"Query Records",
 	"Document Action",
+	"Loop",
 }
 
-RELEASE_DISABLED_ACTION_TYPES = {"Loop", "Switch"}
+RELEASE_DISABLED_ACTION_TYPES = {"Switch"}
 RETURN_TYPE_OPTIONS = [
 	"Yes / No",
 	"Single Record",

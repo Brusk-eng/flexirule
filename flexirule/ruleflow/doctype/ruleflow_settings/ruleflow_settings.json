@@ -103,7 +103,7 @@
    "fieldname": "layout_direction",
    "fieldtype": "Select",
    "label": "Auto-Layout Direction",
-   "options": "Left to Right"
+   "options": "Left to Right\nTop to Bottom"
   },
   {
    "default": "Left",

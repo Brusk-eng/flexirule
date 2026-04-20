@@ -90,7 +90,7 @@
 							</button>
 							<button
 								class="btn btn-sm btn-default"
-								@click="() => layoutGraph('LR')"
+								@click="() => layoutGraph(store.settings?.layout_direction === 'Top to Bottom' ? 'TB' : 'LR')"
 								:title="__('Auto Layout')"
 							>
 								<i class="fa fa-sitemap"></i> {{ __("Auto Layout") }}
@@ -202,7 +202,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { VueFlow, Panel, PanelPosition } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
@@ -311,6 +311,23 @@ watch(
 	{ immediate: true, deep: false }
 );
 
+// Watch for layout direction or nodes changes to re-layout the graph
+watch(
+	[() => store.settings?.layout_direction, () => store.nodes.length],
+	([newDir, nodeCount], [oldDir, oldNodeCount]) => {
+		if (newDir && nodeCount > 0) {
+			// Only auto-layout if direction changed OR if it's the first time nodes are loaded
+			if (newDir !== oldDir || (nodeCount > 0 && oldNodeCount === 0)) {
+				const dir = newDir === "Top to Bottom" ? "TB" : "LR";
+				// Use nextTick to ensure VueFlow has nodes
+				nextTick(() => {
+					setTimeout(() => layoutGraph(dir), 50);
+				});
+			}
+		}
+	}
+);
+
 const showSidebar = computed(() => store.selected_id !== null);
 const sidebarOrder = computed(() => (store.settings?.sidebar_position === "Right" ? 2 : 0));
 const isRTL = computed(() => document.documentElement.dir === "rtl");
@@ -334,8 +351,8 @@ onMounted(async () => {
 
 	setTimeout(() => {
 		if (store.nodes.length > 0) {
-			// Restricted to Left to Right for this release
-			layoutGraph("LR");
+			const dir = store.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+			layoutGraph(dir);
 		}
 	}, 100);
 });
@@ -654,8 +671,19 @@ function insertNodeOnEdge(payload) {
 		payload
 	);
 	if (newNodeId) {
-		const dir = store.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
-		setTimeout(() => layoutGraph(dir), 50);
+		const dir =
+			store.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+		setTimeout(() => {
+			layoutGraph(dir);
+			// Auto-open config for nodes that require immediate configuration
+			const NEEDS_CONFIG_NOW = ["Condition", "Loop", "Switch"];
+			const insertedNode = store.nodes.find((n) => n.id === newNodeId);
+			if (insertedNode && NEEDS_CONFIG_NOW.includes(insertedNode.data?.action_type)) {
+				store.selected_id = newNodeId;
+				store.show_config_modal = true;
+				store.config_modal_mode = "setup";
+			}
+		}, 80);
 	}
 }
 function autoConnectStartNode() {
