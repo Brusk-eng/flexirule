@@ -204,14 +204,23 @@
 	</div>
 </template>
 
-<script>
+<script setup>
+import { computed, ref, watch, defineComponent, h } from "vue";
+import { EditorContent, Editor } from "@tiptap/vue-3";
+import StarterKit from "@tiptap/starter-kit";
+import Mention from "@tiptap/extension-mention";
+import { VueRenderer } from "@tiptap/vue-3";
+import tippy from "tippy.js";
+
+import AutocompleteControl from "./AutocompleteControl.vue";
+import MentionList from "./MentionList.vue";
+import ConditionBuilder from "../components/condition_builder/ConditionBuilder.vue";
+import { compileSegmentsToJinja, compileConditionTree } from "../utils/text_generator";
+
 /**
  * SegmentEditor — Recursive inline component for nested segment lists within conditional branches.
  * Defined as a named component to allow self-reference without circular imports.
  */
-import { computed, defineComponent, h, ref } from "vue";
-import AutocompleteControl from "./AutocompleteControl.vue";
-
 const SegmentEditor = defineComponent({
 	name: "SegmentEditor",
 	props: {
@@ -282,23 +291,6 @@ const SegmentEditor = defineComponent({
 	`,
 	components: { AutocompleteControl },
 });
-
-export { SegmentEditor };
-export default {};
-</script>
-
-<script setup>
-import { computed, ref, watch } from "vue";
-import { EditorContent, Editor } from "@tiptap/vue-3";
-import StarterKit from "@tiptap/starter-kit";
-import Mention from "@tiptap/extension-mention";
-import { VueRenderer } from "@tiptap/vue-3";
-import tippy from "tippy.js";
-
-import AutocompleteControl from "./AutocompleteControl.vue";
-import MentionList from "./MentionList.vue";
-import ConditionBuilder from "../components/condition_builder/ConditionBuilder.vue";
-import { compileSegmentsToJinja, compileConditionTree } from "../utils/text_generator";
 
 const props = defineProps({
 	df: { type: Object, default: null },

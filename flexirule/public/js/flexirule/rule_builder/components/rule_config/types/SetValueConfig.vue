@@ -14,7 +14,13 @@
 		<div class="config-section section-card">
 			<div class="form-group mb-3">
 				<label class="form-label"
-					>{{ getFieldLabel(props.node?.data?.action_type || "Set Value", "target_field") || __("Target Field") }} <span class="text-danger">*</span></label
+					>{{
+						getFieldLabel(
+							props.node?.data?.action_type || "Set Value",
+							"target_field"
+						) || __("Target Field")
+					}}
+					<span class="text-danger">*</span></label
 				>
 				<FieldPickerControl
 					:df="with_read_only({ label: '' })"
@@ -49,6 +55,7 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
 import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
+import { getFieldLabel } from "../../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
@@ -63,12 +70,15 @@ const {
 	with_read_only,
 	update_action_field,
 	sync_config,
+	store,
 } = useActionConfig(props);
 
 const textGeneratorField = computed(() => ({
 	fieldname: "text_generator_ui",
 	fieldtype: "Text Generator",
-	label: getFieldLabel(props.node?.data?.action_type || "Set Value", "value_template") || __("Value Builder"),
+	label:
+		getFieldLabel(props.node?.data?.action_type || "Set Value", "value_template") ||
+		__("Value Builder"),
 	reqd: 1,
 }));
 

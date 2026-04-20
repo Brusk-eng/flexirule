@@ -140,6 +140,8 @@
 		"qz": true,
 		"localforage": true,
 		"extend_cscript": true,
-		"flexirule": true
+		"flexirule": true,
+		"inject": true,
+		"provide": true
 	}
 }

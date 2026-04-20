@@ -920,7 +920,9 @@ async function load_report_filters(report_name) {
 				try {
 					const data = JSON.parse(report_doc.json);
 					filters = data.filters || [];
-				} catch (e) {}
+				} catch (e) {
+					// Ignore JSON parse errors
+				}
 			}
 		}
 
