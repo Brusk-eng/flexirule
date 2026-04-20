@@ -628,6 +628,26 @@ function addNode(type, position) {
 }
 
 function insertNodeOnEdge(payload) {
+	if (payload.isPaste) {
+		let clipboard = null;
+		try {
+			const local = localStorage.getItem("flexirule-clipboard") || store.local_clipboard;
+			if (local) clipboard = JSON.parse(local);
+		} catch (e) {
+			console.error("Paste on edge failed:", e);
+		}
+
+		if (clipboard && clipboard.nodes?.length) {
+			const newNodeId = store.paste_on_edge(payload.edgeId, clipboard.nodes, clipboard.edges);
+			if (newNodeId) {
+				const dir = store.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
+				setTimeout(() => layoutGraph(dir), 50);
+				frappe.show_alert({ message: __("Nodes pasted on edge"), indicator: "green" }, 2);
+			}
+		}
+		return;
+	}
+
 	const newNodeId = store.insert_node_on_edge(
 		payload.edgeId,
 		payload.actionType || "selector",

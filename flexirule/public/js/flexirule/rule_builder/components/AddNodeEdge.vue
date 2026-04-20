@@ -57,6 +57,14 @@ function onActionSelect(selection) {
 		label: selection.label,
 	});
 }
+
+function onPaste() {
+	showPopover.value = false;
+	emit("insert-node", {
+		edgeId: props.id,
+		isPaste: true,
+	});
+}
 </script>
 
 <template>
@@ -93,6 +101,7 @@ function onActionSelect(selection) {
 				:position="{ x: 20, y: -20 }"
 				class="inline-popover"
 				@select="onActionSelect"
+				@paste="onPaste"
 				@close="showPopover = false"
 			/>
 		</div>

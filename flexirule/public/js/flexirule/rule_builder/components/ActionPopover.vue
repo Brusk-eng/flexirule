@@ -19,6 +19,7 @@ const searchQuery = ref("");
 const showResults = ref(true);
 const processOperations = ref([]);
 const selectedIndex = ref(-1);
+const canPaste = ref(false);
 
 const popoverRef = ref(null);
 
@@ -225,8 +226,27 @@ function onClickOutside(e) {
 	}
 }
 
+function checkClipboard() {
+	try {
+		const local = localStorage.getItem("flexirule-clipboard");
+		if (local) {
+			const parsed = JSON.parse(local);
+			canPaste.value = parsed.type === "flexirule-clipboard" && parsed.nodes?.length > 0;
+		} else {
+			canPaste.value = false;
+		}
+	} catch (e) {
+		canPaste.value = false;
+	}
+}
+
+function onPasteClick() {
+	emit("paste");
+}
+
 onMounted(() => {
 	loadProcessOperations();
+	checkClipboard();
 	document.addEventListener("mousedown", onClickOutside);
 	// Search input focus
 	setTimeout(() => {
@@ -263,8 +283,23 @@ onUnmounted(() => {
 				class="form-control"
 			/>
 		</div>
-		<div class="popover-body">
-			<div v-if="!filteredResults.length" class="no-results">
+		<div class="popover-body" @wheel.stop>
+			<!-- Paste Option -->
+			<div
+				v-if="canPaste"
+				class="result-item is-option paste-option"
+				@mousedown.prevent="onPasteClick"
+			>
+				<div class="item-icon" style="color: var(--blue-500, #3b82f6)">
+					<i class="fa fa-paste"></i>
+				</div>
+				<div class="item-content">
+					<div class="item-label">{{ __("Paste Action") }}</div>
+					<div class="item-desc">{{ __("Insert from clipboard") }}</div>
+				</div>
+			</div>
+
+			<div v-if="!filteredResults.length && !canPaste" class="no-results">
 				{{ __("No matching actions found") }}
 			</div>
 			<div
@@ -418,6 +453,15 @@ onUnmounted(() => {
 	text-align: center;
 	color: #94a3b8;
 	font-size: 12px;
+}
+
+.paste-option {
+	border-bottom: 1px solid #f1f5f9;
+	background: #f8fafc;
+}
+
+.paste-option:hover {
+	background: #f1f5f9;
 }
 
 /* Custom Scrollbar */

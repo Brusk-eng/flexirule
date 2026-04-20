@@ -363,6 +363,70 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		return newNodeId;
 	}
 
+	function paste_on_edge(edgeId, pastedNodes, pastedEdges) {
+		const edge = edges.value.find((e) => e.id === edgeId);
+		if (!edge || !pastedNodes?.length) return;
+
+		const sourceId = edge.source;
+		const targetId = edge.target;
+		const sourceHandle = edge.sourceHandle || "default";
+
+		// 1. Paste nodes and get new ones
+		const newNodes = pasteNodes(pastedNodes, pastedEdges, { x: 0, y: 0 });
+		if (!newNodes.length) return;
+
+		const newNodeIds = new Set(newNodes.map((n) => n.id));
+
+		// 2. Identify entry and exit points in the pasted block
+		// Entry: first node that doesn't have an incoming edge from another pasted node
+		const entryNode = newNodes.find(
+			(n) => !edges.value.some((e) => e.target === n.id && newNodeIds.has(e.source))
+		);
+
+		// Exit: first node that doesn't have an outgoing edge to another pasted node
+		const exitNode = newNodes.find(
+			(n) => !edges.value.some((e) => e.source === n.id && newNodeIds.has(e.target))
+		);
+
+		if (!entryNode || !exitNode) return newNodes[0].id;
+
+		// 3. Remove old edge
+		delete_edge(edgeId);
+
+		// 4. Connect source to entry node
+		const sourceNode = nodes.value.find((n) => n.id === sourceId);
+		if (sourceNode && sourceNode.data) {
+			if (sourceHandle === "false") {
+				sourceNode.data.next_step_if_false = entryNode.id;
+			} else {
+				sourceNode.data.next_step_if_true = entryNode.id;
+			}
+		}
+
+		edges.value.push({
+			id: `e-${sourceId}-${entryNode.id}-${sourceHandle}`,
+			source: sourceId,
+			target: entryNode.id,
+			sourceHandle: sourceHandle,
+			type: "add",
+		});
+
+		// 5. Connect exit node to target
+		if (exitNode.data) {
+			exitNode.data.next_step_if_true = targetId;
+		}
+
+		edges.value.push({
+			id: `e-${exitNode.id}-${targetId}-default`,
+			source: exitNode.id,
+			target: targetId,
+			sourceHandle: "default",
+			type: "add",
+		});
+
+		return entryNode.id;
+	}
+
 	function touch_node(nodeId) {
 		if (!nodeId) return;
 		const idx = nodes.value.findIndex((n) => n.id === nodeId);
@@ -986,6 +1050,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		touch_node,
 		insert_node_on_edge,
 		pasteNodes,
+		paste_on_edge,
 
 		// Sync
 		sync_actions_to_graph,

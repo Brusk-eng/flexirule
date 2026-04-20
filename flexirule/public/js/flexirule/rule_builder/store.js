@@ -175,6 +175,12 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return id;
 	}
 
+	function paste_on_edge(edgeId, pastedNodes, pastedEdges) {
+		const id = _graph().paste_on_edge(edgeId, pastedNodes, pastedEdges);
+		if (id) mark_dirty();
+		return id;
+	}
+
 	function get_default_node_data(type, label) {
 		return _graph().get_default_node_data(type, label);
 	}
@@ -300,6 +306,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		delete_edge,
 		touch_node,
 		insert_node_on_edge,
+		paste_on_edge,
 		get_default_node_data,
 		getEffectivelyDisabledIds,
 
