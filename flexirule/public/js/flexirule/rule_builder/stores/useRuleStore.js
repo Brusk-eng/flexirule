@@ -311,7 +311,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				doc.description = startNode.data.description;
 				const exposedAsSubrule = startNode.data.exposed_as_subrule ? 1 : 0;
 				doc.exposed_as_subrule = exposedAsSubrule;
-				doc.is_sub_rule = exposedAsSubrule;
 				const skip_roles = Array.isArray(startNode.data.skip_for_roles)
 					? startNode.data.skip_for_roles
 					: [];
