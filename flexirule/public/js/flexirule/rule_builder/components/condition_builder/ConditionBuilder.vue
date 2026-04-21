@@ -1,3 +1,77 @@
+<template>
+	<div class="condition-builder">
+		<!-- Main Header -->
+		<div class="builder-header">
+			<div class="logic-toggle">
+				<button
+					type="button"
+					class="logic-btn"
+					:class="{ active: rootGroup.op === 'and' }"
+					@click="rootGroup.op = 'and'"
+					:disabled="readOnly"
+				>
+					{{ __("AND") }}
+				</button>
+				<button
+					type="button"
+					class="logic-btn"
+					:class="{ active: rootGroup.op === 'or' }"
+					@click="rootGroup.op = 'or'"
+					:disabled="readOnly"
+				>
+					{{ __("OR") }}
+				</button>
+			</div>
+
+			<div class="builder-actions" v-if="!readOnly">
+				<button class="action-btn" @click="addCondition(rootGroup)">
+					<i class="fa fa-plus"></i>
+					<span>{{ __("Condition") }}</span>
+				</button>
+				<button class="action-btn" @click="addGroup(rootGroup)">
+					<i class="fa fa-folder-open-o"></i>
+					<span>{{ __("Group") }}</span>
+				</button>
+				<button class="action-btn" @click="addCollection(rootGroup)">
+					<i class="fa fa-table"></i>
+					<span>{{ __("Collection") }}</span>
+				</button>
+			</div>
+		</div>
+
+		<!-- Conditions List -->
+		<div class="conditions-container">
+			<div v-if="!rootGroup.conditions?.length" class="empty-state">
+				<div class="empty-icon">
+					<i class="fa fa-filter"></i>
+				</div>
+				<p class="empty-text">{{ __("No conditions defined yet") }}</p>
+				<button
+					v-if="!readOnly"
+					class="btn btn-sm btn-primary mt-2"
+					@click="addCondition(rootGroup)"
+				>
+					{{ __("Add First Condition") }}
+				</button>
+			</div>
+
+			<div
+				v-for="(node, idx) in rootGroup.conditions"
+				:key="node.id || idx"
+				class="node-wrapper"
+			>
+				<ConditionNode
+					:node="node"
+					:index="idx"
+					:parentGroup="rootGroup"
+					:docFields="docFields"
+					:readOnly="readOnly"
+				/>
+			</div>
+		</div>
+	</div>
+</template>
+
 <script setup>
 /**
  * ConditionBuilder - Main container for condition editing
@@ -126,66 +200,119 @@ provide(
 );
 </script>
 
-<template>
-	<div class="condition-builder">
-		<div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-			<div class="btn-group btn-group-sm">
-				<button
-					class="btn btn-xs"
-					:class="rootGroup.op === 'and' ? 'btn-primary' : 'btn-outline-secondary'"
-					@click="rootGroup.op = 'and'"
-					:disabled="readOnly"
-				>
-					{{ __("AND") }}
-				</button>
-				<button
-					class="btn btn-xs"
-					:class="rootGroup.op === 'or' ? 'btn-primary' : 'btn-outline-secondary'"
-					@click="rootGroup.op = 'or'"
-					:disabled="readOnly"
-				>
-					{{ __("OR") }}
-				</button>
-			</div>
-			<div class="d-flex gap-2" v-if="!readOnly">
-				<button class="btn btn-xs btn-default" @click="addCondition(rootGroup)">
-					<i class="fa fa-plus"></i> {{ __("Condition") }}
-				</button>
-				<button class="btn btn-xs btn-default" @click="addGroup(rootGroup)">
-					<i class="fa fa-folder-open-o"></i> {{ __("Group") }}
-				</button>
-				<button class="btn btn-xs btn-default" @click="addCollection(rootGroup)">
-					<i class="fa fa-table"></i> {{ __("Collection") }}
-				</button>
-			</div>
-		</div>
-
-		<div
-			v-if="!rootGroup.conditions?.length"
-			class="text-muted text-center py-4 border-dashed rounded"
-		>
-			{{ __("No conditions. Click buttons above to add.") }}
-		</div>
-
-		<div v-for="(node, idx) in rootGroup.conditions" :key="node.id || idx" class="mb-3">
-			<ConditionNode
-				:node="node"
-				:index="idx"
-				:parentGroup="rootGroup"
-				:docFields="docFields"
-				:readOnly="readOnly"
-			/>
-		</div>
-	</div>
-</template>
-
 <style scoped>
 .condition-builder {
-	padding: 16px;
-	background: var(--bg-light-gray, #f9f9f9);
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	background: #f8fafc;
+	border-radius: 12px;
+	padding: 20px;
+	min-height: 200px;
+}
+
+.builder-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding-bottom: 16px;
+	border-bottom: 1px solid #e2e8f0;
+}
+
+.logic-toggle {
+	display: flex;
+	background: #e2e8f0;
+	padding: 3px;
 	border-radius: 8px;
 }
-.border-dashed {
-	border: 2px dashed var(--border-color);
+
+.logic-btn {
+	border: none;
+	background: transparent;
+	padding: 6px 16px;
+	border-radius: 6px;
+	font-size: 12px;
+	font-weight: 700;
+	color: #64748b;
+	transition: all 0.2s;
+	cursor: pointer;
+}
+
+.logic-btn.active {
+	background: white;
+	color: var(--primary);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.builder-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.action-btn {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	background: white;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #475569;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.action-btn:hover {
+	background: #f1f5f9;
+	border-color: #cbd5e1;
+	transform: translateY(-1px);
+}
+
+.action-btn i {
+	font-size: 11px;
+	color: var(--primary);
+}
+
+.conditions-container {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 40px;
+	background: white;
+	border: 2px dashed #e2e8f0;
+	border-radius: 12px;
+	text-align: center;
+}
+
+.empty-icon {
+	width: 48px;
+	height: 48px;
+	background: #f1f5f9;
+	color: #94a3b8;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	font-size: 20px;
+	margin-bottom: 12px;
+}
+
+.empty-text {
+	font-size: 13px;
+	color: #64748b;
+	margin: 0;
+}
+
+.node-wrapper {
+	transition: all 0.3s ease;
 }
 </style>

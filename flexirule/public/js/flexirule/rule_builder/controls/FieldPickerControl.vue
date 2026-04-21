@@ -4,6 +4,7 @@
  * Shows fields from the target doctype with search
  * Supports pre-fetched fields from store via 'fields' prop
  */
+import { ref, computed, watch, nextTick } from "vue";
 
 const props = defineProps({
 	df: Object,
@@ -19,6 +20,7 @@ const searchQuery = ref("");
 const showDropdown = ref(false);
 const apiFields = ref([]); // Fields fetched from API (fallback)
 const loading = ref(false);
+const activeIndex = ref(-1);
 
 const content = computed({
 	get: () => props.modelValue || "",
@@ -70,6 +72,7 @@ function selectField(field) {
 	content.value = field.value;
 	showDropdown.value = false;
 	searchQuery.value = "";
+	activeIndex.value = -1;
 }
 
 function handleInput(e) {
@@ -88,6 +91,56 @@ function handleBlur() {
 		showDropdown.value = false;
 	}, 200);
 }
+
+function handleKeydown(e) {
+	if (!showDropdown.value) {
+		if (e.key === "ArrowDown" || e.key === "Enter") {
+			showDropdown.value = true;
+			e.preventDefault();
+		}
+		return;
+	}
+
+	if (e.key === "ArrowDown") {
+		e.preventDefault();
+		if (activeIndex.value < filteredFields.value.length - 1) {
+			activeIndex.value++;
+			scrollToActive();
+		}
+	} else if (e.key === "ArrowUp") {
+		e.preventDefault();
+		if (activeIndex.value > 0) {
+			activeIndex.value--;
+			scrollToActive();
+		}
+	} else if (e.key === "Enter") {
+		e.preventDefault();
+		if (activeIndex.value >= 0 && activeIndex.value < filteredFields.value.length) {
+			selectField(filteredFields.value[activeIndex.value]);
+		}
+	} else if (e.key === "Escape") {
+		e.preventDefault();
+		showDropdown.value = false;
+	}
+}
+
+function scrollToActive() {
+	nextTick(() => {
+		const activeItem = document.querySelector(".field-option.active-item");
+		if (activeItem) {
+			activeItem.scrollIntoView({ block: "nearest" });
+		}
+	});
+}
+
+watch(searchQuery, () => {
+	activeIndex.value = -1;
+});
+
+watch(showDropdown, (val) => {
+	if (val) activeIndex.value = -1;
+});
+
 function onDrop(event) {
 	let variable = event.dataTransfer.getData("application/x-flexirule-variable");
 	if (variable) {
@@ -131,6 +184,7 @@ watch(
 				@input="handleInput"
 				@focus="handleFocus"
 				@blur="handleBlur"
+				@keydown="handleKeydown"
 				@dragover.prevent
 				@drop="onDrop"
 				:placeholder="__('Search fields...')"
@@ -141,10 +195,13 @@ watch(
 			</div>
 			<div v-if="showDropdown && filteredFields.length" class="field-dropdown">
 				<div
-					v-for="field in filteredFields"
+					v-for="(field, idx) in filteredFields"
 					:key="field.value"
 					class="field-option"
-					:class="{ selected: field.value === content }"
+					:class="{
+						selected: field.value === content,
+						'active-item': idx === activeIndex,
+					}"
 					@mousedown.prevent="selectField(field)"
 				>
 					<span class="field-name">{{ field.value }}</span>
@@ -209,6 +266,10 @@ watch(
 }
 .field-option.selected {
 	background: var(--bg-light-blue, #e3f2fd);
+}
+.field-option.active-item {
+	background: var(--bg-light-blue, #e3f2fd);
+	outline: 1px solid var(--primary, #2490ef);
 }
 .field-option.disabled {
 	color: var(--text-muted);
