@@ -202,7 +202,19 @@ const returnVariableField = computed(() => ({
 		props.node.data?.return_type === "Yes / No"
 			? __("Value assigned directly.")
 			: __("Stored as this variable."),
+	reqd: isReturnVariableMandatory.value ? 1 : 0,
 }));
+
+const isReturnVariableMandatory = computed(() => {
+	const data = props.node.data || {};
+	const policy = getEffectiveActionPolicy(data.action_type, policyContext.value);
+	return !!(
+		data.mutation_mode ||
+		(data.return_type && data.return_type !== "Yes / No") ||
+		data.resolved_output_schema ||
+		policy.require_return_variable
+	);
+});
 
 const mutationModeField = computed(() => ({
 	fieldname: "mutation_mode",
@@ -391,8 +403,29 @@ onMounted(() => {
 	refreshVariables();
 });
 
+watch(
+	() => [props.node.data?.mutation_mode, props.node.data?.return_type],
+	([mut, ret]) => {
+		if (
+			(mut || (ret && ret !== "Yes / No")) &&
+			!props.node.data?.return_variable &&
+			!props.readOnly
+		) {
+			const suggested = (props.node.data?.operation || "result")
+				.toLowerCase()
+				.replace(/\s+/g, "_");
+			updateField("return_variable", suggested);
+		}
+	}
+);
+
 function validate() {
 	const errors = [];
+
+	if (isReturnVariableMandatory.value && !props.node.data?.return_variable) {
+		errors.push(__("Result Variable Name is required when handling results"));
+	}
+
 	outputMappings.value.forEach((m, idx) => {
 		if ((m.source && !m.target) || (!m.source && m.target)) {
 			errors.push(__("Variable Assignment #{0} is incomplete", [idx + 1]));

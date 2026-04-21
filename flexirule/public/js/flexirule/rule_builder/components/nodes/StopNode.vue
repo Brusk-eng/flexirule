@@ -6,7 +6,9 @@ const props = defineProps(["data", "label", "id", "selected", "targetPosition"])
 const store = useStore();
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
-const targetPos = computed(() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top));
+const targetPos = computed(
+	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
+);
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -22,9 +24,7 @@ function deleteNode() {
 }
 
 function openConfig() {
-	store.selected_id = props.id;
-	store.show_config_modal = true;
-	store.config_modal_mode = "setup";
+	store.open_config(props.id);
 }
 </script>
 
@@ -44,7 +44,7 @@ function openConfig() {
 		</div>
 		<Handle type="target" :position="targetPos" class="handle-target" />
 
-		<div class="node-content" @dblclick.stop="openConfig">
+		<div class="node-content">
 			<div class="icon-section">
 				<i class="fa fa-stop-circle"></i>
 			</div>

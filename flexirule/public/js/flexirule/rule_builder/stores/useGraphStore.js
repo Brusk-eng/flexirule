@@ -294,8 +294,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			// Loop  → primary = "After Last" (sourceHandle === "false")
 			// Condition / Switch → primary = YES / True (sourceHandle !== "false")
 			const isPrimaryFalse = actionType === "Loop";
-			const primaryEdge = outEdges.find(
-				(e) => isPrimaryFalse ? e.sourceHandle === "false" : e.sourceHandle !== "false"
+			const primaryEdge = outEdges.find((e) =>
+				isPrimaryFalse ? e.sourceHandle === "false" : e.sourceHandle !== "false"
 			);
 			const secondaryEdges = outEdges.filter((e) => e !== primaryEdge);
 
@@ -320,8 +320,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			);
 			// Build set of all IDs still reachable from the main graph root
 			const rootId =
-				nodes.value.find((n) => n.type === "start" || n.data?.action_type === "Entry Action")
-					?.id || "root";
+				nodes.value.find(
+					(n) => n.type === "start" || n.data?.action_type === "Entry Action"
+				)?.id || "root";
 			const mainReachable = bfsFrom(rootId, [
 				...edgesWithoutRemoved,
 				// include the reconnected in-edges so the primary target is reachable
@@ -331,7 +332,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			const toDelete = new Set([nodeId]);
 			secondaryEdges.forEach((e) => {
 				if (!e.target || mainReachable.has(e.target)) return;
-				bfsFrom(e.target, edgesWithoutRemoved, mainReachable).forEach((id) => toDelete.add(id));
+				bfsFrom(e.target, edgesWithoutRemoved, mainReachable).forEach((id) =>
+					toDelete.add(id)
+				);
 			});
 
 			nodes.value = nodes.value.filter((n) => !toDelete.has(n.id));
@@ -395,7 +398,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		} else {
 			node.data.is_enabled = 0;
 		}
-		
+
 		// Force reactivity update if needed
 		nodes.value = [...nodes.value];
 	}

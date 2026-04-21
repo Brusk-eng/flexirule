@@ -8,11 +8,13 @@ const store = useStore();
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 
-const targetPos = computed(() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top));
+const targetPos = computed(
+	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
+);
 // TB layout: For Each → Right column (body), After Last → Bottom (main flow continues)
 // LR layout: For Each → Bottom row (body), After Last → Right (main flow continues)
-const doPos = computed(() => isHorizontal.value ? Position.Bottom : Position.Right);
-const donePos = computed(() => isHorizontal.value ? Position.Right : Position.Bottom);
+const doPos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
+const donePos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -31,9 +33,7 @@ function deleteNode() {
 }
 
 function openConfig() {
-	store.selected_id = props.id;
-	store.show_config_modal = true;
-	store.config_modal_mode = "setup";
+	store.open_config(props.id);
 }
 </script>
 
@@ -82,7 +82,7 @@ function openConfig() {
 			</button>
 		</div>
 
-		<div class="node-body" @dblclick.stop="openConfig">
+		<div class="node-body">
 			<div class="loop-title">{{ data.action_label || label }}</div>
 			<div class="loop-subtext" v-if="data.collection_variable">
 				{{ __("Collection:") }} {{ data.collection_variable }}
@@ -93,24 +93,14 @@ function openConfig() {
 		<!-- TB: exits Right | LR: exits Bottom -->
 		<div :class="['out-port', isHorizontal ? 'out-bottom' : 'out-right']" class="out-do">
 			<div class="bubble-label bubble-foreach">{{ __("For Each") }}</div>
-			<Handle
-				type="source"
-				:position="doPos"
-				id="default"
-				class="handle-out handle-do"
-			/>
+			<Handle type="source" :position="doPos" id="default" class="handle-out handle-do" />
 		</div>
 
 		<!-- Done Handle: After Last → main flow continues -->
 		<!-- TB: exits Bottom | LR: exits Right -->
 		<div :class="['out-port', isHorizontal ? 'out-right' : 'out-bottom']" class="out-done">
 			<div class="bubble-label bubble-afterlast">{{ __("After Last") }}</div>
-			<Handle
-				type="source"
-				:position="donePos"
-				id="false"
-				class="handle-out handle-done"
-			/>
+			<Handle type="source" :position="donePos" id="false" class="handle-out handle-done" />
 		</div>
 	</div>
 </template>
@@ -248,7 +238,8 @@ function openConfig() {
 	bottom: -5px;
 }
 
-.handle-target, .handle-return {
+.handle-target,
+.handle-return {
 	background: #fff !important;
 	border: 2px solid #fab005 !important;
 	width: 10px !important;

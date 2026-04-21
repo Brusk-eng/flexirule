@@ -248,7 +248,9 @@ const referenceDoctypeField = computed(() => {
 	return {
 		fieldname: "reference_doctype",
 		fieldtype: "Link",
-		label: getFieldLabel(props.node.data?.action_type, "reference_doctype") || __("Reference DocType"),
+		label:
+			getFieldLabel(props.node.data?.action_type, "reference_doctype") ||
+			__("Reference DocType"),
 		options: "DocType",
 		reqd: 1,
 		read_only: Boolean(forcedReferenceDoctype.value),

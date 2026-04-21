@@ -1,6 +1,6 @@
 import { ref, reactive, computed, watch } from "vue";
 import { useStore } from "../store";
-import { getContract } from "../../core/contracts.js";
+import { getContract, validateAgainstContract } from "../../core/contracts.js";
 
 /**
  * useRuleConfig
@@ -101,9 +101,15 @@ export function useRuleConfig(props, emit) {
 			errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 		}
 
+		// 5. Canonical Contract Validation
+		const contractRes = validateAgainstContract(draftNode.value.data);
+		if (!contractRes.valid) {
+			errors.push(...contractRes.errors);
+		}
+
 		return {
 			valid: errors.length === 0,
-			errors: errors,
+			errors: [...new Set(errors)],
 		};
 	}
 

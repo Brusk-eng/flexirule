@@ -8,7 +8,9 @@ const props = defineProps(["data", "label", "id", "sourcePosition"]);
 const store = useStore();
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
-const sourcePos = computed(() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom));
+const sourcePos = computed(
+	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
+);
 
 const displayLabel = computed(() => {
 	if (props.data?.document_type && props.data?.trigger_event) {
@@ -40,9 +42,7 @@ const testResult = computed(() => {
 });
 
 function openConfig() {
-	store.selected_id = props.id || "start"; // Start node might be 'start' or have ID
-	store.show_config_modal = true;
-	store.config_modal_mode = "setup";
+	store.open_config(props.id || "start");
 }
 </script>
 
@@ -58,11 +58,7 @@ function openConfig() {
 		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
 			{{ store.test_execution_path.indexOf(testResult) + 1 }}
 		</div>
-		<div
-			class="node-body"
-			@dblclick.stop="openConfig"
-			:style="{ '--accent-color': nodeMeta.color }"
-		>
+		<div class="node-body" :style="{ '--accent-color': nodeMeta.color }">
 			<div class="icon-section">
 				<i class="fa" :class="nodeMeta.icon"></i>
 			</div>

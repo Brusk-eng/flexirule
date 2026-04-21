@@ -83,6 +83,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 		get: () => _ui().selected_id,
 		set: (v) => (_ui().selected_id = v),
 	});
+	const show_sidebar = computed({
+		get: () => _ui().show_sidebar,
+		set: (v) => (_ui().show_sidebar = v),
+	});
 	const show_config_modal = computed({
 		get: () => _ui().show_config_modal,
 		set: (v) => (_ui().show_config_modal = v),
@@ -284,6 +288,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return _rule().fetch_available_rules();
 	}
 
+	function open_config(nodeId) {
+		const configMode = settings.value?.action_config_mode || "Sidebar";
+		selected_id.value = nodeId;
+		if (configMode === "Dialog") {
+			show_config_modal.value = true;
+			config_modal_mode.value = "setup";
+		} else {
+			show_sidebar.value = true;
+		}
+	}
+
 	function set_test_result(path, context) {
 		_ui().set_test_result(path, context);
 	}
@@ -312,6 +327,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		nodes,
 		edges,
 		selected_id,
+		show_sidebar,
 		show_config_modal,
 		config_modal_mode,
 		processes,
@@ -386,5 +402,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		// Node operations
 		pasteNodes,
+		open_config,
 	};
 });

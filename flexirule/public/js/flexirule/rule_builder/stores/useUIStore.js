@@ -12,6 +12,7 @@ import { ref, computed } from "vue";
 export const useUIStore = defineStore("rule-builder-ui", () => {
 	// ── Selection ──
 	const selected_id = ref(null);
+	const show_sidebar = ref(false);
 	const local_clipboard = ref(null);
 
 	// ── Config Modal ──
@@ -73,6 +74,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	return {
 		// State
 		selected_id,
+		show_sidebar,
 		show_config_modal,
 		config_modal_mode,
 		test_execution_path,

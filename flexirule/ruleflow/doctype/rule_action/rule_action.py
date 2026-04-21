@@ -18,7 +18,20 @@ class RuleAction(Document):
 
 		action_id: DF.Data
 		action_label: DF.Data
-		action_type: DF.Literal["Entry Action", "Condition", "Process", "Stop", "Raise Error", "Wait", "Sub-Rule", "Set Value", "Notify", "Query Records", "Document Action", "Loop"]
+		action_type: DF.Literal[
+			"Entry Action",
+			"Condition",
+			"Process",
+			"Stop",
+			"Raise Error",
+			"Wait",
+			"Sub-Rule",
+			"Set Value",
+			"Notify",
+			"Query Records",
+			"Document Action",
+			"Loop",
+		]
 		compiled_expression: DF.Code | None
 		condition_json: DF.Code | None
 		config: DF.Code | None
@@ -26,7 +39,15 @@ class RuleAction(Document):
 		input_source: DF.Literal["", "Context Doc", "Context Variable", "Both"]
 		is_async: DF.Check
 		is_enabled: DF.Check
-		mutation_mode: DF.Literal["", "Set Doc Field", "Update Doc Field", "Set Context Variable", "Update Context Variable", "Append to Context Variable", "Batch Database Set"]
+		mutation_mode: DF.Literal[
+			"",
+			"Set Doc Field",
+			"Update Doc Field",
+			"Set Context Variable",
+			"Update Context Variable",
+			"Append to Context Variable",
+			"Batch Database Set",
+		]
 		next_step_if_false: DF.Data | None
 		next_step_if_true: DF.Autocomplete | None
 		on_error: DF.Literal["Stop", "Continue", "Retry", "Rollback", "Escalate"]
@@ -40,7 +61,9 @@ class RuleAction(Document):
 		reference_doctype: DF.Link | None
 		resolved_output_schema: DF.Code | None
 		retry_count: DF.Int
-		return_type: DF.Literal["", "Yes / No", "Single Record", "List of Values", "List of Records", "Full Document"]
+		return_type: DF.Literal[
+			"", "Yes / No", "Single Record", "List of Values", "List of Records", "Full Document"
+		]
 		return_variable: DF.Data | None
 		rule: DF.Link | None
 		skip_conditions: DF.Check

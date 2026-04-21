@@ -339,7 +339,7 @@ function getIcon(type) {
 	height: 100vh;
 	background: rgba(15, 23, 42, 0.4);
 	backdrop-filter: blur(12px);
-	z-index: 2000;
+	z-index: 1040;
 	display: flex;
 	justify-content: center;
 	align-items: center;

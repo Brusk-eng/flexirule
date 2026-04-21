@@ -9,9 +9,11 @@ const store = useStore();
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 
-const targetPos = computed(() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top));
-const truePos = computed(() => isHorizontal.value ? Position.Right : Position.Bottom);
-const falsePos = computed(() => isHorizontal.value ? Position.Bottom : Position.Right);
+const targetPos = computed(
+	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
+);
+const truePos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
+const falsePos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -39,9 +41,7 @@ function deleteNode() {
 }
 
 function openConfig() {
-	store.selected_id = props.id;
-	store.show_config_modal = true;
-	store.config_modal_mode = "setup";
+	store.open_config(props.id);
 }
 </script>
 
@@ -76,30 +76,20 @@ function openConfig() {
 			</button>
 		</div>
 
-		<div class="node-body" @dblclick.stop="openConfig">
+		<div class="node-body">
 			<div class="condition-text">{{ label }}</div>
 		</div>
 
 		<!-- True Output (Right/Bottom) -->
 		<div :class="['out-port', isHorizontal ? 'out-right' : 'out-bottom']">
 			<span class="port-label">{{ __("YES") }}</span>
-			<Handle
-				type="source"
-				:position="truePos"
-				id="true"
-				class="handle-out handle-true"
-			/>
+			<Handle type="source" :position="truePos" id="true" class="handle-out handle-true" />
 		</div>
 
 		<!-- False Output (Bottom/Right) -->
 		<div :class="['out-port', isHorizontal ? 'out-bottom' : 'out-right']">
 			<span class="port-label">{{ __("NO") }}</span>
-			<Handle
-				type="source"
-				:position="falsePos"
-				id="false"
-				class="handle-out handle-false"
-			/>
+			<Handle type="source" :position="falsePos" id="false" class="handle-out handle-false" />
 		</div>
 	</div>
 </template>

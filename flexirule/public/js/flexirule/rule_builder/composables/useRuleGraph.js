@@ -3,8 +3,8 @@ import { useVueFlow } from "@vue-flow/core";
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 80;
-const H_GAP = 80;  // horizontal gap between ranks (LR) or between main and body column (TB)
-const V_GAP = 60;  // vertical gap between nodes
+const H_GAP = 80; // horizontal gap between ranks (LR) or between main and body column (TB)
+const V_GAP = 60; // vertical gap between nodes
 
 export function useRuleGraph() {
 	const { nodes, edges, setNodes, setEdges, fitView } = useVueFlow();

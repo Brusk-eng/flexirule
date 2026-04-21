@@ -59,7 +59,13 @@ def validate_graph_integrity(rule_doc):
 					if detect_cycle(neighbor):
 						return True
 				elif neighbor in recursion_stack:
-					if getattr(current_action, "action_type", "") != "Loop":
+					# Allow back-edges if the target (neighbor) is a Loop action
+					neighbor_action = actions.get(neighbor)
+					neighbor_type = neighbor_action.get("action_type") if neighbor_action else None
+					if neighbor_type == "Loop":
+						continue
+
+					if current_action.get("action_type") != "Loop":
 						return True
 
 		recursion_stack.remove(current_id)

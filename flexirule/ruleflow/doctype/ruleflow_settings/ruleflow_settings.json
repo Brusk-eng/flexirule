@@ -22,6 +22,7 @@
   "enable_edge_insertion",
   "ui_configuration",
   "action_config_mode",
+  "open_config_on",
   "theme"
  ],
  "fields": [
@@ -85,6 +86,14 @@
    "fieldtype": "Select",
    "label": "Action Configuration Mode",
    "options": "Sidebar\nDialog"
+  },
+  {
+   "default": "Click",
+   "description": "Choose the interaction that opens the node configuration",
+   "fieldname": "open_config_on",
+   "fieldtype": "Select",
+   "label": "Open Configuration On",
+   "options": "Click\nDouble Click\nIcon Only"
   },
   {
    "default": "System",

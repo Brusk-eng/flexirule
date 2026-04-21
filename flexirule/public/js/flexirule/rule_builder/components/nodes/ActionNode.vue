@@ -9,8 +9,12 @@ const store = useStore();
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 
-const targetPos = computed(() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top));
-const sourcePos = computed(() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom));
+const targetPos = computed(
+	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
+);
+const sourcePos = computed(
+	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
+);
 </script>
 
 <template>
@@ -100,7 +104,8 @@ const sourcePos = computed(() => props.sourcePosition || (isHorizontal.value ? P
 }
 
 /* Handles */
-.handle-target, .handle-source {
+.handle-target,
+.handle-source {
 	background: var(--gray-400) !important;
 	border: 2px solid white !important;
 	width: 10px !important;

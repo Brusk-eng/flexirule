@@ -83,8 +83,28 @@
 			</template>
 
 			<div v-if="showMapper" class="sub-section section-subcard">
-				<h6>{{ __("Resource Mapper") }}</h6>
+				<div class="d-flex justify-content-between align-items-center mb-2">
+					<h6 class="mb-0">{{ __("Resource Mapper") }}</h6>
+					<div class="btn-group">
+						<button
+							class="btn btn-xs"
+							:class="mapperView === 'classic' ? 'btn-primary' : 'btn-default'"
+							@click="mapperView = 'classic'"
+						>
+							{{ __("Classic") }}
+						</button>
+						<button
+							class="btn btn-xs"
+							:class="mapperView === 'visual' ? 'btn-primary' : 'btn-default'"
+							@click="mapperView = 'visual'"
+						>
+							{{ __("Visual") }}
+						</button>
+					</div>
+				</div>
+
 				<ResourceMapperControl
+					v-if="mapperView === 'classic'"
 					:df="mapperField"
 					:modelValue="config.resource_mapper_ui"
 					:targetDoctype="reference_doctype"
@@ -93,17 +113,28 @@
 					:hideLabel="true"
 					@update:modelValue="update_mapper_ui"
 				/>
+
+				<TransformControl
+					v-else
+					:modelValue="visualMappings"
+					:sourceSchema="sourceSchema"
+					:targetSchema="targetSchema"
+					:readOnly="readOnly"
+					@update:modelValue="update_visual_mappings"
+				/>
 			</div>
 		</div>
 	</div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ResourceMapperControl from "../../../controls/ResourceMapperControl.vue";
+import TransformControl from "../../../controls/TransformControl.vue";
+import transformUtils from "../../../utils/transform.js";
 
 const props = defineProps({
 	node: Object,
@@ -176,9 +207,70 @@ const commentTextField = {
 };
 
 const assignToType = ref("Value");
+const mapperView = ref("classic");
+const targetSchema = ref([]);
 
 const showMapper = computed(
 	() => !["Create ToDo", "Add Comment", "Delete Record"].includes(mode.value)
+);
+
+const sourceSchema = computed(() => {
+	return (variable_options.value || []).map((opt) => ({
+		label: opt.label || opt.value,
+		value: opt.value,
+		fieldtype: opt.fieldtype || "Data",
+	}));
+});
+
+const visualMappings = computed(() => {
+	// Transform resource_mapper_ui to the flat format used by TransformControl
+	const ui = config.resource_mapper_ui || {};
+	const mappings = [];
+
+	if (Array.isArray(ui.scalars)) {
+		ui.scalars.forEach((s) => {
+			if (s.source_type === "path") {
+				mappings.push({
+					source: s.path,
+					target: s.target,
+					source_label: s.path,
+					target_label: s.target,
+				});
+			}
+		});
+	}
+	// Note: Child table mappings in ResourceMapperControl are complex.
+	// For now, we only show scalar mappings in the visual view.
+
+	return mappings;
+});
+
+function update_visual_mappings(mappings) {
+	// Convert back to resource_mapper_ui format
+	const ui = { ...(config.resource_mapper_ui || { version: 2, scalars: [], tables: [] }) };
+
+	// Keep existing table mappings
+	ui.scalars = mappings.map((m) => ({
+		target: m.target,
+		source_type: "path",
+		path: m.source,
+		expr: "",
+		literal: "",
+	}));
+
+	update_mapper_ui(ui);
+}
+
+watch(
+	reference_doctype,
+	async (val) => {
+		if (val) {
+			targetSchema.value = await transformUtils.getDocTypeSchema(val);
+		} else {
+			targetSchema.value = [];
+		}
+	},
+	{ immediate: true }
 );
 
 function looksLikePath(expr) {
@@ -369,7 +461,7 @@ defineExpose({
 			errors.push(__("Comment Text is required"));
 		}
 		if (showMapper.value && !config.resource_mapper_ui && !hasLegacyMapperConfig(config)) {
-			errors.push(__("Resource Mapper configuration is required"));
+			errors.push(__("Resource Mapper configuration is required for {0}", [mode.value]));
 		}
 		return { valid: errors.length === 0, errors };
 	},

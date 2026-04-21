@@ -1044,11 +1044,20 @@ class Rule(Document):
 
 	def _validate_set_value_editable(self, action):
 		"""Check if Set Value target field is valid and editable for current trigger event"""
-		target_field = getattr(action, "target_field", None)
+		target_field = (
+			action.get("target_field") if hasattr(action, "get") else getattr(action, "target_field", None)
+		)
 		if not target_field:
 			return
 
 		if not self.document_type:
+			return
+
+		# Skip DocType field validation if we are setting a context variable
+		mutation_mode = (
+			action.get("mutation_mode") if hasattr(action, "get") else getattr(action, "mutation_mode", None)
+		)
+		if mutation_mode in ["Set Context Variable", "Update Context Variable"]:
 			return
 
 		meta = frappe.get_meta(self.document_type)
@@ -1211,6 +1220,11 @@ class Rule(Document):
 		next_available = set(available_vars)
 		if action.return_variable:
 			next_available.add(action.return_variable)
+
+		if action.action_type == "Loop":
+			config = self._parse_action_config(action)
+			alias = config.get("alias", "item")
+			next_available.add(alias)
 
 		next_path = set(path)
 		next_path.add(action_id)

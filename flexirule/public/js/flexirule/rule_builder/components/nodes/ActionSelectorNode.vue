@@ -16,8 +16,12 @@ const store = useStore();
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 
-const targetPos = computed(() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top));
-const sourcePos = computed(() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom));
+const targetPos = computed(
+	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
+);
+const sourcePos = computed(
+	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
+);
 
 const selectedPreset = ref({
 	action_type: "Process",
@@ -307,7 +311,7 @@ function onCreate() {
 		}
 	}
 
-	store.selected_id = props.id;
+	store.open_config(props.id);
 	store.touch_node(props.id);
 	store.mark_dirty();
 }
@@ -339,7 +343,7 @@ onMounted(() => {
 			</button>
 		</div>
 
-		<div class="node-body" @dblclick.stop="store.selected_id = props.id">
+		<div class="node-body">
 			<div class="form-group search-group">
 				<label class="small text-muted">{{ __("Action Type") }}</label>
 				<div class="search-wrapper">

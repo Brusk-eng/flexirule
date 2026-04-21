@@ -1,30 +1,97 @@
 <template>
 	<div class="action-settings-container">
-
 		<!-- ═══════════════ EXECUTION SETTINGS ═══════════════ -->
 		<div class="settings-section">
 			<h6 class="section-title-mini">{{ __("Execution Settings") }}</h6>
 			<div class="settings-grid">
 				<div class="grid-item">
-					<ControlFactory :df="ro({ fieldname: 'is_enabled', fieldtype: 'Check', label: __('Enabled') })" :modelValue="node.data?.is_enabled" @update:modelValue="(v) => emit_field('is_enabled', v)" />
+					<ControlFactory
+						:df="
+							ro({
+								fieldname: 'is_enabled',
+								fieldtype: 'Check',
+								label: __('Enabled'),
+							})
+						"
+						:modelValue="node.data?.is_enabled"
+						@update:modelValue="(v) => emit_field('is_enabled', v)"
+					/>
 				</div>
 				<div class="grid-item">
-					<ControlFactory :df="ro({ fieldname: 'is_async', fieldtype: 'Check', label: __('Run Asynchronously') })" :modelValue="node.data?.is_async" @update:modelValue="(v) => emit_field('is_async', v)" />
+					<ControlFactory
+						:df="
+							ro({
+								fieldname: 'is_async',
+								fieldtype: 'Check',
+								label: __('Run Asynchronously'),
+							})
+						"
+						:modelValue="node.data?.is_async"
+						@update:modelValue="(v) => emit_field('is_async', v)"
+					/>
 				</div>
 				<div class="grid-item">
-					<ControlFactory :df="ro({ fieldname: 'skip_permissions', fieldtype: 'Check', label: __('Skip Permissions') })" :modelValue="node.data?.skip_permissions" @update:modelValue="(v) => emit_field('skip_permissions', v)" />
+					<ControlFactory
+						:df="
+							ro({
+								fieldname: 'skip_permissions',
+								fieldtype: 'Check',
+								label: __('Skip Permissions'),
+							})
+						"
+						:modelValue="node.data?.skip_permissions"
+						@update:modelValue="(v) => emit_field('skip_permissions', v)"
+					/>
 				</div>
 				<div class="grid-item span-2" v-if="!!node.data?.skip_permissions">
-					<ControlFactory :df="ro({ fieldname: 'permission_audit_reason', fieldtype: 'Small Text', label: __('Permission Audit Reason'), description: __('Required when bypassing permissions.') })" :modelValue="node.data?.permission_audit_reason" @update:modelValue="(v) => emit_field('permission_audit_reason', v)" />
+					<ControlFactory
+						:df="
+							ro({
+								fieldname: 'permission_audit_reason',
+								fieldtype: 'Small Text',
+								label: __('Permission Audit Reason'),
+								description: __('Required when bypassing permissions.'),
+							})
+						"
+						:modelValue="node.data?.permission_audit_reason"
+						@update:modelValue="(v) => emit_field('permission_audit_reason', v)"
+					/>
 				</div>
 				<div class="grid-item">
-					<ControlFactory :df="ro({ fieldname: 'on_error', fieldtype: 'Select', label: __('On Error'), options: '\nStop\nContinue\nRetry\nRollback\nEscalate' })" :modelValue="node.data?.on_error" @update:modelValue="(v) => emit_field('on_error', v)" />
+					<ControlFactory
+						:df="
+							ro({
+								fieldname: 'on_error',
+								fieldtype: 'Select',
+								label: __('On Error'),
+								options: '\nStop\nContinue\nRetry\nRollback\nEscalate',
+							})
+						"
+						:modelValue="node.data?.on_error"
+						@update:modelValue="(v) => emit_field('on_error', v)"
+					/>
 				</div>
 				<div class="grid-item" v-if="node.data?.on_error === 'Retry'">
-					<ControlFactory :df="ro({ fieldname: 'retry_count', fieldtype: 'Int', label: __('Retry Count') })" :modelValue="node.data?.retry_count" @update:modelValue="(v) => emit_field('retry_count', v)" />
+					<ControlFactory
+						:df="
+							ro({
+								fieldname: 'retry_count',
+								fieldtype: 'Int',
+								label: __('Retry Count'),
+							})
+						"
+						:modelValue="node.data?.retry_count"
+						@update:modelValue="(v) => emit_field('retry_count', v)"
+					/>
 				</div>
 				<div class="grid-item">
-					<ControlFactory :df="ro({ fieldname: 'timeout', fieldtype: 'Int', label: __('Timeout (s)') })" :modelValue="node.data?.timeout" @update:modelValue="(v) => emit_field('timeout', v)" />
+					<ControlFactory
+						:df="
+							ro({ fieldname: 'timeout', fieldtype: 'Int', label: __('Timeout (s)') })
+						"
+						:modelValue="node.data?.timeout"
+						@update:modelValue="(v) => emit_field('timeout', v)"
+					/>
 				</div>
 			</div>
 		</div>
@@ -38,7 +105,17 @@
 				<div class="settings-grid">
 					<div class="grid-item span-2">
 						<ControlFactory
-							:df="ro({ fieldname: 'return_variable', fieldtype: 'Data', label: __('Return Variable Name'), placeholder: __('e.g. my_result'), description: __('The variable where the action result will be stored.') })"
+							:df="
+								ro({
+									fieldname: 'return_variable',
+									fieldtype: 'Data',
+									label: __('Return Variable Name'),
+									placeholder: __('e.g. my_result'),
+									description: __(
+										'The variable where the action result will be stored.'
+									),
+								})
+							"
 							:modelValue="node.data?.return_variable"
 							@update:modelValue="(v) => emit_field('return_variable', v)"
 						/>
@@ -57,11 +134,13 @@
 					{{ __("Select the next node to execute on each path.") }}
 				</p>
 				<div class="flow-control-grid">
-
 					<!-- Primary path -->
 					<div class="flow-control-item">
 						<label class="flow-label">
-							<span class="flow-dot" :style="{ background: flowMeta.primaryColor }"></span>
+							<span
+								class="flow-dot"
+								:style="{ background: flowMeta.primaryColor }"
+							></span>
 							{{ __(flowMeta.primary) }}
 						</label>
 						<AutocompleteControl
@@ -77,7 +156,7 @@
 					<!-- Secondary path (Condition NO / Loop After Last / Switch default) -->
 					<div class="flow-control-item" v-if="flowMeta.hasSecondary">
 						<label class="flow-label">
-							<span class="flow-dot" style="background:#ef4444"></span>
+							<span class="flow-dot" style="background: #ef4444"></span>
 							{{ __(flowMeta.secondary) }}
 						</label>
 						<AutocompleteControl
@@ -89,11 +168,9 @@
 							@update:modelValue="onSelectSecondary"
 						/>
 					</div>
-
 				</div>
 			</div>
 		</template>
-
 	</div>
 </template>
 
@@ -122,12 +199,33 @@ const showReturnVariable = computed(() => !HIDE_RETURN_VARIABLE.has(actionType.v
 
 // ── Flow control metadata per action type ─────────────────────────────────
 const FLOW_META = {
-	Condition: { primary: "YES (If True)",     secondary: "NO (If False)",        primaryColor: "#22c55e", hasSecondary: true  },
-	Loop:      { primary: "For Each (body)",   secondary: "After Last (continue)",primaryColor: "#f59e0b", hasSecondary: true  },
-	Switch:    { primary: "True / Matched",    secondary: "Default / False",      primaryColor: "#06b6d4", hasSecondary: true  },
+	Condition: {
+		primary: "YES (If True)",
+		secondary: "NO (If False)",
+		primaryColor: "#22c55e",
+		hasSecondary: true,
+	},
+	Loop: {
+		primary: "For Each (body)",
+		secondary: "After Last (continue)",
+		primaryColor: "#f59e0b",
+		hasSecondary: true,
+	},
+	Switch: {
+		primary: "True / Matched",
+		secondary: "Default / False",
+		primaryColor: "#06b6d4",
+		hasSecondary: true,
+	},
 };
-const flowMeta = computed(() =>
-	FLOW_META[actionType.value] ?? { primary: "Next Step", secondary: null, primaryColor: "#6366f1", hasSecondary: false }
+const flowMeta = computed(
+	() =>
+		FLOW_META[actionType.value] ?? {
+			primary: "Next Step",
+			secondary: null,
+			primaryColor: "#6366f1",
+			hasSecondary: false,
+		}
 );
 
 // ── Node autocomplete ─────────────────────────────────────────────────────
@@ -141,17 +239,19 @@ function getNodeOptions() {
 function resolveLabel(nodeId) {
 	if (!nodeId) return "";
 	const n = (store.nodes || []).find((nd) => nd.id === nodeId);
-	return n ? (n.data?.action_label || n.label || nodeId) : nodeId;
+	return n ? n.data?.action_label || n.label || nodeId : nodeId;
 }
 
-const primaryNodeLabel   = computed(() => resolveLabel(props.node?.data?.next_step_if_true));
+const primaryNodeLabel = computed(() => resolveLabel(props.node?.data?.next_step_if_true));
 const secondaryNodeLabel = computed(() => resolveLabel(props.node?.data?.next_step_if_false));
 
 function resolveId(labelOrId) {
 	if (!labelOrId) return null;
-	const byId    = (store.nodes || []).find((n) => n.id === labelOrId);
+	const byId = (store.nodes || []).find((n) => n.id === labelOrId);
 	if (byId) return byId.id;
-	const byLabel = (store.nodes || []).find((n) => (n.data?.action_label || n.label) === labelOrId);
+	const byLabel = (store.nodes || []).find(
+		(n) => (n.data?.action_label || n.label) === labelOrId
+	);
 	return byLabel ? byLabel.id : labelOrId;
 }
 
@@ -169,14 +269,20 @@ function onSelectSecondary(val) {
 </script>
 
 <style scoped>
-.action-settings-container { display: flex; flex-direction: column; gap: 20px; }
+.action-settings-container {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
 
 .settings-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 16px;
 }
-.grid-item.span-2 { grid-column: 1 / -1; }
+.grid-item.span-2 {
+	grid-column: 1 / -1;
+}
 
 .section-title-mini {
 	font-size: 11px;
@@ -186,12 +292,26 @@ function onSelectSecondary(val) {
 	letter-spacing: 0.05em;
 	margin-bottom: 12px;
 }
-.section-divider { height: 1px; background: #e2e8f0; margin: 8px 0; }
-.extra-small { font-size: 10px; }
+.section-divider {
+	height: 1px;
+	background: #e2e8f0;
+	margin: 8px 0;
+}
+.extra-small {
+	font-size: 10px;
+}
 
 /* ── Flow Control ── */
-.flow-control-grid  { display: flex; flex-direction: column; gap: 14px; }
-.flow-control-item  { display: flex; flex-direction: column; gap: 6px; }
+.flow-control-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+.flow-control-item {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
 .flow-label {
 	display: flex;
 	align-items: center;
@@ -203,7 +323,15 @@ function onSelectSecondary(val) {
 	letter-spacing: 0.04em;
 	margin: 0;
 }
-.flow-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.flow-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
 
-:deep(.autocomplete-control) { border-radius: 8px; font-size: 13px; }
+:deep(.autocomplete-control) {
+	border-radius: 8px;
+	font-size: 13px;
+}
 </style>
