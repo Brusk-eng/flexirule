@@ -125,6 +125,8 @@ const {
 	updateLines,
 	toggleNode,
 	isExpanded,
+	isSourceMapped,
+	isTargetMapped,
 	autoExpandMapped,
 	autoMap,
 } = useTransformMapper(props, emit, bodyRef);

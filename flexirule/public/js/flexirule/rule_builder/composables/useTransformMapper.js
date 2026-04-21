@@ -153,8 +153,13 @@ export function useTransformMapper(props, emit, bodyRef) {
 		nextTick(updateLines);
 	}
 
-	// -- Actions --
+	function isSourceMapped(path) {
+		return mappings.value.some((m) => m.source === path);
+	}
 
+	function isTargetMapped(path) {
+		return mappings.value.some((m) => m.target === path);
+	}
 	function autoMap() {
 		const suggestions = transformUtils.fuzzyMatch(props.sourceSchema, props.targetSchema);
 		const existingTargets = new Set(mappings.value.map((m) => m.target));
@@ -184,6 +189,8 @@ export function useTransformMapper(props, emit, bodyRef) {
 		updateLines,
 		toggleNode,
 		isExpanded,
+		isSourceMapped,
+		isTargetMapped,
 		autoExpandMapped,
 		autoMap,
 	};
