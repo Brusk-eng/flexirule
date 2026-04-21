@@ -163,6 +163,17 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const graphStore = useGraphStore();
 
 		try {
+			if (is_active.value) {
+				frappe.msgprint({
+					title: __("Rule Is Active"),
+					message: __(
+						"Cannot save edits while rule is Active. Use status toggle to move it to Draft first."
+					),
+					indicator: "orange",
+				});
+				return;
+			}
+
 			graphStore.normalize_graph_nodes();
 
 			// 1. Validate mandatory fields
@@ -215,6 +226,11 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					} catch (e) {
 						console.warn("Failed to auto-sync value_template", e);
 					}
+				}
+
+				// Deep sync condition_json for validation if missing
+				if (doc.action_type === "Condition" && !doc.condition_json && doc.config) {
+					doc.condition_json = JSON.stringify(doc.config);
 				}
 
 				// Special handling for Set Value validation: ensure they are in node.data
@@ -391,7 +407,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					target_field: node.data?.target_field,
 					value_template: node.data?.value_template,
 					compiled_expression: node.data?.compiled_expression,
-					condition_json: null,
+					condition_json:
+						action_type === "Condition" ? serializeField(finalConfig) : null,
 					on_error: node.data?.on_error || "Stop",
 					timeout: node.data?.timeout || 30,
 					priority: node.data?.priority || 0,

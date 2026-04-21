@@ -7,6 +7,7 @@ import {
 	getActionTypeOptions,
 	getOperationOptions,
 	loadContractsFromBackend,
+	isTerminalAction,
 } from "../../../core/contracts";
 import { useStore } from "../../store";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
@@ -309,6 +310,14 @@ function onCreate() {
 				animated: suggestedParentId === "root",
 			});
 		}
+	}
+
+	// If the chosen node is terminal, remove any outgoing edges that might have existed
+	// (Selector nodes often have an outgoing edge if inserted on a connection)
+	if (isTerminalAction(action_type)) {
+		store.edges = store.edges.filter((edge) => edge.source !== props.id);
+		store.nodes[nodeIndex].data.next_step_if_true = null;
+		store.nodes[nodeIndex].data.next_step_if_false = null;
 	}
 
 	store.open_config(props.id);

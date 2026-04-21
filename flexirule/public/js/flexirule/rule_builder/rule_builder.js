@@ -53,8 +53,8 @@ class RuleBuilder {
 		);
 
 		// Status Toggle
-		this.status_btn = this.page.add_inner_button(__("Draft"), () => {
-			this.toggle_rule_active();
+		this.status_btn = this.page.add_inner_button(__("Draft"), async () => {
+			await this.toggle_rule_active();
 		});
 
 		// Test
@@ -118,11 +118,31 @@ class RuleBuilder {
 		this.$rule_builder = app.mount(this.$wrapper.get(0));
 	}
 
-	toggle_rule_active() {
+	async toggle_rule_active() {
 		if (!this.store.rule_doc) return;
-		this.store.rule_doc.is_active = this.store.rule_doc.is_active ? 0 : 1;
-		this.store.mark_dirty();
-		this.update_status_button(this.store.rule_doc.is_active);
+
+		// Do not allow silent state mutation. Use lifecycle API transitions.
+		try {
+			frappe.dom.freeze(__("Updating rule status..."));
+
+			if (this.store.rule_doc.is_active) {
+				await this.store.deactivate_rule();
+			} else {
+				// If there are unsaved edits, persist first, then activate.
+				if (this.store.is_dirty) {
+					await this.store.save_changes();
+					if (this.store.is_dirty) {
+						// Save failed or was blocked; keep current status.
+						return;
+					}
+				}
+				await this.store.activate_rule();
+			}
+		} finally {
+			frappe.dom.unfreeze();
+		}
+
+		this.update_status_button(this.store.rule_doc?.is_active);
 	}
 
 	update_status_button(is_active) {

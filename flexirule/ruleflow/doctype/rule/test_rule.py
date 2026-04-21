@@ -155,3 +155,80 @@ class TestRule(FrappeTestCase):
 		rule = frappe.get_doc(payload)
 		with self.assertRaisesRegex(frappe.ValidationError, "cannot use Output Mapping with Async enabled"):
 			rule.validate()
+
+	def test_condition_compiles_for_non_canonical_action_type_value(self):
+		"""Condition actions should compile even when action_type arrives in machine format."""
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Rule Condition Type Normalization",
+				"document_type": "User",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Before Save",
+				"actions": [
+					{
+						"action_id": "root",
+						"action_type": "Entry Action",
+						"next_step_if_true": "condition_1",
+					},
+					{
+						"action_id": "condition_1",
+						"action_label": "New Condition",
+						"action_type": "condition",
+						"next_step_if_true": "stop_true",
+						"next_step_if_false": "stop_false",
+						"config": {
+							"op": "and",
+							"conditions": [
+								{
+									"left": {"ref": "doc.email"},
+									"op": "is_not_set",
+									"right": {"value": ""},
+								}
+							],
+						},
+					},
+					{"action_id": "stop_true", "action_type": "Stop", "operation": "Success"},
+					{"action_id": "stop_false", "action_type": "Stop", "operation": "Success"},
+				],
+			}
+		)
+
+		rule.validate()
+		condition_action = next(a for a in rule.actions if a.action_id == "condition_1")
+		self.assertTrue(condition_action.compiled_expression)
+
+	def test_api_draft_validation_compiles_condition_payload(self):
+		"""Draft precheck API should compile condition payload before handler validation."""
+		payload = {
+			"doctype": "Rule",
+			"rule_name": "Rule API Draft Condition Compile",
+			"document_type": "User",
+			"trigger_type": "DocType Event",
+			"trigger_event": "Before Save",
+			"actions": [
+				{"action_id": "root", "action_type": "Entry Action", "next_step_if_true": "condition_1"},
+				{
+					"action_id": "condition_1",
+					"action_label": "New Condition",
+					"action_type": "Condition",
+					"next_step_if_true": "stop_true",
+					"next_step_if_false": "stop_false",
+					"config": {
+						"op": "and",
+						"conditions": [
+							{
+								"left": {"ref": "doc.email"},
+								"op": "is_not_set",
+								"right": {"value": ""},
+							}
+						],
+					},
+				},
+				{"action_id": "stop_true", "action_type": "Stop", "operation": "Success"},
+				{"action_id": "stop_false", "action_type": "Stop", "operation": "Success"},
+			],
+		}
+
+		api_result = validate_rule_document(payload, mode="draft")
+		self.assertTrue(api_result["valid"])

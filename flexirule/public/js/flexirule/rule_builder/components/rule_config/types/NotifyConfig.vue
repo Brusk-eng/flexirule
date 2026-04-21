@@ -171,7 +171,11 @@ const is_provider = computed(() => notify_mode.value === PROVIDER_MODE);
 
 function update_template_ui(value) {
 	config.text_generator_ui = value;
-	const jinja = compileSegmentsToJinja(value?.segments || []);
+	const knownVarRoots = (variable_options.value || [])
+		.map((v) => String(v?.value || ""))
+		.filter((p) => p.startsWith("vars."))
+		.map((p) => p.slice(5).split(".")[0]);
+	const jinja = compileSegmentsToJinja(value?.segments || [], { knownVarRoots });
 	update_action_field("value_template", jinja);
 	sync_local_config();
 }

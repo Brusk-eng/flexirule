@@ -110,6 +110,67 @@ class TestCompiledControls(FrappeTestCase):
 		)
 		self.assertEqual(action.value_template, expected)
 
+	def test_compile_text_generator_normalizes_shorthand_roots(self):
+		"""Shorthand refs (is_pos / result.total) should normalize to doc./vars. roots."""
+		rule = self._base_rule(
+			self._uid(),
+			[
+				{
+					"action_id": "root",
+					"action_type": "Entry Action",
+					"action_label": "Start",
+					"return_variable": "result",
+					"next_step_if_true": "set_1",
+				},
+				{
+					"action_id": "set_1",
+					"action_type": "Set Value",
+					"action_label": "Set Remarks",
+					"target_field": "description",
+					"config": json.dumps(
+						{
+							"text_generator_ui": {
+								"version": 2,
+								"segments": [
+									{"type": "text", "content": "Value: {{ is_pos }} / "},
+									{
+										"type": "conditional",
+										"condition": {
+											"op": "and",
+											"conditions": [
+												{
+													"left": {"ref": "is_pos"},
+													"op": "!=",
+													"right": {"value": 1},
+												}
+											],
+										},
+										"then_segments": [{"type": "variable", "path": "result.total"}],
+										"elif_branches": [],
+										"else_segments": [],
+									},
+								],
+							}
+						}
+					),
+					"next_step_if_true": "stop_1",
+				},
+				{
+					"action_id": "stop_1",
+					"action_type": "Stop",
+					"action_label": "Stop",
+					"operation": "Success",
+				},
+			],
+		)
+
+		rule.validate()
+
+		action = next(a for a in rule.actions if a.action_id == "set_1")
+		self.assertIn("{{ doc.is_pos }}", action.value_template)
+		self.assertIn("{% if doc.is_pos != 1 %}", action.value_template)
+		self.assertIn("{{ vars.result.total }}", action.value_template)
+
 	def test_compile_action_mappings_from_resource_mapper_ui(self):
 		rule = self._base_rule(
 			self._uid(),

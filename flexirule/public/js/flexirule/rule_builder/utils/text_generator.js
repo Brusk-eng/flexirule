@@ -5,14 +5,48 @@
  * Output: "doc.status == 'Open' and doc.total > 100"
  */
 
-export function compileConditionTree(node) {
+const SIMPLE_PATH_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
+const ALLOWED_ROOTS = new Set([
+	"doc",
+	"old_doc",
+	"vars",
+	"item",
+	"loop",
+	"caller",
+	"rule",
+	"doctype",
+]);
+
+export function normalizeTemplatePath(path, knownVarRoots = []) {
+	const raw = String(path || "").trim();
+	if (!raw || !SIMPLE_PATH_RE.test(raw)) return raw;
+
+	const roots = new Set(knownVarRoots || []);
+	const root = raw.split(".", 1)[0];
+	if (ALLOWED_ROOTS.has(root)) return raw;
+	if (roots.has(root)) return `vars.${raw}`;
+	return `doc.${raw}`;
+}
+
+function normalizeInlineJinja(content, knownVarRoots = []) {
+	if (!content || typeof content !== "string") return content || "";
+	return content.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_m, expr) => {
+		const normalized = normalizeTemplatePath(expr, knownVarRoots);
+		if (!normalized) return "";
+		return `{{ ${normalized} }}`;
+	});
+}
+
+export function compileConditionTree(node, knownVarRoots = []) {
 	if (!node) return "";
 
 	// Group node (and/or)
 	if (Array.isArray(node.conditions)) {
 		if (!node.conditions.length) return "True";
 
-		const parts = node.conditions.map((child) => compileConditionTree(child)).filter(Boolean);
+		const parts = node.conditions
+			.map((child) => compileConditionTree(child, knownVarRoots))
+			.filter(Boolean);
 
 		if (!parts.length) return "True";
 		if (parts.length === 1) return parts[0];
@@ -23,16 +57,16 @@ export function compileConditionTree(node) {
 
 	// Collection node (any/all)
 	if (node.collection !== undefined) {
-		const alias = node.alias || "row";
-		const collection = node.collection || "[]";
-		const whereExpr = node.where ? compileConditionTree(node.where) : "True";
+		const alias = node.alias || "item";
+		const collection = normalizeTemplatePath(node.collection || "[]", knownVarRoots) || "[]";
+		const whereExpr = node.where ? compileConditionTree(node.where, knownVarRoots) : "True";
 		const quantifier = node.op === "all" ? "all" : "any";
 		return `${quantifier}(${whereExpr} for ${alias} in ${collection})`;
 	}
 
 	// Simple condition (left op right)
 	if (node.left !== undefined) {
-		const left = node.left.ref || "";
+		const left = normalizeTemplatePath(node.left.ref || "", knownVarRoots);
 		if (!left) return "";
 
 		const op = node.op || "==";
@@ -44,7 +78,7 @@ export function compileConditionTree(node) {
 		// Get right value
 		let right;
 		if (node.right?.ref) {
-			right = node.right.ref;
+			right = normalizeTemplatePath(node.right.ref, knownVarRoots);
 		} else {
 			right = formatValue(node.right?.value);
 		}
@@ -97,38 +131,44 @@ function formatValue(val) {
 /**
  * Compile segments array to a Jinja template string.
  */
-export function compileSegmentsToJinja(segments) {
+export function compileSegmentsToJinja(segments, options = {}) {
+	const knownVarRoots = options.knownVarRoots || [];
 	if (!Array.isArray(segments)) return "";
 	return segments
 		.map((seg) => {
 			if (!seg) return "";
 			const t = (seg.type || "text").toLowerCase();
 
-			if (t === "text") return seg.content || seg.text || "";
+			if (t === "text")
+				return normalizeInlineJinja(seg.content || seg.text || "", knownVarRoots);
 
 			if (t === "variable") {
-				const p = (seg.path || "").trim();
+				const p = normalizeTemplatePath(seg.path || "", knownVarRoots);
 				return p ? `{{ ${p} }}` : "";
 			}
 
 			if (t === "conditional") {
-				const condExpr = seg.condition ? compileConditionTree(seg.condition) : "True";
+				const condExpr = seg.condition
+					? compileConditionTree(seg.condition, knownVarRoots)
+					: "True";
 				let out = `{% if ${condExpr} %}`;
-				out += compileSegmentsToJinja(seg.then_segments || []);
+				out += compileSegmentsToJinja(seg.then_segments || [], { knownVarRoots });
 
 				// elif branches
 				if (Array.isArray(seg.elif_branches)) {
 					for (const elif of seg.elif_branches) {
 						const elifExpr = elif.condition
-							? compileConditionTree(elif.condition)
+							? compileConditionTree(elif.condition, knownVarRoots)
 							: "True";
 						out += `{% elif ${elifExpr} %}`;
-						out += compileSegmentsToJinja(elif.segments || []);
+						out += compileSegmentsToJinja(elif.segments || [], { knownVarRoots });
 					}
 				}
 
 				// else
-				const elseContent = compileSegmentsToJinja(seg.else_segments || []);
+				const elseContent = compileSegmentsToJinja(seg.else_segments || [], {
+					knownVarRoots,
+				});
 				if (elseContent) {
 					out += `{% else %}${elseContent}`;
 				}

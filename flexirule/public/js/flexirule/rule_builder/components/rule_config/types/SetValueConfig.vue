@@ -84,8 +84,12 @@ const textGeneratorField = computed(() => ({
 
 function update_template_ui(value) {
 	config.text_generator_ui = value;
+	const knownVarRoots = (variable_options.value || [])
+		.map((v) => String(v?.value || ""))
+		.filter((p) => p.startsWith("vars."))
+		.map((p) => p.slice(5).split(".")[0]);
 	// Compile segments to Jinja and store in value_template
-	const jinja = compileSegmentsToJinja(value?.segments || []);
+	const jinja = compileSegmentsToJinja(value?.segments || [], { knownVarRoots });
 	update_action_field("value_template", jinja);
 	sync_local_config();
 	store.mark_dirty();

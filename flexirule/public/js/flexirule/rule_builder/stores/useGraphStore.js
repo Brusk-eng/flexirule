@@ -16,6 +16,7 @@ import {
 	getEffectiveActionPolicy,
 	getOperationOptions,
 	normalizeActionType,
+	isTerminalAction,
 	ACTION_TYPES_WITH_REFERENCE_CONTEXT,
 	ACTION_TYPES_WITH_RETURN_SCHEMA,
 } from "../../core/contracts";
@@ -158,7 +159,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 			context_vars.push({
 				label: data.return_variable,
-				value: data.return_variable,
+				value: `vars.${data.return_variable}`,
 				type: mapReturnTypeToFieldType(data.return_type),
 			});
 
@@ -178,10 +179,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					schema.forEach((field) => {
 						if (field.fieldname) {
 							context_vars.push({
-								label: `${data.return_variable}.${field.fieldname} (${
+								label: `vars.${data.return_variable}.${field.fieldname} (${
 									field.label || field.fieldname
 								})`,
-								value: `${data.return_variable}.${field.fieldname}`,
+								value: `vars.${data.return_variable}.${field.fieldname}`,
 								type: field.fieldtype || "Data",
 							});
 						}
@@ -618,10 +619,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 		// 5. Create new edges
 		const edge1Id = `e-${sourceId}-${newNodeId}-${sourceHandle}`;
-		const edge2Id = `e-${newNodeId}-${targetId}-default`;
-
-		edges.value = [
-			...edges.value,
+		const newEdges = [
 			{
 				id: edge1Id,
 				source: sourceId,
@@ -629,14 +627,21 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				sourceHandle: sourceHandle,
 				type: "add",
 			},
-			{
+		];
+
+		// ONLY create outgoing edge if NOT terminal
+		if (!isTerminalAction(nodeData.action_type)) {
+			const edge2Id = `e-${newNodeId}-${targetId}-default`;
+			newEdges.push({
 				id: edge2Id,
 				source: newNodeId,
 				target: targetId,
 				sourceHandle: "default",
 				type: "add",
-			},
-		];
+			});
+		}
+
+		edges.value = [...edges.value, ...newEdges];
 
 		return newNodeId;
 	}
@@ -689,18 +694,20 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			type: "add",
 		});
 
-		// 5. Connect exit node to target
-		if (exitNode.data) {
-			exitNode.data.next_step_if_true = targetId;
-		}
+		// 5. Connect exit node to target if NOT terminal
+		if (!isTerminalAction(exitNode.data?.action_type)) {
+			if (exitNode.data) {
+				exitNode.data.next_step_if_true = targetId;
+			}
 
-		edges.value.push({
-			id: `e-${exitNode.id}-${targetId}-default`,
-			source: exitNode.id,
-			target: targetId,
-			sourceHandle: "default",
-			type: "add",
-		});
+			edges.value.push({
+				id: `e-${exitNode.id}-${targetId}-default`,
+				source: exitNode.id,
+				target: targetId,
+				sourceHandle: "default",
+				type: "add",
+			});
+		}
 
 		return entryNode.id;
 	}
@@ -1276,6 +1283,12 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				} else {
 					node.data.next_step_if_false = null;
 				}
+
+				// ENSURE terminal nodes have no next steps
+				if (isTerminalAction(node.data.action_type)) {
+					node.data.next_step_if_true = null;
+					node.data.next_step_if_false = null;
+				}
 			}
 		});
 
@@ -1284,6 +1297,16 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			if (idMap[edge.source] && idMap[edge.target]) {
 				const newSourceId = idMap[edge.source];
 				const newTargetId = idMap[edge.target];
+
+				// DO NOT paste outgoing edges from terminal nodes
+				const sourceNode = newNodes.find((n) => n.id === newSourceId);
+				if (
+					sourceNode?.data?.action_type &&
+					isTerminalAction(sourceNode.data.action_type)
+				) {
+					return;
+				}
+
 				const newEdgeId = `e-${newSourceId}-${newTargetId}-${
 					edge.sourceHandle || "default"
 				}`;
@@ -1296,7 +1319,44 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		});
 
-		// 5. Add to store
+		// 5. Auto-scaffold missing paths for Condition/Switch
+		newNodes.forEach((node) => {
+			if (
+				node.data &&
+				(node.data.action_type === "Condition" || node.data.action_type === "Switch")
+			) {
+				if (!node.data.next_step_if_false) {
+					const stopNodeId = generateShortId();
+					const stopData = get_default_node_data("stop");
+					stopData.operation = "Success";
+					stopData.action_id = stopNodeId;
+
+					const stopNode = {
+						id: stopNodeId,
+						type: "stop",
+						position: {
+							x: node.position.x + 100,
+							y: node.position.y + 150,
+						},
+						label: __("End"),
+						data: stopData,
+					};
+
+					node.data.next_step_if_false = stopNodeId;
+					newNodes.push(stopNode);
+
+					newEdges.push({
+						id: `e-${node.id}-${stopNodeId}-false`,
+						source: node.id,
+						target: stopNodeId,
+						sourceHandle: "false",
+						type: "add",
+					});
+				}
+			}
+		});
+
+		// 6. Add to store
 		nodes.value = [...nodes.value, ...newNodes];
 		edges.value = [...edges.value, ...newEdges];
 

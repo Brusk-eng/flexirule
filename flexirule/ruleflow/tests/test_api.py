@@ -111,6 +111,20 @@ class TestBoltonAPI(unittest.TestCase):
 			self.assertIn("func_name", row)
 			self.assertIn("label", row)
 
+	def test_transition_rule_uses_v15_cache_clear_signature(self):
+		"""Lifecycle transition should not call frappe.clear_cache with unsupported kwargs."""
+		from flexirule.ruleflow.api import transition_rule
+
+		result = transition_rule(self.rule.name, "Draft")
+
+		self.assertEqual(result.get("status"), "Draft")
+		self.assertEqual(result.get("lifecycle_state"), "Draft")
+		self.assertEqual(result.get("is_active"), 0)
+		refreshed = frappe.get_doc("Rule", self.rule.name)
+		self.assertEqual(refreshed.status, "Draft")
+		self.assertEqual(refreshed.lifecycle_state, "Draft")
+		self.assertEqual(refreshed.is_active, 0)
+
 
 class TestAPIPermissions(unittest.TestCase):
 	"""Test API permission enforcement"""

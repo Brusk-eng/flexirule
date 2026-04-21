@@ -277,13 +277,24 @@ async function copySelectedToClipboard() {
 	const payload = {
 		type: "flexirule-clipboard",
 		version: 1,
-		nodes: filterNodes.map((n) => ({
-			id: n.id,
-			type: n.type,
-			position: { ...n.position },
-			label: n.label,
-			data: JSON.parse(JSON.stringify(n.data || {})),
-		})),
+		nodes: filterNodes.map((n) => {
+			const nodeData = JSON.parse(JSON.stringify(n.data || {}));
+			// Sync condition_json for Condition nodes if missing
+			if (
+				nodeData.action_type === "Condition" &&
+				!nodeData.condition_json &&
+				nodeData.config
+			) {
+				nodeData.condition_json = JSON.stringify(nodeData.config);
+			}
+			return {
+				id: n.id,
+				type: n.type,
+				position: { ...n.position },
+				label: n.label,
+				data: nodeData,
+			};
+		}),
 		edges: selectedEdges.map((e) => ({
 			id: e.id,
 			source: e.source,
