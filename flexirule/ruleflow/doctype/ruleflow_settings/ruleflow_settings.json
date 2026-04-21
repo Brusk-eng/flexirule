@@ -1,6 +1,6 @@
 {
  "actions": [],
- "creation": "2026-03-18 00:00:00.000000",
+ "creation": "2026-03-18 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -12,16 +12,18 @@
   "allow_async_actions",
   "exclusions_section",
   "excluded_doctypes",
-  "ui_configuration",
-  "action_config_mode",
-  "theme",
+  "lifecycle_config",
+  "require_approval_for_active",
+  "allow_editing_active",
+  "builder_configurations_tab",
   "builder_settings_section",
   "layout_direction",
   "sidebar_position",
   "enable_edge_insertion",
-  "lifecycle_config",
-  "require_approval_for_active",
-  "allow_editing_active"
+  "ui_configuration",
+  "action_config_mode",
+  "open_config_on",
+  "theme"
  ],
  "fields": [
   {
@@ -78,19 +80,27 @@
    "label": "UI Configuration"
   },
   {
+   "default": "Sidebar",
+   "description": "Choose how node configuration forms are displayed",
    "fieldname": "action_config_mode",
    "fieldtype": "Select",
    "label": "Action Configuration Mode",
-   "options": "Sidebar\nDialog",
-   "default": "Sidebar",
-   "description": "Choose how node configuration forms are displayed"
+   "options": "Sidebar\nDialog"
   },
   {
+   "default": "Click",
+   "description": "Choose the interaction that opens the node configuration",
+   "fieldname": "open_config_on",
+   "fieldtype": "Select",
+   "label": "Open Configuration On",
+   "options": "Click\nDouble Click\nIcon Only"
+  },
+  {
+   "default": "System",
    "fieldname": "theme",
    "fieldtype": "Select",
    "label": "Canvas Theme",
-   "options": "System\nLight\nDark",
-   "default": "System"
+   "options": "System\nLight\nDark"
   },
   {
    "fieldname": "builder_settings_section",
@@ -102,7 +112,7 @@
    "fieldname": "layout_direction",
    "fieldtype": "Select",
    "label": "Auto-Layout Direction",
-   "options": "Left to Right"
+   "options": "Left to Right\nTop to Bottom"
   },
   {
    "default": "Left",
@@ -123,20 +133,27 @@
    "label": "Lifecycle Configuration"
   },
   {
+   "default": "0",
    "fieldname": "require_approval_for_active",
    "fieldtype": "Check",
    "label": "Require Approval to Activate"
   },
   {
+   "default": "0",
+   "description": "If disabled, active rules must be cloned to create a new Draft version.",
    "fieldname": "allow_editing_active",
    "fieldtype": "Check",
-   "label": "Allow Editing Active Rules (Warning)",
-   "description": "If disabled, active rules must be cloned to create a new Draft version."
+   "label": "Allow Editing Active Rules (Warning)"
+  },
+  {
+   "fieldname": "builder_configurations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Builder Configurations"
   }
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-03-18 00:00:00.000000",
+ "modified": "2026-04-20 19:59:28.716481",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "RuleFlow Settings",
@@ -153,6 +170,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

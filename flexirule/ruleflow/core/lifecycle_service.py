@@ -41,8 +41,17 @@ def get_transition_labels():
 	}
 
 
+from typing import ClassVar
+
+
 class RuleLifecycleService:
 	"""Manages rule state transitions with validation hooks."""
+
+	STATE_BY_STATUS: ClassVar[dict[str, str]] = {
+		"Draft": "Draft",
+		"Active": "Active",
+		"Archived": "Archived",
+	}
 
 	@classmethod
 	def get_allowed_transitions(cls, current_status: str) -> list[dict]:
@@ -96,15 +105,20 @@ class RuleLifecycleService:
 		handler = getattr(cls, handler_name)
 		result = handler(rule_doc, user)
 
+		target_state = cls.STATE_BY_STATUS.get(target_status, "Draft")
 		rule_doc.status = target_status
+		rule_doc.lifecycle_state = target_state
 		rule_doc.is_active = 1 if target_status == "Active" else 0
 		rule_doc.save(ignore_permissions=True)
+		rule_doc.reload()
 
-		# Clear cache for this rule
-		frappe.clear_cache(doctype="Rule", name=rule_doc.name)
+		# Clear cache for this rule (Frappe v15-compatible signatures)
+		frappe.clear_document_cache("Rule", rule_doc.name)
+		frappe.clear_cache(doctype="Rule")
 
 		return {
 			"status": rule_doc.status,
+			"lifecycle_state": rule_doc.lifecycle_state,
 			"is_active": rule_doc.is_active,
 			"message": str(result or _("Transition completed")),
 		}

@@ -43,7 +43,9 @@ function destroy_control() {
 				if (ul && ul.parentNode === document.body) {
 					document.body.removeChild(ul);
 				}
-			} catch (e) {}
+			} catch (e) {
+				// Ignore errors during cleanup
+			}
 		}
 	}
 	frappe_control = null;

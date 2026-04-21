@@ -7,7 +7,39 @@
 			<div class="spinner-border text-primary"></div>
 		</div>
 		<template v-else-if="engine">
-			<SchemaRenderer :fields="engine.normalized_fields" :engine="engine" />
+			<div class="d-flex justify-content-between align-items-center mb-3 px-3">
+				<h6 class="mb-0">{{ __("Process Configuration") }}</h6>
+				<div class="btn-group">
+					<button
+						class="btn btn-xs"
+						:class="view === 'form' ? 'btn-primary' : 'btn-default'"
+						@click="view = 'form'"
+					>
+						<i class="fa fa-list"></i> {{ __("Form") }}
+					</button>
+					<button
+						class="btn btn-xs"
+						:class="view === 'visual' ? 'btn-primary' : 'btn-default'"
+						@click="view = 'visual'"
+					>
+						<i class="fa fa-exchange"></i> {{ __("Visual") }}
+					</button>
+				</div>
+			</div>
+
+			<div v-show="view === 'form'">
+				<SchemaRenderer :fields="engine.normalized_fields" :engine="engine" />
+			</div>
+
+			<div v-if="view === 'visual'" class="px-3">
+				<TransformControl
+					:modelValue="visualMappings"
+					:sourceSchema="sourceSchema"
+					:targetSchema="targetSchema"
+					@update:modelValue="update_visual_mappings"
+				/>
+			</div>
+
 			<div v-if="engine.normalized_fields.length === 0" class="p-5 text-center text-muted">
 				<p>{{ __("No configuration fields found for this operation.") }}</p>
 				<div class="small mt-2 p-2 border rounded bg-light text-left">
@@ -21,10 +53,11 @@
 </template>
 
 <script setup>
-import { onMounted, ref, reactive, watch } from "vue";
+import { onMounted, ref, reactive, watch, computed } from "vue";
 import ProcessEngine from "../engines/ProcessEngine.js";
 import SchemaRenderer from "../SchemaRenderer.vue";
 import { useStore } from "../../../store";
+import TransformControl from "../../../controls/TransformControl.vue";
 
 const props = defineProps({
 	node: Object,
@@ -33,6 +66,62 @@ const props = defineProps({
 const store = useStore();
 const engine = ref(null);
 const error = ref(null);
+const view = ref("form");
+
+const sourceSchema = computed(() => {
+	const vars = engine.value?.available_variables || [];
+	return vars.map((v) => ({
+		label: v.label || v.value,
+		value: v.value,
+		fieldtype: v.fieldtype || "Data",
+	}));
+});
+
+const targetSchema = computed(() => {
+	const fields = engine.value?.normalized_fields || [];
+	return fields.map((f) => ({
+		label: f.label || f.fieldname,
+		value: f.fieldname,
+		fieldtype: f.fieldtype,
+	}));
+});
+
+const visualMappings = computed(() => {
+	const config = engine.value?.config || {};
+	const mappings = [];
+
+	Object.entries(config).forEach(([key, val]) => {
+		if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
+			const path = val.slice(1, -1);
+			mappings.push({
+				source: path,
+				target: key,
+				source_label: path,
+				target_label: key,
+			});
+		}
+	});
+
+	return mappings;
+});
+
+function update_visual_mappings(mappings) {
+	const config = engine.value.config;
+
+	// Identify fields that were previously mapped to variables
+	const previouslyMapped = Object.keys(config).filter((key) => {
+		const val = config[key];
+		return typeof val === "string" && val.startsWith("{") && val.endsWith("}");
+	});
+
+	// Clear them
+	previouslyMapped.forEach((key) => delete config[key]);
+
+	// Apply new ones
+	mappings.forEach((m) => {
+		config[m.target] = `{${m.source}}`;
+	});
+}
 
 let initCounter = 0;
 

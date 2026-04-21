@@ -90,7 +90,14 @@
 							</button>
 							<button
 								class="btn btn-sm btn-default"
-								@click="() => layoutGraph('LR')"
+								@click="
+									() =>
+										layoutGraph(
+											store.settings?.layout_direction === 'Top to Bottom'
+												? 'TB'
+												: 'LR'
+										)
+								"
 								:title="__('Auto Layout')"
 							>
 								<i class="fa fa-sitemap"></i> {{ __("Auto Layout") }}
@@ -127,60 +134,6 @@
 						</button>
 					</Panel>
 				</VueFlow>
-
-				<!-- Floating Draggable Toolbar -->
-				<div
-					v-if="!isReadOnly"
-					ref="toolbarRef"
-					class="floating-toolbar"
-					:class="{ collapsed: isCollapsed }"
-					:style="{ left: toolbarPos.x + 'px', top: toolbarPos.y + 'px' }"
-					@mousedown="startDrag"
-				>
-					<div class="toolbar-handle" @dblclick="toggleCollapse">
-						<i class="fa fa-ellipsis-v"></i> <i class="fa fa-ellipsis-v"></i>
-						<span class="pull-right collapse-btn" @click.stop="toggleCollapse">
-							<i
-								class="fa"
-								:class="isCollapsed ? 'fa-angle-down' : 'fa-angle-up'"
-							></i>
-						</span>
-					</div>
-					<div class="btn-group-vertical" v-show="!isCollapsed">
-						<button
-							class="btn btn-xs btn-default"
-							@click="addNode('selector')"
-							:title="__('Add Action')"
-						>
-							<i class="fa fa-plus-circle"></i> {{ __("Add Action") }}
-						</button>
-						<div class="divider-horizontal"></div>
-						<button
-							class="btn btn-xs btn-link text-muted toolbar-sub-btn"
-							@click="addNode('condition')"
-						>
-							<i class="fa fa-code-fork"></i> {{ __("Condition") }}
-						</button>
-						<button
-							class="btn btn-xs btn-link text-muted toolbar-sub-btn"
-							@click="addNode('process')"
-						>
-							<i class="fa fa-cog"></i> {{ __("Process") }}
-						</button>
-						<button
-							class="btn btn-xs btn-link text-muted toolbar-sub-btn"
-							@click="addNode('set value')"
-						>
-							<i class="fa fa-edit"></i> {{ __("Set Value") }}
-						</button>
-						<button
-							class="btn btn-xs btn-link text-muted toolbar-sub-btn"
-							@click="addNode('sub-rule')"
-						>
-							<i class="fa fa-cube"></i> {{ __("Sub-Rule") }}
-						</button>
-					</div>
-				</div>
 			</div>
 			<div
 				class="sidebar-container"
@@ -202,7 +155,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { VueFlow, Panel, PanelPosition } from "@vue-flow/core";
 import { useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
@@ -235,63 +188,6 @@ const { zoomIn, zoomOut, removeEdges, getSelectedNodes, getSelectedEdges, projec
 const { layoutGraph } = useRuleGraph();
 let vfInstance = null;
 
-const mousePos = ref({ x: 0, y: 0 });
-
-const toolbarRef = ref(null);
-const toolbarPos = ref({ x: 20, y: 20 });
-let isDragging = false;
-let dragOffset = { x: 0, y: 0 };
-
-function handleGlobalMouseMove(e) {
-	mousePos.value = { x: e.clientX, y: e.clientY };
-}
-
-function startDrag(e) {
-	// Only allow dragging from the handle or the container background, not buttons
-	if (e.target.closest("button")) return;
-
-	isDragging = true;
-	const rect = toolbarRef.value.getBoundingClientRect();
-	const parentRect = toolbarRef.value.parentElement.getBoundingClientRect();
-
-	// Calculate offset relative to the toolbar's top-left corner
-	dragOffset.x = e.clientX - rect.left;
-	dragOffset.y = e.clientY - rect.top;
-
-	window.addEventListener("mousemove", onDrag);
-	window.addEventListener("mouseup", stopDrag);
-}
-
-function onDrag(e) {
-	if (!isDragging) return;
-	const parentRect = toolbarRef.value.parentElement.getBoundingClientRect();
-
-	// Calculate new position relative to parent container
-	let newX = e.clientX - parentRect.left - dragOffset.x;
-	let newY = e.clientY - parentRect.top - dragOffset.y;
-
-	// Constrain to container bounds
-	const maxX = parentRect.width - toolbarRef.value.offsetWidth;
-	const maxY = parentRect.height - toolbarRef.value.offsetHeight;
-
-	newX = Math.max(0, Math.min(newX, maxX));
-	newY = Math.max(0, Math.min(newY, maxY));
-
-	toolbarPos.value = { x: newX, y: newY };
-}
-
-function stopDrag() {
-	isDragging = false;
-	window.removeEventListener("mousemove", onDrag);
-	window.removeEventListener("mouseup", stopDrag);
-}
-
-const isCollapsed = ref(false);
-
-function toggleCollapse() {
-	isCollapsed.value = !isCollapsed.value;
-}
-
 const showDisabledNodes = ref(true);
 
 // Watch for changes in showDisabledNodes or store.nodes to update 'hidden' flag
@@ -311,13 +207,34 @@ watch(
 	{ immediate: true, deep: false }
 );
 
-const showSidebar = computed(() => store.selected_id !== null);
+// Watch for layout direction or nodes changes to re-layout the graph
+watch(
+	[() => store.settings?.layout_direction, () => store.nodes.length],
+	([newDir, nodeCount], [oldDir, oldNodeCount]) => {
+		if (newDir && nodeCount > 0) {
+			// Only auto-layout if direction changed OR if it's the first time nodes are loaded
+			if (newDir !== oldDir || (nodeCount > 0 && oldNodeCount === 0)) {
+				const dir = newDir === "Top to Bottom" ? "TB" : "LR";
+				// Use nextTick to ensure VueFlow has nodes
+				nextTick(() => {
+					setTimeout(() => layoutGraph(dir), 50);
+				});
+			}
+		}
+	}
+);
+
+const showSidebar = computed(() => {
+	if (store.settings?.action_config_mode === "Dialog") return false;
+	return store.show_sidebar && store.selected_id !== null;
+});
 const sidebarOrder = computed(() => (store.settings?.sidebar_position === "Right" ? 2 : 0));
 const isRTL = computed(() => document.documentElement.dir === "rtl");
 const isReadOnly = computed(() => store.is_read_only);
 
 function closeSidebar() {
 	store.selected_id = null;
+	store.show_sidebar = false;
 }
 
 function onPaneReady(instance) {
@@ -330,19 +247,17 @@ onMounted(async () => {
 	await store.fetch();
 	autoConnectStartNode();
 	window.addEventListener("keydown", handleKeydown);
-	window.addEventListener("mousemove", handleGlobalMouseMove);
 
 	setTimeout(() => {
 		if (store.nodes.length > 0) {
-			// Restricted to Left to Right for this release
-			layoutGraph("LR");
+			const dir = store.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+			layoutGraph(dir);
 		}
 	}, 100);
 });
 
 onUnmounted(() => {
 	window.removeEventListener("keydown", handleKeydown);
-	window.removeEventListener("mousemove", handleGlobalMouseMove);
 });
 
 async function copySelectedToClipboard() {
@@ -362,13 +277,24 @@ async function copySelectedToClipboard() {
 	const payload = {
 		type: "flexirule-clipboard",
 		version: 1,
-		nodes: filterNodes.map((n) => ({
-			id: n.id,
-			type: n.type,
-			position: { ...n.position },
-			label: n.label,
-			data: JSON.parse(JSON.stringify(n.data || {})),
-		})),
+		nodes: filterNodes.map((n) => {
+			const nodeData = JSON.parse(JSON.stringify(n.data || {}));
+			// Sync condition_json for Condition nodes if missing
+			if (
+				nodeData.action_type === "Condition" &&
+				!nodeData.condition_json &&
+				nodeData.config
+			) {
+				nodeData.condition_json = JSON.stringify(nodeData.config);
+			}
+			return {
+				id: n.id,
+				type: n.type,
+				position: { ...n.position },
+				label: n.label,
+				data: nodeData,
+			};
+		}),
 		edges: selectedEdges.map((e) => ({
 			id: e.id,
 			source: e.source,
@@ -538,31 +464,6 @@ function getAutoConnectSource() {
 	return null;
 }
 
-function getNextNodePosition(parentNode = null) {
-	if (parentNode?.position) {
-		return {
-			x: (parentNode.position.x || 0) + 300,
-			y: parentNode.position.y || 0,
-		};
-	}
-
-	const placedNodes = (store.nodes || []).filter(
-		(node) =>
-			node.type !== "start" &&
-			Number.isFinite(node.position?.x) &&
-			Number.isFinite(node.position?.y)
-	);
-	if (placedNodes.length) {
-		const lastNode = placedNodes[placedNodes.length - 1];
-		return {
-			x: (lastNode.position.x || 0) + 260,
-			y: lastNode.position.y || 0,
-		};
-	}
-
-	return { x: 340, y: 255 };
-}
-
 function autoConnectNode(nodeId, parentNode = null) {
 	const sourceNode = parentNode || getAutoConnectSource();
 	if (!sourceNode) return;
@@ -590,52 +491,43 @@ function autoConnectNode(nodeId, parentNode = null) {
 	];
 }
 
-function addNode(type, position) {
-	const id = generateShortId();
-	let label = "";
-	let actionType = "";
-	const parentNode = getAutoConnectSource();
-	const resolvedPosition = position || getNextNodePosition(parentNode);
-
-	const nodeData = store.get_default_node_data(type.toLowerCase(), label);
-	const nodeType = mapActionTypeToNodeType(nodeData.action_type);
-	const newNode = {
-		id,
-		type: nodeType,
-		position: resolvedPosition,
-		label: nodeData.action_label,
-		data: {
-			...nodeData,
-			action_id: id,
-			suggested_parent_id: parentNode?.id || null,
-			suggested_source_handle: parentNode?.type === "condition" ? "true" : "default",
-		},
-	};
-
-	store.nodes = [...store.nodes, newNode];
-	autoConnectNode(id, parentNode);
-	store.selected_id = id;
-	store.mark_dirty();
-
-	if (vfInstance) {
-		setTimeout(() => {
-			vfInstance.setCenter(newNode.position.x + 100, newNode.position.y, {
-				zoom: 1,
-				duration: 500,
-			});
-		}, 50);
-	}
-}
-
 function insertNodeOnEdge(payload) {
+	if (payload.isPaste) {
+		let clipboard = null;
+		try {
+			const local = localStorage.getItem("flexirule-clipboard") || store.local_clipboard;
+			if (local) clipboard = JSON.parse(local);
+		} catch (e) {
+			console.error("Paste on edge failed:", e);
+		}
+
+		if (clipboard && clipboard.nodes?.length) {
+			const newNodeId = store.paste_on_edge(payload.edgeId, clipboard.nodes, clipboard.edges);
+			if (newNodeId) {
+				const dir = store.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
+				setTimeout(() => layoutGraph(dir), 50);
+				frappe.show_alert({ message: __("Nodes pasted on edge"), indicator: "green" }, 2);
+			}
+		}
+		return;
+	}
+
 	const newNodeId = store.insert_node_on_edge(
 		payload.edgeId,
 		payload.actionType || "selector",
 		payload
 	);
 	if (newNodeId) {
-		const dir = store.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
-		setTimeout(() => layoutGraph(dir), 50);
+		const dir = store.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+		setTimeout(() => {
+			layoutGraph(dir);
+			// Auto-open config for nodes that require immediate configuration
+			const NEEDS_CONFIG_NOW = ["Condition", "Loop", "Switch"];
+			const insertedNode = store.nodes.find((n) => n.id === newNodeId);
+			if (insertedNode && NEEDS_CONFIG_NOW.includes(insertedNode.data?.action_type)) {
+				store.open_config(newNodeId);
+			}
+		}, 80);
 	}
 }
 function autoConnectStartNode() {
@@ -663,15 +555,24 @@ function autoConnectStartNode() {
 
 function onNodeClick(event) {
 	store.selected_id = event.node.id;
+
+	const trigger = store.settings?.open_config_on || "Click";
+	if (trigger === "Click" && event.node.type !== "start") {
+		store.open_config(event.node.id);
+	}
 }
+
 function onNodeDblClick(event) {
 	store.selected_id = event.node.id;
-	if (event.node.type !== "start") {
-		store.show_config_modal = true;
+
+	const trigger = store.settings?.open_config_on || "Click";
+	if (trigger === "Double Click" && event.node.type !== "start") {
+		store.open_config(event.node.id);
 	}
 }
 function onPaneClick() {
 	store.selected_id = null;
+	store.show_sidebar = false;
 }
 
 function onConnect(params) {
@@ -714,38 +615,6 @@ function onEdgesChange(changes) {
 			store.delete_edge(change.id);
 		}
 	});
-}
-
-function onDragStart(event, nodeType) {
-	if (event.dataTransfer) {
-		event.dataTransfer.setData("text/plain", nodeType);
-		event.dataTransfer.effectAllowed = "move";
-	}
-}
-
-function onDragOver(event) {
-	event.preventDefault();
-	if (event.dataTransfer) {
-		event.dataTransfer.dropEffect = "move";
-	}
-}
-
-const flowWrapper = ref(null);
-
-function onDrop(event) {
-	event.preventDefault();
-
-	const nodeType = event.dataTransfer?.getData("text/plain");
-	if (!nodeType || !vfInstance) return;
-
-	const bounds = flowWrapper.value.getBoundingClientRect();
-
-	const position = vfInstance.project({
-		x: event.clientX - bounds.left,
-		y: event.clientY - bounds.top,
-	});
-
-	addNode(nodeType, position);
 }
 
 function onEdgeClick({ edge, event }) {
@@ -824,158 +693,6 @@ function onEdgeClick({ edge, event }) {
 	align-items: center;
 	justify-content: center;
 	flex: 1;
-}
-
-.floating-toolbar {
-	position: absolute;
-	z-index: 100;
-	min-width: 140px; /* Adjust based on preference */
-	background: var(--card-bg, #fff);
-	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
-	box-shadow: var(--shadow-base);
-	padding: 10px;
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	cursor: move;
-}
-
-.floating-toolbar .toolbar-handle {
-	text-align: center;
-	color: var(--text-muted);
-	font-size: 10px;
-	cursor: move;
-	margin-bottom: 5px;
-	border-bottom: 1px solid var(--border-color);
-	padding-bottom: 5px;
-}
-
-.floating-toolbar .btn-group-vertical {
-	display: flex;
-	flex-direction: column;
-	gap: 5px;
-}
-
-.floating-toolbar button {
-	text-align: left;
-	width: 100%;
-}
-
-.floating-toolbar.collapsed {
-	min-width: auto;
-	width: 40px;
-}
-
-.collapse-btn {
-	cursor: pointer;
-	padding: 0 4px;
-	opacity: 0.6;
-}
-.collapse-btn:hover {
-	opacity: 1;
-}
-
-/* Removed .rule-status-toggle logic */
-.switch {
-	position: relative;
-	display: inline-block;
-	width: 32px;
-	height: 18px;
-	margin: 0;
-}
-.switch input {
-	opacity: 0;
-	width: 0;
-	height: 0;
-}
-.slider {
-	position: absolute;
-	cursor: pointer;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background-color: #ccc;
-	transition: 0.4s;
-	border-radius: 34px;
-}
-.slider:before {
-	position: absolute;
-	content: "";
-	height: 14px;
-	width: 14px;
-	left: 2px;
-	bottom: 2px;
-	background-color: white;
-	transition: 0.4s;
-	border-radius: 50%;
-}
-
-.read-only-badge {
-	background-color: var(--orange-100);
-	color: var(--orange-600);
-	padding: 2px 8px;
-	border-radius: 12px;
-	font-size: 11px;
-	font-weight: 600;
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	border: 1px solid var(--orange-300);
-}
-input:checked + .slider {
-	background-color: var(--primary);
-}
-input:focus + .slider {
-	box-shadow: 0 0 1px var(--primary);
-}
-input:checked + .slider:before {
-	transform: translateX(14px);
-}
-
-.small-switch {
-	width: 28px;
-	height: 16px;
-	margin: 0;
-}
-.small-switch .slider:before {
-	height: 12px;
-	width: 12px;
-}
-.small-switch input:checked + .slider:before {
-	transform: translateX(12px);
-}
-
-/* RTL sidebar positioning */
-.sidebar-rtl {
-	order: 0;
-}
-
-.divider-horizontal {
-	height: 1px;
-	background: var(--border-color);
-	margin: 4px 0;
-	opacity: 0.6;
-}
-
-.toolbar-sub-btn {
-	justify-content: flex-start !important;
-	padding-left: 8px !important;
-	font-weight: 500;
-	opacity: 0.8;
-}
-
-.toolbar-sub-btn:hover {
-	opacity: 1;
-	background: var(--gray-50);
-	text-decoration: none;
-}
-
-.toolbar-sub-btn i {
-	width: 14px;
-	margin-right: 6px;
-	text-align: center;
 }
 
 @media (max-width: 1200px) {

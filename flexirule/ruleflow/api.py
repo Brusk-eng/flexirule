@@ -541,6 +541,20 @@ def validate_rule_document(doc: str | dict, mode: str = "full"):
 
 	from flexirule.ruleflow.core.validation_service import validate_rule_definition
 
+	# Align API precheck with actual save pipeline:
+	# compile trigger/action conditions before running validators.
+	if isinstance(payload, dict):
+		try:
+			rule_payload = dict(payload)
+			rule_payload.setdefault("doctype", "Rule")
+			rule_doc = frappe.get_doc(rule_payload)
+			if hasattr(rule_doc, "compile_conditions"):
+				rule_doc.compile_conditions()
+			return validate_rule_definition(rule_doc, mode=mode)
+		except Exception:
+			# Fallback to payload validation to preserve prior behavior if coercion fails.
+			pass
+
 	return validate_rule_definition(payload, mode=mode)
 
 

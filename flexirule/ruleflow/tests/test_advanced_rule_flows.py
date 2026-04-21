@@ -423,6 +423,46 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 			priority="0",
 		)
 
+	def _create_loop_rule(self):
+		return self._create_rule(
+			f"{self.RULE_PREFIX} Loop",
+			actions=[
+				{
+					"action_id": "root",
+					"action_type": "Entry Action",
+					"action_label": "Loop Start",
+					"next_step_if_true": "loop_phones",
+				},
+				{
+					"action_id": "loop_phones",
+					"action_type": "Loop",
+					"action_label": "Iterate Phones",
+					"config": _j({"iterator": "doc.phone_nos", "alias": "phone_row"}),
+					"next_step_if_true": "set_loop_var",
+					"next_step_if_false": "loop_stop",
+				},
+				{
+					"action_id": "set_loop_var",
+					"action_type": "Set Value",
+					"action_label": "Set Loop Context",
+					"target_field": "last_loop_phone",
+					"value_template": "{{ vars.phone_row.phone }}",
+					"mutation_mode": "Set Context Variable",
+					"return_variable": "last_phone",
+					"next_step_if_true": "loop_phones",
+				},
+				{
+					"action_id": "loop_stop",
+					"action_type": "Stop",
+					"operation": "Success",
+					"action_label": "Loop Complete",
+				},
+			],
+			trigger_type="Callable Event",
+			trigger_event=None,
+			priority="0",
+		)
+
 	def _create_scheduler(self, rule_name, contact_name):
 		return frappe.get_doc(
 			{
@@ -443,6 +483,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		after_insert_rule = self._create_after_insert_rule(callable_rule.name)
 		scheduler_rule = self._create_scheduler_rule(callable_rule.name)
 		raise_error_rule = self._create_raise_error_rule()
+		loop_rule = self._create_loop_rule()
 		return {
 			"nested": nested_rule,
 			"callable": callable_rule,
@@ -450,6 +491,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 			"after_insert": after_insert_rule,
 			"scheduler": scheduler_rule,
 			"raise_error": raise_error_rule,
+			"loop": loop_rule,
 		}
 
 	def test_suite_fixtures_cover_all_current_action_types(self):
@@ -459,12 +501,15 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 			used_action_types.update(action.action_type for action in rule.actions)
 
 		available_action_types = {
-			value
-			for value in frappe.get_meta("Rule Action").get_field("action_type").options.split("\n")
-			if value
+			value.strip()
+			for value in frappe.get_meta("Rule Action").get_field("action_type").options.splitlines()
+			if value.strip()
 		}
 
-		self.assertSetEqual(used_action_types, available_action_types)
+		missing = available_action_types - used_action_types
+		extra = used_action_types - available_action_types
+		msg = f"\nMissing coverage for: {missing}\nExtra coverage for: {extra}"
+		self.assertSetEqual(used_action_types, available_action_types, msg)
 
 	def test_contact_insert_runs_multi_rule_chain_with_nested_subrules(self):
 		phone = "9715550100"

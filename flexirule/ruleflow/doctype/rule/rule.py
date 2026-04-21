@@ -3,6 +3,7 @@
 
 import ast
 import json
+import re
 
 import frappe
 from frappe import _
@@ -492,6 +493,85 @@ class Rule(Document):
 		RootVisitor().visit(tree)
 		return roots
 
+	@staticmethod
+	def _collect_known_return_variables(actions) -> set[str]:
+		known = set()
+		for action in actions or []:
+			name = (getattr(action, "return_variable", None) or "").strip()
+			if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name):
+				known.add(name)
+		return known
+
+	def _normalize_context_ref(self, ref: str, known_var_roots: set[str] | None = None) -> str:
+		"""Normalize shorthand refs to canonical roots used by runtime.
+
+		Examples:
+		- is_pos -> doc.is_pos
+		- result.total (where result is return_variable) -> vars.result.total
+		"""
+		if not ref or not isinstance(ref, str):
+			return ref
+
+		value = ref.strip()
+		if not value:
+			return value
+
+		# Only normalize simple dotted paths; keep full expressions untouched.
+		if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$", value):
+			return value
+
+		known_var_roots = known_var_roots or set()
+		allowed_roots = {"doc", "old_doc", "vars", "item", "loop", "caller", "rule", "doctype"}
+		root = value.split(".", 1)[0]
+
+		if root in allowed_roots:
+			return value
+
+		if root in known_var_roots:
+			return f"vars.{value}"
+
+		return f"doc.{value}"
+
+	@staticmethod
+	def _normalize_inline_jinja_refs(content: str, known_var_roots: set[str] | None = None) -> str:
+		"""Normalize inline {{ field }} / {{ result.x }} refs inside free text segments."""
+		if not content or not isinstance(content, str):
+			return content
+
+		known_var_roots = known_var_roots or set()
+		allowed_roots = {"doc", "old_doc", "vars", "item", "loop", "caller", "rule", "doctype"}
+		path_pattern = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+
+		def _repl(match):
+			expr = (match.group(1) or "").strip()
+			if not expr or not path_pattern.match(expr):
+				return match.group(0)
+			root = expr.split(".", 1)[0]
+			if root in allowed_roots:
+				return "{{ " + expr + " }}"
+			if root in known_var_roots:
+				return "{{ vars." + expr + " }}"
+			return "{{ doc." + expr + " }}"
+
+		return re.sub(r"\{\{\s*([^}]+?)\s*\}\}", _repl, content)
+
+	@staticmethod
+	def _collect_condition_aliases(node) -> set[str]:
+		aliases: set[str] = set()
+		if not isinstance(node, dict):
+			return aliases
+
+		if "collection" in node:
+			alias = (node.get("alias") or "item").strip()
+			if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", alias):
+				aliases.add(alias)
+			aliases.update(Rule._collect_condition_aliases(node.get("where")))
+
+		for child in node.get("conditions") or []:
+			aliases.update(Rule._collect_condition_aliases(child))
+
+		return aliases
+
 	def _validate_allowed_roots(
 		self, expression: str, label: str = "expression", extra_roots: set[str] | None = None
 	):
@@ -527,16 +607,20 @@ class Rule(Document):
 				continue
 
 			segments = text_ui.get("segments") or []
-			compiled = self._compile_segments_v2(segments, action.action_label or action.action_id)
+			known_var_roots = self._collect_known_return_variables(self.actions)
+			compiled = self._compile_segments_v2(
+				segments, action.action_label or action.action_id, known_var_roots
+			)
 
 			action.value_template = compiled
 			action.config = json.dumps(config)
 
-	def _compile_segments_v2(self, segments, action_label):
+	def _compile_segments_v2(self, segments, action_label, known_var_roots=None):
 		"""Compile v2 segment list to Jinja template string."""
 		if not isinstance(segments, list):
 			return ""
 
+		known_var_roots = known_var_roots or set()
 		out = []
 		for segment in segments:
 			if not isinstance(segment, dict):
@@ -546,11 +630,12 @@ class Rule(Document):
 
 			if seg_type == "text":
 				# Content may contain inline {{ var }} markers from TipTap
-				out.append(segment.get("content") or segment.get("text") or "")
+				content = segment.get("content") or segment.get("text") or ""
+				out.append(self._normalize_inline_jinja_refs(content, known_var_roots))
 				continue
 
 			if seg_type == "variable":
-				path = (segment.get("path") or "").strip()
+				path = self._normalize_context_ref(segment.get("path") or "", known_var_roots)
 				if not path:
 					continue
 				self._validate_allowed_roots(path, _("Action '{0}' variable path").format(action_label))
@@ -561,41 +646,55 @@ class Rule(Document):
 				condition = segment.get("condition")
 				if isinstance(condition, dict):
 					# ConditionBuilder tree — compile to expression
-					cond_expr = self._compile_condition_tree(condition)
+					cond_expr = self._compile_condition_tree(condition, known_var_roots)
+					extra_roots = self._collect_condition_aliases(condition)
 				elif isinstance(condition, str):
 					cond_expr = condition.strip()
+					extra_roots = None
 				else:
 					cond_expr = "True"
+					extra_roots = None
 
 				if cond_expr:
 					self._validate_allowed_roots(
 						cond_expr,
 						_("Action '{0}' conditional expression").format(action_label),
+						extra_roots=extra_roots,
 					)
 
-				then_block = self._compile_segments_v2(segment.get("then_segments") or [], action_label)
+				then_block = self._compile_segments_v2(
+					segment.get("then_segments") or [], action_label, known_var_roots
+				)
 				block = "{% if " + (cond_expr or "True") + " %}" + then_block
 
 				# elif branches
 				for elif_b in segment.get("elif_branches") or []:
 					elif_cond = elif_b.get("condition")
 					if isinstance(elif_cond, dict):
-						elif_expr = self._compile_condition_tree(elif_cond)
+						elif_expr = self._compile_condition_tree(elif_cond, known_var_roots)
+						elif_extra_roots = self._collect_condition_aliases(elif_cond)
 					elif isinstance(elif_cond, str):
 						elif_expr = elif_cond.strip()
+						elif_extra_roots = None
 					else:
 						elif_expr = "True"
+						elif_extra_roots = None
 
 					if elif_expr:
 						self._validate_allowed_roots(
 							elif_expr,
 							_("Action '{0}' elif expression").format(action_label),
+							extra_roots=elif_extra_roots,
 						)
-					elif_content = self._compile_segments_v2(elif_b.get("segments") or [], action_label)
+					elif_content = self._compile_segments_v2(
+						elif_b.get("segments") or [], action_label, known_var_roots
+					)
 					block += "{% elif " + (elif_expr or "True") + " %}" + elif_content
 
 				# else
-				else_block = self._compile_segments_v2(segment.get("else_segments") or [], action_label)
+				else_block = self._compile_segments_v2(
+					segment.get("else_segments") or [], action_label, known_var_roots
+				)
 				if else_block:
 					block += "{% else %}" + else_block
 
@@ -605,10 +704,11 @@ class Rule(Document):
 
 		return "".join(out)
 
-	def _compile_condition_tree(self, node):
+	def _compile_condition_tree(self, node, known_var_roots=None):
 		"""Compile a ConditionBuilder JSON tree to a Python boolean expression."""
 		if not node or not isinstance(node, dict):
 			return "True"
+		known_var_roots = known_var_roots or set()
 
 		# Group node (and/or)
 		if "conditions" in node:
@@ -618,7 +718,7 @@ class Rule(Document):
 
 			parts = []
 			for child in conditions:
-				compiled = self._compile_condition_tree(child)
+				compiled = self._compile_condition_tree(child, known_var_roots)
 				if compiled:
 					parts.append(compiled)
 
@@ -632,15 +732,15 @@ class Rule(Document):
 
 		# Collection node (any/all)
 		if "collection" in node:
-			alias = node.get("alias") or "row"
-			collection = node.get("collection") or "[]"
-			where_expr = self._compile_condition_tree(node.get("where") or {})
+			alias = node.get("alias") or "item"
+			collection = self._normalize_context_ref(node.get("collection") or "[]", known_var_roots)
+			where_expr = self._compile_condition_tree(node.get("where") or {}, known_var_roots)
 			quantifier = "all" if node.get("op") == "all" else "any"
 			return f"{quantifier}({where_expr} for {alias} in {collection})"
 
 		# Simple condition (left op right)
 		if "left" in node:
-			left = (node.get("left") or {}).get("ref", "")
+			left = self._normalize_context_ref((node.get("left") or {}).get("ref", ""), known_var_roots)
 			if not left:
 				return ""
 
@@ -653,7 +753,7 @@ class Rule(Document):
 
 			right_obj = node.get("right") or {}
 			if right_obj.get("ref"):
-				right = right_obj["ref"]
+				right = self._normalize_context_ref(right_obj["ref"], known_var_roots)
 			else:
 				right = self._format_condition_value(right_obj.get("value"))
 
@@ -929,6 +1029,7 @@ class Rule(Document):
 			parse_condition_payload,
 			set_condition_payload_on_action,
 		)
+		from flexirule.ruleflow.core.contracts import normalize_action_type
 
 		compiler = ConditionCompiler()
 
@@ -949,7 +1050,7 @@ class Rule(Document):
 
 		# Compile Action Conditions
 		for action in self.actions:
-			if action.action_type != "Condition":
+			if normalize_action_type(action.action_type) != "Condition":
 				continue
 
 			condition_payload = get_condition_payload(action)
@@ -1044,11 +1145,20 @@ class Rule(Document):
 
 	def _validate_set_value_editable(self, action):
 		"""Check if Set Value target field is valid and editable for current trigger event"""
-		target_field = getattr(action, "target_field", None)
+		target_field = (
+			action.get("target_field") if hasattr(action, "get") else getattr(action, "target_field", None)
+		)
 		if not target_field:
 			return
 
 		if not self.document_type:
+			return
+
+		# Skip DocType field validation if we are setting a context variable
+		mutation_mode = (
+			action.get("mutation_mode") if hasattr(action, "get") else getattr(action, "mutation_mode", None)
+		)
+		if mutation_mode in ["Set Context Variable", "Update Context Variable"]:
 			return
 
 		meta = frappe.get_meta(self.document_type)
@@ -1211,6 +1321,11 @@ class Rule(Document):
 		next_available = set(available_vars)
 		if action.return_variable:
 			next_available.add(action.return_variable)
+
+		if action.action_type == "Loop":
+			config = self._parse_action_config(action)
+			alias = config.get("alias", "item")
+			next_available.add(alias)
 
 		next_path = set(path)
 		next_path.add(action_id)

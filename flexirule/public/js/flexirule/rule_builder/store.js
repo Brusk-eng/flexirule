@@ -83,6 +83,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 		get: () => _ui().selected_id,
 		set: (v) => (_ui().selected_id = v),
 	});
+	const show_sidebar = computed({
+		get: () => _ui().show_sidebar,
+		set: (v) => (_ui().show_sidebar = v),
+	});
 	const show_config_modal = computed({
 		get: () => _ui().show_config_modal,
 		set: (v) => (_ui().show_config_modal = v),
@@ -169,8 +173,53 @@ export const useStore = defineStore("rule-builder-store", () => {
 		_graph().touch_node(nodeId);
 	}
 
+	function toggle_node_enabled(nodeId) {
+		_graph().toggle_node_enabled(nodeId);
+		mark_dirty();
+	}
+
 	function insert_node_on_edge(edgeId, nodeType) {
 		const id = _graph().insert_node_on_edge(edgeId, nodeType);
+		if (id) mark_dirty();
+		return id;
+	}
+
+	/**
+	 * Live-updates an edge on the canvas when the user changes a next-step via
+	 * the ActionSettings autocomplete (without going through insert_node_on_edge).
+	 *
+	 * @param {string} sourceId    - ID of the source node
+	 * @param {string} handle      - "true" | "false" | "default"
+	 * @param {string} newTargetId - ID of the new target node
+	 */
+	function reconnect_node_edge(sourceId, handle, newTargetId) {
+		const graph = _graph();
+		const edges = graph.edges;
+
+		// Remove the existing edge on this handle
+		const existingIdx = edges.value.findIndex(
+			(e) => e.source === sourceId && e.sourceHandle === handle
+		);
+		if (existingIdx !== -1) {
+			edges.value.splice(existingIdx, 1);
+		}
+
+		// Add new edge if a target was selected
+		if (newTargetId) {
+			edges.value.push({
+				id: `e-${sourceId}-${newTargetId}-${handle}`,
+				source: sourceId,
+				target: newTargetId,
+				sourceHandle: handle,
+				type: "add",
+			});
+		}
+
+		mark_dirty();
+	}
+
+	function paste_on_edge(edgeId, pastedNodes, pastedEdges) {
+		const id = _graph().paste_on_edge(edgeId, pastedNodes, pastedEdges);
 		if (id) mark_dirty();
 		return id;
 	}
@@ -239,6 +288,17 @@ export const useStore = defineStore("rule-builder-store", () => {
 		return _rule().fetch_available_rules();
 	}
 
+	function open_config(nodeId) {
+		const configMode = settings.value?.action_config_mode || "Sidebar";
+		selected_id.value = nodeId;
+		if (configMode === "Dialog") {
+			show_config_modal.value = true;
+			config_modal_mode.value = "setup";
+		} else {
+			show_sidebar.value = true;
+		}
+	}
+
 	function set_test_result(path, context) {
 		_ui().set_test_result(path, context);
 	}
@@ -267,11 +327,13 @@ export const useStore = defineStore("rule-builder-store", () => {
 		nodes,
 		edges,
 		selected_id,
+		show_sidebar,
 		show_config_modal,
 		config_modal_mode,
 		processes,
 		available_rules,
 		is_dirty,
+		settings,
 
 		// Computed
 		effectiveDisabledIds,
@@ -299,7 +361,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 		delete_node,
 		delete_edge,
 		touch_node,
+		toggle_node_enabled,
 		insert_node_on_edge,
+		reconnect_node_edge,
+		paste_on_edge,
 		get_default_node_data,
 		getEffectivelyDisabledIds,
 
@@ -337,5 +402,6 @@ export const useStore = defineStore("rule-builder-store", () => {
 
 		// Node operations
 		pasteNodes,
+		open_config,
 	};
 });

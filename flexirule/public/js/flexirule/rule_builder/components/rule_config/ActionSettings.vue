@@ -1,205 +1,270 @@
 <template>
 	<div class="action-settings-container">
+		<!-- ═══════════════ EXECUTION SETTINGS ═══════════════ -->
 		<div class="settings-section">
 			<h6 class="section-title-mini">{{ __("Execution Settings") }}</h6>
 			<div class="settings-grid">
 				<div class="grid-item">
 					<ControlFactory
 						:df="
-							with_read_only({
+							ro({
 								fieldname: 'is_enabled',
 								fieldtype: 'Check',
 								label: __('Enabled'),
 							})
 						"
 						:modelValue="node.data?.is_enabled"
-						@update:modelValue="(val) => update_action_field('is_enabled', val)"
+						@update:modelValue="(v) => emit_field('is_enabled', v)"
 					/>
 				</div>
 				<div class="grid-item">
 					<ControlFactory
 						:df="
-							with_read_only({
+							ro({
 								fieldname: 'is_async',
 								fieldtype: 'Check',
 								label: __('Run Asynchronously'),
 							})
 						"
 						:modelValue="node.data?.is_async"
-						@update:modelValue="(val) => update_action_field('is_async', val)"
+						@update:modelValue="(v) => emit_field('is_async', v)"
 					/>
 				</div>
 				<div class="grid-item">
 					<ControlFactory
 						:df="
-							with_read_only({
+							ro({
 								fieldname: 'skip_permissions',
 								fieldtype: 'Check',
 								label: __('Skip Permissions'),
 							})
 						"
 						:modelValue="node.data?.skip_permissions"
-						@update:modelValue="(val) => update_action_field('skip_permissions', val)"
+						@update:modelValue="(v) => emit_field('skip_permissions', v)"
 					/>
 				</div>
 				<div class="grid-item span-2" v-if="!!node.data?.skip_permissions">
 					<ControlFactory
 						:df="
-							with_read_only({
+							ro({
 								fieldname: 'permission_audit_reason',
 								fieldtype: 'Small Text',
 								label: __('Permission Audit Reason'),
-								description: __(
-									'Required when bypassing permissions. Stored in action config.'
-								),
+								description: __('Required when bypassing permissions.'),
 							})
 						"
 						:modelValue="node.data?.permission_audit_reason"
-						@update:modelValue="
-							(val) => update_action_field('permission_audit_reason', val)
-						"
+						@update:modelValue="(v) => emit_field('permission_audit_reason', v)"
 					/>
 				</div>
 				<div class="grid-item">
 					<ControlFactory
 						:df="
-							with_read_only({
+							ro({
 								fieldname: 'on_error',
 								fieldtype: 'Select',
 								label: __('On Error'),
-								options: 'Stop\nContinue\nRetry\nRollback\nEscalate',
+								options: '\nStop\nContinue\nRetry\nRollback\nEscalate',
 							})
 						"
 						:modelValue="node.data?.on_error"
-						@update:modelValue="(val) => update_action_field('on_error', val)"
+						@update:modelValue="(v) => emit_field('on_error', v)"
 					/>
 				</div>
 				<div class="grid-item" v-if="node.data?.on_error === 'Retry'">
 					<ControlFactory
 						:df="
-							with_read_only({
+							ro({
 								fieldname: 'retry_count',
 								fieldtype: 'Int',
 								label: __('Retry Count'),
 							})
 						"
 						:modelValue="node.data?.retry_count"
-						@update:modelValue="(val) => update_action_field('retry_count', val)"
+						@update:modelValue="(v) => emit_field('retry_count', v)"
 					/>
 				</div>
 				<div class="grid-item">
 					<ControlFactory
 						:df="
-							with_read_only({
-								fieldname: 'timeout',
-								fieldtype: 'Int',
-								label: __('Timeout (s)'),
-							})
+							ro({ fieldname: 'timeout', fieldtype: 'Int', label: __('Timeout (s)') })
 						"
 						:modelValue="node.data?.timeout"
-						@update:modelValue="(val) => update_action_field('timeout', val)"
+						@update:modelValue="(v) => emit_field('timeout', v)"
 					/>
 				</div>
 			</div>
 		</div>
 
-		<div class="section-divider my-4"></div>
-
-		<div class="settings-section">
-			<h6 class="section-title-mini">{{ __("Output Settings") }}</h6>
-			<div class="settings-grid">
-				<div class="grid-item span-2">
-					<ControlFactory
-						:df="
-							with_read_only({
-								fieldname: 'return_variable',
-								fieldtype: 'Data',
-								label: __('Return Variable Name'),
-								placeholder: __('e.g. my_result'),
-								description: __(
-									'The variable where the action result will be stored.'
-								),
-							})
-						"
-						:modelValue="node.data?.return_variable"
-						@update:modelValue="(val) => update_action_field('return_variable', val)"
-					/>
+		<!-- ═══════════════ OUTPUT SETTINGS ═══════════════ -->
+		<!-- Hidden for Condition / Loop / Switch / Stop — they don't store a return variable -->
+		<template v-if="showReturnVariable">
+			<div class="section-divider my-4"></div>
+			<div class="settings-section">
+				<h6 class="section-title-mini">{{ __("Output Settings") }}</h6>
+				<div class="settings-grid">
+					<div class="grid-item span-2">
+						<ControlFactory
+							:df="
+								ro({
+									fieldname: 'return_variable',
+									fieldtype: 'Data',
+									label: __('Return Variable Name'),
+									placeholder: __('e.g. my_result'),
+									description: __(
+										'The variable where the action result will be stored.'
+									),
+								})
+							"
+							:modelValue="node.data?.return_variable"
+							@update:modelValue="(v) => emit_field('return_variable', v)"
+						/>
+					</div>
 				</div>
 			</div>
-		</div>
+		</template>
 
-		<div class="section-divider my-4"></div>
+		<!-- ═══════════════ FLOW CONTROL ═══════════════ -->
+		<!-- Hidden for terminal actions (Stop) -->
+		<template v-if="!isTerminal">
+			<div class="section-divider my-4"></div>
+			<div class="settings-section">
+				<h6 class="section-title-mini">{{ __("Flow Control") }}</h6>
+				<p class="text-muted extra-small mb-3">
+					{{ __("Select the next node to execute on each path.") }}
+				</p>
+				<div class="flow-control-grid">
+					<!-- Primary path -->
+					<div class="flow-control-item">
+						<label class="flow-label">
+							<span
+								class="flow-dot"
+								:style="{ background: flowMeta.primaryColor }"
+							></span>
+							{{ __(flowMeta.primary) }}
+						</label>
+						<AutocompleteControl
+							:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
+							:modelValue="primaryNodeLabel"
+							:get_options="getNodeOptions"
+							:placeholder="__('Select next node…')"
+							:read_only="readOnly"
+							@update:modelValue="onSelectPrimary"
+						/>
+					</div>
 
-		<div class="settings-section">
-			<h6 class="section-title-mini">{{ __("Flow Control") }}</h6>
-			<div class="settings-grid">
-				<div class="grid-item span-2">
-					<ControlFactory
-						:df="
-							with_read_only({
-								fieldname: 'next_step_if_true',
-								fieldtype: 'Data',
-								label:
-									node.data?.action_type === 'Condition'
-										? __('Next Step (If True)')
-										: __('Next Step'),
-							})
-						"
-						:modelValue="node.data?.next_step_if_true"
-						@update:modelValue="(val) => update_action_field('next_step_if_true', val)"
-					/>
-				</div>
-				<div class="grid-item span-2" v-if="node.data?.action_type === 'Condition'">
-					<ControlFactory
-						:df="
-							with_read_only({
-								fieldname: 'next_step_if_false',
-								fieldtype: 'Data',
-								label: __('Next Step (If False)'),
-							})
-						"
-						:modelValue="node.data?.next_step_if_false"
-						@update:modelValue="(val) => update_action_field('next_step_if_false', val)"
-					/>
+					<!-- Secondary path (Condition NO / Loop After Last / Switch default) -->
+					<div class="flow-control-item" v-if="flowMeta.hasSecondary">
+						<label class="flow-label">
+							<span class="flow-dot" style="background: #ef4444"></span>
+							{{ __(flowMeta.secondary) }}
+						</label>
+						<AutocompleteControl
+							:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
+							:modelValue="secondaryNodeLabel"
+							:get_options="getNodeOptions"
+							:placeholder="__('Select next node…')"
+							:read_only="readOnly"
+							@update:modelValue="onSelectSecondary"
+						/>
+					</div>
 				</div>
 			</div>
-		</div>
+		</template>
 	</div>
 </template>
 
 <script setup>
+import { computed } from "vue";
+import { useStore } from "../../store";
 import ControlFactory from "../../controls/ControlFactory.vue";
+import AutocompleteControl from "../../controls/AutocompleteControl.vue";
+import { getContract } from "../../../core/contracts.js";
 
-const props = defineProps({
-	node: Object,
-	readOnly: Boolean,
-});
-
+const props = defineProps({ node: Object, readOnly: Boolean });
 const emit = defineEmits(["update:field"]);
+const store = useStore();
 
-function with_read_only(field) {
-	return { ...field, read_only: props.readOnly };
+// ── Helpers ───────────────────────────────────────────────────────────────
+const ro = (field) => ({ ...field, read_only: props.readOnly });
+const emit_field = (fieldname, value) => emit("update:field", { fieldname, value });
+
+// ── Contract state ────────────────────────────────────────────────────────
+const actionType = computed(() => props.node?.data?.action_type);
+const contract = computed(() => getContract(actionType.value));
+const isTerminal = computed(() => contract.value.terminal);
+
+const HIDE_RETURN_VARIABLE = new Set(["Condition", "Loop", "Switch", "Stop", "Entry Action"]);
+const showReturnVariable = computed(() => !HIDE_RETURN_VARIABLE.has(actionType.value));
+
+// ── Flow control metadata per action type ─────────────────────────────────
+const FLOW_META = {
+	Condition: {
+		primary: "YES (If True)",
+		secondary: "NO (If False)",
+		primaryColor: "#22c55e",
+		hasSecondary: true,
+	},
+	Loop: {
+		primary: "For Each (body)",
+		secondary: "After Last (continue)",
+		primaryColor: "#f59e0b",
+		hasSecondary: true,
+	},
+	Switch: {
+		primary: "True / Matched",
+		secondary: "Default / False",
+		primaryColor: "#06b6d4",
+		hasSecondary: true,
+	},
+};
+const flowMeta = computed(
+	() =>
+		FLOW_META[actionType.value] ?? {
+			primary: "Next Step",
+			secondary: null,
+			primaryColor: "#6366f1",
+			hasSecondary: false,
+		}
+);
+
+// ── Node autocomplete ─────────────────────────────────────────────────────
+function getNodeOptions() {
+	const cid = props.node?.id;
+	return (store.nodes || [])
+		.filter((n) => n.id !== cid && n.type !== "start" && n.id !== "root")
+		.map((n) => ({ label: n.data?.action_label || n.label || n.id, value: n.id }));
 }
 
-function update_action_field(fieldname, value) {
-	emit("update:field", { fieldname, value });
+function resolveLabel(nodeId) {
+	if (!nodeId) return "";
+	const n = (store.nodes || []).find((nd) => nd.id === nodeId);
+	return n ? n.data?.action_label || n.label || nodeId : nodeId;
 }
 
-function update_config_field(fieldname, value) {
-	emit("update:field", { fieldname, value, scope: "config" });
+const primaryNodeLabel = computed(() => resolveLabel(props.node?.data?.next_step_if_true));
+const secondaryNodeLabel = computed(() => resolveLabel(props.node?.data?.next_step_if_false));
+
+function resolveId(labelOrId) {
+	if (!labelOrId) return null;
+	const byId = (store.nodes || []).find((n) => n.id === labelOrId);
+	if (byId) return byId.id;
+	const byLabel = (store.nodes || []).find(
+		(n) => (n.data?.action_label || n.label) === labelOrId
+	);
+	return byLabel ? byLabel.id : labelOrId;
 }
 
-function configValue(fieldname) {
-	const config = props.node?.data?.config;
-	if (!config) return null;
-	if (typeof config === "object") {
-		return config[fieldname];
-	}
-	try {
-		return JSON.parse(config)?.[fieldname];
-	} catch (e) {
-		return null;
-	}
+function onSelectPrimary(val) {
+	const id = resolveId(val);
+	emit_field("next_step_if_true", id);
+	store.reconnect_node_edge?.(props.node?.id, "true", id);
+}
+
+function onSelectSecondary(val) {
+	const id = resolveId(val);
+	emit_field("next_step_if_false", id);
+	store.reconnect_node_edge?.(props.node?.id, "false", id);
 }
 </script>
 
@@ -215,7 +280,6 @@ function configValue(fieldname) {
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 16px;
 }
-
 .grid-item.span-2 {
 	grid-column: 1 / -1;
 }
@@ -228,10 +292,46 @@ function configValue(fieldname) {
 	letter-spacing: 0.05em;
 	margin-bottom: 12px;
 }
-
 .section-divider {
 	height: 1px;
 	background: #e2e8f0;
 	margin: 8px 0;
+}
+.extra-small {
+	font-size: 10px;
+}
+
+/* ── Flow Control ── */
+.flow-control-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+.flow-control-item {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.flow-label {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+	font-weight: 700;
+	color: #374151;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin: 0;
+}
+.flow-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+:deep(.autocomplete-control) {
+	border-radius: 8px;
+	font-size: 13px;
 }
 </style>

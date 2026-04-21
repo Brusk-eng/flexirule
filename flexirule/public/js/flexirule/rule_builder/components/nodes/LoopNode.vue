@@ -1,9 +1,20 @@
 <script setup>
+import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 
-const props = defineProps(["data", "label", "id", "selected"]);
+const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
+
+const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+
+const targetPos = computed(
+	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
+);
+// TB layout: For Each → Right column (body), After Last → Bottom (main flow continues)
+// LR layout: For Each → Bottom row (body), After Last → Right (main flow continues)
+const doPos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
+const donePos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -22,9 +33,7 @@ function deleteNode() {
 }
 
 function openConfig() {
-	store.selected_id = props.id;
-	store.show_config_modal = true;
-	store.config_modal_mode = "setup";
+	store.open_config(props.id);
 }
 </script>
 
@@ -35,6 +44,7 @@ function openConfig() {
 			selected: selected,
 			disabled: isEffectiveDisabled,
 			'test-executed': visitCount > 0,
+			'is-vertical': !isHorizontal,
 		}"
 	>
 		<!-- Execution Badge -->
@@ -45,11 +55,25 @@ function openConfig() {
 					: store.test_execution_path.indexOf(firstVisit) + 1
 			}}
 		</div>
-		<Handle type="target" :position="Position.Left" class="handle-target" />
+		<Handle type="target" :position="targetPos" class="handle-target" />
+		<!-- Return Handle for Loop Body -->
+		<Handle
+			type="target"
+			:position="isHorizontal ? Position.Bottom : Position.Left"
+			id="return"
+			class="handle-return"
+		/>
 
 		<div class="node-header">
-			<i class="fa fa-refresh"></i>
-			<span class="type-text">{{ __("ITERATION") }}</span>
+			<i class="fa fa-refresh icon-spin"></i>
+			<span class="type-text">{{ __("LOOP") }}</span>
+			<button
+				class="action-btn toggle-btn"
+				@click.stop="store.toggle_node_enabled(props.id)"
+				:title="data.is_enabled === 0 ? __('Enable') : __('Disable')"
+			>
+				<i :class="['fa', data.is_enabled === 0 ? 'fa-toggle-off' : 'fa-toggle-on']"></i>
+			</button>
 			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
 				<i class="fa fa-pencil"></i>
 			</button>
@@ -58,30 +82,25 @@ function openConfig() {
 			</button>
 		</div>
 
-		<div class="node-body" @dblclick.stop="openConfig">
+		<div class="node-body">
 			<div class="loop-title">{{ data.action_label || label }}</div>
+			<div class="loop-subtext" v-if="data.collection_variable">
+				{{ __("Collection:") }} {{ data.collection_variable }}
+			</div>
 		</div>
 
-		<!-- Iteration Handle -->
-		<div class="out-port out-do">
-			<span class="port-label">{{ __("DO") }}</span>
-			<Handle
-				type="source"
-				:position="Position.Right"
-				id="default"
-				class="handle-out handle-do"
-			/>
+		<!-- Iteration Handle: For Each → body column -->
+		<!-- TB: exits Right | LR: exits Bottom -->
+		<div :class="['out-port', isHorizontal ? 'out-bottom' : 'out-right']" class="out-do">
+			<div class="bubble-label bubble-foreach">{{ __("For Each") }}</div>
+			<Handle type="source" :position="doPos" id="default" class="handle-out handle-do" />
 		</div>
 
-		<!-- Done Handle -->
-		<div class="out-port out-done">
-			<span class="port-label">{{ __("DONE") }}</span>
-			<Handle
-				type="source"
-				:position="Position.Bottom"
-				id="false"
-				class="handle-out handle-done"
-			/>
+		<!-- Done Handle: After Last → main flow continues -->
+		<!-- TB: exits Bottom | LR: exits Right -->
+		<div :class="['out-port', isHorizontal ? 'out-right' : 'out-bottom']" class="out-done">
+			<div class="bubble-label bubble-afterlast">{{ __("After Last") }}</div>
+			<Handle type="source" :position="donePos" id="false" class="handle-out handle-done" />
 		</div>
 	</div>
 </template>
@@ -90,140 +109,193 @@ function openConfig() {
 .loop-node-card {
 	width: 180px;
 	background: #fff;
-	border: 1px solid #ffe066; /* Light Yellow */
+	border: 1px solid #fab005; /* Salesforce Yellow */
 	border-radius: 8px;
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 	position: relative;
-	border-left: 4px solid #fab005; /* Yellow 7 */
 	transition: all 0.2s ease;
 }
 
 .loop-node-card:hover {
 	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-	border-color: #fab005;
+	transform: translateY(-2px);
 }
 
 .loop-node-card.selected {
-	box-shadow: 0 0 0 2px #fab005;
-	border-color: #fab005;
-}
-
-.loop-node-card.test-executed {
-	box-shadow: 0 0 0 3px #198754;
-	border-color: #198754;
-}
-
-.execution-badge {
-	position: absolute;
-	top: -8px;
-	left: -8px;
-	background: #198754;
-	color: #fff;
-	width: 20px;
-	height: 20px;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 10px;
-	font-weight: 700;
-	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	border-color: var(--primary);
+	box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
 }
 
 .node-header {
+	background: #fab005;
+	color: #fff;
+	padding: 6px 12px;
+	border-radius: 7px 7px 0 0;
 	display: flex;
 	align-items: center;
-	padding: 6px 10px;
-	border-bottom: 1px solid #fff9db;
 	gap: 8px;
-}
-
-.node-header i {
-	color: #fab005;
-	font-size: 12px;
-}
-
-.type-text {
-	font-size: 9px;
-	font-weight: 800;
-	color: #6c757d;
+	font-weight: 700;
+	font-size: 10px;
 	letter-spacing: 0.5px;
-	flex: 1;
+}
+
+.icon-spin {
+	animation: fa-spin 10s infinite linear;
+}
+
+.node-body {
+	padding: 12px;
+	text-align: center;
+}
+
+.loop-title {
+	font-weight: 600;
+	font-size: 13px;
+	color: #2d3748;
+}
+
+.loop-subtext {
+	font-size: 10px;
+	color: #718096;
+	margin-top: 4px;
+}
+
+/* Ports & Bubbles */
+.out-port {
+	position: absolute;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.bubble-label {
+	background: #fff;
+	border: 1px solid #cbd5e0;
+	border-radius: 20px;
+	padding: 4px 12px;
+	font-size: 11px;
+	font-weight: 600;
+	color: #4a5568;
+	white-space: nowrap;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	position: relative;
+	z-index: 2;
+}
+
+/* "For Each" bubble — amber tint to match the loop header */
+.bubble-foreach {
+	border-color: #fab005;
+	color: #92400e;
+	background: #fffbeb;
+}
+
+/* "After Last" bubble — slate neutral */
+.bubble-afterlast {
+	border-color: #94a3b8;
+	color: #334155;
+	background: #f8fafc;
+}
+
+/* Position for LR */
+.out-right {
+	right: -40px;
+	top: 30%;
+	transform: translateY(-50%);
+}
+
+.out-bottom {
+	bottom: -20px;
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+/* Position for TB */
+.loop-node-card.is-vertical .out-bottom {
+	bottom: -20px;
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+.loop-node-card.is-vertical .out-right {
+	right: -40px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+/* Handles */
+.handle-out {
+	position: absolute !important;
+	z-index: 1 !important;
+	opacity: 0; /* Hide the dot, use the bubble center */
+}
+
+/* Make sure the edge starts from the bubble */
+.out-right .handle-out {
+	right: -5px;
+}
+.out-bottom .handle-out {
+	bottom: -5px;
+}
+
+.handle-target,
+.handle-return {
+	background: #fff !important;
+	border: 2px solid #fab005 !important;
+	width: 10px !important;
+	height: 10px !important;
+}
+
+.is-vertical .handle-target {
+	top: -5px !important;
+}
+
+.handle-return {
+	z-index: 10 !important;
 }
 
 .action-btn {
 	background: none;
 	border: none;
+	color: #fff;
+	opacity: 0.8;
 	cursor: pointer;
-	color: #adb5bd;
-	font-size: 10px;
+	padding: 2px;
+	margin-left: auto;
 }
 
 .action-btn:hover {
-	color: #dc3545;
+	opacity: 1;
 }
 
-.node-body {
-	padding: 12px;
-	min-height: 40px;
+.action-btn.delete {
+	margin-left: 4px;
 }
 
-.loop-title {
-	font-size: 13px;
-	font-weight: 600;
-	color: #1a1a1a;
+/* Execution */
+.test-executed {
+	border-left: 4px solid var(--green-500);
 }
 
-/* Handles */
-.handle-target {
-	width: 10px !important;
-	height: 10px !important;
-	background-color: #fff !important;
-	border: 2px solid #fab005 !important;
-}
-
-.handle-out {
-	position: relative !important;
-	transform: none !important;
-	width: 10px !important;
-	height: 10px !important;
-	background: #fff !important;
-	border-width: 2px !important;
-	border-style: solid !important;
-}
-
-.handle-do {
-	border-color: #fab005 !important;
-}
-.handle-done {
-	border-color: #adb5bd !important;
-}
-
-.out-port {
+.execution-badge {
 	position: absolute;
-	display: flex;
-	align-items: center;
-	gap: 4px;
+	top: -10px;
+	right: -10px;
+	background: var(--green-500);
+	color: white;
+	border-radius: 12px;
+	padding: 2px 8px;
+	font-size: 10px;
+	font-weight: bold;
+	z-index: 20;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.out-do {
-	right: -24px;
-	top: 50%;
-	transform: translateY(-50%);
+.out-right .port-label {
+	margin-right: 4px;
 }
-
-.out-done {
-	bottom: -22px;
-	left: 50%;
-	transform: translateX(-50%);
-	flex-direction: column;
-}
-
-.port-label {
-	font-size: 8px;
-	font-weight: 800;
-	color: #6c757d;
+.out-bottom .port-label {
+	margin-bottom: 4px;
 }
 
 .out-do .port-label {

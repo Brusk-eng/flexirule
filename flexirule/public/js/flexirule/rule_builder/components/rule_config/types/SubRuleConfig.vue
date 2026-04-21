@@ -16,8 +16,24 @@
 			<div class="sub-section section-subcard">
 				<div class="d-flex justify-content-between align-items-center mb-2">
 					<h6 class="mb-0">{{ __("Input Mappings") }}</h6>
+					<div class="btn-group">
+						<button
+							class="btn btn-xs"
+							:class="view === 'list' ? 'btn-primary' : 'btn-default'"
+							@click="view = 'list'"
+						>
+							<i class="fa fa-list"></i>
+						</button>
+						<button
+							class="btn btn-xs"
+							:class="view === 'visual' ? 'btn-primary' : 'btn-default'"
+							@click="view = 'visual'"
+						>
+							<i class="fa fa-exchange"></i>
+						</button>
+					</div>
 					<button
-						v-if="!read_only"
+						v-if="!read_only && view === 'list'"
 						class="btn btn-xs btn-outline-primary"
 						@click="add_mapping"
 					>
@@ -28,7 +44,7 @@
 					{{ __("Map variables from the parent context to sub-rule parameters.") }}
 				</p>
 
-				<div class="table-rows">
+				<div v-if="view === 'list'" class="table-rows">
 					<div v-for="(row, idx) in mapping_rows" :key="idx" class="row-item mapping-row">
 						<div class="mapping-cell">
 							<label class="small text-muted mb-1">{{ __("Parent Variable") }}</label>
@@ -72,6 +88,16 @@
 						<span class="text-muted small">{{ __("No mappings defined") }}</span>
 					</div>
 				</div>
+
+				<div v-else class="visual-mapper">
+					<TransformControl
+						:modelValue="visual_mappings"
+						:sourceSchema="source_schema"
+						:targetSchema="target_schema"
+						:readOnly="read_only"
+						@update:modelValue="update_visual_mappings"
+					/>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -81,6 +107,7 @@
 import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../../store";
 import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
+import TransformControl from "../../../controls/TransformControl.vue";
 
 const props = defineProps({
 	node: Object,
@@ -91,6 +118,44 @@ const store = useStore();
 const emit = defineEmits(["update:field"]);
 
 const mapping_rows = ref([]);
+const view = ref("list");
+
+const source_schema = computed(() => {
+	const vars = store.variables || [];
+	return vars.map((v) => ({
+		label: v.label || v.name,
+		value: v.name || v.value,
+		fieldtype: v.type || "Data",
+	}));
+});
+
+const target_schema = computed(() => {
+	// For now, we use existing targets as the schema.
+	// In the future, we should fetch actual sub-rule params.
+	const targets = mapping_rows.value.map((r) => r.target).filter(Boolean);
+	return [...new Set(targets)].map((t) => ({
+		label: t,
+		value: t,
+		fieldtype: "Data",
+	}));
+});
+
+const visual_mappings = computed(() => {
+	return mapping_rows.value.map((r) => ({
+		source: r.source,
+		target: r.target,
+		source_label: r.source,
+		target_label: r.target,
+	}));
+});
+
+function update_visual_mappings(mappings) {
+	mapping_rows.value = mappings.map((m) => ({
+		source: m.source,
+		target: m.target,
+	}));
+	sync_local_config();
+}
 
 // Method for Parent Variable autocomplete options
 const get_variable_options = async () => {

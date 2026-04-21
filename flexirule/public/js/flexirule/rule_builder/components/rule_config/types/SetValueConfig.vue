@@ -14,7 +14,13 @@
 		<div class="config-section section-card">
 			<div class="form-group mb-3">
 				<label class="form-label"
-					>{{ __("Target Field") }} <span class="text-danger">*</span></label
+					>{{
+						getFieldLabel(
+							props.node?.data?.action_type || "Set Value",
+							"target_field"
+						) || __("Target Field")
+					}}
+					<span class="text-danger">*</span></label
 				>
 				<FieldPickerControl
 					:df="with_read_only({ label: '' })"
@@ -49,6 +55,7 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
 import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
+import { getFieldLabel } from "../../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
@@ -63,19 +70,26 @@ const {
 	with_read_only,
 	update_action_field,
 	sync_config,
+	store,
 } = useActionConfig(props);
 
-const textGeneratorField = {
+const textGeneratorField = computed(() => ({
 	fieldname: "text_generator_ui",
 	fieldtype: "Text Generator",
-	label: __("Value Builder"),
+	label:
+		getFieldLabel(props.node?.data?.action_type || "Set Value", "value_template") ||
+		__("Value Builder"),
 	reqd: 1,
-};
+}));
 
 function update_template_ui(value) {
 	config.text_generator_ui = value;
+	const knownVarRoots = (variable_options.value || [])
+		.map((v) => String(v?.value || ""))
+		.filter((p) => p.startsWith("vars."))
+		.map((p) => p.slice(5).split(".")[0]);
 	// Compile segments to Jinja and store in value_template
-	const jinja = compileSegmentsToJinja(value?.segments || []);
+	const jinja = compileSegmentsToJinja(value?.segments || [], { knownVarRoots });
 	update_action_field("value_template", jinja);
 	sync_local_config();
 	store.mark_dirty();

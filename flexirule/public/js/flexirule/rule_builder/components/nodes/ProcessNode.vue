@@ -3,8 +3,17 @@ import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 import { getContract } from "../../../core/contracts";
 
-const props = defineProps(["data", "label", "id", "selected"]);
+const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
+
+const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+
+const targetPos = computed(
+	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
+);
+const sourcePos = computed(
+	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
+);
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -57,9 +66,7 @@ function deleteNode() {
 }
 
 function openConfig() {
-	store.selected_id = props.id;
-	store.show_config_modal = true;
-	store.config_modal_mode = "setup";
+	store.open_config(props.id);
 }
 </script>
 
@@ -80,7 +87,7 @@ function openConfig() {
 		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
 			{{ store.test_execution_path.indexOf(testResult) + 1 }}
 		</div>
-		<Handle type="target" :position="Position.Left" class="handle-target" />
+		<Handle type="target" :position="targetPos" class="handle-target" />
 
 		<!-- Header with Type and Icon -->
 		<div class="node-header">
@@ -96,7 +103,7 @@ function openConfig() {
 		</div>
 
 		<!-- Main Content -->
-		<div class="node-body" @dblclick.stop="openConfig">
+		<div class="node-body">
 			<div class="node-title">{{ data.action_label || label }}</div>
 			<div class="node-subtitle" v-if="data.operation">
 				{{ data.operation }}
@@ -105,17 +112,13 @@ function openConfig() {
 
 		<!-- Footer/Status -->
 		<div class="node-footer">
-			<div
-				class="config-status"
-				:class="{ configured: isConfigured }"
-				@click.stop="openConfig"
-			>
+			<div class="config-status" :class="{ configured: isConfigured }">
 				<i class="fa" :class="isConfigured ? 'fa-check-circle' : 'fa-circle-o'"></i>
 				<span>{{ isConfigured ? __("Configured") : __("Not Configured") }}</span>
 			</div>
 		</div>
 
-		<Handle type="source" :position="Position.Right" id="default" class="handle-source" />
+		<Handle type="source" :position="sourcePos" id="default" class="handle-source" />
 	</div>
 </template>
 

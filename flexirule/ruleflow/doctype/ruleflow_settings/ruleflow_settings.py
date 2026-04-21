@@ -6,6 +6,32 @@ from frappe.model.document import Document
 
 
 class RuleFlowSettings(Document):
+	# begin: auto-generated types
+	# This code is auto-generated. Do not modify anything in this block.
+
+	from typing import TYPE_CHECKING
+
+	if TYPE_CHECKING:
+		from frappe.types import DF
+
+		from flexirule.ruleflow.doctype.ruleflow_excluded_doctype.ruleflow_excluded_doctype import (
+			RuleFlowExcludedDocType,
+		)
+
+		action_config_mode: DF.Literal["Sidebar", "Dialog"]
+		allow_async_actions: DF.Check
+		allow_editing_active: DF.Check
+		enable_debug_logging: DF.Check
+		enable_edge_insertion: DF.Check
+		excluded_doctypes: DF.Table[RuleFlowExcludedDocType]
+		layout_direction: DF.Literal["Left to Right"]
+		log_retention_days: DF.Int
+		max_execution_time_default: DF.Int
+		require_approval_for_active: DF.Check
+		sidebar_position: DF.Literal["Left", "Right"]
+		theme: DF.Literal["System", "Light", "Dark"]
+
+	# end: auto-generated types
 	def validate(self):
 		if (
 			frappe.flags.in_install

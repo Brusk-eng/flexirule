@@ -7,12 +7,22 @@ import {
 	getActionTypeOptions,
 	getOperationOptions,
 	loadContractsFromBackend,
+	isTerminalAction,
 } from "../../../core/contracts";
 import { useStore } from "../../store";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 
-const props = defineProps(["data", "label", "id", "selected"]);
+const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
+
+const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+
+const targetPos = computed(
+	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
+);
+const sourcePos = computed(
+	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
+);
 
 const selectedPreset = ref({
 	action_type: "Process",
@@ -26,6 +36,7 @@ const showResults = ref(false);
 const processOperations = ref([]);
 const selectedIndex = ref(-1);
 
+// ... (rest of the script)
 // Fuzzy match helper — matches each query word independently against the text
 // Fuzzy match helper — supports acronyms and word-start matching
 function fuzzyMatch(text, query) {
@@ -48,7 +59,7 @@ function fuzzyMatch(text, query) {
 
 // Categorize action types into groups for display
 const ACTION_CATEGORIES = {
-	"Control Flow": ["Condition", "Stop", "Wait", "Sub-Rule"],
+	"Control Flow": ["Condition", "Stop", "Wait", "Loop", "Sub-Rule"],
 	"Data Actions": ["Set Value", "Query Records", "Document Action"],
 	Notifications: ["Notify"],
 	Processes: ["Process"],
@@ -301,7 +312,15 @@ function onCreate() {
 		}
 	}
 
-	store.selected_id = props.id;
+	// If the chosen node is terminal, remove any outgoing edges that might have existed
+	// (Selector nodes often have an outgoing edge if inserted on a connection)
+	if (isTerminalAction(action_type)) {
+		store.edges = store.edges.filter((edge) => edge.source !== props.id);
+		store.nodes[nodeIndex].data.next_step_if_true = null;
+		store.nodes[nodeIndex].data.next_step_if_false = null;
+	}
+
+	store.open_config(props.id);
 	store.touch_node(props.id);
 	store.mark_dirty();
 }
@@ -316,8 +335,14 @@ onMounted(() => {
 </script>
 
 <template>
-	<div class="action-selector-card" :class="{ selected: selected }">
-		<Handle type="target" :position="Position.Left" class="handle-target" />
+	<div
+		class="action-selector-card"
+		:class="{
+			selected: selected,
+			'is-vertical': !isHorizontal,
+		}"
+	>
+		<Handle type="target" :position="targetPos" class="handle-target" />
 
 		<div class="node-header">
 			<i class="fa fa-plus-circle"></i>
@@ -327,7 +352,7 @@ onMounted(() => {
 			</button>
 		</div>
 
-		<div class="node-body" @dblclick.stop="store.selected_id = props.id">
+		<div class="node-body">
 			<div class="form-group search-group">
 				<label class="small text-muted">{{ __("Action Type") }}</label>
 				<div class="search-wrapper">
@@ -407,7 +432,7 @@ onMounted(() => {
 			<span class="text-muted small">{{ __("Configure to proceed") }}</span>
 		</div>
 
-		<Handle type="source" :position="Position.Right" id="default" class="handle-source" />
+		<Handle type="source" :position="sourcePos" id="default" class="handle-source" />
 	</div>
 </template>
 
@@ -628,6 +653,31 @@ onMounted(() => {
 	height: 10px !important;
 	background-color: #fff !important;
 	border: 2px solid #d1d8dd !important;
+	z-index: 10 !important;
+}
+
+.action-selector-card:not(.is-vertical) .handle-target {
+	left: -5px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
+}
+
+.action-selector-card:not(.is-vertical) .handle-source {
+	right: -5px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
+}
+
+.is-vertical .handle-target {
+	top: -5px !important;
+	left: 50% !important;
+	transform: translateX(-50%) !important;
+}
+
+.is-vertical .handle-source {
+	bottom: -5px !important;
+	left: 50% !important;
+	transform: translateX(-50%) !important;
 }
 
 .action-selector-card.selected .handle-target,

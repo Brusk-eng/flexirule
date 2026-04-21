@@ -1109,9 +1109,10 @@ CONFIG_MODAL_TYPES = {
 	"Sub-Rule",
 	"Query Records",
 	"Document Action",
+	"Loop",
 }
 
-RELEASE_DISABLED_ACTION_TYPES = {"Loop", "Switch"}
+RELEASE_DISABLED_ACTION_TYPES = {"Switch"}
 RETURN_TYPE_OPTIONS = [
 	"Yes / No",
 	"Single Record",
@@ -1180,10 +1181,25 @@ def is_release_disabled_action(action_type: str) -> bool:
 
 
 def normalize_action_type(action_type: str | None) -> str:
-	"""Return the action type directly as legacy aliases have been removed."""
+	"""Normalize machine/case variants to canonical action type keys."""
 	if not action_type:
 		return ""
-	return action_type
+
+	raw = str(action_type).strip()
+	if raw in ACTION_TYPE_CONTRACT:
+		return raw
+
+	normalized = " ".join(raw.replace("_", " ").replace("-", " ").lower().split())
+	for canonical in ACTION_TYPE_CONTRACT:
+		if canonical.lower() == normalized:
+			return canonical
+
+	compact = normalized.replace(" ", "")
+	for canonical in ACTION_TYPE_CONTRACT:
+		if canonical.lower().replace(" ", "") == compact:
+			return canonical
+
+	return raw
 
 
 def get_trigger_type_contract(trigger_type: str) -> dict:

@@ -30,6 +30,7 @@ class RuleAction(Document):
 			"Notify",
 			"Query Records",
 			"Document Action",
+			"Loop",
 		]
 		compiled_expression: DF.Code | None
 		condition_json: DF.Code | None

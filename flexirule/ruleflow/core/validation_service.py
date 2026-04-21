@@ -381,7 +381,7 @@ def _validate_action_specifics(
 			errors.append(_("Action '{0}' is a Condition but no condition is defined.").format(action_label))
 
 	elif action_type == "Loop":
-		if not config.get("iterator_var") and not config.get("collection"):
+		if not config.get("iterator"):
 			warnings.append(
 				_("Action '{0}' is a Loop but iterator configuration may be incomplete.").format(action_label)
 			)
@@ -460,6 +460,11 @@ def _validate_variable_dependencies(actions, operation_metadata=None) -> dict:
 
 		if _safe_get(action, "return_variable"):
 			available_vars.add(_safe_get(action, "return_variable"))
+
+		if normalize_action_type(_safe_get(action, "action_type")) == "Loop":
+			config = _parse_json_value(_safe_get(action, "config"), {})
+			alias = config.get("alias", "item")
+			available_vars.add(alias)
 
 	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
@@ -701,6 +706,11 @@ def _get_required_variables_for_rule(rule_doc) -> list[str]:
 		# Update available for next actions
 		if action.return_variable:
 			available.add(action.return_variable)
+
+		if normalize_action_type(action.action_type) == "Loop":
+			config = _parse_json_value(action.config, {})
+			alias = config.get("alias", "item")
+			available.add(alias)
 
 		writes_vars = _load_json_list(op_meta.get("writes_vars"), [], action.action_label, "writes_vars")
 		for var_def in writes_vars:

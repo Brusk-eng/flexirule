@@ -4,8 +4,16 @@ import { useStore } from "../../store";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 
-const props = defineProps(["data", "label", "id", "selected"]);
+const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
+
+const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+
+const targetPos = computed(
+	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
+);
+const truePos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
+const falsePos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -33,9 +41,7 @@ function deleteNode() {
 }
 
 function openConfig() {
-	store.selected_id = props.id;
-	store.show_config_modal = true;
-	store.config_modal_mode = "setup";
+	store.open_config(props.id);
 }
 </script>
 
@@ -56,7 +62,7 @@ function openConfig() {
 			{{ store.test_execution_path.indexOf(testResult) + 1 }}
 		</div>
 		<!-- Input Handle -->
-		<Handle type="target" :position="Position.Left" class="handle-target" />
+		<Handle type="target" :position="targetPos" class="handle-target" />
 
 		<!-- Card Body -->
 		<div class="node-header">
@@ -70,30 +76,20 @@ function openConfig() {
 			</button>
 		</div>
 
-		<div class="node-body" @dblclick.stop="openConfig">
+		<div class="node-body">
 			<div class="condition-text">{{ label }}</div>
 		</div>
 
-		<!-- True Output (Right) -->
-		<div class="out-port out-true">
+		<!-- True Output (Right/Bottom) -->
+		<div :class="['out-port', isHorizontal ? 'out-right' : 'out-bottom']">
 			<span class="port-label">{{ __("YES") }}</span>
-			<Handle
-				type="source"
-				:position="Position.Right"
-				id="true"
-				class="handle-out handle-true"
-			/>
+			<Handle type="source" :position="truePos" id="true" class="handle-out handle-true" />
 		</div>
 
-		<!-- False Output (Bottom) -->
-		<div class="out-port out-false">
+		<!-- False Output (Bottom/Right) -->
+		<div :class="['out-port', isHorizontal ? 'out-bottom' : 'out-right']">
 			<span class="port-label">{{ __("NO") }}</span>
-			<Handle
-				type="source"
-				:position="Position.Bottom"
-				id="false"
-				class="handle-out handle-false"
-			/>
+			<Handle type="source" :position="falsePos" id="false" class="handle-out handle-false" />
 		</div>
 	</div>
 </template>
@@ -213,20 +209,20 @@ function openConfig() {
 
 .out-port {
 	position: absolute;
-	left: 50%;
-	transform: translateX(-50%);
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	z-index: 5;
 }
 
-.out-true {
+.out-right {
 	right: -30px;
 	top: 50%;
 	transform: translateY(-50%);
+	flex-direction: row;
 }
-.out-false {
+
+.out-bottom {
 	bottom: -22px;
 	left: 50%;
 	transform: translateX(-50%);
@@ -236,12 +232,33 @@ function openConfig() {
 .port-label {
 	font-size: 8px;
 	font-weight: 800;
+	position: absolute;
 }
 
-.out-true .port-label {
+.out-right .port-label {
+	top: -12px;
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+.out-bottom .port-label {
+	bottom: -12px;
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+.handle-true .port-label {
 	color: #198754;
 }
-.out-false .port-label {
+.handle-false .port-label {
+	color: #dc3545;
+}
+
+/* Specific True/False colors for labels */
+.out-port:has(.handle-true) .port-label {
+	color: #198754;
+}
+.out-port:has(.handle-false) .port-label {
 	color: #dc3545;
 }
 
@@ -261,14 +278,5 @@ function openConfig() {
 }
 .handle-false {
 	border-color: #dc3545 !important;
-}
-
-/* Fixed port label alignment */
-.out-true .port-label {
-	top: -12px;
-}
-
-.out-false .port-label {
-	bottom: -12px;
 }
 </style>

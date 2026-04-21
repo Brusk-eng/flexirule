@@ -16,6 +16,7 @@ import {
 	getEffectiveActionPolicy,
 	getOperationOptions,
 	normalizeActionType,
+	isTerminalAction,
 	ACTION_TYPES_WITH_REFERENCE_CONTEXT,
 	ACTION_TYPES_WITH_RETURN_SCHEMA,
 } from "../../core/contracts";
@@ -158,7 +159,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 			context_vars.push({
 				label: data.return_variable,
-				value: data.return_variable,
+				value: `vars.${data.return_variable}`,
 				type: mapReturnTypeToFieldType(data.return_type),
 			});
 
@@ -178,10 +179,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					schema.forEach((field) => {
 						if (field.fieldname) {
 							context_vars.push({
-								label: `${data.return_variable}.${field.fieldname} (${
+								label: `vars.${data.return_variable}.${field.fieldname} (${
 									field.label || field.fieldname
 								})`,
-								value: `${data.return_variable}.${field.fieldname}`,
+								value: `vars.${data.return_variable}.${field.fieldname}`,
 								type: field.fieldtype || "Data",
 							});
 						}
@@ -237,6 +238,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		} else if (type === "stop") {
 			baseData.action_type = "Stop";
 			baseData.operation = "Success";
+		} else if (type === "loop") {
+			baseData.action_type = "Loop";
+			baseData.config = { collection_variable: "", item_variable: "item" };
 		} else if (type === "sub-rule") {
 			baseData.action_type = "Sub-Rule";
 		} else if (type === "query" || type === "query records") {
@@ -265,9 +269,139 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return false;
 		}
 
+		const inEdges = edges.value.filter((e) => e.target === nodeId);
+		const outEdges = edges.value.filter((e) => e.source === nodeId);
+		const actionType = node?.data?.action_type;
+		const isMultiOutput = ["Condition", "Loop", "Switch"].includes(actionType);
+
+		// ── BFS helper: collect all node IDs reachable from `startId`,
+		//   following only edges in `edgeList`, stopping at any ID in `stopSet`.
+		function bfsFrom(startId, edgeList, stopSet = new Set()) {
+			const visited = new Set();
+			const q = [startId];
+			while (q.length) {
+				const id = q.shift();
+				if (visited.has(id) || stopSet.has(id)) continue;
+				visited.add(id);
+				edgeList.forEach((e) => {
+					if (e.source === id && !visited.has(e.target)) q.push(e.target);
+				});
+			}
+			return visited;
+		}
+
+		if (isMultiOutput && outEdges.length > 1) {
+			// Determine which output is the "primary continuation" (kept) vs "secondary" (cascade-delete).
+			// Loop  → primary = "After Last" (sourceHandle === "false")
+			// Condition / Switch → primary = YES / True (sourceHandle !== "false")
+			const isPrimaryFalse = actionType === "Loop";
+			const primaryEdge = outEdges.find((e) =>
+				isPrimaryFalse ? e.sourceHandle === "false" : e.sourceHandle !== "false"
+			);
+			const secondaryEdges = outEdges.filter((e) => e !== primaryEdge);
+
+			// Reconnect parents to the primary target
+			const primaryTargetId = primaryEdge?.target ?? null;
+			inEdges.forEach((inEdge) => {
+				inEdge.target = primaryTargetId;
+				const srcNode = nodes.value.find((n) => n.id === inEdge.source);
+				if (srcNode?.data) {
+					if (inEdge.sourceHandle === "false") {
+						srcNode.data.next_step_if_false = primaryTargetId;
+					} else {
+						srcNode.data.next_step_if_true = primaryTargetId;
+					}
+				}
+			});
+
+			// Cascade-delete nodes ONLY reachable from secondary outputs
+			// (i.e. nodes that would be orphaned and unreachable from the rest of the graph)
+			const edgesWithoutRemoved = edges.value.filter(
+				(e) => e.source !== nodeId && e.target !== nodeId
+			);
+			// Build set of all IDs still reachable from the main graph root
+			const rootId =
+				nodes.value.find(
+					(n) => n.type === "start" || n.data?.action_type === "Entry Action"
+				)?.id || "root";
+			const mainReachable = bfsFrom(rootId, [
+				...edgesWithoutRemoved,
+				// include the reconnected in-edges so the primary target is reachable
+				...inEdges.map((e) => ({ ...e, target: primaryTargetId })),
+			]);
+
+			const toDelete = new Set([nodeId]);
+			secondaryEdges.forEach((e) => {
+				if (!e.target || mainReachable.has(e.target)) return;
+				bfsFrom(e.target, edgesWithoutRemoved, mainReachable).forEach((id) =>
+					toDelete.add(id)
+				);
+			});
+
+			nodes.value = nodes.value.filter((n) => !toDelete.has(n.id));
+			edges.value = edges.value.filter(
+				(e) => !toDelete.has(e.source) && !toDelete.has(e.target)
+			);
+
+			// Fix reconnected in-edge targets in the edge array
+			edges.value = edges.value.map((e) => {
+				if (e.target === nodeId) return { ...e, target: primaryTargetId };
+				return e;
+			});
+
+			return true;
+		}
+
+		// ── Simple single-output reconnection ────────────────────────────────
+		if (outEdges.length === 1) {
+			const targetId = outEdges[0].target;
+			inEdges.forEach((inEdge) => {
+				inEdge.target = targetId;
+				const sourceNode = nodes.value.find((n) => n.id === inEdge.source);
+				if (sourceNode && sourceNode.data) {
+					if (inEdge.sourceHandle === "false") {
+						sourceNode.data.next_step_if_false = targetId;
+					} else {
+						sourceNode.data.next_step_if_true = targetId;
+					}
+				}
+			});
+		} else {
+			// Zero or unresolvable outputs: just clear parent references
+			inEdges.forEach((inEdge) => {
+				const sourceNode = nodes.value.find((n) => n.id === inEdge.source);
+				if (sourceNode && sourceNode.data) {
+					if (inEdge.sourceHandle === "false") {
+						sourceNode.data.next_step_if_false = null;
+					} else {
+						sourceNode.data.next_step_if_true = null;
+					}
+				}
+			});
+		}
+
 		nodes.value = nodes.value.filter((el) => el.id !== nodeId);
-		edges.value = edges.value.filter((el) => el.source !== nodeId && el.target !== nodeId);
+		const outEdgeIds = new Set(outEdges.map((e) => e.id));
+		edges.value = edges.value.filter(
+			(el) => !outEdgeIds.has(el.id) && el.source !== nodeId && el.target !== nodeId
+		);
+
 		return true;
+	}
+
+	function toggle_node_enabled(nodeId) {
+		const node = nodes.value.find((n) => n.id === nodeId);
+		if (!node || !node.data) return;
+
+		// Default to enabled (1) if undefined
+		if (node.data.is_enabled === 0) {
+			node.data.is_enabled = 1;
+		} else {
+			node.data.is_enabled = 0;
+		}
+
+		// Force reactivity update if needed
+		nodes.value = [...nodes.value];
 	}
 
 	function delete_edge(edgeId, isReadOnly = false) {
@@ -310,15 +444,160 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		if (options.operation) nodeData.operation = options.operation;
 		if (options.process_name) nodeData.process_name = options.process_name;
 
+		const actionType = nodeData.action_type;
+
+		// ── LOOP: "For Each" branch gets a selector in the loop body.
+		//         "After Last" continues to the existing downstream target.
+		if (actionType === "Loop") {
+			// Scaffold an empty selector node as the loop body entry
+			const bodyNodeId = generateShortId();
+			const bodyData = get_default_node_data("selector", __("Loop Body"));
+			bodyData.action_id = bodyNodeId;
+
+			const bodyNode = {
+				id: bodyNodeId,
+				type: "selector",
+				position: { x: 0, y: 0 },
+				label: __("Loop Body"),
+				data: { ...bodyData },
+			};
+
+			// Loop: For Each (default) → body entry; After Last (false) → existing target
+			nodeData.next_step_if_true = bodyNodeId;
+			nodeData.next_step_if_false = targetId;
+
+			const newNode = {
+				id: newNodeId,
+				type: mapActionTypeToNodeType(actionType),
+				position: { x: 0, y: 0 },
+				label: nodeData.action_label,
+				data: { ...nodeData, action_id: newNodeId },
+			};
+
+			delete_edge(edgeId);
+			const sourceNode = nodes.value.find((n) => n.id === sourceId);
+			if (sourceNode?.data) {
+				if (sourceHandle === "false") {
+					sourceNode.data.next_step_if_false = newNodeId;
+				} else {
+					sourceNode.data.next_step_if_true = newNodeId;
+				}
+			}
+
+			nodes.value = [...nodes.value, newNode, bodyNode];
+
+			edges.value = [
+				...edges.value,
+				// Source → Loop
+				{
+					id: `e-${sourceId}-${newNodeId}-${sourceHandle}`,
+					source: sourceId,
+					target: newNodeId,
+					sourceHandle,
+					type: "add",
+				},
+				// Loop → For Each → Body entry
+				{
+					id: `e-${newNodeId}-${bodyNodeId}-default`,
+					source: newNodeId,
+					target: bodyNodeId,
+					sourceHandle: "default",
+					type: "add",
+					data: { loopBody: true },
+				},
+				// Loop → After Last → Existing target (main flow)
+				{
+					id: `e-${newNodeId}-${targetId}-false`,
+					source: newNodeId,
+					target: targetId,
+					sourceHandle: "false",
+					type: "add",
+				},
+			];
+
+			return newNodeId;
+		}
+
+		// ── CONDITION / SWITCH: True/YES → existing target,
+		//                        False/NO  → auto-scaffolded Stop. ──
+		if (actionType === "Condition" || actionType === "Switch") {
+			nodeData.next_step_if_true = targetId;
+
+			const stopNodeId = generateShortId();
+			const stopData = get_default_node_data("stop");
+			stopData.operation = "Success";
+			stopData.action_id = stopNodeId;
+
+			const stopNode = {
+				id: stopNodeId,
+				type: "stop",
+				position: { x: 0, y: 0 },
+				label: __("End"),
+				data: { ...stopData },
+			};
+
+			nodeData.next_step_if_false = stopNodeId;
+
+			const newNode = {
+				id: newNodeId,
+				type: mapActionTypeToNodeType(actionType),
+				position: { x: 0, y: 0 },
+				label: nodeData.action_label,
+				data: { ...nodeData, action_id: newNodeId },
+			};
+
+			delete_edge(edgeId);
+			const sourceNode = nodes.value.find((n) => n.id === sourceId);
+			if (sourceNode?.data) {
+				if (sourceHandle === "false") {
+					sourceNode.data.next_step_if_false = newNodeId;
+				} else {
+					sourceNode.data.next_step_if_true = newNodeId;
+				}
+			}
+
+			nodes.value = [...nodes.value, newNode, stopNode];
+			edges.value = [
+				...edges.value,
+				{
+					id: `e-${sourceId}-${newNodeId}-${sourceHandle}`,
+					source: sourceId,
+					target: newNodeId,
+					sourceHandle,
+					type: "add",
+				},
+				// YES / True path → existing target (sourceHandle MUST be "true")
+				{
+					id: `e-${newNodeId}-${targetId}-true`,
+					source: newNodeId,
+					target: targetId,
+					sourceHandle: "true",
+					type: "add",
+				},
+				// NO / False path → new Stop
+				{
+					id: `e-${newNodeId}-${stopNodeId}-false`,
+					source: newNodeId,
+					target: stopNodeId,
+					sourceHandle: "false",
+					type: "add",
+				},
+			];
+
+			return newNodeId;
+		}
+
+		// ── Simple single-output node (default behaviour) ──
+		nodeData.next_step_if_true = targetId;
+
 		const newNode = {
 			id: newNodeId,
 			type: mapActionTypeToNodeType(nodeData.action_type),
-			position: { x: 0, y: 0 }, // Will be fixed by auto-layout
+			position: { x: 0, y: 0 },
 			label: nodeData.action_label,
 			data: {
 				...nodeData,
 				action_id: newNodeId,
-				next_step_if_true: targetId,
 			},
 		};
 
@@ -340,10 +619,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 		// 5. Create new edges
 		const edge1Id = `e-${sourceId}-${newNodeId}-${sourceHandle}`;
-		const edge2Id = `e-${newNodeId}-${targetId}-default`;
-
-		edges.value = [
-			...edges.value,
+		const newEdges = [
 			{
 				id: edge1Id,
 				source: sourceId,
@@ -351,16 +627,89 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				sourceHandle: sourceHandle,
 				type: "add",
 			},
-			{
+		];
+
+		// ONLY create outgoing edge if NOT terminal
+		if (!isTerminalAction(nodeData.action_type)) {
+			const edge2Id = `e-${newNodeId}-${targetId}-default`;
+			newEdges.push({
 				id: edge2Id,
 				source: newNodeId,
 				target: targetId,
 				sourceHandle: "default",
 				type: "add",
-			},
-		];
+			});
+		}
+
+		edges.value = [...edges.value, ...newEdges];
 
 		return newNodeId;
+	}
+
+	function paste_on_edge(edgeId, pastedNodes, pastedEdges) {
+		const edge = edges.value.find((e) => e.id === edgeId);
+		if (!edge || !pastedNodes?.length) return;
+
+		const sourceId = edge.source;
+		const targetId = edge.target;
+		const sourceHandle = edge.sourceHandle || "default";
+
+		// 1. Paste nodes and get new ones
+		const newNodes = pasteNodes(pastedNodes, pastedEdges, { x: 0, y: 0 });
+		if (!newNodes.length) return;
+
+		const newNodeIds = new Set(newNodes.map((n) => n.id));
+
+		// 2. Identify entry and exit points in the pasted block
+		// Entry: first node that doesn't have an incoming edge from another pasted node
+		const entryNode = newNodes.find(
+			(n) => !edges.value.some((e) => e.target === n.id && newNodeIds.has(e.source))
+		);
+
+		// Exit: first node that doesn't have an outgoing edge to another pasted node
+		const exitNode = newNodes.find(
+			(n) => !edges.value.some((e) => e.source === n.id && newNodeIds.has(e.target))
+		);
+
+		if (!entryNode || !exitNode) return newNodes[0].id;
+
+		// 3. Remove old edge
+		delete_edge(edgeId);
+
+		// 4. Connect source to entry node
+		const sourceNode = nodes.value.find((n) => n.id === sourceId);
+		if (sourceNode && sourceNode.data) {
+			if (sourceHandle === "false") {
+				sourceNode.data.next_step_if_false = entryNode.id;
+			} else {
+				sourceNode.data.next_step_if_true = entryNode.id;
+			}
+		}
+
+		edges.value.push({
+			id: `e-${sourceId}-${entryNode.id}-${sourceHandle}`,
+			source: sourceId,
+			target: entryNode.id,
+			sourceHandle: sourceHandle,
+			type: "add",
+		});
+
+		// 5. Connect exit node to target if NOT terminal
+		if (!isTerminalAction(exitNode.data?.action_type)) {
+			if (exitNode.data) {
+				exitNode.data.next_step_if_true = targetId;
+			}
+
+			edges.value.push({
+				id: `e-${exitNode.id}-${targetId}-default`,
+				source: exitNode.id,
+				target: targetId,
+				sourceHandle: "default",
+				type: "add",
+			});
+		}
+
+		return entryNode.id;
 	}
 
 	function touch_node(nodeId) {
@@ -934,6 +1283,12 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				} else {
 					node.data.next_step_if_false = null;
 				}
+
+				// ENSURE terminal nodes have no next steps
+				if (isTerminalAction(node.data.action_type)) {
+					node.data.next_step_if_true = null;
+					node.data.next_step_if_false = null;
+				}
 			}
 		});
 
@@ -942,6 +1297,16 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			if (idMap[edge.source] && idMap[edge.target]) {
 				const newSourceId = idMap[edge.source];
 				const newTargetId = idMap[edge.target];
+
+				// DO NOT paste outgoing edges from terminal nodes
+				const sourceNode = newNodes.find((n) => n.id === newSourceId);
+				if (
+					sourceNode?.data?.action_type &&
+					isTerminalAction(sourceNode.data.action_type)
+				) {
+					return;
+				}
+
 				const newEdgeId = `e-${newSourceId}-${newTargetId}-${
 					edge.sourceHandle || "default"
 				}`;
@@ -954,7 +1319,44 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		});
 
-		// 5. Add to store
+		// 5. Auto-scaffold missing paths for Condition/Switch
+		newNodes.forEach((node) => {
+			if (
+				node.data &&
+				(node.data.action_type === "Condition" || node.data.action_type === "Switch")
+			) {
+				if (!node.data.next_step_if_false) {
+					const stopNodeId = generateShortId();
+					const stopData = get_default_node_data("stop");
+					stopData.operation = "Success";
+					stopData.action_id = stopNodeId;
+
+					const stopNode = {
+						id: stopNodeId,
+						type: "stop",
+						position: {
+							x: node.position.x + 100,
+							y: node.position.y + 150,
+						},
+						label: __("End"),
+						data: stopData,
+					};
+
+					node.data.next_step_if_false = stopNodeId;
+					newNodes.push(stopNode);
+
+					newEdges.push({
+						id: `e-${node.id}-${stopNodeId}-false`,
+						source: node.id,
+						target: stopNodeId,
+						sourceHandle: "false",
+						type: "add",
+					});
+				}
+			}
+		});
+
+		// 6. Add to store
 		nodes.value = [...nodes.value, ...newNodes];
 		edges.value = [...edges.value, ...newEdges];
 
@@ -986,6 +1388,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		touch_node,
 		insert_node_on_edge,
 		pasteNodes,
+		paste_on_edge,
+		toggle_node_enabled,
 
 		// Sync
 		sync_actions_to_graph,

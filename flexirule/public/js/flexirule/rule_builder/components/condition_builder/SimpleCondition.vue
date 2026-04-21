@@ -6,6 +6,9 @@
 import { useStore } from "../../store";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import MappingWrapper from "../MappingWrapper.vue";
+import SelectControl from "../../controls/SelectControl.vue";
+import FieldPickerControl from "../../controls/FieldPickerControl.vue";
+import { inject, ref, computed, watch } from "vue";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -215,139 +218,133 @@ function clearMapping() {
 
 <template>
 	<div class="simple-condition">
-		<!-- Field -->
-		<div class="condition-cell field-cell">
-			<FieldPickerControl
-				:df="{ label: __('Field'), read_only: readOnly }"
-				v-model="node.left.ref"
-				:fields="docFields"
-				:disabled="readOnly"
-			/>
-			<small v-if="selectedField" class="text-muted field-hint">{{
-				selectedField.fieldtype
-			}}</small>
-		</div>
-
-		<!-- Operator -->
-		<div class="condition-cell operator-cell">
-			<label class="small text-muted mb-1 d-block">{{ __("Operator") }}</label>
-			<select v-model="node.op" class="form-control form-control-sm" :disabled="readOnly">
-				<option v-for="op in operators" :key="op.value" :value="op.value">
-					{{ op.label }}
-				</option>
-			</select>
-		</div>
-
-		<div
-			class="condition-cell value-cell"
-			v-if="!['is_set', 'is_not_set', 'is_submittable'].includes(node.op)"
-		>
-			<div v-if="selectedField?.fieldtype === 'Dynamic Link'" class="mb-2">
-				<label class="small text-muted d-block">{{ __("Target DocType") }}</label>
-				<!-- Using ControlFactory to render Link to DocType -->
-				<ControlFactory
-					:df="{
-						fieldtype: 'Link',
-						options: 'DocType',
-						placeholder: __('Select DocType'),
-						read_only: readOnly,
-					}"
-					v-model="dynamicLinkDocType"
-				/>
+		<div class="condition-main-row">
+			<!-- Field -->
+			<div class="condition-col field-col">
+				<div class="field-picker-container">
+					<FieldPickerControl
+						:df="{ label: '', read_only: readOnly }"
+						v-model="node.left.ref"
+						:fields="docFields"
+						:disabled="readOnly"
+						class="w-100 m-0"
+					/>
+				</div>
 			</div>
 
-			<MappingWrapper
-				:label="__('Value')"
-				:mappingValue="node.right.ref"
-				:docFields="docFields"
-				:readOnly="readOnly"
-				@update:mappingValue="setMapping"
-				@clearStatic="clearMapping"
-			>
-				<ControlFactory
-					:df="{ ...valueFieldSchema, label: '' }"
-					v-model="wrappedValue"
-					:read_only="readOnly"
-					:hideLabel="true"
-				/>
-				<small
-					v-if="selectedField && !node.right.ref"
-					class="text-muted field-hint mt-1"
-					style="display: block; line-height: 1.2"
-				>
-					{{ selectedField.label }} ({{ selectedField.fieldtype }})
-				</small>
-			</MappingWrapper>
-		</div>
-		<div v-else class="condition-cell value-cell"></div>
+			<!-- Operator -->
+			<div class="condition-col operator-col">
+				<select v-model="node.op" class="form-control input-xs" :disabled="readOnly">
+					<option v-for="op in operators" :key="op.value" :value="op.value">
+						{{ op.label }}
+					</option>
+				</select>
+			</div>
 
-		<!-- Remove -->
-		<div class="condition-cell action-cell" v-if="!readOnly">
-			<button
-				class="btn btn-xs btn-link text-danger"
-				@click="emit('remove')"
-				:title="__('Remove')"
+			<!-- Value -->
+			<div
+				class="condition-col value-col"
+				v-if="!['is_set', 'is_not_set', 'is_submittable'].includes(node.op)"
 			>
-				<i class="fa fa-trash-o"></i>
-			</button>
+				<div v-if="selectedField?.fieldtype === 'Dynamic Link'" class="mb-2">
+					<ControlFactory
+						:df="{
+							fieldtype: 'Link',
+							options: 'DocType',
+							placeholder: __('Select DocType'),
+							read_only: readOnly,
+						}"
+						v-model="dynamicLinkDocType"
+						:hideLabel="true"
+					/>
+				</div>
+
+				<MappingWrapper
+					:label="''"
+					:mappingValue="node.right.ref"
+					:docFields="docFields"
+					:readOnly="readOnly"
+					@update:mappingValue="setMapping"
+					@clearStatic="clearMapping"
+				>
+					<ControlFactory
+						:df="{ ...valueFieldSchema, label: '' }"
+						v-model="wrappedValue"
+						:read_only="readOnly"
+						:hideLabel="true"
+					/>
+				</MappingWrapper>
+			</div>
+			<div v-else class="condition-col value-col empty"></div>
+
+			<!-- Remove -->
+			<div class="condition-col action-col" v-if="!readOnly">
+				<button class="btn btn-xs btn-link text-danger" @click="emit('remove')">
+					<i class="fa fa-trash"></i>
+				</button>
+			</div>
 		</div>
 	</div>
 </template>
 
 <style scoped>
 .simple-condition {
-	display: grid;
-	grid-template-columns: 1fr 140px 1fr 40px;
-	gap: 12px;
-	align-items: start;
-	padding: 12px;
-	border: 1px solid var(--border-color);
-	border-radius: 6px;
-	background: white;
-	transition: box-shadow 0.2s;
+	background: #f8f9fa;
+	border: 1px solid #e9ecef;
+	border-radius: 4px;
+	padding: 6px;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .simple-condition:hover {
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	border-color: #cbd5e1;
 }
 
-.condition-cell {
+.condition-main-row {
+	display: grid;
+	grid-template-columns: 1.5fr 0.8fr 2fr auto;
+	gap: 8px;
+	align-items: center;
+}
+
+.condition-col {
 	min-width: 0;
 }
 
-.field-cell {
-	min-width: 180px;
-}
-
-.operator-cell {
-	width: 140px;
-}
-
-.value-cell {
-	min-width: 180px;
-}
-
-.action-cell {
-	width: 40px;
+.field-picker-container {
+	position: relative;
 	display: flex;
-	justify-content: center;
-	padding-top: 24px;
+	align-items: center;
+	width: 100%;
 }
 
-.field-hint {
-	display: block;
-	margin-top: 2px;
-	font-size: 11px;
+:deep(.field-picker-control) {
+	margin-bottom: 0 !important;
 }
 
-/* Responsive: Stack on narrow screens */
-@media (max-width: 768px) {
-	.simple-condition {
-		grid-template-columns: 1fr 1fr;
-		grid-template-rows: auto auto;
+:deep(.control.frappe-control) {
+	margin-bottom: 0 !important;
+}
+
+.condition-main-row :deep(.form-control) {
+	height: 28px;
+	font-size: 12px;
+	padding: 4px 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+	.condition-main-row {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		align-items: stretch;
 	}
-	.action-cell {
-		padding-top: 0;
+	.condition-col {
+		width: 100%;
+	}
+	.action-col {
+		align-self: flex-end;
 	}
 }
 </style>

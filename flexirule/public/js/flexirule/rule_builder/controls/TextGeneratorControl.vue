@@ -41,7 +41,10 @@
 						:modelValue="segment.path"
 						:read_only="readOnly"
 						:hideLabel="true"
-						@update:modelValue="(val) => (segment.path = val || '')"
+						@update:modelValue="
+							(val) =>
+								(segment.path = normalizeTemplatePath(val || '', knownVarRoots))
+						"
 					/>
 				</div>
 
@@ -89,15 +92,94 @@
 
 					<!-- Then Branch -->
 					<div class="tg-branch">
-						<div class="tg-branch-label tg-branch-then">{{ __("Then") }}</div>
+						<div class="tg-branch-label tg-branch-then">
+							{{ __("Then") }}
+							<span v-if="!readOnly" class="tg-branch-actions">
+								<button
+									type="button"
+									class="tg-branch-add-btn"
+									@click="addBranchSegment(segment, 'then_segments', 'text')"
+								>
+									+ {{ __("Text") }}
+								</button>
+								<button
+									type="button"
+									class="tg-branch-add-btn"
+									@click="addBranchSegment(segment, 'then_segments', 'variable')"
+								>
+									+ {{ __("Variable") }}
+								</button>
+							</span>
+						</div>
 						<div class="tg-branch-content">
-							<SegmentEditor
-								:segments="segment.then_segments || []"
-								:variableOptions="variableOptions"
-								:docFieldOptions="docFieldOptions"
-								:readOnly="readOnly"
-								@update:segments="(s) => (segment.then_segments = s)"
-							/>
+							<div class="tg-nested-segments">
+								<div
+									v-for="(segRow, rowIdx) in segment.then_segments || []"
+									:key="`then-${idx}-${rowIdx}-${segRow._key || rowIdx}`"
+									class="tg-nested-seg"
+								>
+									<div v-if="segRow.type === 'text'" class="tg-nested-text">
+										<input
+											class="form-control input-xs"
+											:value="segRow.content || segRow.text || ''"
+											:disabled="readOnly"
+											:placeholder="__('Text…')"
+											@input="
+												updateBranchSegment(
+													segment,
+													'then_segments',
+													rowIdx,
+													{
+														content: $event.target.value,
+													}
+												)
+											"
+										/>
+									</div>
+									<div
+										v-else-if="segRow.type === 'variable'"
+										class="tg-nested-var"
+									>
+										<AutocompleteControl
+											:df="{ fieldtype: 'Autocomplete', label: '' }"
+											:options="variableOptions"
+											:modelValue="segRow.path"
+											:read_only="readOnly"
+											:hideLabel="true"
+											@update:modelValue="
+												(val) =>
+													updateBranchSegment(
+														segment,
+														'then_segments',
+														rowIdx,
+														{
+															path: normalizeTemplatePath(
+																val || '',
+																knownVarRoots
+															),
+														}
+													)
+											"
+										/>
+									</div>
+									<button
+										v-if="!readOnly"
+										type="button"
+										class="tg-seg-remove-sm"
+										@click="
+											removeBranchSegment(segment, 'then_segments', rowIdx)
+										"
+									>
+										<i class="fa fa-times"></i>
+									</button>
+								</div>
+								<div
+									v-if="!(segment.then_segments || []).length"
+									class="tg-nested-empty"
+								>
+									{{ __("(empty)") }}
+								</div>
+							</div>
 						</div>
 					</div>
 
@@ -109,6 +191,22 @@
 					>
 						<div class="tg-branch-label tg-branch-elif">
 							{{ __("Else If") }}
+							<span v-if="!readOnly" class="tg-branch-actions">
+								<button
+									type="button"
+									class="tg-branch-add-btn"
+									@click="addBranchSegment(elif_b, 'segments', 'text')"
+								>
+									+ {{ __("Text") }}
+								</button>
+								<button
+									type="button"
+									class="tg-branch-add-btn"
+									@click="addBranchSegment(elif_b, 'segments', 'variable')"
+								>
+									+ {{ __("Variable") }}
+								</button>
+							</span>
 							<button
 								v-if="!readOnly"
 								class="tg-seg-remove"
@@ -147,13 +245,64 @@
 							/>
 						</div>
 						<div class="tg-branch-content">
-							<SegmentEditor
-								:segments="elif_b.segments || []"
-								:variableOptions="variableOptions"
-								:docFieldOptions="docFieldOptions"
-								:readOnly="readOnly"
-								@update:segments="(s) => (elif_b.segments = s)"
-							/>
+							<div class="tg-nested-segments">
+								<div
+									v-for="(segRow, rowIdx) in elif_b.segments || []"
+									:key="`elif-${idx}-${eIdx}-${rowIdx}-${segRow._key || rowIdx}`"
+									class="tg-nested-seg"
+								>
+									<div v-if="segRow.type === 'text'" class="tg-nested-text">
+										<input
+											class="form-control input-xs"
+											:value="segRow.content || segRow.text || ''"
+											:disabled="readOnly"
+											:placeholder="__('Text…')"
+											@input="
+												updateBranchSegment(elif_b, 'segments', rowIdx, {
+													content: $event.target.value,
+												})
+											"
+										/>
+									</div>
+									<div
+										v-else-if="segRow.type === 'variable'"
+										class="tg-nested-var"
+									>
+										<AutocompleteControl
+											:df="{ fieldtype: 'Autocomplete', label: '' }"
+											:options="variableOptions"
+											:modelValue="segRow.path"
+											:read_only="readOnly"
+											:hideLabel="true"
+											@update:modelValue="
+												(val) =>
+													updateBranchSegment(
+														elif_b,
+														'segments',
+														rowIdx,
+														{
+															path: normalizeTemplatePath(
+																val || '',
+																knownVarRoots
+															),
+														}
+													)
+											"
+										/>
+									</div>
+									<button
+										v-if="!readOnly"
+										type="button"
+										class="tg-seg-remove-sm"
+										@click="removeBranchSegment(elif_b, 'segments', rowIdx)"
+									>
+										<i class="fa fa-times"></i>
+									</button>
+								</div>
+								<div v-if="!(elif_b.segments || []).length" class="tg-nested-empty">
+									{{ __("(empty)") }}
+								</div>
+							</div>
 						</div>
 					</div>
 
@@ -164,15 +313,94 @@
 
 					<!-- Else Branch -->
 					<div class="tg-branch">
-						<div class="tg-branch-label tg-branch-else">{{ __("Else") }}</div>
+						<div class="tg-branch-label tg-branch-else">
+							{{ __("Else") }}
+							<span v-if="!readOnly" class="tg-branch-actions">
+								<button
+									type="button"
+									class="tg-branch-add-btn"
+									@click="addBranchSegment(segment, 'else_segments', 'text')"
+								>
+									+ {{ __("Text") }}
+								</button>
+								<button
+									type="button"
+									class="tg-branch-add-btn"
+									@click="addBranchSegment(segment, 'else_segments', 'variable')"
+								>
+									+ {{ __("Variable") }}
+								</button>
+							</span>
+						</div>
 						<div class="tg-branch-content">
-							<SegmentEditor
-								:segments="segment.else_segments || []"
-								:variableOptions="variableOptions"
-								:docFieldOptions="docFieldOptions"
-								:readOnly="readOnly"
-								@update:segments="(s) => (segment.else_segments = s)"
-							/>
+							<div class="tg-nested-segments">
+								<div
+									v-for="(segRow, rowIdx) in segment.else_segments || []"
+									:key="`else-${idx}-${rowIdx}-${segRow._key || rowIdx}`"
+									class="tg-nested-seg"
+								>
+									<div v-if="segRow.type === 'text'" class="tg-nested-text">
+										<input
+											class="form-control input-xs"
+											:value="segRow.content || segRow.text || ''"
+											:disabled="readOnly"
+											:placeholder="__('Text…')"
+											@input="
+												updateBranchSegment(
+													segment,
+													'else_segments',
+													rowIdx,
+													{
+														content: $event.target.value,
+													}
+												)
+											"
+										/>
+									</div>
+									<div
+										v-else-if="segRow.type === 'variable'"
+										class="tg-nested-var"
+									>
+										<AutocompleteControl
+											:df="{ fieldtype: 'Autocomplete', label: '' }"
+											:options="variableOptions"
+											:modelValue="segRow.path"
+											:read_only="readOnly"
+											:hideLabel="true"
+											@update:modelValue="
+												(val) =>
+													updateBranchSegment(
+														segment,
+														'else_segments',
+														rowIdx,
+														{
+															path: normalizeTemplatePath(
+																val || '',
+																knownVarRoots
+															),
+														}
+													)
+											"
+										/>
+									</div>
+									<button
+										v-if="!readOnly"
+										type="button"
+										class="tg-seg-remove-sm"
+										@click="
+											removeBranchSegment(segment, 'else_segments', rowIdx)
+										"
+									>
+										<i class="fa fa-times"></i>
+									</button>
+								</div>
+								<div
+									v-if="!(segment.else_segments || []).length"
+									class="tg-nested-empty"
+								>
+									{{ __("(empty)") }}
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -204,89 +432,6 @@
 	</div>
 </template>
 
-<script>
-/**
- * SegmentEditor — Recursive inline component for nested segment lists within conditional branches.
- * Defined as a named component to allow self-reference without circular imports.
- */
-import { computed, defineComponent, h, ref } from "vue";
-import AutocompleteControl from "./AutocompleteControl.vue";
-
-const SegmentEditor = defineComponent({
-	name: "SegmentEditor",
-	props: {
-		segments: { type: Array, default: () => [] },
-		variableOptions: { type: Array, default: () => [] },
-		docFieldOptions: { type: Array, default: () => [] },
-		readOnly: { type: Boolean, default: false },
-	},
-	emits: ["update:segments"],
-	setup(props, { emit }) {
-		function addSeg(type) {
-			const list = [...(props.segments || [])];
-			if (type === "text") list.push({ type: "text", content: "", _key: Date.now() });
-			else if (type === "variable")
-				list.push({ type: "variable", path: "", _key: Date.now() });
-			emit("update:segments", list);
-		}
-
-		function removeSeg(idx) {
-			const list = [...(props.segments || [])];
-			list.splice(idx, 1);
-			emit("update:segments", list);
-		}
-
-		function updateSeg(idx, key, val) {
-			const list = [...(props.segments || [])];
-			list[idx] = { ...list[idx], [key]: val };
-			emit("update:segments", list);
-		}
-
-		return { addSeg, removeSeg, updateSeg };
-	},
-	template: `
-		<div class="tg-nested-segments">
-			<div v-for="(seg, i) in segments" :key="i" class="tg-nested-seg">
-				<div v-if="seg.type === 'text'" class="tg-nested-text">
-					<input
-						class="form-control input-xs"
-						:value="seg.content || seg.text || ''"
-						:disabled="readOnly"
-						:placeholder="__('Text…')"
-						@input="updateSeg(i, 'content', $event.target.value)"
-					/>
-					<button v-if="!readOnly" class="tg-seg-remove-sm" @click="removeSeg(i)">
-						<i class="fa fa-times"></i>
-					</button>
-				</div>
-				<div v-else-if="seg.type === 'variable'" class="tg-nested-var">
-					<AutocompleteControl
-						:df="{ fieldtype: 'Autocomplete', label: '' }"
-						:options="variableOptions"
-						:modelValue="seg.path"
-						:read_only="readOnly"
-						:hideLabel="true"
-						@update:modelValue="(val) => updateSeg(i, 'path', val || '')"
-					/>
-					<button v-if="!readOnly" class="tg-seg-remove-sm" @click="removeSeg(i)">
-						<i class="fa fa-times"></i>
-					</button>
-				</div>
-			</div>
-			<div v-if="!readOnly" class="tg-nested-add">
-				<button class="tg-add-btn-sm" @click="addSeg('text')">+ {{ __("Text") }}</button>
-				<button class="tg-add-btn-sm" @click="addSeg('variable')">+ {{ __("Var") }}</button>
-			</div>
-			<div v-if="!segments.length" class="tg-nested-empty">{{ __("(empty)") }}</div>
-		</div>
-	`,
-	components: { AutocompleteControl },
-});
-
-export { SegmentEditor };
-export default {};
-</script>
-
 <script setup>
 import { computed, ref, watch } from "vue";
 import { EditorContent, Editor } from "@tiptap/vue-3";
@@ -298,7 +443,11 @@ import tippy from "tippy.js";
 import AutocompleteControl from "./AutocompleteControl.vue";
 import MentionList from "./MentionList.vue";
 import ConditionBuilder from "../components/condition_builder/ConditionBuilder.vue";
-import { compileSegmentsToJinja, compileConditionTree } from "../utils/text_generator";
+import {
+	compileSegmentsToJinja,
+	compileConditionTree,
+	normalizeTemplatePath,
+} from "../utils/text_generator";
 
 const props = defineProps({
 	df: { type: Object, default: null },
@@ -369,6 +518,30 @@ function removeElif(segment, eIdx) {
 	segment.elif_branches.splice(eIdx, 1);
 }
 
+function addBranchSegment(container, key, type) {
+	if (!container || !key) return;
+	const current = Array.isArray(container[key]) ? container[key] : [];
+	container[key] = [...current, makeSegment(type)];
+}
+
+function updateBranchSegment(container, key, idx, patch = {}) {
+	if (!container || !key) return;
+	const current = Array.isArray(container[key]) ? container[key] : [];
+	if (!current[idx]) return;
+	const next = [...current];
+	next[idx] = { ...next[idx], ...(patch || {}) };
+	container[key] = next;
+}
+
+function removeBranchSegment(container, key, idx) {
+	if (!container || !key) return;
+	const current = Array.isArray(container[key]) ? container[key] : [];
+	if (!current[idx]) return;
+	const next = [...current];
+	next.splice(idx, 1);
+	container[key] = next;
+}
+
 function toggleConditionEditor(idx) {
 	expandedCondIdx.value = expandedCondIdx.value === idx ? null : idx;
 }
@@ -394,6 +567,16 @@ const normalizedVariables = computed(() =>
 		return { label: opt?.label || opt?.value || "", value: opt?.value || "" };
 	})
 );
+
+const knownVarRoots = computed(() => {
+	const roots = new Set();
+	normalizedVariables.value.forEach((v) => {
+		const val = String(v?.value || "").trim();
+		const match = val.match(/^vars\.([A-Za-z_][A-Za-z0-9_]*)/);
+		if (match?.[1]) roots.add(match[1]);
+	});
+	return [...roots];
+});
 
 function createMentionSuggestion() {
 	return {
@@ -538,7 +721,9 @@ function focusMiniEditor(refEl) {
 }
 
 // ─── Compiled Jinja ───
-const compiledJinja = computed(() => compileSegmentsToJinja(ui.value.segments));
+const compiledJinja = computed(() =>
+	compileSegmentsToJinja(ui.value.segments, { knownVarRoots: knownVarRoots.value })
+);
 
 // ─── Model Sync ───
 
@@ -577,18 +762,23 @@ watch(
 		const payload = JSON.parse(JSON.stringify(ui.value));
 		// Clean internal keys
 		const clean = (segs) =>
-			(segs || []).map((s) => {
-				const c = { ...s };
-				delete c._key;
-				if (c.then_segments) c.then_segments = clean(c.then_segments);
-				if (c.else_segments) c.else_segments = clean(c.else_segments);
-				if (c.elif_branches)
-					c.elif_branches = c.elif_branches.map((b) => ({
-						...b,
-						segments: clean(b.segments || []),
-					}));
-				return c;
-			});
+			(segs || [])
+				.map((s) => {
+					const c = { ...s };
+					delete c._key;
+					if (c.type === "variable") {
+						c.path = normalizeTemplatePath(c.path || "", knownVarRoots.value);
+					}
+					if (c.then_segments) c.then_segments = clean(c.then_segments);
+					if (c.else_segments) c.else_segments = clean(c.else_segments);
+					if (c.elif_branches)
+						c.elif_branches = c.elif_branches.map((b) => ({
+							...b,
+							segments: clean(b.segments || []),
+						}));
+					return c;
+				})
+				.filter((c) => !(c.type === "variable" && !(c.path || "").trim()));
 		payload.segments = clean(payload.segments);
 		emit("update:modelValue", payload);
 		setTimeout(() => {
@@ -802,6 +992,29 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	justify-content: space-between;
+	flex-wrap: wrap;
+}
+
+.tg-branch-actions {
+	display: inline-flex;
+	gap: 4px;
+}
+
+.tg-branch-add-btn {
+	font-size: 10px;
+	padding: 1px 6px;
+	border: 1px dashed var(--border-color);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.tg-branch-add-btn:hover {
+	background: var(--bg-blue, #e8f0fe);
+	color: var(--primary, #2490ef);
+	border-color: var(--primary, #2490ef);
 }
 
 .tg-branch-then {
