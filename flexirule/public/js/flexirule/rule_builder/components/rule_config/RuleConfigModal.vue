@@ -27,81 +27,75 @@
 							</div>
 							<div class="header-title-container">
 								<div class="d-flex align-items-center gap-2">
-									<h3>{{ title }}</h3>
+									<h3 class="modal-title">{{ title }}</h3>
 									<i
 										v-if="store.is_read_only"
 										class="fa fa-lock text-muted"
 										:title="__('Read Only')"
 									></i>
 								</div>
-								<span
-									v-if="draftNode?.data?.action_type"
-									class="type-badge"
-									:style="{ color: contract?.css?.color }"
-								>
-									{{ draftNode.data.action_type }}
-								</span>
+								<div class="modal-breadcrumb">
+									<span
+										class="type-badge"
+										:style="{ color: contract?.css?.color }"
+									>
+										{{ draftNode?.data?.action_id }}
+									</span>
+									<i
+										class="fa fa-chevron-right small mx-1 text-muted opacity-50"
+									></i>
+									<span class="text-muted">{{
+										draftNode?.data?.action_type
+									}}</span>
+								</div>
 							</div>
 						</div>
 
-						<!-- Centered Navigation & Toggles -->
+						<!-- Efficient Navigation -->
 						<div class="header-center">
-							<div class="header-actions">
-								<div class="toggle-group">
-									<button
-										class="toggle-btn"
-										:class="{ active: showContextSidebar }"
-										@click="showContextSidebar = !showContextSidebar"
-										:title="__('Context Variables')"
-									>
-										<i class="fa fa-database"></i>
-										<span>{{ __("Variables") }}</span>
-									</button>
-									<button
-										class="toggle-btn"
-										:class="{ active: showSettingsBar }"
-										@click="showSettingsBar = !showSettingsBar"
-										:title="__('Action Settings')"
-									>
-										<i class="fa fa-sliders"></i>
-										<span>{{ __("Settings") }}</span>
-									</button>
-									<button
-										class="toggle-btn"
-										:class="{ active: showGuideSidebar }"
-										@click="showGuideSidebar = !showGuideSidebar"
-										:title="__('Guide')"
-									>
-										<i class="fa fa-life-ring"></i>
-										<span>{{ __("Guide") }}</span>
-									</button>
+							<div class="modal-navigation-compact">
+								<button
+									class="nav-btn-sm"
+									@click="store.prev_config_node()"
+									:disabled="currentNodeIndex <= 0"
+								>
+									<i class="fa fa-chevron-left"></i>
+								</button>
+								<div class="nav-counter">
+									<span class="current">{{ currentNodeIndex + 1 }}</span>
+									<span class="separator">/</span>
+									<span class="total">{{ totalNodes }}</span>
 								</div>
-
-								<div class="modal-navigation ml-4">
-									<button
-										class="nav-btn"
-										@click="store.prev_config_node()"
-										:title="__('Previous Node')"
-										:disabled="currentNodeIndex <= 0"
-									>
-										<i class="fa fa-chevron-left"></i>
-									</button>
-									<div class="nav-status">
-										{{ currentNodeIndex + 1 }} / {{ totalNodes }}
-									</div>
-									<button
-										class="nav-btn"
-										@click="store.next_config_node()"
-										:title="__('Next Node')"
-										:disabled="currentNodeIndex >= totalNodes - 1"
-									>
-										<i class="fa fa-chevron-right"></i>
-									</button>
-								</div>
+								<button
+									class="nav-btn-sm"
+									@click="store.next_config_node()"
+									:disabled="currentNodeIndex >= totalNodes - 1"
+								>
+									<i class="fa fa-chevron-right"></i>
+								</button>
 							</div>
 						</div>
 
 						<div class="header-right">
+							<div class="header-tools">
+								<button
+									class="tool-btn"
+									:class="{ active: showContextSidebar }"
+									@click="showContextSidebar = !showContextSidebar"
+								>
+									<i class="fa fa-database"></i>
+									<span>{{ __("Variables") }}</span>
+								</button>
+								<button
+									class="tool-btn"
+									:class="{ active: showSettingsBar }"
+									@click="showSettingsBar = !showSettingsBar"
+								>
+									<i class="fa fa-cog"></i>
+									<span>{{ __("Settings") }}</span>
+								</button>
+							</div>
+							<div class="divider-v mx-3"></div>
 							<button class="btn-close-modal" @click="cancel">
 								<i class="fa fa-times"></i>
 							</button>
@@ -142,10 +136,10 @@
 								</div>
 							</div>
 
-							<!-- Multi-panel Action Setup -->
-							<div v-else-if="draftNode" class="panels-container">
-								<!-- Context Variable Sidebar (Left Sliding) -->
-								<aside class="sidebar context-sidebar" v-if="showContextSidebar">
+							<!-- Unified Action Setup -->
+							<div v-else-if="draftNode" class="panels-container-modern">
+								<!-- Context Variable Sidebar (Left) -->
+								<aside class="sidebar-variables" v-if="showContextSidebar">
 									<InputPanel
 										:node="draftNode"
 										:readOnly="store.is_read_only"
@@ -153,60 +147,64 @@
 									/>
 								</aside>
 
-								<ResizablePanel class="main-resizable-panels">
-									<!-- Left Panel: Reference & Input -->
-									<div class="resizable-panel left-panel reference-panel">
-										<InputPanel
-											:node="draftNode"
-											:readOnly="store.is_read_only"
-											:ref="panelRefs.input"
-											mode="config"
-										/>
-									</div>
+								<!-- Main Config Area -->
+								<div class="config-main-area">
+									<div class="config-scroll-container">
+										<div class="config-content-wrapper">
+											<!-- Top Settings Bar (Integrated) -->
+											<div
+												class="integrated-settings-bar"
+												v-if="showSettingsBar"
+											>
+												<ActionSettings
+													:node="draftNode"
+													:readOnly="store.is_read_only"
+													@update:field="on_update_action_field"
+												/>
+											</div>
 
-									<div class="panel-resizer"></div>
-
-									<!-- Middle Panel: Core Dynamic Configuration -->
-									<div class="resizable-panel middle-panel config-panel">
-										<!-- Top Sliding Settings Bar -->
-										<div class="action-settings-bar" v-if="showSettingsBar">
-											<ActionSettings
-												:node="draftNode"
-												:readOnly="store.is_read_only"
-												@update:field="on_update_action_field"
-											/>
+											<!-- Split View: Setup (Left) & Config (Right/Center) -->
+											<div class="action-core-layout">
+												<div class="core-setup-panel">
+													<InputPanel
+														:node="draftNode"
+														:readOnly="store.is_read_only"
+														:ref="panelRefs.input"
+														mode="config"
+													/>
+												</div>
+												<div class="core-config-panel">
+													<ConfigurationPanel
+														:node="draftNode"
+														:readOnly="store.is_read_only"
+														:ref="panelRefs.config"
+													/>
+												</div>
+											</div>
 										</div>
-
-										<ConfigurationPanel
-											:node="draftNode"
-											:readOnly="store.is_read_only"
-											:ref="panelRefs.config"
-										/>
 									</div>
 
-									<div class="panel-resizer"></div>
-
-									<!-- Right Panel: Output & Mutation -->
-									<div class="resizable-panel right-panel mapping-panel">
+									<!-- Right Side Utility Panel (Mutation & Results) -->
+									<aside class="sidebar-mutation">
 										<OutputPanel
 											:node="draftNode"
 											:readOnly="store.is_read_only"
 											:ref="panelRefs.output"
 										/>
-									</div>
-								</ResizablePanel>
-
-								<!-- Guide Sidebar (Right Sliding) -->
-								<aside class="sidebar guide-sidebar" v-if="showGuideSidebar">
-									<div class="guide-panel p-4">
-										<h5>{{ __("Action Guide") }}</h5>
-										<div class="guide-content mt-3" v-if="contract">
-											<p>{{ contract.description }}</p>
-											<!-- Operation specific guide could go here -->
-										</div>
-									</div>
-								</aside>
+									</aside>
+								</div>
 							</div>
+
+							<!-- Guide Sidebar (Right Sliding) -->
+							<aside class="sidebar guide-sidebar" v-if="showGuideSidebar">
+								<div class="guide-panel p-4">
+									<h5>{{ __("Action Guide") }}</h5>
+									<div class="guide-content mt-3" v-if="contract">
+										<p>{{ contract.description }}</p>
+										<!-- Operation specific guide could go here -->
+									</div>
+								</div>
+							</aside>
 						</template>
 					</main>
 
@@ -467,62 +465,139 @@ function getIcon(type) {
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.modal-navigation {
+.config-modal-header {
+	height: 64px;
+	padding: 0 24px;
+	border-bottom: 1px solid #e2e8f0;
+	background: #fff;
 	display: flex;
 	align-items: center;
-	background: #f8fafc;
-	padding: 4px;
-	border-radius: 12px;
-	gap: 8px;
-	border: 1px solid #e2e8f0;
+	justify-content: space-between;
+	flex-shrink: 0;
 }
 
-.nav-btn {
-	width: 36px;
-	height: 36px;
-	border-radius: 8px;
-	border: none;
-	background: transparent;
-	color: #64748b;
-	cursor: pointer;
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	min-width: 250px;
+}
+
+.header-icon {
+	width: 40px;
+	height: 40px;
+	border-radius: 10px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	font-size: 18px;
+}
+
+.modal-title {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 700;
+	color: #1e293b;
+}
+
+.modal-breadcrumb {
+	display: flex;
+	align-items: center;
+	font-size: 11px;
+	margin-top: 2px;
+}
+
+.modal-navigation-compact {
+	display: flex;
+	align-items: center;
+	background: #f1f5f9;
+	padding: 4px;
+	border-radius: 10px;
+	gap: 4px;
+}
+
+.nav-btn-sm {
+	width: 28px;
+	height: 28px;
+	border-radius: 6px;
+	border: none;
+	background: transparent;
+	color: #64748b;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
 	transition: all 0.2s;
 }
 
-.nav-btn:hover:not(:disabled) {
+.nav-btn-sm:hover:not(:disabled) {
 	background: #fff;
 	color: var(--primary);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.nav-btn:disabled {
+.nav-btn-sm:disabled {
 	opacity: 0.3;
 	cursor: default;
 }
 
-.nav-status {
+.nav-counter {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0 8px;
 	font-size: 12px;
-	font-weight: 800;
+	font-weight: 700;
 	color: #475569;
-	min-width: 60px;
-	text-align: center;
 }
 
-.header-right {
-	min-width: 300px;
+.nav-counter .separator {
+	opacity: 0.4;
+}
+
+.header-tools {
 	display: flex;
-	justify-content: flex-end;
+	gap: 8px;
+}
+
+.tool-btn {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+	border-radius: 8px;
+	border: 1px solid transparent;
+	background: transparent;
+	color: #64748b;
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.tool-btn:hover {
+	background: #f8fafc;
+	color: #1e293b;
+}
+
+.tool-btn.active {
+	background: #eff6ff;
+	color: var(--primary);
+	border-color: #bfdbfe;
+}
+
+.divider-v {
+	width: 1px;
+	height: 24px;
+	background: #e2e8f0;
 }
 
 .btn-close-modal {
-	background: #f1f5f9;
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
 	border: none;
-	width: 36px;
-	height: 36px;
-	border-radius: 10px;
-	font-size: 16px;
+	background: #f1f5f9;
 	color: #64748b;
 	cursor: pointer;
 	display: flex;
@@ -540,119 +615,104 @@ function getIcon(type) {
 	flex: 1;
 	overflow: hidden;
 	display: flex;
-	background: #fff;
+	background: #f8fafc;
 }
 
-.panels-container {
+.panels-container-modern {
 	display: flex;
 	flex: 1;
 	overflow: hidden;
 }
 
-.sidebar {
-	width: 300px;
-	background: #f8fafc;
+.sidebar-variables {
+	width: 280px;
+	background: #fff;
 	border-right: 1px solid #e2e8f0;
-	overflow-y: auto;
+	flex-shrink: 0;
 }
 
-.guide-sidebar {
-	border-right: none;
-	border-left: 1px solid #e2e8f0;
-}
-
-.main-resizable-panels {
+.config-main-area {
 	flex: 1;
 	display: flex;
+	overflow: hidden;
 }
 
-/* Panel Layouts */
-.resizable-panel {
-	height: 100%;
+.config-scroll-container {
+	flex: 1;
 	overflow-y: auto;
+	padding: 24px;
 	display: flex;
 	flex-direction: column;
 }
 
-.left-panel {
-	flex: 0 0 25%;
-	min-width: 300px;
-	background: #f8fafc;
-}
-
-.middle-panel {
-	flex: 1;
-	min-width: 500px;
-	background: #fff;
-	display: flex;
-	flex-direction: column;
-}
-
-.right-panel {
-	flex: 0 0 25%;
-	min-width: 350px;
-	background: #fff;
-	border-left: 1px solid #e2e8f0;
-}
-
-.panel-resizer {
-	width: 6px;
-	cursor: col-resize;
-	background: transparent;
-	transition: all 0.2s;
-	z-index: 10;
-}
-
-.panel-resizer:hover {
-	background: rgba(var(--primary-rgb), 0.1);
-	border-left: 1px solid rgba(var(--primary-rgb), 0.2);
-	border-right: 1px solid rgba(var(--primary-rgb), 0.2);
-}
-
-.action-settings-bar {
-	background: #fcfcfc;
-	border-bottom: 1px solid #e2e8f0;
-	padding: 20px 32px;
-	box-shadow: inset 0 -4px 12px rgba(0, 0, 0, 0.02);
-}
-
-.conditions-view,
-.start-node-setup {
+.config-content-wrapper {
+	max-width: 1200px;
+	margin: 0 auto;
 	width: 100%;
-	height: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 24px;
+}
+
+.integrated-settings-bar {
+	background: #fff;
+	border-radius: 12px;
+	border: 1px solid #e2e8f0;
+	padding: 16px 24px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.action-core-layout {
+	display: grid;
+	grid-template-columns: 350px 1fr;
+	gap: 24px;
+	align-items: start;
+}
+
+.core-setup-panel,
+.core-config-panel {
+	background: #fff;
+	border-radius: 12px;
+	border: 1px solid #e2e8f0;
+	overflow: hidden;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-mutation {
+	width: 350px;
+	background: #fff;
+	border-left: 1px solid #e2e8f0;
+	flex-shrink: 0;
 	overflow-y: auto;
-	background: #f8fafc;
 }
 
 .config-modal-footer {
-	height: 80px;
+	height: 72px;
 	border-top: 1px solid #e2e8f0;
 	background: #fff;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 32px;
+	flex-shrink: 0;
 }
 
 .dirty-indicator {
-	font-size: 12px;
+	font-size: 11px;
 	font-weight: 700;
-	color: #f59e0b;
+	color: #d97706;
 	display: flex;
 	align-items: center;
+	gap: 6px;
 	background: #fffbeb;
 	padding: 6px 12px;
 	border-radius: 8px;
 	border: 1px solid #fef3c7;
 }
 
-.dirty-indicator i {
-	font-size: 8px;
-}
-
 .fade-enter-active,
 .fade-leave-active {
-	transition: opacity 0.3s ease;
+	transition: opacity 0.2s ease;
 }
 
 .fade-enter-from,

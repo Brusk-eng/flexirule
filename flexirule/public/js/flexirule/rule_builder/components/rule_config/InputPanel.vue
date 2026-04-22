@@ -1,6 +1,6 @@
 <template>
 	<div class="input-panel" :class="mode">
-		<div class="panel-header" v-if="mode === 'config'">
+		<div class="panel-header" v-if="mode === 'config' && !store.use_modern_layout">
 			<h4>{{ __("Setup & Input") }}</h4>
 			<p class="text-muted small">{{ __("Define reference and operation") }}</p>
 		</div>
@@ -102,8 +102,16 @@
 							draggable="true"
 							@dragstart="onDragStart($event, v)"
 						>
-							<span class="variable-label">{{ v.label }}</span>
-							<span class="variable-type">{{ v.type || "Data" }}</span>
+							<div class="variable-info">
+								<span class="variable-label">{{ v.label }}</span>
+								<span class="variable-type">{{ v.type || "Data" }}</span>
+							</div>
+							<button
+								class="btn btn-xs btn-link text-muted opacity-20 hover-opacity-100"
+								@click="copyToClipboard(`{{ ${v.value} }}`)"
+							>
+								<i class="fa fa-copy"></i>
+							</button>
 						</div>
 						<div v-if="filteredVariables.length === 0" class="empty-state">
 							{{
@@ -563,6 +571,23 @@ watch(
 onMounted(() => {
 	refreshVariables();
 });
+
+function copyToClipboard(text) {
+	if (frappe.utils.copy_to_clipboard) {
+		frappe.utils.copy_to_clipboard(text);
+	} else {
+		const el = document.createElement("textarea");
+		el.value = text;
+		document.body.appendChild(el);
+		el.select();
+		document.execCommand("copy");
+		document.body.removeChild(el);
+		frappe.show_alert({
+			message: __("Copied to clipboard: {0}").replace("{0}", text),
+			indicator: "blue",
+		});
+	}
+}
 
 defineExpose({
 	validate: () => {
