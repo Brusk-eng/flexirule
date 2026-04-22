@@ -26,7 +26,14 @@
 								></i>
 							</div>
 							<div class="header-title-container">
-								<h3>{{ title }}</h3>
+								<div class="d-flex align-items-center gap-2">
+									<h3>{{ title }}</h3>
+									<i
+										v-if="store.is_read_only"
+										class="fa fa-lock text-muted"
+										:title="__('Read Only')"
+									></i>
+								</div>
 								<span
 									v-if="draftNode?.data?.action_type"
 									class="type-badge"

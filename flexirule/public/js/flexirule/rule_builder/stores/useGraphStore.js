@@ -1037,7 +1037,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					ruleDoc.exposed_as_subrule ?? ruleDoc.is_sub_rule ?? 0;
 				nodeData.version = ruleDoc.version;
 				nodeData.status = ruleDoc.status;
-				nodeData.previous_rule = ruleDoc.previous_rule;
 				nodeData.is_active = ruleDoc.is_active;
 			}
 

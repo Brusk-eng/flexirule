@@ -16,8 +16,7 @@ def amend_rule(rule_name: str) -> str:
 	Create a new version of a rule by copying it.
 
 	The original rule stays active. The copy becomes a draft amendment
-	with an incremented version number and a link back to the original
-	via `previous_rule`.
+	with an incremented version number.
 
 	Args:
 	    rule_name: Name of the rule to amend.
@@ -35,8 +34,8 @@ def amend_rule(rule_name: str) -> str:
 	existing_draft = frappe.db.exists(
 		"Rule",
 		{
-			"previous_rule": ["in", _get_lineage_names(base_key)],
 			"is_active": 0,
+			"rule_name": ["like", f"{base_key}%"],
 			"name": ["!=", rule_name],
 		},
 	)
@@ -48,7 +47,6 @@ def amend_rule(rule_name: str) -> str:
 	new_doc.is_active = 0
 	new_doc.status = "Draft"
 	new_doc.version = (original.version or 1) + 1
-	new_doc.previous_rule = original.name
 	new_doc.last_error = None
 
 	# Build versioned name
@@ -84,20 +82,13 @@ def get_latest_rule_version(rule_key: str) -> dict | None:
 def validate_single_draft_copy(rule_doc):
 	"""
 	Ensure only one draft amendment exists per rule lineage.
-
-	Called during Rule.validate() when previous_rule is set.
 	"""
-	if not rule_doc.previous_rule:
-		return
-
-	# Find other drafts in the same lineage (excluding current doc)
 	base_key = _get_rule_base_key(rule_doc)
-	lineage_names = _get_lineage_names(base_key)
 
 	other_drafts = frappe.get_all(
 		"Rule",
 		filters={
-			"previous_rule": ["in", lineage_names],
+			"rule_name": ["like", f"{base_key}%"],
 			"is_active": 0,
 			"name": ["!=", rule_doc.name],
 		},

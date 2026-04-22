@@ -63,6 +63,7 @@ class TestRuleCoordinator(FrappeTestCase):
 					{
 						"action_id": "ACT-TEST",
 						"action_type": "Set Value",
+						"operation": "Current Document",
 						"action_label": "Set Description",
 						"is_enabled": 1,
 						"target_field": target_field,

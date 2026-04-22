@@ -68,6 +68,7 @@ class TestComplexFlows(FrappeTestCase):
 					{
 						"action_id": "set_true",
 						"action_type": "Set Value",
+						"operation": "Current Document",
 						"action_label": "Set Middle Name",
 						"target_field": "middle_name",
 						"value_template": "SubRuleSuccess",
@@ -75,6 +76,7 @@ class TestComplexFlows(FrappeTestCase):
 					{
 						"action_id": "set_false",
 						"action_type": "Set Value",
+						"operation": "Current Document",
 						"action_label": "Set Middle Name Fail",
 						"target_field": "middle_name",
 						"value_template": "SubRuleFail",

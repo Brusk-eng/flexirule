@@ -19,6 +19,8 @@ const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
 });
 
+const isReadOnly = computed(() => store.is_read_only);
+
 const nodeMeta = computed(() => {
 	const actionType = props.data?.action_type || "Process";
 	const contract = getContract(actionType);
@@ -68,6 +70,11 @@ function deleteNode() {
 function openConfig() {
 	store.open_config(props.id);
 }
+
+const hasDetails = computed(() => {
+	const d = props.data || {};
+	return d.reference_doctype || d.target_field || d.mutation_mode || d.variable_name;
+});
 </script>
 
 <template>
@@ -78,7 +85,9 @@ function openConfig() {
 			{
 				selected: selected,
 				disabled: isEffectiveDisabled,
+				'is-read-only': isReadOnly,
 				'test-executed': !!testResult,
+				'is-vertical': !isHorizontal,
 			},
 		]"
 		:style="{ '--accent-color': nodeMeta.color }"
@@ -94,10 +103,18 @@ function openConfig() {
 			<i class="fa" :class="nodeMeta.icon"></i>
 			<span class="type-text">{{ nodeMeta.typeLabel }}</span>
 
-			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
-				<i class="fa fa-pencil"></i>
+			<button
+				class="action-btn"
+				@click.stop="openConfig"
+				:title="isReadOnly ? __('View Configuration') : __('Configure')"
+			>
+				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
 			</button>
-			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
+			<button
+				class="action-btn delete"
+				@click.stop="deleteNode"
+				v-if="selected && !isReadOnly"
+			>
 				<i class="fa fa-trash"></i>
 			</button>
 		</div>
@@ -107,6 +124,25 @@ function openConfig() {
 			<div class="node-title">{{ data.action_label || label }}</div>
 			<div class="node-subtitle" v-if="data.operation">
 				{{ data.operation }}
+			</div>
+
+			<div class="node-details" v-if="hasDetails">
+				<div class="detail-row" v-if="data.reference_doctype">
+					<i class="fa fa-database"></i> {{ data.reference_doctype }}
+					<span v-if="data.reference_docname" class="detail-muted"
+						>/ {{ data.reference_docname }}</span
+					>
+				</div>
+				<div class="detail-row" v-if="data.target_field">
+					<i class="fa fa-crosshairs"></i> {{ data.target_field }}
+				</div>
+				<div class="detail-row" v-if="data.variable_name">
+					<i class="fa fa-code"></i> {{ data.variable_name }}
+				</div>
+				<div class="detail-row" v-if="data.mutation_mode">
+					<i class="fa fa-exchange"></i>
+					<span class="detail-muted">{{ data.mutation_mode }}</span>
+				</div>
 			</div>
 		</div>
 
@@ -135,9 +171,30 @@ function openConfig() {
 	transition: all 0.2s ease;
 }
 
+.process-node-card.is-vertical {
+	width: 140px;
+	border-left: none;
+	border-top: 4px solid var(--accent-color);
+}
+
 .process-node-card:hover {
 	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 	border-color: var(--accent-color);
+}
+
+.process-node-card.is-read-only {
+	cursor: default;
+	filter: grayscale(0.5);
+	opacity: 0.8;
+}
+
+.process-node-card.is-read-only .node-header {
+	background-color: #f1f5f9;
+}
+
+.process-node-card.is-read-only .action-btn:not(.delete) {
+	color: var(--primary);
+	opacity: 0.7;
 }
 
 .process-node-card.selected {
@@ -222,6 +279,11 @@ function openConfig() {
 	line-height: 1.2;
 }
 
+.is-vertical .node-title {
+	white-space: normal;
+	word-break: break-word;
+}
+
 .node-subtitle {
 	font-size: 11px;
 	color: #6c757d;
@@ -229,6 +291,46 @@ function openConfig() {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	margin-bottom: 4px;
+}
+
+.is-vertical .node-subtitle {
+	white-space: normal;
+}
+
+.node-details {
+	margin-top: 6px;
+	padding-top: 6px;
+	border-top: 1px dashed #e2e8f0;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.detail-row {
+	font-size: 9.5px;
+	color: #475569;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.is-vertical .detail-row {
+	white-space: normal;
+	flex-wrap: wrap;
+}
+
+.detail-row i {
+	color: #94a3b8;
+	width: 12px;
+	text-align: center;
+}
+
+.detail-muted {
+	color: #94a3b8;
 }
 
 /* Footer */

@@ -1097,45 +1097,62 @@ def get_rule_stats(rule_name: str):
 
 @frappe.whitelist()
 def transition_rule(rule_name: str, target_status: str):
-	"""Transition a rule to a new lifecycle state.
-
-	Uses the state machine in RuleLifecycleService to enforce valid
-	transitions and run appropriate validation/hooks.
-
-	Args:
-	    rule_name: Rule document name
-	    target_status: Target status — 'Active' | 'Draft' | 'Archived'
-
-	Returns:
-	    dict: {"status": str, "is_active": int, "message": str}
-	"""
+	"""Transition a rule to a new status."""
 	_require_api_access()
 
-	from flexirule.ruleflow.core.lifecycle_service import RuleLifecycleService
-
 	rule = frappe.get_doc("Rule", rule_name)
-	return RuleLifecycleService.transition(rule, target_status)
+	if target_status not in ["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]:
+		frappe.throw(_("Invalid target status: {0}").format(target_status))
+
+	if target_status == "Active":
+		from flexirule.ruleflow.core.validation_service import validate_rule_definition
+
+		rule.is_active = 1
+		result = validate_rule_definition(rule, mode="full")
+		if not result["valid"]:
+			rule.is_active = 0
+			frappe.throw(
+				_("Cannot activate rule. Validation errors:") + "<br>" + "<br>".join(result["errors"]),
+				frappe.ValidationError,
+			)
+
+	rule.status = target_status
+	rule.is_active = 1 if target_status == "Active" else 0
+	rule.save(ignore_permissions=True)
+
+	frappe.clear_document_cache("Rule", rule.name)
+	frappe.clear_cache(doctype="Rule")
+
+	return {
+		"status": rule.status,
+		"is_active": rule.is_active,
+		"message": _("Rule transitioned to {0}").format(target_status),
+	}
 
 
 @frappe.whitelist()
 def get_allowed_transitions(rule_name: str):
-	"""Get allowed lifecycle transitions for a rule's current status.
-
-	Used by the frontend to dynamically render status action buttons.
-
-	Args:
-	    rule_name: Rule document name
-
-	Returns:
-	    list: [{"target": "Active", "label": "Activate", "key": "activate"}, ...]
-	"""
+	"""Get allowed lifecycle transitions for a rule's current status."""
 	_require_api_access()
-
-	from flexirule.ruleflow.core.lifecycle_service import RuleLifecycleService
 
 	rule = frappe.get_doc("Rule", rule_name)
 	current_status = rule.status or "Draft"
-	return RuleLifecycleService.get_allowed_transitions(current_status)
+
+	transitions = []
+	if current_status == "Draft":
+		transitions.append({"target": "Active", "label": str(_("Activate")), "key": "activate"})
+		transitions.append({"target": "Archived", "label": str(_("Archive")), "key": "archive"})
+	elif current_status == "Active":
+		transitions.append({"target": "Draft", "label": str(_("Unlock for Editing")), "key": "deactivate"})
+		transitions.append({"target": "Disabled", "label": str(_("Disable")), "key": "disable"})
+		transitions.append({"target": "Archived", "label": str(_("Archive")), "key": "archive"})
+	elif current_status == "Disabled":
+		transitions.append({"target": "Active", "label": str(_("Activate")), "key": "activate"})
+		transitions.append({"target": "Draft", "label": str(_("Unlock for Editing")), "key": "deactivate"})
+	elif current_status == "Archived":
+		transitions.append({"target": "Draft", "label": str(_("Restore as Draft")), "key": "restore"})
+
+	return transitions
 
 
 @frappe.whitelist()

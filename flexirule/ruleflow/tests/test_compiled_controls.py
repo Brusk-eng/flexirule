@@ -45,6 +45,7 @@ class TestCompiledControls(FrappeTestCase):
 				{
 					"action_id": "set_1",
 					"action_type": "Set Value",
+					"operation": "Current Document",
 					"action_label": "Set Description",
 					"target_field": "description",
 					"config": json.dumps(
@@ -125,6 +126,7 @@ class TestCompiledControls(FrappeTestCase):
 				{
 					"action_id": "set_1",
 					"action_type": "Set Value",
+					"operation": "Current Document",
 					"action_label": "Set Remarks",
 					"target_field": "description",
 					"config": json.dumps(

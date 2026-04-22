@@ -24,9 +24,10 @@ class RuleFlowSettings(Document):
 		enable_debug_logging: DF.Check
 		enable_edge_insertion: DF.Check
 		excluded_doctypes: DF.Table[RuleFlowExcludedDocType]
-		layout_direction: DF.Literal["Left to Right"]
+		layout_direction: DF.Literal["Left to Right", "Top to Bottom"]
 		log_retention_days: DF.Int
 		max_execution_time_default: DF.Int
+		open_config_on: DF.Literal["Click", "Double Click", "Icon Only"]
 		require_approval_for_active: DF.Check
 		sidebar_position: DF.Literal["Left", "Right"]
 		theme: DF.Literal["System", "Light", "Dark"]

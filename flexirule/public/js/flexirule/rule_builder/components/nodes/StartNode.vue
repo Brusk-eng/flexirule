@@ -6,6 +6,7 @@ import { computed } from "vue";
 
 const props = defineProps(["data", "label", "id", "sourcePosition"]);
 const store = useStore();
+const isReadOnly = computed(() => store.is_read_only);
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 const sourcePos = computed(
@@ -17,6 +18,14 @@ const displayLabel = computed(() => {
 		return `${props.data.document_type} / ${props.data.trigger_event}`;
 	}
 	return props.label || __("Start");
+});
+
+const summaryData = computed(() => {
+	const data = props.data || {};
+	const parts = [];
+	if (data.trigger_type) parts.push(`${__("Type")}: ${data.trigger_type}`);
+	if (data.priority) parts.push(`${__("Priority")}: ${data.priority}`);
+	return parts;
 });
 
 const nodeMeta = computed(() => {
@@ -52,6 +61,7 @@ function openConfig() {
 		:class="{
 			'test-executed': !!testResult,
 			'is-vertical': !isHorizontal,
+			'is-read-only': isReadOnly,
 		}"
 	>
 		<!-- Execution Badge -->
@@ -65,10 +75,19 @@ function openConfig() {
 			<div class="info-section">
 				<div class="type-label">{{ nodeMeta.typeLabel }}</div>
 				<div class="main-label">{{ displayLabel }}</div>
+				<div class="summary-line" v-if="summaryData.length">
+					<span v-for="(p, i) in summaryData" :key="i" class="summary-part">
+						{{ p }}
+					</span>
+				</div>
 			</div>
 
-			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
-				<i class="fa fa-pencil"></i>
+			<button
+				class="action-btn"
+				@click.stop="openConfig"
+				:title="isReadOnly ? __('View Configuration') : __('Configure')"
+			>
+				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
 			</button>
 		</div>
 		<Handle
@@ -131,6 +150,11 @@ function openConfig() {
 	flex-shrink: 0;
 }
 
+.is-read-only .node-body {
+	filter: grayscale(0.4) opacity(0.8);
+	cursor: default;
+}
+
 .info-section {
 	display: flex;
 	flex-direction: column;
@@ -152,6 +176,33 @@ function openConfig() {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.is-vertical .main-label {
+	white-space: normal;
+	word-break: break-word;
+	line-height: 1.2;
+	font-size: 11px;
+}
+
+.summary-line {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 2px;
+	opacity: 0.8;
+}
+
+.summary-part {
+	font-size: 8px;
+	background: rgba(255, 255, 255, 0.15);
+	padding: 0 4px;
+	border-radius: 2px;
+	white-space: nowrap;
+}
+
+.is-vertical .summary-line {
+	justify-content: center;
 }
 
 .handle-source {

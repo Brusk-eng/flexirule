@@ -19,6 +19,8 @@ const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
 });
 
+const isReadOnly = computed(() => store.is_read_only);
+
 const nodeMeta = computed(() => {
 	const actionType = props.data?.action_type || "Condition";
 	const contract = getContract(actionType);
@@ -29,6 +31,22 @@ const nodeMeta = computed(() => {
 		icon: css.icon || "fa-question-circle",
 		typeLabel: (actionType || "CONDITION").toUpperCase(),
 	};
+});
+
+const conditionSummary = computed(() => {
+	const config = props.data?.config;
+	if (!config || !config.conditions || !config.conditions.length) return "";
+	const count = config.conditions.length;
+	const first = config.conditions[0];
+	if (first && first.left && first.op) {
+		const left = first.left.ref?.replace("doc.", "") || "?";
+		const op = first.op;
+		const right = first.right?.ref
+			? first.right.ref.replace("doc.", "")
+			: first.right?.value ?? "?";
+		return `${left} ${op} ${right}${count > 1 ? ` (+${count - 1})` : ""}`;
+	}
+	return `${count} ${__("conditions")}`;
 });
 
 const testResult = computed(() => {
@@ -51,6 +69,7 @@ function openConfig() {
 		:class="{
 			selected: selected,
 			disabled: isEffectiveDisabled,
+			'is-read-only': isReadOnly,
 			'test-executed': !!testResult,
 			'outcome-true': testResult && testResult.result === true,
 			'outcome-false': testResult && testResult.result === false,
@@ -68,16 +87,27 @@ function openConfig() {
 		<div class="node-header">
 			<i class="fa" :class="nodeMeta.icon"></i>
 			<span class="type-text">{{ nodeMeta.typeLabel }}</span>
-			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
-				<i class="fa fa-pencil"></i>
+			<button
+				class="action-btn"
+				@click.stop="openConfig"
+				:title="isReadOnly ? __('View Configuration') : __('Configure')"
+			>
+				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
 			</button>
-			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
+			<button
+				class="action-btn delete"
+				@click.stop="deleteNode"
+				v-if="selected && !isReadOnly"
+			>
 				<i class="fa fa-trash"></i>
 			</button>
 		</div>
 
 		<div class="node-body">
 			<div class="condition-text">{{ label }}</div>
+			<div class="compact-summary" v-if="conditionSummary">
+				{{ conditionSummary }}
+			</div>
 		</div>
 
 		<!-- True Output (Right/Bottom) -->
@@ -114,6 +144,15 @@ function openConfig() {
 .condition-node-card.selected {
 	box-shadow: 0 0 0 2px var(--accent-color);
 	border-color: var(--accent-color);
+}
+
+.condition-node-card.is-read-only {
+	cursor: default;
+	background-color: #fafbfc;
+}
+
+.condition-node-card.is-read-only .node-header {
+	background-color: #f1f5f9;
 }
 
 .condition-node-card.test-executed {
@@ -193,10 +232,19 @@ function openConfig() {
 }
 
 .condition-text {
-	font-size: 12px;
-	font-weight: 600;
+	font-size: 11px;
+	font-weight: 700;
 	color: #1a1a1a;
 	line-height: 1.2;
+}
+
+.compact-summary {
+	font-size: 9px;
+	color: #64748b;
+	margin-top: 4px;
+	font-family: monospace;
+	word-break: break-all;
+	max-width: 100%;
 }
 
 /* Ports/Handles */

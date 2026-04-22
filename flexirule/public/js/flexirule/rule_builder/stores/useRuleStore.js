@@ -26,6 +26,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	const initial_state = ref(null);
 	const settings = ref(null);
 	const validation_errors = ref([]);
+	const is_loading = ref(false);
 	// ── Process / Sub-Rule state ──
 	const processes = ref([]);
 	const available_rules = ref([]);
@@ -85,7 +86,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		if (result.message) {
 			frappe.model.sync(result.message);
-			rule_doc.value = frappe.get_doc("Rule", rule_name.value);
+			rule_doc.value = { ...frappe.get_doc("Rule", rule_name.value) };
 		}
 
 		if (rule_doc.value?.document_type) {
@@ -159,6 +160,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	// ── Save ──
 	// Follows Frappe pattern: serialize → validate → save doc → re-fetch
 	async function save_changes() {
+		if (is_loading.value) return;
+		is_loading.value = true;
 		frappe.dom.freeze(__("Saving..."));
 		const graphStore = useGraphStore();
 
@@ -476,6 +479,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				indicator: "red",
 			});
 		} finally {
+			is_loading.value = false;
 			frappe.dom.unfreeze();
 		}
 	}
@@ -483,7 +487,21 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	// ── Lifecycle Transitions (Phase 2: State Machine) ──
 	// Uses the backend lifecycle service for validated state transitions
 	async function activate_rule() {
-		if (is_active.value) return;
+		if (is_active.value || is_loading.value) return;
+		is_loading.value = true;
+
+		if (is_dirty.value) {
+			const confirmed = await new Promise((resolve) => {
+				frappe.confirm(
+					__("You have unsaved changes. Save and activate now?"),
+					() => resolve(true),
+					() => resolve(false)
+				);
+			});
+			if (!confirmed) return;
+			await save_changes();
+			if (is_dirty.value) return; // Save failed
+		}
 
 		try {
 			const result = await frappe.call({
@@ -507,11 +525,14 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				message: errorMsg,
 				indicator: "red",
 			});
+		} finally {
+			is_loading.value = false;
 		}
 	}
 
 	async function deactivate_rule() {
-		if (!is_active.value) return;
+		if (!is_active.value || is_loading.value) return;
+		is_loading.value = true;
 
 		try {
 			const result = await frappe.call({
@@ -533,6 +554,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				message: e.message || __("Unknown error"),
 				indicator: "red",
 			});
+		} finally {
+			is_loading.value = false;
 		}
 	}
 
@@ -749,6 +772,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		rule_doc,
 		settings,
 		is_dirty,
+		is_loading,
 		processes,
 		available_rules,
 		trigger_event_options,

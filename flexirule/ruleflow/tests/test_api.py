@@ -34,6 +34,7 @@ class TestBoltonAPI(unittest.TestCase):
 					"actions": [
 						{
 							"action_type": "Set Value",
+							"operation": "Current Document",
 							"action_label": "Set Priority",
 							"action_id": "action_1",
 							"target_field": "priority",
@@ -118,11 +119,9 @@ class TestBoltonAPI(unittest.TestCase):
 		result = transition_rule(self.rule.name, "Draft")
 
 		self.assertEqual(result.get("status"), "Draft")
-		self.assertEqual(result.get("lifecycle_state"), "Draft")
 		self.assertEqual(result.get("is_active"), 0)
 		refreshed = frappe.get_doc("Rule", self.rule.name)
 		self.assertEqual(refreshed.status, "Draft")
-		self.assertEqual(refreshed.lifecycle_state, "Draft")
 		self.assertEqual(refreshed.is_active, 0)
 
 
