@@ -49,6 +49,8 @@ In modern enterprise systems like **Frappe / ERPNext**, business logic often evo
   width="900"
   style="border-radius:14px;"
 />
+<img width="1294" height="648" alt="IMG-20260422-WA0039" src="https://github.com/user-attachments/assets/b5e00fd1-c171-48bf-abc6-93c4de93f6a1" />
+<img width="1331" height="627" alt="IMG-20260422-WA0041" src="https://github.com/user-attachments/assets/e1e7bf85-7f27-4be1-9999-f9dcdd511603" />
 
 <p align="center"><em>Declarative, deeply nested condition trees with deterministic evaluation.</em></p>
 <img width="1029" height="722" alt="IMG-20260422-WA0037" src="https://github.com/user-attachments/assets/2bc38417-092e-4623-8324-dc736629213f" />
