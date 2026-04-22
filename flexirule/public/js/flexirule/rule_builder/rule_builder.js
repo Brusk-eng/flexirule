@@ -69,10 +69,17 @@ class RuleBuilder {
 		});
 		this.clear_test_btn.hide();
 
+		// Custom status area beside title
+		this.setup_custom_header();
+
 		// Menu items
 		this.page.add_menu_item(__("Go to Rule"), () => {
 			frappe.set_route("Form", "Rule", this.rule);
 		});
+	}
+
+	setup_custom_header() {
+		// No custom left actions needed per user request
 	}
 
 	setup_app() {
@@ -146,12 +153,46 @@ class RuleBuilder {
 	}
 
 	update_status_button(is_active) {
-		if (is_active) {
-			this.status_btn.text(__("Active"));
-			this.status_btn.removeClass("btn-default").addClass("btn-success");
-		} else {
-			this.status_btn.text(__("Draft"));
-			this.status_btn.removeClass("btn-success").addClass("btn-default");
+		const status_text = is_active ? __("Active") : __("Draft");
+		const indicator_color = is_active ? "green" : "orange";
+
+		// 1. Update Title with Badges
+		// We use a container to avoid overwriting the whole title if possible
+		if (!this.page.$title_area.find(".flexirule-status-badges").length) {
+			this.page.$title_area.find(".title-text, .page-title").first().append(`
+				<span class="flexirule-status-badges ml-2" style="display: inline-flex; gap: 4px; vertical-align: middle;"></span>
+			`);
+		}
+		const $badges = this.page.$title_area.find(".flexirule-status-badges");
+
+		let badges_html = `<span class="indicator-pill ${indicator_color}" style="font-size: 10px; padding: 2px 10px; font-weight: 700;">
+			${status_text}
+		</span>`;
+
+		if (
+			this.store.rule_doc?.trigger_type === "Callable Event" &&
+			this.store.rule_doc?.exposed_as_subrule
+		) {
+			badges_html += ` <span class="indicator-pill blue" style="font-size: 10px; padding: 2px 10px; font-weight: 700;">
+				${__("Sub-Rule")}
+			</span>`;
+		}
+		$badges.html(badges_html);
+
+		// 2. Update Toggle Button (on the right)
+		if (this.status_btn) {
+			this.status_btn.show().removeClass("hide");
+			if (is_active) {
+				this.status_btn
+					.text(__("Unlock for Editing"))
+					.removeClass("btn-default btn-primary btn-success")
+					.addClass("btn-warning");
+			} else {
+				this.status_btn
+					.text(__("Set to Active"))
+					.removeClass("btn-warning btn-success")
+					.addClass("btn-default");
+			}
 		}
 	}
 

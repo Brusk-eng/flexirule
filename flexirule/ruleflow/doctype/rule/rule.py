@@ -35,12 +35,7 @@ class Rule(Document):
 		exposed_as_subrule: DF.Check
 		is_active: DF.Check
 		last_error: DF.Text | None
-		lifecycle_state: DF.Literal["Draft", "Active", "Inactive", "Archived"]
-		max_execution_time: DF.Int
-		module: DF.Link | None
-		parent_rule: DF.Link | None
 		permissions: DF.Table[RulePermission]
-		previous_rule: DF.Link | None
 		priority: DF.Literal[
 			"0",
 			"1",
@@ -92,47 +87,25 @@ class Rule(Document):
 		visual_data: DF.Code | None
 
 	# end: auto-generated types
-	def _sync_lifecycle_flags(self):
-		"""Keep lifecycle_state, is_active, and status compatible."""
-		status_to_state = {
-			"Draft": "Draft",
-			"Active": "Active",
-			"Disabled": "Inactive",
-			"Archived": "Archived",
-		}
-		state_to_status = {
-			"Draft": "Draft",
-			"Active": "Active",
-			"Inactive": "Disabled",
-			"Archived": "Archived",
-		}
-
-		state = self.get("lifecycle_state")
-		status = self.get("status")
+	def _sync_status(self):
+		"""Keep status and is_active compatible."""
 		active_flag = self.get("is_active")
+		status = self.get("status")
 
-		if not state and status in status_to_state:
-			state = status_to_state.get(status)
-
-		if not state:
-			state = "Active" if active_flag in (1, True, "1") else "Draft"
-		elif active_flag in (1, True, "1"):
-			state = "Active"
-		elif active_flag in (0, False, "0") and state == "Active":
-			state = "Draft"
-
-		self.lifecycle_state = state
-		self.is_active = 1 if self.lifecycle_state == "Active" else 0
-
-		# Preserve explicit runtime/error statuses when set by execution pipeline.
-		if status not in ("Error", "Invalid"):
-			self.status = state_to_status.get(self.lifecycle_state, "Draft")
+		if active_flag:
+			if status not in ("Error", "Invalid", "Active"):
+				self.status = "Active"
+		else:
+			if status == "Active":
+				self.status = "Disabled"
+			elif status not in ("Error", "Invalid", "Disabled", "Archived"):
+				self.status = "Draft"
 
 	def validate(self):
 		"""
 		Validate Rule Configuration
 		"""
-		self._sync_lifecycle_flags()
+		self._sync_status()
 
 		if not self.visual_data:
 			self._initialize_default_graph()
@@ -149,7 +122,6 @@ class Rule(Document):
 		self.validate_active_rule_lock()
 		self.validate_priority_callable()
 		self.set_callable_permissions()
-		self.validate_version_constraints()
 
 	# Removed status computation for lifecycle_state
 
@@ -171,7 +143,7 @@ class Rule(Document):
 
 	def before_save(self):
 		"""Initialize version for new rules."""
-		self._sync_lifecycle_flags()
+		self._sync_status()
 		if not self.visual_data:
 			self._initialize_default_graph()
 		if self.is_new() and not self.version:
@@ -206,18 +178,7 @@ class Rule(Document):
 			if self.get(fieldname):
 				self.set(fieldname, None)
 
-	def validate_version_constraints(self):
-		"""
-		Enforce versioning constraints:
-		- Only one draft amendment per rule lineage.
-		- Cannot amend if a newer draft version already exists.
-		"""
-		if not self.previous_rule:
-			return
-
-		from flexirule.ruleflow.core.rule_service import validate_single_draft_copy
-
-		validate_single_draft_copy(self)
+		pass
 
 	def validate_trigger_alignment(self, rule_doc=None, visited_rules=None, is_after_event_context=None):
 		"""

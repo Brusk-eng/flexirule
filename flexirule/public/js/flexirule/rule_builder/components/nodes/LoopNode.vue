@@ -20,6 +20,8 @@ const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
 });
 
+const isReadOnly = computed(() => store.is_read_only);
+
 const testResults = computed(() => {
 	const path = store.test_execution_path || [];
 	return path.filter((entry) => entry.action_id === props.id);
@@ -43,6 +45,7 @@ function openConfig() {
 		:class="{
 			selected: selected,
 			disabled: isEffectiveDisabled,
+			'is-read-only': isReadOnly,
 			'test-executed': visitCount > 0,
 			'is-vertical': !isHorizontal,
 		}"
@@ -68,16 +71,25 @@ function openConfig() {
 			<i class="fa fa-refresh icon-spin"></i>
 			<span class="type-text">{{ __("LOOP") }}</span>
 			<button
+				v-if="!isReadOnly"
 				class="action-btn toggle-btn"
 				@click.stop="store.toggle_node_enabled(props.id)"
 				:title="data.is_enabled === 0 ? __('Enable') : __('Disable')"
 			>
 				<i :class="['fa', data.is_enabled === 0 ? 'fa-toggle-off' : 'fa-toggle-on']"></i>
 			</button>
-			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
-				<i class="fa fa-pencil"></i>
+			<button
+				class="action-btn"
+				@click.stop="openConfig"
+				:title="isReadOnly ? __('View Configuration') : __('Configure')"
+			>
+				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
 			</button>
-			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
+			<button
+				class="action-btn delete"
+				@click.stop="deleteNode"
+				v-if="selected && !isReadOnly"
+			>
 				<i class="fa fa-trash"></i>
 			</button>
 		</div>
@@ -126,6 +138,20 @@ function openConfig() {
 	box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
 }
 
+.loop-node-card.is-vertical {
+	width: 140px;
+}
+
+.loop-node-card.is-read-only {
+	cursor: default;
+	filter: grayscale(0.5);
+	opacity: 0.8;
+}
+
+.loop-node-card.is-read-only .node-header {
+	background-color: #94a3b8;
+}
+
 .node-header {
 	background: #fab005;
 	color: #fff;
@@ -152,12 +178,23 @@ function openConfig() {
 	font-weight: 600;
 	font-size: 13px;
 	color: #2d3748;
+	line-height: 1.2;
+}
+
+.is-vertical .loop-title {
+	white-space: normal;
+	word-break: break-word;
 }
 
 .loop-subtext {
 	font-size: 10px;
 	color: #718096;
 	margin-top: 4px;
+	word-break: break-all;
+}
+
+.is-vertical .loop-subtext {
+	white-space: normal;
 }
 
 /* Ports & Bubbles */

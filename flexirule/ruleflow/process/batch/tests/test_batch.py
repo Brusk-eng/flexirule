@@ -25,6 +25,7 @@ class TestBatchProcess(FrappeTestCase):
 					"actions": [
 						{
 							"action_type": "Set Value",
+							"operation": "Current Document",
 							"action_label": "Make High Priority",
 							"action_id": "act_high_prio",
 							"is_entry_action": 1,

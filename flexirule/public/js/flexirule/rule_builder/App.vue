@@ -1,5 +1,5 @@
 <template>
-	<div class="rule-builder-container">
+	<div class="rule-builder-container" :class="{ 'is-read-only': isReadOnly }">
 		<!-- Main Canvas + Sidebar -->
 		<div class="builder-main">
 			<div class="canvas-container" ref="flowWrapper" @dragover="onDragOver" @drop="onDrop">
@@ -12,8 +12,13 @@
 					:max-zoom="2"
 					:snap-to-grid="true"
 					:snap-grid="[15, 15]"
+					:nodes-draggable="!isReadOnly"
+					:nodes-connectable="!isReadOnly"
+					:elements-selectable="true"
+					:delete-key-active="!isReadOnly"
 					fit-view-on-init
 					:edge-types="edgeTypes"
+					:class="{ 'is-read-only-flow': isReadOnly }"
 					@node-click="onNodeClick"
 					@node-dblclick="onNodeDblClick"
 					@pane-click="onPaneClick"
@@ -114,6 +119,16 @@
 							<span class="small text-muted">{{ __("Disabled") }}</span>
 						</div>
 
+						<button
+							class="btn btn-sm btn-default"
+							@click="copySelectedToClipboard"
+							:title="__('Copy Selected Nodes (Ctrl+C)')"
+						>
+							<i class="fa fa-copy"></i> {{ __("Copy") }}
+						</button>
+
+						<div class="divider-vertical"></div>
+
 						<div v-if="isReadOnly" class="read-only-badge mr-2">
 							<i class="fa fa-lock"></i> {{ __("Read Only") }}
 						</div>
@@ -122,15 +137,29 @@
 							v-if="!isReadOnly"
 							class="btn btn-sm btn-primary btn-activate"
 							@click="store.activate_rule"
+							:disabled="store.is_loading"
 						>
-							<i class="fa fa-rocket"></i> {{ __("Set to Active") }}
+							<i
+								:class="[
+									'fa',
+									store.is_loading ? 'fa-spinner fa-spin' : 'fa-rocket',
+								]"
+							></i>
+							{{ __("Set to Active") }}
 						</button>
 						<button
 							v-else
 							class="btn btn-sm btn-outline-warning btn-unlock"
 							@click="store.deactivate_rule"
+							:disabled="store.is_loading"
 						>
-							<i class="fa fa-unlock"></i> {{ __("Unlock for Editing") }}
+							<i
+								:class="[
+									'fa',
+									store.is_loading ? 'fa-spinner fa-spin' : 'fa-unlock',
+								]"
+							></i>
+							{{ __("Unlock for Editing") }}
 						</button>
 					</Panel>
 				</VueFlow>
@@ -429,6 +458,7 @@ function handleKeydown(e) {
 	}
 	// Copy: Ctrl+C
 	if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+		if (window.getSelection().toString().length > 0) return;
 		copySelectedToClipboard();
 	}
 	// Paste: Ctrl+V
@@ -738,5 +768,36 @@ function onEdgeClick({ edge, event }) {
 
 .sub-rule-group-node :deep(.vue-flow__node-default) {
 	border-style: solid !important;
+}
+
+/* Read Only Flow Visuals */
+.is-read-only-flow :deep(.vue-flow__node) {
+	filter: grayscale(0.6) opacity(0.8);
+	transition: all 0.3s ease;
+}
+
+.is-read-only-flow :deep(.vue-flow__node.selected),
+.is-read-only-flow :deep(.vue-flow__node:hover) {
+	filter: grayscale(0) opacity(1);
+}
+
+.is-read-only-flow :deep(.vue-flow__edge-path) {
+	stroke: #cbd5e1 !important;
+	stroke-opacity: 0.6;
+}
+
+.is-read-only-flow :deep(.vue-flow__node.test-executed) {
+	filter: none !important;
+	opacity: 1 !important;
+}
+
+.read-only-badge {
+	background: #fff7ed;
+	color: #9a3412;
+	padding: 4px 10px;
+	border-radius: 6px;
+	border: 1px solid #ffedd5;
+	font-size: 11px;
+	font-weight: 700;
 }
 </style>

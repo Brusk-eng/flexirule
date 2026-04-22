@@ -95,6 +95,10 @@ export const useStore = defineStore("rule-builder-store", () => {
 		get: () => _ui().config_modal_mode,
 		set: (v) => (_ui().config_modal_mode = v),
 	});
+	const use_modern_layout = computed({
+		get: () => _ui().use_modern_layout,
+		set: (v) => (_ui().use_modern_layout = v),
+	});
 	const test_execution_path = computed({
 		get: () => _ui().test_execution_path,
 		set: (v) => (_ui().test_execution_path = v),
@@ -330,6 +334,7 @@ export const useStore = defineStore("rule-builder-store", () => {
 		show_sidebar,
 		show_config_modal,
 		config_modal_mode,
+		use_modern_layout,
 		processes,
 		available_rules,
 		is_dirty,

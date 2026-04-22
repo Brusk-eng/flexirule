@@ -5,10 +5,10 @@
  */
 import { useStore } from "../../store";
 import ControlFactory from "../../controls/ControlFactory.vue";
-import MappingWrapper from "../MappingWrapper.vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import FieldPickerControl from "../../controls/FieldPickerControl.vue";
-import { inject, ref, computed, watch } from "vue";
+import ContextPicker from "../ContextPicker.vue";
+import { inject, ref, computed, watch, nextTick } from "vue";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -206,14 +206,23 @@ watch(
 	{ immediate: true, deep: true }
 );
 
-function setMapping(ref) {
-	props.node.right.ref = ref;
-	props.node.right.value = "";
-}
+// Value Type State (Static vs Field)
+const isMapped = computed({
+	get: () => !!props.node.right.ref,
+	set: (mapped) => {
+		if (mapped) {
+			props.node.right.value = "";
+			if (!props.node.right.ref) props.node.right.ref = "doc."; // default
+		} else {
+			props.node.right.ref = "";
+		}
+	},
+});
 
-function clearMapping() {
-	props.node.right.ref = "";
-}
+const valueTypeOptions = [
+	{ label: __("Static"), value: false },
+	{ label: __("Field"), value: true },
+];
 </script>
 
 <template>
@@ -221,65 +230,85 @@ function clearMapping() {
 		<div class="condition-main-row">
 			<!-- Field -->
 			<div class="condition-col field-col">
-				<div class="field-picker-container">
-					<FieldPickerControl
-						:df="{ label: '', read_only: readOnly }"
-						v-model="node.left.ref"
-						:fields="docFields"
-						:disabled="readOnly"
-						class="w-100 m-0"
-					/>
-				</div>
+				<FieldPickerControl
+					:df="{ label: '', read_only: readOnly }"
+					v-model="node.left.ref"
+					:fields="docFields"
+					:disabled="readOnly"
+					class="w-100 m-0"
+				/>
 			</div>
 
 			<!-- Operator -->
 			<div class="condition-col operator-col">
-				<select v-model="node.op" class="form-control input-xs" :disabled="readOnly">
+				<select
+					v-model="node.op"
+					class="form-control input-xs operator-select"
+					:disabled="readOnly"
+				>
 					<option v-for="op in operators" :key="op.value" :value="op.value">
 						{{ op.label }}
 					</option>
 				</select>
 			</div>
 
-			<!-- Value -->
+			<!-- Value Group (Type + Value) -->
 			<div
-				class="condition-col value-col"
+				class="condition-col value-group-col"
 				v-if="!['is_set', 'is_not_set', 'is_submittable'].includes(node.op)"
 			>
-				<div v-if="selectedField?.fieldtype === 'Dynamic Link'" class="mb-2">
-					<ControlFactory
-						:df="{
-							fieldtype: 'Link',
-							options: 'DocType',
-							placeholder: __('Select DocType'),
-							read_only: readOnly,
-						}"
-						v-model="dynamicLinkDocType"
-						:hideLabel="true"
-					/>
-				</div>
-
-				<MappingWrapper
-					:label="''"
-					:mappingValue="node.right.ref"
-					:docFields="docFields"
-					:readOnly="readOnly"
-					@update:mappingValue="setMapping"
-					@clearStatic="clearMapping"
+				<select
+					v-model="isMapped"
+					class="form-control input-xs value-type-select"
+					:disabled="readOnly"
 				>
-					<ControlFactory
-						:df="{ ...valueFieldSchema, label: '' }"
-						v-model="wrappedValue"
-						:read_only="readOnly"
-						:hideLabel="true"
-					/>
-				</MappingWrapper>
+					<option :value="false">{{ __("Static") }}</option>
+					<option :value="true">{{ __("Field") }}</option>
+				</select>
+
+				<div class="value-input-wrapper">
+					<div
+						v-if="selectedField?.fieldtype === 'Dynamic Link' && !isMapped"
+						class="dynamic-dt-picker"
+					>
+						<ControlFactory
+							:df="{
+								fieldtype: 'Link',
+								options: 'DocType',
+								placeholder: __('Select DocType'),
+								read_only: readOnly,
+							}"
+							v-model="dynamicLinkDocType"
+							:hideLabel="true"
+						/>
+					</div>
+
+					<template v-if="isMapped">
+						<ContextPicker
+							v-model="node.right.ref"
+							:docFields="docFields"
+							:disabled="readOnly"
+						/>
+					</template>
+					<template v-else>
+						<ControlFactory
+							:df="{ ...valueFieldSchema, label: '' }"
+							v-model="wrappedValue"
+							:read_only="readOnly"
+							:hideLabel="true"
+						/>
+					</template>
+				</div>
 			</div>
-			<div v-else class="condition-col value-col empty"></div>
+			<div v-else class="condition-col empty-value-col"></div>
 
 			<!-- Remove -->
 			<div class="condition-col action-col" v-if="!readOnly">
-				<button class="btn btn-xs btn-link text-danger" @click="emit('remove')">
+				<button
+					class="btn btn-xs btn-link text-danger"
+					@click="emit('remove')"
+					:title="__('Remove')"
+				>
 					<i class="fa fa-trash"></i>
 				</button>
 			</div>
@@ -302,7 +331,7 @@ function clearMapping() {
 
 .condition-main-row {
 	display: grid;
-	grid-template-columns: 1.5fr 0.8fr 2fr auto;
+	grid-template-columns: 1.5fr 0.8fr 2.5fr auto;
 	gap: 8px;
 	align-items: center;
 }
@@ -311,29 +340,66 @@ function clearMapping() {
 	min-width: 0;
 }
 
-.field-picker-container {
-	position: relative;
+.operator-select {
+	font-weight: 600;
+	color: #1e293b;
+	background-color: #f1f5f9;
+}
+
+.value-group-col {
 	display: flex;
 	align-items: center;
-	width: 100%;
+	gap: 4px;
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	padding: 2px;
 }
 
-:deep(.field-picker-control) {
-	margin-bottom: 0 !important;
+.value-type-select {
+	width: auto;
+	min-width: 70px;
+	border: none;
+	background-color: #f8fafc;
+	color: #64748b;
+	font-weight: 600;
+	font-size: 10px;
+	text-transform: uppercase;
+	height: 24px;
+	border-right: 1px solid #e2e8f0;
+	border-radius: 4px 0 0 4px;
+	cursor: pointer;
 }
 
-:deep(.control.frappe-control) {
-	margin-bottom: 0 !important;
+.value-input-wrapper {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.dynamic-dt-picker {
+	margin-bottom: 4px;
 }
 
 .condition-main-row :deep(.form-control) {
 	height: 28px;
 	font-size: 12px;
 	padding: 4px 8px;
+	border: 1px solid transparent;
+}
+
+.condition-main-row :deep(.form-control:focus) {
+	border-color: var(--primary);
+	box-shadow: none;
+}
+
+.empty-value-col {
+	flex: 1;
 }
 
 /* Responsive adjustments */
-@media (max-width: 992px) {
+@media (max-width: 768px) {
 	.condition-main-row {
 		display: flex;
 		flex-direction: column;

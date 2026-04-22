@@ -75,7 +75,7 @@ function onPaste() {
 		:marker-end="markerEnd"
 		data-edge-type="add"
 	/>
-	<EdgeLabelRenderer v-if="isEnabled">
+	<EdgeLabelRenderer v-if="isEnabled && !store.is_read_only">
 		<div
 			:style="{
 				pointerEvents: 'all',

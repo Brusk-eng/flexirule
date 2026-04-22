@@ -53,13 +53,28 @@ watch(
 		}
 	}
 );
+
+function copyCode() {
+	if (!content.value) return;
+	frappe.utils.copy_to_clipboard(content.value);
+}
 </script>
 
 <template>
 	<div v-if="slots.label" class="control" :class="{ editable: slots.label }">
 		<div class="field-controls">
 			<slot name="label" />
-			<slot name="actions" />
+			<div class="d-flex align-items-center gap-2">
+				<slot name="actions" />
+				<button
+					v-if="read_only"
+					class="btn btn-xs btn-default"
+					@click="copyCode"
+					:title="__('Copy to Clipboard')"
+				>
+					<i class="fa fa-copy"></i>
+				</button>
+			</div>
 		</div>
 		<div ref="code"></div>
 		<div v-if="df.description" class="mt-2 description">{{ __(df.description) }}</div>

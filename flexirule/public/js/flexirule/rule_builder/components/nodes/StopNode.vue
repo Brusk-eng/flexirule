@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../store";
 
@@ -13,6 +14,8 @@ const targetPos = computed(
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
 });
+
+const isReadOnly = computed(() => store.is_read_only);
 
 const testResult = computed(() => {
 	const path = store.test_execution_path || [];
@@ -52,8 +55,12 @@ function openConfig() {
 				<div class="type-label">{{ __("TERMINAL") }}</div>
 				<div class="main-label">STOP</div>
 			</div>
-			<button class="action-btn" @click.stop="openConfig" :title="__('Configure')">
-				<i class="fa fa-pencil"></i>
+			<button
+				class="action-btn"
+				@click.stop="openConfig"
+				:title="isReadOnly ? __('View Configuration') : __('Configure')"
+			>
+				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
 			</button>
 			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
 				<i class="fa fa-trash"></i>

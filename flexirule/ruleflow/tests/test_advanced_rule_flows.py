@@ -258,6 +258,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				{
 					"action_id": "set_status",
 					"action_type": "Set Value",
+					"operation": "Current Document",
 					"action_label": "Set Status Open",
 					"target_field": "status",
 					"value_template": "Open",
@@ -444,6 +445,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				{
 					"action_id": "set_loop_var",
 					"action_type": "Set Value",
+					"operation": "Current Document",
 					"action_label": "Set Loop Context",
 					"target_field": "last_loop_phone",
 					"value_template": "{{ vars.phone_row.phone }}",

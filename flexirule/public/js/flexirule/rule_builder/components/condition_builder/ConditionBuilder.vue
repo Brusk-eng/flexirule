@@ -77,6 +77,7 @@
  * ConditionBuilder - Main container for condition editing
  * Owns the root condition group state and provides methods via inject
  */
+import { reactive, watch, nextTick, provide, computed, onMounted } from "vue";
 import { useStore } from "../../store";
 
 import ConditionNode from "./ConditionNode.vue";
@@ -94,10 +95,13 @@ const store = useStore();
 // Create a reactive copy of the model
 const rootGroup = reactive(JSON.parse(JSON.stringify(props.modelValue)));
 
+let isUpdating = false;
+
 // Sync with parent when rootGroup changes
 watch(
 	rootGroup,
 	(newVal) => {
+		if (isUpdating) return;
 		emit("update:modelValue", JSON.parse(JSON.stringify(newVal)));
 	},
 	{ deep: true }
@@ -107,14 +111,17 @@ watch(
 watch(
 	() => props.modelValue,
 	(newVal) => {
-		if (newVal) {
-			// Compare JSON strings to detect logical changes
-			const currentJSON = JSON.stringify(rootGroup);
-			const newJSON = JSON.stringify(newVal);
+		if (!newVal || isUpdating) return;
 
-			if (newJSON !== currentJSON) {
-				Object.assign(rootGroup, JSON.parse(newJSON));
-			}
+		const currentJSON = JSON.stringify(rootGroup);
+		const newJSON = JSON.stringify(newVal);
+
+		if (newJSON !== currentJSON) {
+			isUpdating = true;
+			Object.assign(rootGroup, JSON.parse(newJSON));
+			nextTick(() => {
+				isUpdating = false;
+			});
 		}
 	},
 	{ deep: true }

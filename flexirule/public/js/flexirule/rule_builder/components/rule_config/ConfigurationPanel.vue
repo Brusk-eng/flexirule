@@ -1,7 +1,7 @@
 <template>
 	<div class="configuration-panel">
 		<div v-if="node" class="panel-content">
-			<div class="panel-header">
+			<div class="panel-header" v-if="!store.use_modern_layout">
 				<div class="header-text">
 					<h4>{{ __("Dynamic Configuration") }}</h4>
 					<p class="text-muted small">
@@ -171,7 +171,7 @@ defineExpose({
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: 20px;
+	padding: var(--panel-padding, 16px);
 	display: flex;
 	flex-direction: column;
 	gap: 16px;

@@ -1,6 +1,6 @@
 <template>
 	<div class="output-panel">
-		<div class="panel-header">
+		<div class="panel-header" v-if="!store.use_modern_layout">
 			<h4>{{ __("Output & Mutation") }}</h4>
 			<p class="text-muted small">{{ __("Manage results and data storage") }}</p>
 		</div>

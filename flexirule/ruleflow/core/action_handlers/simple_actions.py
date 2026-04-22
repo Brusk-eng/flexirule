@@ -85,19 +85,17 @@ class SetValueHandler(ActionHandler):
 
 	def execute(self, action, context, engine):
 		"""
-		Set Value action - updates a field using Jinja template.
+		Set Value action - updates a field or context variable using a Jinja template.
 
-		Uses action.target_field and action.value_template.
-		The template is rendered with access to doc, vars, frappe, utils.
+		Operations:
+		- Current Document: sets target_field on context['doc']
+		- Context Variable: sets variable_name in context['vars']
+		- Reference Document: sets target_field on a referenced document via db.set_value
 		"""
-		target_field = getattr(action, "target_field", None)
+		operation = getattr(action, "operation", "Current Document")
 		value_template = getattr(action, "value_template", "") or ""
 
-		if not target_field:
-			engine._log("WARNING", _("Set Value action missing target_field"))
-			return None, getattr(action, "next_step_if_true", None)
-
-		# Render Jinja template with SafeFrappeAPI to prevent write operations
+		# Render Jinja template with SafeFrappeAPI to prevent write operations inside template
 		template_context = {
 			"doc": context.get("doc"),
 			"vars": context.get("vars", {}),
@@ -107,13 +105,53 @@ class SetValueHandler(ActionHandler):
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 		rendered_value = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
 
-		# Set the value on the document
-		doc = context.get("doc")
-		if doc and hasattr(doc, "set"):
-			doc.set(target_field, rendered_value)
-			engine._log("INFO", _("Set {0} = {1}").format(target_field, rendered_value))
+		if operation == "Context Variable":
+			variable_name = getattr(action, "variable_name", None)
+			if not variable_name:
+				engine._log("WARNING", _("Set Value action missing variable_name"))
+			else:
+				if "vars" not in context:
+					context["vars"] = {}
+				context["vars"][variable_name] = rendered_value
+				engine._log("INFO", _("Set context var {0} = {1}").format(variable_name, rendered_value))
+
+		elif operation == "Reference Document":
+			target_field = getattr(action, "target_field", None)
+			ref_doctype = getattr(action, "reference_doctype", None)
+			ref_docname_tpl = getattr(action, "reference_docname", None)
+
+			if not target_field or not ref_doctype or not ref_docname_tpl:
+				engine._log("WARNING", _("Set Value action missing target_field or reference details"))
+			else:
+				# Render the docname in case it contains a template variable
+				ref_docname = frappe.render_template(  # nosemgrep: frappe-ssti
+					ref_docname_tpl, template_context
+				)
+				if ref_docname:
+					frappe.db.set_value(ref_doctype, ref_docname, target_field, rendered_value)
+					engine._log(
+						"INFO",
+						_("Set {0} {1} field {2} = {3}").format(
+							ref_doctype, ref_docname, target_field, rendered_value
+						),
+					)
+				else:
+					engine._log("WARNING", _("Resolved reference_docname is empty"))
+
 		else:
-			engine._log("WARNING", _("Cannot set field - no document in context"))
+			# Default to Current Document
+			target_field = getattr(action, "target_field", None)
+			if not target_field:
+				engine._log("WARNING", _("Set Value action missing target_field"))
+			else:
+				doc = context.get("doc")
+				if doc and hasattr(doc, "set"):
+					doc.set(target_field, rendered_value)
+					engine._log(
+						"INFO", _("Set {0} = {1} on current document").format(target_field, rendered_value)
+					)
+				else:
+					engine._log("WARNING", _("Cannot set field - no document in context"))
 
 		return rendered_value, getattr(action, "next_step_if_true", None)
 

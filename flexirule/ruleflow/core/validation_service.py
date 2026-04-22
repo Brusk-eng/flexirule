@@ -299,7 +299,9 @@ def _validate_action_contracts(
 				)
 			)
 
-	if (_safe_get(action, "return_type") or _safe_get(action, "resolved_output_schema")) and _is_empty(
+	show_return_type = effective_policy.get("show_return_type", contract.get("show_return_type", True))
+	return_type = _safe_get(action, "return_type")
+	if (show_return_type and return_type or _safe_get(action, "resolved_output_schema")) and _is_empty(
 		_safe_get(action, "return_variable")
 	):
 		errors.append(
@@ -309,7 +311,7 @@ def _validate_action_contracts(
 		)
 
 	allowed_return_types = effective_policy.get("allowed_return_types") or []
-	return_type = _safe_get(action, "return_type")
+
 	require_return_type = bool(effective_policy.get("require_return_type"))
 	if require_return_type and _is_empty(return_type):
 		errors.append(

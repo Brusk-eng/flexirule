@@ -22,10 +22,16 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	// ── Core state ──
 	const rule_name = ref(null);
 	const rule_doc = ref(null);
-	const is_dirty = ref(false);
+	const _is_dirty = ref(false); // Manual override flag if needed
+	const is_dirty = computed(() => {
+		if (is_read_only.value) return false;
+		if (_is_dirty.value) return true;
+		return checkDirty();
+	});
 	const initial_state = ref(null);
 	const settings = ref(null);
 	const validation_errors = ref([]);
+	const is_loading = ref(false);
 	// ── Process / Sub-Rule state ──
 	const processes = ref([]);
 	const available_rules = ref([]);
@@ -85,7 +91,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		if (result.message) {
 			frappe.model.sync(result.message);
-			rule_doc.value = frappe.get_doc("Rule", rule_name.value);
+			rule_doc.value = { ...frappe.get_doc("Rule", rule_name.value) };
 		}
 
 		if (rule_doc.value?.document_type) {
@@ -146,7 +152,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		setup_breadcrumbs();
 		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
-		is_dirty.value = false;
+		_is_dirty.value = false;
 
 		// Ensure App.vue bindings see the nodes/edges immediately
 		// by triggering a reactivity update if needed
@@ -159,6 +165,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	// ── Save ──
 	// Follows Frappe pattern: serialize → validate → save doc → re-fetch
 	async function save_changes() {
+		if (is_loading.value) return;
+		is_loading.value = true;
 		frappe.dom.freeze(__("Saving..."));
 		const graphStore = useGraphStore();
 
@@ -476,6 +484,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				indicator: "red",
 			});
 		} finally {
+			is_loading.value = false;
 			frappe.dom.unfreeze();
 		}
 	}
@@ -483,7 +492,20 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	// ── Lifecycle Transitions (Phase 2: State Machine) ──
 	// Uses the backend lifecycle service for validated state transitions
 	async function activate_rule() {
-		if (is_active.value) return;
+		if (is_active.value || is_loading.value) return;
+		is_loading.value = true;
+
+		if (is_dirty.value) {
+			const confirmed = await new Promise((resolve) => {
+				frappe.confirm(
+					__("You have unsaved changes. Save and activate now?"),
+					() => resolve(true),
+					() => resolve(false)
+				);
+			});
+			if (!confirmed) return;
+			await save_changes();
+		}
 
 		try {
 			const result = await frappe.call({
@@ -507,11 +529,14 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				message: errorMsg,
 				indicator: "red",
 			});
+		} finally {
+			is_loading.value = false;
 		}
 	}
 
 	async function deactivate_rule() {
-		if (!is_active.value) return;
+		if (!is_active.value || is_loading.value) return;
+		is_loading.value = true;
 
 		try {
 			const result = await frappe.call({
@@ -533,6 +558,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				message: e.message || __("Unknown error"),
 				indicator: "red",
 			});
+		} finally {
+			is_loading.value = false;
 		}
 	}
 
@@ -589,49 +616,49 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 	// ── Dirty tracking ──
 	function mark_dirty() {
-		is_dirty.value = true;
+		if (is_read_only.value) return;
+		// Commit to history
 		const historyStore = useHistoryStore();
 		const graphStore = useGraphStore();
 		historyStore.commit(() => graphStore.getGraphSnapshot());
 	}
 
 	function mark_position_change() {
+		if (is_read_only.value) return;
+		// Positions are checked by checkDirty in the computed is_dirty
 		const graphStore = useGraphStore();
-		is_dirty.value = checkDirty();
-		if (is_dirty.value) {
-			const historyStore = useHistoryStore();
-			historyStore.commit(() => graphStore.getGraphSnapshot());
-		}
+		const historyStore = useHistoryStore();
+		historyStore.commit(() => graphStore.getGraphSnapshot());
 	}
 
 	function clear_dirty() {
 		const graphStore = useGraphStore();
 		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
-		is_dirty.value = false;
+		_is_dirty.value = false;
 	}
 
 	function checkDirty() {
-		if (!initial_state.value) return false;
+		if (is_read_only.value || !initial_state.value) return false;
 		const graphStore = useGraphStore();
 		return JSON.stringify(graphStore.getStateSnapshot()) !== initial_state.value;
 	}
 
 	// ── Undo/Redo coordination ──
 	function undo() {
+		if (is_read_only.value) return;
 		const historyStore = useHistoryStore();
 		const graphStore = useGraphStore();
 		historyStore.undo((snap) => {
 			graphStore.applyGraphSnapshot(snap);
-			is_dirty.value = true;
 		});
 	}
 
 	function redo() {
+		if (is_read_only.value) return;
 		const historyStore = useHistoryStore();
 		const graphStore = useGraphStore();
 		historyStore.redo((snap) => {
 			graphStore.applyGraphSnapshot(snap);
-			is_dirty.value = true;
 		});
 	}
 
@@ -749,6 +776,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		rule_doc,
 		settings,
 		is_dirty,
+		is_loading,
 		processes,
 		available_rules,
 		trigger_event_options,

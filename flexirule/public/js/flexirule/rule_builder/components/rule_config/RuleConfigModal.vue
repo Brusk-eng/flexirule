@@ -1,48 +1,74 @@
 <template>
 	<Teleport to="body">
-		<transition name="fade">
+		<transition name="modal-fade">
 			<div v-if="modelValue" class="config-modal-overlay" @click.self="cancel">
-				<div
-					class="config-modal-container"
-					:class="{
-						'show-context-sidebar': showContextSidebar,
-						'show-guide-sidebar': showGuideSidebar,
-						'show-settings-bar': showSettingsBar,
-					}"
-				>
+				<div class="config-modal-container">
 					<header class="config-modal-header">
 						<div class="header-left">
 							<div
 								class="header-icon"
-								v-if="draftNode"
-								:style="{ background: contract?.css?.color + '20' }"
+								:style="{
+									background: contract?.css?.bg || '#f1f5f9',
+									color: contract?.css?.color || '#64748b',
+								}"
 							>
 								<i
 									:class="
-										contract?.css?.icon ||
-										getIcon(draftNode.data?.action_type || draftNode.type)
+										getIcon(draftNode?.data?.action_type || draftNode?.type)
 									"
-									:style="{ color: contract?.css?.color }"
 								></i>
 							</div>
-							<div class="header-title-container">
+							<div class="header-titles">
 								<h3>{{ title }}</h3>
-								<span
-									v-if="draftNode?.data?.action_type"
-									class="type-badge"
-									:style="{ color: contract?.css?.color }"
-								>
-									{{ draftNode.data.action_type }}
-								</span>
+								<div class="modal-breadcrumb">
+									<span
+										class="type-badge"
+										:style="{ color: contract?.css?.color }"
+									>
+										{{ draftNode?.data?.action_id }}
+									</span>
+									<i
+										class="fa fa-chevron-right small mx-1 text-muted opacity-50"
+									></i>
+									<span class="text-muted">{{
+										draftNode?.data?.action_type
+									}}</span>
+								</div>
 							</div>
 						</div>
 
-						<!-- Centered Navigation & Toggles -->
-						<div class="header-center">
-							<div class="header-actions">
-								<div class="toggle-group">
+						<div class="header-right">
+							<div class="header-toolbar">
+								<!-- Navigation Group -->
+								<div class="toolbar-group navigation">
 									<button
-										class="toggle-btn"
+										class="toolbar-btn"
+										@click="store.prev_config_node()"
+										:disabled="currentNodeIndex <= 0"
+										:title="__('Previous')"
+									>
+										<i class="fa fa-chevron-left"></i>
+									</button>
+									<div class="toolbar-status">
+										<span class="current">{{ currentNodeIndex + 1 }}</span>
+										<span class="total">/ {{ totalNodes }}</span>
+									</div>
+									<button
+										class="toolbar-btn"
+										@click="store.next_config_node()"
+										:disabled="currentNodeIndex >= totalNodes - 1"
+										:title="__('Next')"
+									>
+										<i class="fa fa-chevron-right"></i>
+									</button>
+								</div>
+
+								<div class="toolbar-divider"></div>
+
+								<!-- Toggles Group -->
+								<div class="toolbar-group toggles">
+									<button
+										class="toolbar-btn"
 										:class="{ active: showContextSidebar }"
 										@click="showContextSidebar = !showContextSidebar"
 										:title="__('Context Variables')"
@@ -51,59 +77,36 @@
 										<span>{{ __("Variables") }}</span>
 									</button>
 									<button
-										class="toggle-btn"
+										class="toolbar-btn"
 										:class="{ active: showSettingsBar }"
 										@click="showSettingsBar = !showSettingsBar"
 										:title="__('Action Settings')"
 									>
-										<i class="fa fa-sliders"></i>
+										<i class="fa fa-cog"></i>
 										<span>{{ __("Settings") }}</span>
 									</button>
-									<button
-										class="toggle-btn"
-										:class="{ active: showGuideSidebar }"
-										@click="showGuideSidebar = !showGuideSidebar"
-										:title="__('Guide')"
-									>
-										<i class="fa fa-life-ring"></i>
-										<span>{{ __("Guide") }}</span>
-									</button>
 								</div>
 
-								<div class="modal-navigation ml-4">
-									<button
-										class="nav-btn"
-										@click="store.prev_config_node()"
-										:title="__('Previous Node')"
-										:disabled="currentNodeIndex <= 0"
-									>
-										<i class="fa fa-chevron-left"></i>
-									</button>
-									<div class="nav-status">
-										{{ currentNodeIndex + 1 }} / {{ totalNodes }}
-									</div>
-									<button
-										class="nav-btn"
-										@click="store.next_config_node()"
-										:title="__('Next Node')"
-										:disabled="currentNodeIndex >= totalNodes - 1"
-									>
-										<i class="fa fa-chevron-right"></i>
-									</button>
-								</div>
+								<div class="toolbar-divider"></div>
+
+								<!-- Close -->
+								<button
+									class="toolbar-btn close"
+									@click="cancel"
+									:title="__('Close')"
+								>
+									<i class="fa fa-times"></i>
+								</button>
 							</div>
-						</div>
-
-						<div class="header-right">
-							<button class="btn-close-modal" @click="cancel">
-								<i class="fa fa-times"></i>
-							</button>
 						</div>
 					</header>
 
-					<main class="config-modal-body">
+					<div class="config-modal-body">
 						<!-- Logic Mode (Conditions) -->
-						<template v-if="store.config_modal_mode === 'logic'">
+						<div
+							v-show="store.config_modal_mode === 'logic'"
+							class="conditions-container"
+						>
 							<div class="conditions-view">
 								<ConditionStep
 									:node="draftNode"
@@ -111,10 +114,13 @@
 									:ref="panelRefs.logic"
 								/>
 							</div>
-						</template>
+						</div>
 
 						<!-- Standard Action Setup -->
-						<template v-else>
+						<div
+							v-show="store.config_modal_mode !== 'logic'"
+							class="standard-config-container"
+						>
 							<!-- Start Node Setup (Full width) -->
 							<div v-if="draftNode?.type === 'start'" class="start-node-setup">
 								<div class="setup-container">
@@ -135,10 +141,10 @@
 								</div>
 							</div>
 
-							<!-- Multi-panel Action Setup -->
-							<div v-else-if="draftNode" class="panels-container">
-								<!-- Context Variable Sidebar (Left Sliding) -->
-								<aside class="sidebar context-sidebar" v-if="showContextSidebar">
+							<!-- Unified Action Setup -->
+							<div v-else-if="draftNode" class="panels-container-modern">
+								<!-- Context Variable Sidebar (Left) -->
+								<aside class="sidebar-variables" v-if="showContextSidebar">
 									<InputPanel
 										:node="draftNode"
 										:readOnly="store.is_read_only"
@@ -146,66 +152,72 @@
 									/>
 								</aside>
 
-								<ResizablePanel class="main-resizable-panels">
-									<!-- Left Panel: Reference & Input -->
-									<div class="resizable-panel left-panel reference-panel">
-										<InputPanel
-											:node="draftNode"
-											:readOnly="store.is_read_only"
-											:ref="panelRefs.input"
-											mode="config"
-										/>
-									</div>
+								<!-- Main Config Area -->
+								<div class="config-main-area">
+									<div class="config-scroll-container">
+										<div class="config-content-wrapper">
+											<!-- Top Settings Bar (Integrated) -->
+											<div
+												class="integrated-settings-bar"
+												v-if="showSettingsBar"
+											>
+												<ActionSettings
+													:node="draftNode"
+													:readOnly="store.is_read_only"
+													@update:field="on_update_action_field"
+												/>
+											</div>
 
-									<div class="panel-resizer"></div>
-
-									<!-- Middle Panel: Core Dynamic Configuration -->
-									<div class="resizable-panel middle-panel config-panel">
-										<!-- Top Sliding Settings Bar -->
-										<div class="action-settings-bar" v-if="showSettingsBar">
-											<ActionSettings
-												:node="draftNode"
-												:readOnly="store.is_read_only"
-												@update:field="on_update_action_field"
-											/>
+											<!-- Split View: Setup (Left) & Config (Right/Center) -->
+											<div class="action-core-layout">
+												<div class="core-setup-panel">
+													<InputPanel
+														:node="draftNode"
+														:readOnly="store.is_read_only"
+														:ref="panelRefs.input"
+														mode="config"
+													/>
+												</div>
+												<div class="core-config-panel">
+													<ConfigurationPanel
+														:node="draftNode"
+														:readOnly="store.is_read_only"
+														:ref="panelRefs.config"
+													/>
+												</div>
+											</div>
 										</div>
-
-										<ConfigurationPanel
-											:node="draftNode"
-											:readOnly="store.is_read_only"
-											:ref="panelRefs.config"
-										/>
 									</div>
 
-									<div class="panel-resizer"></div>
-
-									<!-- Right Panel: Output & Mutation -->
-									<div class="resizable-panel right-panel mapping-panel">
+									<!-- Right Side Utility Panel (Mutation & Results) -->
+									<aside class="sidebar-mutation">
 										<OutputPanel
 											:node="draftNode"
 											:readOnly="store.is_read_only"
 											:ref="panelRefs.output"
 										/>
-									</div>
-								</ResizablePanel>
-
-								<!-- Guide Sidebar (Right Sliding) -->
-								<aside class="sidebar guide-sidebar" v-if="showGuideSidebar">
-									<div class="guide-panel p-4">
-										<h5>{{ __("Action Guide") }}</h5>
-										<div class="guide-content mt-3" v-if="contract">
-											<p>{{ contract.description }}</p>
-											<!-- Operation specific guide could go here -->
-										</div>
-									</div>
-								</aside>
+									</aside>
+								</div>
 							</div>
-						</template>
-					</main>
+
+							<!-- Guide Sidebar (Right Sliding) -->
+							<aside class="sidebar guide-sidebar" v-if="showGuideSidebar">
+								<div class="guide-panel p-4">
+									<h5>{{ __("Action Guide") }}</h5>
+									<div class="guide-content mt-3" v-if="contract">
+										<p>{{ contract.description }}</p>
+									</div>
+								</div>
+							</aside>
+						</div>
+					</div>
 
 					<footer class="config-modal-footer">
 						<div class="footer-left">
-							<div v-if="store.is_dirty" class="dirty-indicator">
+							<div
+								v-if="store.is_dirty && !store.is_read_only"
+								class="dirty-indicator"
+							>
 								<i class="fa fa-circle mr-1"></i>
 								{{ __("Unsaved Changes") }}
 							</div>
@@ -384,258 +396,249 @@ function getIcon(type) {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.header-icon i {
 	font-size: 20px;
-	border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.header-title-container {
-	display: flex;
-	flex-direction: column;
-}
-
-.header-left h3 {
+.header-titles h3 {
 	margin: 0;
 	font-size: 18px;
-	font-weight: 800;
-	color: #0f172a;
-	letter-spacing: -0.02em;
-}
-
-.type-badge {
-	font-size: 10px;
 	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.1em;
-	opacity: 0.8;
-}
-
-.header-center {
-	flex: 1;
-	display: flex;
-	justify-content: center;
-}
-
-.header-actions {
-	display: flex;
-	align-items: center;
-	gap: 24px;
-}
-
-/* Toggle Buttons */
-.toggle-group {
-	display: flex;
-	background: #f1f5f9;
-	padding: 4px;
-	border-radius: 12px;
-	border: 1px solid #e2e8f0;
-}
-
-.toggle-btn {
-	padding: 8px 16px;
-	border-radius: 8px;
-	border: none;
-	background: transparent;
-	color: #64748b;
-	font-size: 13px;
-	font-weight: 600;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	cursor: pointer;
-	transition: all 0.2s;
-}
-
-.toggle-btn i {
-	font-size: 14px;
-}
-
-.toggle-btn:hover {
-	background: rgba(255, 255, 255, 0.5);
 	color: #1e293b;
 }
 
-.toggle-btn.active {
-	background: #fff;
-	color: var(--primary);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.modal-navigation {
+.modal-breadcrumb {
 	display: flex;
 	align-items: center;
-	background: #f8fafc;
-	padding: 4px;
-	border-radius: 12px;
-	gap: 8px;
-	border: 1px solid #e2e8f0;
+	font-size: 12px;
+	margin-top: 2px;
 }
 
-.nav-btn {
-	width: 36px;
-	height: 36px;
+.header-right {
+	display: flex;
+	align-items: center;
+}
+
+.header-toolbar {
+	display: flex;
+	align-items: center;
+	background: #f1f5f9;
+	padding: 4px;
+	border-radius: 12px;
+	gap: 4px;
+}
+
+.toolbar-group {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.toolbar-btn {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
 	border-radius: 8px;
 	border: none;
 	background: transparent;
 	color: #64748b;
+	font-size: 12px;
+	font-weight: 600;
 	cursor: pointer;
-	display: flex;
-	align-items: center;
-	justify-content: center;
 	transition: all 0.2s;
+	height: 32px;
 }
 
-.nav-btn:hover:not(:disabled) {
+.toolbar-btn:hover:not(:disabled) {
 	background: #fff;
-	color: var(--primary);
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	color: #1e293b;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.nav-btn:disabled {
+.toolbar-btn.active {
+	background: var(--primary);
+	color: #fff;
+}
+
+.toolbar-btn:disabled {
 	opacity: 0.3;
 	cursor: default;
 }
 
-.nav-status {
-	font-size: 12px;
-	font-weight: 800;
-	color: #475569;
-	min-width: 60px;
-	text-align: center;
-}
-
-.header-right {
-	min-width: 300px;
-	display: flex;
-	justify-content: flex-end;
-}
-
-.btn-close-modal {
-	background: #f1f5f9;
-	border: none;
-	width: 36px;
-	height: 36px;
-	border-radius: 10px;
-	font-size: 16px;
-	color: #64748b;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
+.toolbar-btn.close {
+	padding: 0;
+	width: 32px;
 	justify-content: center;
-	transition: all 0.2s;
 }
 
-.btn-close-modal:hover {
+.toolbar-btn.close:hover {
 	background: #fee2e2;
 	color: #ef4444;
+}
+
+.toolbar-status {
+	display: flex;
+	align-items: center;
+	padding: 0 8px;
+	font-size: 11px;
+	font-weight: 800;
+	color: #475569;
+	user-select: none;
+}
+
+.toolbar-status .total {
+	opacity: 0.4;
+	margin-left: 4px;
+}
+
+.toolbar-divider {
+	width: 1px;
+	height: 16px;
+	background: #cbd5e1;
+	margin: 0 4px;
 }
 
 .config-modal-body {
 	flex: 1;
 	overflow: hidden;
 	display: flex;
-	background: #fff;
+	position: relative;
+	background: #f8fafc;
 }
 
-.panels-container {
-	display: flex;
+.conditions-container,
+.standard-config-container {
 	flex: 1;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+}
+
+.conditions-view {
+	padding: 32px;
+	max-width: 1200px;
+	margin: 0 auto;
+	width: 100%;
+}
+
+.start-node-setup {
+	padding: 40px;
+	overflow-y: auto;
+	height: 100%;
+}
+
+.setup-container {
+	max-width: 900px;
+	margin: 0 auto;
+}
+
+.panels-container-modern {
+	flex: 1;
+	display: flex;
+	overflow: hidden;
+	height: 100%;
+}
+
+.sidebar-variables {
+	width: 260px;
+	border-right: 1px solid #e2e8f0;
+	background: #fff;
+	display: flex;
+	flex-direction: column;
+}
+
+.config-main-area {
+	flex: 1;
+	display: flex;
 	overflow: hidden;
 }
 
-.sidebar {
-	width: 300px;
-	background: #f8fafc;
-	border-right: 1px solid #e2e8f0;
+.config-scroll-container {
+	flex: 1;
 	overflow-y: auto;
+	background: #f8fafc;
+	padding: 16px;
+}
+
+.config-content-wrapper {
+	max-width: 1600px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+
+.integrated-settings-bar {
+	background: #fff;
+	border-radius: 12px;
+	padding: 16px;
+	border: 1px solid #e2e8f0;
+}
+
+.action-core-layout {
+	display: grid;
+	grid-template-columns: 320px 1fr;
+	gap: 16px;
+	align-items: start;
+}
+
+.core-setup-panel,
+.core-config-panel {
+	background: #fff;
+	border-radius: 16px;
+	border: 1px solid #e2e8f0;
+	overflow: hidden;
+}
+
+.sidebar-mutation {
+	width: 300px;
+	border-left: 1px solid #e2e8f0;
+	background: #fff;
+	display: flex;
+	flex-direction: column;
 }
 
 .guide-sidebar {
-	border-right: none;
+	width: 350px;
 	border-left: 1px solid #e2e8f0;
-}
-
-.main-resizable-panels {
-	flex: 1;
-	display: flex;
-}
-
-/* Panel Layouts */
-.resizable-panel {
+	background: #fff;
+	position: absolute;
+	right: 0;
+	top: 0;
 	height: 100%;
-	overflow-y: auto;
-	display: flex;
-	flex-direction: column;
-}
-
-.left-panel {
-	flex: 0 0 25%;
-	min-width: 300px;
-	background: #f8fafc;
-}
-
-.middle-panel {
-	flex: 1;
-	min-width: 500px;
-	background: #fff;
-	display: flex;
-	flex-direction: column;
-}
-
-.right-panel {
-	flex: 0 0 25%;
-	min-width: 350px;
-	background: #fff;
-	border-left: 1px solid #e2e8f0;
-}
-
-.panel-resizer {
-	width: 6px;
-	cursor: col-resize;
-	background: transparent;
-	transition: all 0.2s;
 	z-index: 10;
-}
-
-.panel-resizer:hover {
-	background: rgba(var(--primary-rgb), 0.1);
-	border-left: 1px solid rgba(var(--primary-rgb), 0.2);
-	border-right: 1px solid rgba(var(--primary-rgb), 0.2);
-}
-
-.action-settings-bar {
-	background: #fcfcfc;
-	border-bottom: 1px solid #e2e8f0;
-	padding: 20px 32px;
-	box-shadow: inset 0 -4px 12px rgba(0, 0, 0, 0.02);
-}
-
-.conditions-view,
-.start-node-setup {
-	width: 100%;
-	height: 100%;
-	overflow-y: auto;
-	background: #f8fafc;
+	box-shadow: -10px 0 30px rgba(0, 0, 0, 0.05);
 }
 
 .config-modal-footer {
-	height: 80px;
-	border-top: 1px solid #e2e8f0;
-	background: #fff;
+	height: 72px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 32px;
+	border-top: 1px solid #e2e8f0;
+	background: #fff;
+}
+
+.footer-left {
+	display: flex;
+	align-items: center;
 }
 
 .dirty-indicator {
-	font-size: 12px;
-	font-weight: 700;
-	color: #f59e0b;
 	display: flex;
 	align-items: center;
-	background: #fffbeb;
+	gap: 8px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #f59e0b;
 	padding: 6px 12px;
-	border-radius: 8px;
+	background: #fffbeb;
+	border-radius: 20px;
 	border: 1px solid #fef3c7;
 }
 
@@ -643,13 +646,14 @@ function getIcon(type) {
 	font-size: 8px;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-	transition: opacity 0.3s ease;
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+	transition: all 0.3s ease;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.modal-fade-enter-from,
+.modal-fade-leave-to {
 	opacity: 0;
+	transform: scale(0.95);
 }
 </style>
