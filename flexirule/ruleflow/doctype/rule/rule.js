@@ -7,8 +7,8 @@ frappe.ui.form.on("Rule", {
 		const actions_field = frm.get_field("actions");
 		if (actions_field && actions_field.grid) {
 			const grid = actions_field.grid;
-			const op_field = grid.get_field("operation");
-			const rule_field = grid.get_field("rule");
+			const op_field = grid.fields_dict["operation"];
+			const rule_field = grid.fields_dict["rule"];
 
 			if (rule_field) {
 				rule_field.get_query = function () {
@@ -382,7 +382,9 @@ function test_rule(frm) {
 }
 function toggle_action_fields(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
-	const grid_row = frm.get_field("actions").grid.get_row(cdn);
+	const grid_field = frm.get_field("actions");
+	if (!grid_field || !grid_field.grid) return;
+	const grid_row = grid_field.grid.get_row(cdn);
 	if (!grid_row) return;
 
 	// All configuration fields that might be toggled
@@ -492,17 +494,19 @@ function toggle_action_fields(frm, cdt, cdn) {
 	}
 
 	// Update Operation Label if contract provides it
-	const dynamicOperationLabel = flexirule.contracts?.getFieldLabel?.(type, "operation", {
-		operation: row.operation,
-		processName: row.process_name,
-	});
-	if (dynamicOperationLabel || contract.operation_label) {
-		grid_row.get_field("operation").df.label =
-			dynamicOperationLabel || contract.operation_label;
-		grid_row.get_field("operation").refresh();
-	} else {
-		grid_row.get_field("operation").df.label = __("Operation / Mode");
-		grid_row.get_field("operation").refresh();
+	const op_field = grid_row.fields_dict["operation"];
+	if (op_field) {
+		const dynamicOperationLabel = flexirule.contracts?.getFieldLabel?.(type, "operation", {
+			operation: row.operation,
+			processName: row.process_name,
+		});
+		if (dynamicOperationLabel || contract.operation_label) {
+			op_field.df.label = dynamicOperationLabel || contract.operation_label;
+			op_field.refresh();
+		} else {
+			op_field.df.label = __("Operation / Mode");
+			op_field.refresh();
+		}
 	}
 }
 
@@ -514,7 +518,7 @@ function update_operation_options(frm, cdt, cdn) {
 	if (!grid_row) return;
 
 	const apply_ops = (ops) => {
-		const field = grid_row.get_field("operation");
+		const field = grid_row.fields_dict["operation"];
 		if (!field) return;
 		const normalized = (ops || []).map((op) => {
 			if (typeof op === "string") return op;

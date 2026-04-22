@@ -544,7 +544,7 @@ function getIcon(type) {
 }
 
 .sidebar-variables {
-	width: 300px;
+	width: 260px;
 	border-right: 1px solid #e2e8f0;
 	background: #fff;
 	display: flex;
@@ -561,11 +561,11 @@ function getIcon(type) {
 	flex: 1;
 	overflow-y: auto;
 	background: #f8fafc;
-	padding: 24px;
+	padding: 16px;
 }
 
 .config-content-wrapper {
-	max-width: 1400px;
+	max-width: 1600px;
 	margin: 0 auto;
 	display: flex;
 	flex-direction: column;
@@ -581,8 +581,8 @@ function getIcon(type) {
 
 .action-core-layout {
 	display: grid;
-	grid-template-columns: 400px 1fr;
-	gap: 20px;
+	grid-template-columns: 320px 1fr;
+	gap: 16px;
 	align-items: start;
 }
 
@@ -595,7 +595,7 @@ function getIcon(type) {
 }
 
 .sidebar-mutation {
-	width: 350px;
+	width: 300px;
 	border-left: 1px solid #e2e8f0;
 	background: #fff;
 	display: flex;

@@ -1,14 +1,10 @@
 <template>
 	<div class="set-value-config">
-		<div class="config-section section-card">
-			<h5>{{ __("Set Value Configuration") }}</h5>
-			<p class="text-muted small">
-				{{
-					__(
-						"Configure target field and build the template using text, variables, and if blocks."
-					)
-				}}
-			</p>
+		<div class="config-section section-card header-compact">
+			<div class="d-flex align-items-center justify-content-between">
+				<h5 class="mb-0">{{ __("Set Value Configuration") }}</h5>
+				<span class="text-muted small">{{ __("Define field updates and templates") }}</span>
+			</div>
 		</div>
 
 		<div class="config-section section-card">

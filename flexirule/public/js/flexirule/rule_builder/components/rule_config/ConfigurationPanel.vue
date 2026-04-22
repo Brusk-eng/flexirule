@@ -171,10 +171,10 @@ defineExpose({
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--panel-padding, 24px);
+	padding: var(--panel-padding, 16px);
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 16px;
 }
 
 .empty-config {
