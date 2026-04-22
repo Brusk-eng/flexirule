@@ -18,6 +18,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	// ── Config Modal ──
 	const show_config_modal = ref(false);
 	const config_modal_mode = ref("setup"); // "setup" | "logic"
+	const use_modern_layout = ref(true); // Enable unified layout by default
 
 	// ── Test Execution Visualization ──
 	const test_execution_path = ref([]);
@@ -77,6 +78,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		show_sidebar,
 		show_config_modal,
 		config_modal_mode,
+		use_modern_layout,
 		test_execution_path,
 		test_context,
 

@@ -1,39 +1,25 @@
 <template>
 	<Teleport to="body">
-		<transition name="fade">
+		<transition name="modal-fade">
 			<div v-if="modelValue" class="config-modal-overlay" @click.self="cancel">
-				<div
-					class="config-modal-container"
-					:class="{
-						'show-context-sidebar': showContextSidebar,
-						'show-guide-sidebar': showGuideSidebar,
-						'show-settings-bar': showSettingsBar,
-					}"
-				>
+				<div class="config-modal-container">
 					<header class="config-modal-header">
 						<div class="header-left">
 							<div
 								class="header-icon"
-								v-if="draftNode"
-								:style="{ background: contract?.css?.color + '20' }"
+								:style="{
+									background: contract?.css?.bg || '#f1f5f9',
+									color: contract?.css?.color || '#64748b',
+								}"
 							>
 								<i
 									:class="
-										contract?.css?.icon ||
-										getIcon(draftNode.data?.action_type || draftNode.type)
+										getIcon(draftNode?.data?.action_type || draftNode?.type)
 									"
-									:style="{ color: contract?.css?.color }"
 								></i>
 							</div>
-							<div class="header-title-container">
-								<div class="d-flex align-items-center gap-2">
-									<h3 class="modal-title">{{ title }}</h3>
-									<i
-										v-if="store.is_read_only"
-										class="fa fa-lock text-muted"
-										:title="__('Read Only')"
-									></i>
-								</div>
+							<div class="header-titles">
+								<h3>{{ title }}</h3>
 								<div class="modal-breadcrumb">
 									<span
 										class="type-badge"
@@ -51,60 +37,76 @@
 							</div>
 						</div>
 
-						<!-- Efficient Navigation -->
-						<div class="header-center">
-							<div class="modal-navigation-compact">
-								<button
-									class="nav-btn-sm"
-									@click="store.prev_config_node()"
-									:disabled="currentNodeIndex <= 0"
-								>
-									<i class="fa fa-chevron-left"></i>
-								</button>
-								<div class="nav-counter">
-									<span class="current">{{ currentNodeIndex + 1 }}</span>
-									<span class="separator">/</span>
-									<span class="total">{{ totalNodes }}</span>
-								</div>
-								<button
-									class="nav-btn-sm"
-									@click="store.next_config_node()"
-									:disabled="currentNodeIndex >= totalNodes - 1"
-								>
-									<i class="fa fa-chevron-right"></i>
-								</button>
-							</div>
-						</div>
-
 						<div class="header-right">
-							<div class="header-tools">
+							<div class="header-toolbar">
+								<!-- Navigation Group -->
+								<div class="toolbar-group navigation">
+									<button
+										class="toolbar-btn"
+										@click="store.prev_config_node()"
+										:disabled="currentNodeIndex <= 0"
+										:title="__('Previous')"
+									>
+										<i class="fa fa-chevron-left"></i>
+									</button>
+									<div class="toolbar-status">
+										<span class="current">{{ currentNodeIndex + 1 }}</span>
+										<span class="total">/ {{ totalNodes }}</span>
+									</div>
+									<button
+										class="toolbar-btn"
+										@click="store.next_config_node()"
+										:disabled="currentNodeIndex >= totalNodes - 1"
+										:title="__('Next')"
+									>
+										<i class="fa fa-chevron-right"></i>
+									</button>
+								</div>
+
+								<div class="toolbar-divider"></div>
+
+								<!-- Toggles Group -->
+								<div class="toolbar-group toggles">
+									<button
+										class="toolbar-btn"
+										:class="{ active: showContextSidebar }"
+										@click="showContextSidebar = !showContextSidebar"
+										:title="__('Context Variables')"
+									>
+										<i class="fa fa-database"></i>
+										<span>{{ __("Variables") }}</span>
+									</button>
+									<button
+										class="toolbar-btn"
+										:class="{ active: showSettingsBar }"
+										@click="showSettingsBar = !showSettingsBar"
+										:title="__('Action Settings')"
+									>
+										<i class="fa fa-cog"></i>
+										<span>{{ __("Settings") }}</span>
+									</button>
+								</div>
+
+								<div class="toolbar-divider"></div>
+
+								<!-- Close -->
 								<button
-									class="tool-btn"
-									:class="{ active: showContextSidebar }"
-									@click="showContextSidebar = !showContextSidebar"
+									class="toolbar-btn close"
+									@click="cancel"
+									:title="__('Close')"
 								>
-									<i class="fa fa-database"></i>
-									<span>{{ __("Variables") }}</span>
-								</button>
-								<button
-									class="tool-btn"
-									:class="{ active: showSettingsBar }"
-									@click="showSettingsBar = !showSettingsBar"
-								>
-									<i class="fa fa-cog"></i>
-									<span>{{ __("Settings") }}</span>
+									<i class="fa fa-times"></i>
 								</button>
 							</div>
-							<div class="divider-v mx-3"></div>
-							<button class="btn-close-modal" @click="cancel">
-								<i class="fa fa-times"></i>
-							</button>
 						</div>
 					</header>
 
-					<main class="config-modal-body">
+					<div class="config-modal-body">
 						<!-- Logic Mode (Conditions) -->
-						<template v-if="store.config_modal_mode === 'logic'">
+						<div
+							v-show="store.config_modal_mode === 'logic'"
+							class="conditions-container"
+						>
 							<div class="conditions-view">
 								<ConditionStep
 									:node="draftNode"
@@ -112,10 +114,13 @@
 									:ref="panelRefs.logic"
 								/>
 							</div>
-						</template>
+						</div>
 
 						<!-- Standard Action Setup -->
-						<template v-else>
+						<div
+							v-show="store.config_modal_mode !== 'logic'"
+							class="standard-config-container"
+						>
 							<!-- Start Node Setup (Full width) -->
 							<div v-if="draftNode?.type === 'start'" class="start-node-setup">
 								<div class="setup-container">
@@ -201,16 +206,18 @@
 									<h5>{{ __("Action Guide") }}</h5>
 									<div class="guide-content mt-3" v-if="contract">
 										<p>{{ contract.description }}</p>
-										<!-- Operation specific guide could go here -->
 									</div>
 								</div>
 							</aside>
-						</template>
-					</main>
+						</div>
+					</div>
 
 					<footer class="config-modal-footer">
 						<div class="footer-left">
-							<div v-if="store.is_dirty" class="dirty-indicator">
+							<div
+								v-if="store.is_dirty && !store.is_read_only"
+								class="dirty-indicator"
+							>
 								<i class="fa fa-circle mr-1"></i>
 								{{ __("Unsaved Changes") }}
 							</div>
@@ -389,113 +396,15 @@ function getIcon(type) {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.header-icon i {
 	font-size: 20px;
-	border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.header-title-container {
-	display: flex;
-	flex-direction: column;
-}
-
-.header-left h3 {
+.header-titles h3 {
 	margin: 0;
 	font-size: 18px;
-	font-weight: 800;
-	color: #0f172a;
-	letter-spacing: -0.02em;
-}
-
-.type-badge {
-	font-size: 10px;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.1em;
-	opacity: 0.8;
-}
-
-.header-center {
-	flex: 1;
-	display: flex;
-	justify-content: center;
-}
-
-.header-actions {
-	display: flex;
-	align-items: center;
-	gap: 24px;
-}
-
-/* Toggle Buttons */
-.toggle-group {
-	display: flex;
-	background: #f1f5f9;
-	padding: 4px;
-	border-radius: 12px;
-	border: 1px solid #e2e8f0;
-}
-
-.toggle-btn {
-	padding: 8px 16px;
-	border-radius: 8px;
-	border: none;
-	background: transparent;
-	color: #64748b;
-	font-size: 13px;
-	font-weight: 600;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	cursor: pointer;
-	transition: all 0.2s;
-}
-
-.toggle-btn i {
-	font-size: 14px;
-}
-
-.toggle-btn:hover {
-	background: rgba(255, 255, 255, 0.5);
-	color: #1e293b;
-}
-
-.toggle-btn.active {
-	background: #fff;
-	color: var(--primary);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.config-modal-header {
-	height: 64px;
-	padding: 0 24px;
-	border-bottom: 1px solid #e2e8f0;
-	background: #fff;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	flex-shrink: 0;
-}
-
-.header-left {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-	min-width: 250px;
-}
-
-.header-icon {
-	width: 40px;
-	height: 40px;
-	border-radius: 10px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 18px;
-}
-
-.modal-title {
-	margin: 0;
-	font-size: 16px;
 	font-weight: 700;
 	color: #1e293b;
 }
@@ -503,132 +412,143 @@ function getIcon(type) {
 .modal-breadcrumb {
 	display: flex;
 	align-items: center;
-	font-size: 11px;
+	font-size: 12px;
 	margin-top: 2px;
 }
 
-.modal-navigation-compact {
+.header-right {
+	display: flex;
+	align-items: center;
+}
+
+.header-toolbar {
 	display: flex;
 	align-items: center;
 	background: #f1f5f9;
 	padding: 4px;
-	border-radius: 10px;
+	border-radius: 12px;
 	gap: 4px;
 }
 
-.nav-btn-sm {
-	width: 28px;
-	height: 28px;
-	border-radius: 6px;
-	border: none;
-	background: transparent;
-	color: #64748b;
+.toolbar-group {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-	transition: all 0.2s;
+	gap: 2px;
 }
 
-.nav-btn-sm:hover:not(:disabled) {
-	background: #fff;
-	color: var(--primary);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.nav-btn-sm:disabled {
-	opacity: 0.3;
-	cursor: default;
-}
-
-.nav-counter {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding: 0 8px;
-	font-size: 12px;
-	font-weight: 700;
-	color: #475569;
-}
-
-.nav-counter .separator {
-	opacity: 0.4;
-}
-
-.header-tools {
-	display: flex;
-	gap: 8px;
-}
-
-.tool-btn {
+.toolbar-btn {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	padding: 6px 12px;
 	border-radius: 8px;
-	border: 1px solid transparent;
+	border: none;
 	background: transparent;
 	color: #64748b;
 	font-size: 12px;
 	font-weight: 600;
 	cursor: pointer;
 	transition: all 0.2s;
-}
-
-.tool-btn:hover {
-	background: #f8fafc;
-	color: #1e293b;
-}
-
-.tool-btn.active {
-	background: #eff6ff;
-	color: var(--primary);
-	border-color: #bfdbfe;
-}
-
-.divider-v {
-	width: 1px;
-	height: 24px;
-	background: #e2e8f0;
-}
-
-.btn-close-modal {
-	width: 32px;
 	height: 32px;
-	border-radius: 8px;
-	border: none;
-	background: #f1f5f9;
-	color: #64748b;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	transition: all 0.2s;
 }
 
-.btn-close-modal:hover {
+.toolbar-btn:hover:not(:disabled) {
+	background: #fff;
+	color: #1e293b;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-btn.active {
+	background: var(--primary);
+	color: #fff;
+}
+
+.toolbar-btn:disabled {
+	opacity: 0.3;
+	cursor: default;
+}
+
+.toolbar-btn.close {
+	padding: 0;
+	width: 32px;
+	justify-content: center;
+}
+
+.toolbar-btn.close:hover {
 	background: #fee2e2;
 	color: #ef4444;
+}
+
+.toolbar-status {
+	display: flex;
+	align-items: center;
+	padding: 0 8px;
+	font-size: 11px;
+	font-weight: 800;
+	color: #475569;
+	user-select: none;
+}
+
+.toolbar-status .total {
+	opacity: 0.4;
+	margin-left: 4px;
+}
+
+.toolbar-divider {
+	width: 1px;
+	height: 16px;
+	background: #cbd5e1;
+	margin: 0 4px;
 }
 
 .config-modal-body {
 	flex: 1;
 	overflow: hidden;
 	display: flex;
+	position: relative;
 	background: #f8fafc;
 }
 
-.panels-container-modern {
-	display: flex;
+.conditions-container,
+.standard-config-container {
 	flex: 1;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+}
+
+.conditions-view {
+	padding: 32px;
+	max-width: 1200px;
+	margin: 0 auto;
+	width: 100%;
+}
+
+.start-node-setup {
+	padding: 40px;
+	overflow-y: auto;
+	height: 100%;
+}
+
+.setup-container {
+	max-width: 900px;
+	margin: 0 auto;
+}
+
+.panels-container-modern {
+	flex: 1;
+	display: flex;
 	overflow: hidden;
+	height: 100%;
 }
 
 .sidebar-variables {
-	width: 280px;
-	background: #fff;
+	width: 300px;
 	border-right: 1px solid #e2e8f0;
-	flex-shrink: 0;
+	background: #fff;
+	display: flex;
+	flex-direction: column;
 }
 
 .config-main-area {
@@ -640,83 +560,100 @@ function getIcon(type) {
 .config-scroll-container {
 	flex: 1;
 	overflow-y: auto;
+	background: #f8fafc;
 	padding: 24px;
-	display: flex;
-	flex-direction: column;
 }
 
 .config-content-wrapper {
-	max-width: 1200px;
+	max-width: 1400px;
 	margin: 0 auto;
-	width: 100%;
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: 20px;
 }
 
 .integrated-settings-bar {
 	background: #fff;
 	border-radius: 12px;
+	padding: 16px;
 	border: 1px solid #e2e8f0;
-	padding: 16px 24px;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .action-core-layout {
 	display: grid;
-	grid-template-columns: 350px 1fr;
-	gap: 24px;
+	grid-template-columns: 400px 1fr;
+	gap: 20px;
 	align-items: start;
 }
 
 .core-setup-panel,
 .core-config-panel {
 	background: #fff;
-	border-radius: 12px;
+	border-radius: 16px;
 	border: 1px solid #e2e8f0;
 	overflow: hidden;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .sidebar-mutation {
 	width: 350px;
-	background: #fff;
 	border-left: 1px solid #e2e8f0;
-	flex-shrink: 0;
-	overflow-y: auto;
+	background: #fff;
+	display: flex;
+	flex-direction: column;
+}
+
+.guide-sidebar {
+	width: 350px;
+	border-left: 1px solid #e2e8f0;
+	background: #fff;
+	position: absolute;
+	right: 0;
+	top: 0;
+	height: 100%;
+	z-index: 10;
+	box-shadow: -10px 0 30px rgba(0, 0, 0, 0.05);
 }
 
 .config-modal-footer {
 	height: 72px;
-	border-top: 1px solid #e2e8f0;
-	background: #fff;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 32px;
-	flex-shrink: 0;
+	border-top: 1px solid #e2e8f0;
+	background: #fff;
+}
+
+.footer-left {
+	display: flex;
+	align-items: center;
 }
 
 .dirty-indicator {
-	font-size: 11px;
-	font-weight: 700;
-	color: #d97706;
 	display: flex;
 	align-items: center;
-	gap: 6px;
-	background: #fffbeb;
+	gap: 8px;
+	font-size: 12px;
+	font-weight: 600;
+	color: #f59e0b;
 	padding: 6px 12px;
-	border-radius: 8px;
+	background: #fffbeb;
+	border-radius: 20px;
 	border: 1px solid #fef3c7;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-	transition: opacity 0.2s ease;
+.dirty-indicator i {
+	font-size: 8px;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+	transition: all 0.3s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
 	opacity: 0;
+	transform: scale(0.95);
 }
 </style>

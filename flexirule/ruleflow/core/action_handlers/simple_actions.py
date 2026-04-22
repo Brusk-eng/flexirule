@@ -124,9 +124,9 @@ class SetValueHandler(ActionHandler):
 				engine._log("WARNING", _("Set Value action missing target_field or reference details"))
 			else:
 				# Render the docname in case it contains a template variable
-				ref_docname = frappe.render_template(
+				ref_docname = frappe.render_template(  # nosemgrep: frappe-ssti
 					ref_docname_tpl, template_context
-				)  # nosemgrep: frappe-ssti
+				)
 				if ref_docname:
 					frappe.db.set_value(ref_doctype, ref_docname, target_field, rendered_value)
 					engine._log(
