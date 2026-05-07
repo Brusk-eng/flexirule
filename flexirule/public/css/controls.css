@@ -10,6 +10,11 @@
 	font-family: var(--fr-font-family);
 }
 
+.fr-accent-scope {
+	--fr-node-accent: var(--fr-accent);
+	--fr-node-accent-light: var(--fr-accent-light);
+}
+
 .fr-control .fr-label {
 	display: block;
 	font-size: var(--fr-text-sm);

@@ -263,6 +263,7 @@ function onCreate() {
 		selectedPreset.value.operation ||
 		selectedPreset.value.selected_label ||
 		action_type;
+	const nodeType = mapActionTypeToNodeType(action_type);
 	// Map Action Type to VueFlow node type using the same logic as App.vue
 	const node = store.nodes[nodeIndex];
 	if (!node) return;
@@ -321,7 +322,9 @@ function onCreate() {
 		store.nodes[nodeIndex].data.next_step_if_false = null;
 	}
 
-	store.open_config(props.id);
+	// Keep the user in the canvas flow: select the new node but do not auto-open config modal.
+	store.select(props.id);
+	store.show_sidebar = true;
 	store.touch_node(props.id);
 	store.mark_dirty();
 }
@@ -367,7 +370,6 @@ onMounted(() => {
 							@focus="onSearchFocus"
 							@blur="onSearchBlur"
 							@keydown="onSearchKeydown"
-							@keyup.enter="onCreate"
 						/>
 					</div>
 					<div v-if="selectedPreset.operation" class="selected-operation-preview">

@@ -7,8 +7,9 @@ frappe.ui.form.on("Rule", {
 		const actions_field = frm.get_field("actions");
 		if (actions_field && actions_field.grid) {
 			const grid = actions_field.grid;
-			const op_field = grid.fields_dict["operation"];
-			const rule_field = grid.fields_dict["rule"];
+			const grid_fields = grid.fields_dict || {};
+			const op_field = grid_fields.operation;
+			const rule_field = grid_fields.rule;
 
 			if (rule_field) {
 				rule_field.get_query = function () {
@@ -418,7 +419,11 @@ function toggle_action_fields(frm, cdt, cdn) {
 	];
 
 	// Initial Hide
-	all_config_fields.forEach((f) => grid_row.toggle_display(f, false));
+	all_config_fields.forEach((f) => {
+		if (grid_row.get_field(f)) {
+			grid_row.toggle_display(f, false);
+		}
+	});
 
 	const type = row.action_type;
 	if (!type) return;

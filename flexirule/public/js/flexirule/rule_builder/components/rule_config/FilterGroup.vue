@@ -1,5 +1,5 @@
 <template>
-	<div class="filter-group-wrapper">
+	<div class="filter-group-wrapper fr-accent-scope" :style="panelStyleVars">
 		<div
 			v-if="!doctype && !allowAnyDoctype"
 			class="text-muted small p-2 text-center border-dashed rounded"
@@ -323,6 +323,7 @@ import LinkControl from "../../controls/LinkControl.vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import ValueResolverControl from "../../controls/ValueResolverControl.vue";
 import { useStore } from "../../stores";
+import { getContract } from "../../../core/contracts.js";
 
 const props = defineProps({
 	modelValue: {
@@ -349,6 +350,16 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
+
+const panelStyleVars = computed(() => {
+	const node = (store.nodes || []).find((n) => n.id === props.nodeId);
+	const actionType = node?.data?.action_type || node?.type;
+	const accent = getContract(actionType)?.css?.color || "var(--fr-accent)";
+	return {
+		"--fr-node-accent": accent,
+		"--fr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
+	};
+});
 
 const filters = ref([]);
 const BASE_VALUE_TYPES = ["Value", "Number", "Boolean", "Variable", "Expression"];
@@ -1667,8 +1678,8 @@ onMounted(async () => {
 }
 
 .filter-row-main :deep(.form-control:focus) {
-	border-color: var(--fr-border-focus) !important;
-	box-shadow: var(--fr-shadow-focus) !important;
+	border-color: var(--fr-node-accent, var(--fr-border-focus)) !important;
+	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light)) !important;
 }
 
 .filter-row-main :deep(.form-control:hover:not(:disabled):not(:focus)) {
@@ -1692,5 +1703,37 @@ onMounted(async () => {
 .filter-row-main :deep(.awesomplete input) {
 	height: var(--fr-input-height) !important;
 	font-size: var(--fr-input-font-size) !important;
+}
+
+@media (max-width: 920px) {
+	.filter-row-main {
+		grid-template-columns: 1fr;
+		gap: var(--fr-space-3);
+	}
+
+	.action-col {
+		width: 100%;
+		justify-content: flex-end;
+	}
+}
+
+@media (max-width: 640px) {
+	.filter-row {
+		padding: var(--fr-space-4);
+	}
+
+	.dual-value-wrapper {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.between-sep {
+		text-align: center;
+	}
+
+	.filter-actions {
+		flex-wrap: wrap;
+		gap: var(--fr-space-3);
+	}
 }
 </style>

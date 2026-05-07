@@ -171,7 +171,7 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 				"show_return_type": False,
 				"require_return_type": False,
 				"field_labels": {
-					"variable_name": "Context Variable Name",
+					"target_field": "Target Property/Field",
 					"value_template": "Variable Value Template",
 					"mutation_mode": "Result Handling (Optional)",
 					"return_variable": "Result Variable Name (Optional)",
@@ -560,15 +560,14 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			},
 			{
 				"fieldname": "target_field",
-				"mandatory_depends_on": "eval:['Current Document', 'Reference Document'].includes(doc.operation)",
-				"hidden": "eval:!['Current Document', 'Reference Document'].includes(doc.operation)",
+				"mandatory_depends_on": "eval:['Current Document', 'Reference Document', 'Context Variable'].includes(doc.operation)",
+				"hidden": "eval:!['Current Document', 'Reference Document', 'Context Variable'].includes(doc.operation)",
 				"description": "⚠️ Field to update (e.g., status)",
 			},
 			{
 				"fieldname": "variable_name",
-				"mandatory_depends_on": "eval:doc.operation==='Context Variable'",
-				"hidden": "eval:doc.operation!=='Context Variable'",
-				"description": "Name of the context variable to update",
+				"hidden": 1,
+				"description": "Legacy field - use target_field instead for full dot paths",
 			},
 			{"fieldname": "value_template", "reqd": 1, "description": "Jinja template for the new value"},
 			{

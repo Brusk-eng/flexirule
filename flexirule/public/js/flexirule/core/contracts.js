@@ -859,9 +859,8 @@ export function validateAgainstContract(nodeData) {
 		}
 	}
 
-	if (contract.has_next_false && !nodeData.next_step_if_false) {
-		errors.push(__("{0} requires a false path", [nodeData.action_type]));
-	}
+	// We no longer strictly require a false path for actions that support it (e.g., Loop, Condition).
+	// An empty path simply implies the execution terminates for that branch.
 
 	if (!contract.has_next_false && nodeData.next_step_if_false) {
 		errors.push(__("{0} does not support 'next step if false'", [nodeData.action_type]));

@@ -241,6 +241,12 @@
 
 				<div class="sub-section section-subcard">
 					<ControlFactory
+						:df="with_read_only(limitTypeField)"
+						:modelValue="config.limit_type || 'Custom Limit'"
+						@update:modelValue="(val) => update_config_key('limit_type', val)"
+					/>
+					<ControlFactory
+						v-if="(config.limit_type || 'Custom Limit') === 'Custom Limit'"
 						:df="with_read_only(limitField)"
 						:modelValue="config.limit"
 						@update:modelValue="(val) => update_config_key('limit', val)"
@@ -828,12 +834,21 @@ function resolveFieldPolicy(fieldname, fallback) {
 	return with_read_only(getPolicyField(fieldname, fallback));
 }
 
+const limitTypeField = computed(() =>
+	resolveFieldPolicy("limit_type", {
+		fieldname: "limit_type",
+		fieldtype: "Select",
+		label: __("Result Limit"),
+		options: ["All", "First Record", "Custom Limit"],
+	})
+);
+
 const limitField = computed(() =>
 	resolveFieldPolicy("limit", {
 		fieldname: "limit",
 		fieldtype: "Int",
-		label: __("Limit"),
-		description: __("Max rows to return."),
+		label: __("Custom Limit Number"),
+		description: __("Max rows to return. Default: 20"),
 	})
 );
 

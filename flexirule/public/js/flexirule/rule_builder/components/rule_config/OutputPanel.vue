@@ -1,5 +1,5 @@
 <template>
-	<div class="output-panel">
+	<div class="output-panel fr-accent-scope" :style="panelStyleVars">
 		<div class="panel-header" v-if="!store.use_modern_layout">
 			<h4>{{ __("Output & Mutation") }}</h4>
 			<p class="text-muted small">{{ __("Manage results and data storage") }}</p>
@@ -145,6 +145,7 @@ import ControlFactory from "../../controls/ControlFactory.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 import {
 	applyOutputPolicyDefaults,
+	getContract,
 	getDerivedFieldState,
 	getAllowedMutationModeOptions,
 	getAllowedReturnTypeOptions,
@@ -168,6 +169,15 @@ const policyContext = computed(() => ({
 	operation: props.node?.data?.operation,
 	processName: props.node?.data?.process_name,
 }));
+
+const panelStyleVars = computed(() => {
+	const actionType = props.node?.data?.action_type || props.node?.type;
+	const accent = getContract(actionType)?.css?.color || "var(--fr-accent)";
+	return {
+		"--fr-node-accent": accent,
+		"--fr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
+	};
+});
 
 const showMutationMode = computed(() => {
 	const actionType = props.node?.data?.action_type;
@@ -486,7 +496,7 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: #fff;
+	background: var(--fr-bg-page);
 }
 
 .panel-header {
@@ -509,7 +519,7 @@ defineExpose({ validate });
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: 20px;
+	padding: var(--fr-space-8);
 	display: flex;
 	flex-direction: column;
 	gap: 24px;
@@ -566,8 +576,9 @@ defineExpose({ validate });
 }
 
 .mapping-inputs:focus-within {
-	border-color: var(--primary);
+	border-color: var(--fr-node-accent, var(--fr-accent));
 	background: #fff;
+	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light));
 }
 
 .mapping-inputs :deep(.autocomplete-control),
@@ -617,6 +628,29 @@ defineExpose({ validate });
 	color: #475569;
 	border-radius: 4px;
 	border: 1px solid #e2e8f0;
+}
+
+:deep(.form-control:focus),
+:deep(.awesomplete input:focus),
+:deep(.multiselect__input:focus) {
+	border-color: var(--fr-node-accent, var(--fr-border-focus)) !important;
+	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light)) !important;
+}
+
+@media (max-width: 768px) {
+	.panel-sections {
+		padding: var(--fr-space-4);
+		gap: var(--fr-space-5);
+	}
+
+	.mapping-row {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.mapping-inputs {
+		width: 100%;
+	}
 }
 
 :deep(.control-factory) {

@@ -19,17 +19,30 @@
 						}}
 						<span v-if="targetFieldState.reqd" class="text-danger">*</span></label
 					>
-					<FieldPickerControl
-						:df="with_read_only({ label: '' })"
-						:fields="doctype_fields"
-						:documentType="reference_doctype"
-						:modelValue="props.node?.data?.target_field"
-						:read_only="readOnly"
-						@update:modelValue="(val) => update_action_field('target_field', val)"
-					/>
-					<small class="text-muted">{{
-						__("The document field that will be updated")
-					}}</small>
+					<template v-if="props.node?.data?.operation === 'Context Variable'">
+						<ControlFactory
+							:df="with_read_only({ fieldtype: 'Data', label: '' })"
+							:modelValue="props.node?.data?.target_field"
+							:read_only="readOnly"
+							@update:modelValue="(val) => update_action_field('target_field', val)"
+						/>
+						<small class="text-muted">{{
+							__("Variable path to update (e.g. vars.loop.full_name)")
+						}}</small>
+					</template>
+					<template v-else>
+						<FieldPickerControl
+							:df="with_read_only({ label: '' })"
+							:fields="doctype_fields"
+							:documentType="reference_doctype"
+							:modelValue="props.node?.data?.target_field"
+							:read_only="readOnly"
+							@update:modelValue="(val) => update_action_field('target_field', val)"
+						/>
+						<small class="text-muted">{{
+							__("The document field that will be updated")
+						}}</small>
+					</template>
 				</template>
 			</div>
 
@@ -51,6 +64,8 @@
 import { computed, watch } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
+import ControlFactory from "../../../controls/ControlFactory.vue";
+import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
 import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { getDerivedFieldState, getFieldLabel } from "../../../../core/contracts.js";

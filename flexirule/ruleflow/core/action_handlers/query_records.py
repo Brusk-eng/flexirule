@@ -592,7 +592,20 @@ class QueryRecordsHandler(ActionHandler):
 		"""Execute frappe.get_list with configured filters, fields, etc."""
 		filters, or_filters = self._resolve_query_filters(config, context, action)
 		fields = config.get("fields", ["name"])
-		limit = config.get("limit", 20)
+		limit_type = config.get("limit_type", "Custom Limit")
+		if limit_type == "All":
+			limit = 0
+		elif limit_type == "First Record":
+			limit = 1
+		else:
+			limit_val = config.get("limit")
+			if limit_val in (None, ""):
+				limit = 20
+			else:
+				try:
+					limit = int(limit_val)
+				except ValueError:
+					limit = 20
 		order_by = config.get("order_by", "modified desc")
 		group_by = config.get("group_by")
 

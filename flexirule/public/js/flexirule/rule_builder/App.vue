@@ -396,6 +396,10 @@ function insertNodeOnEdge(payload) {
 
 function onNodeClick(event) {
 	uiStore.selected_id = event.node.id;
+	if (event.node.type === "selector") {
+		// Selector nodes must stay interactive for action type search/create.
+		return;
+	}
 
 	const trigger = ruleStore.settings?.open_config_on || "Click";
 	if (trigger === "Click" && event.node.type !== "start") {
@@ -405,6 +409,9 @@ function onNodeClick(event) {
 
 function onNodeDblClick(event) {
 	uiStore.selected_id = event.node.id;
+	if (event.node.type === "selector") {
+		return;
+	}
 
 	const trigger = ruleStore.settings?.open_config_on || "Click";
 	if (trigger === "Double Click" && event.node.type !== "start") {
