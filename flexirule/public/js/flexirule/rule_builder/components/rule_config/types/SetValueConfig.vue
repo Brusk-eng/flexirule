@@ -20,9 +20,10 @@
 						<span v-if="targetFieldState.reqd" class="text-danger">*</span></label
 					>
 					<template v-if="props.node?.data?.operation === 'Context Variable'">
-						<ControlFactory
-							:df="with_read_only({ fieldtype: 'Data', label: '' })"
+						<AutocompleteControl
+							:df="with_read_only({ label: '' })"
 							:modelValue="props.node?.data?.target_field"
+							:get_options="async () => variable_options"
 							:read_only="readOnly"
 							@update:modelValue="(val) => update_action_field('target_field', val)"
 						/>
