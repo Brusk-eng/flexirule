@@ -50,11 +50,16 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		css: { icon: "fa fa-cog", color: "#8b5cf6" },
 	},
 	Loop: {
-		required_fields: ["config"],
+		required_fields: ["config", "return_variable"],
 		has_next_true: true,
 		has_next_false: true,
 		terminal: false,
 		css: { icon: "fa fa-refresh", color: "#f59e0b" },
+		field_labels: {
+			return_variable: "Item Alias",
+		},
+		show_return_variable: true,
+		require_return_variable: true,
 	},
 	Stop: {
 		required_fields: ["operation"],

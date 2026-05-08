@@ -125,20 +125,30 @@ export function useRuleGraph() {
 			const loopPos = positions.get(loopId);
 			if (!loopPos) return;
 
-			// Body nodes go in a column OFFSET from the loop:
-			// LR layout → body column is BELOW the loop (same x, shifted y)
-			// TB layout → body column is to the RIGHT of the loop (same y, shifted x)
-			const BODY_COLUMN_OFFSET = NODE_WIDTH + H_GAP;
+			// Shift AfterLast subtree out of the way to make room for body
+			if (afterLastId) {
+				const afterLastSubtreeIds = bfsReachable(afterLastId, currentEdges);
+				const shiftX = isHorizontal ? 0 : -(NODE_WIDTH + H_GAP);
+				const shiftY = isHorizontal ? -(NODE_HEIGHT + V_GAP) : 0;
 
-			let bodyX, bodyY;
+				afterLastSubtreeIds.forEach((id) => {
+					const p = positions.get(id);
+					if (p) {
+						p.x += shiftX;
+						p.y += shiftY;
+					}
+				});
+			}
+
+			// Body nodes go straight in the direction of the flow:
+			// TB: Below the loop | LR: Right of the loop
+			let bodyX = loopPos.x;
+			let bodyY = loopPos.y;
+
 			if (isHorizontal) {
-				// LR: body goes below the Loop node
-				bodyX = loopPos.x;
-				bodyY = loopPos.y + NODE_HEIGHT + V_GAP * 1.5;
+				bodyX += NODE_WIDTH + H_GAP;
 			} else {
-				// TB: body goes to the right of the Loop node
-				bodyX = loopPos.x + BODY_COLUMN_OFFSET;
-				bodyY = loopPos.y;
+				bodyY += NODE_HEIGHT + V_GAP;
 			}
 
 			// BFS-order the body nodes so they stack nicely

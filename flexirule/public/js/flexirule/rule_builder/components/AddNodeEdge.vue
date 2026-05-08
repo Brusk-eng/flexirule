@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from "vue";
-import { BaseEdge, getSimpleBezierPath, EdgeLabelRenderer } from "@vue-flow/core";
+import { BaseEdge, getSmoothStepPath, EdgeLabelRenderer } from "@vue-flow/core";
 import { useStore } from "../stores";
 import ActionPopover from "./ActionPopover.vue";
 
@@ -19,6 +19,8 @@ const props = defineProps({
 	data: { type: Object, required: false },
 	markerEnd: { type: String, required: false },
 	style: { type: Object, required: false },
+	sourceHandleId: { type: String, required: false },
+	targetHandleId: { type: String, required: false },
 });
 
 const emit = defineEmits(["insert-node"]);
@@ -26,21 +28,48 @@ const store = useStore();
 
 const showPopover = ref(false);
 
-const isEnabled = computed(() => {
-	if (!store.settings) return true;
-	return store.settings.enable_edge_insertion !== 0;
+const isReturnEdge = computed(() => {
+	return (
+		props.data?.isReturn ||
+		props.targetHandleId === "return" ||
+		props.id.includes("return") ||
+		props.data?.targetHandle === "return"
+	);
 });
 
-const path = computed(() =>
-	getSimpleBezierPath({
+const isAfterLastEdge = computed(() => {
+	return props.data?.afterLast || props.sourceHandleId === "false" || props.id.includes("-false");
+});
+
+const isEnabled = computed(() => {
+	if (!store.settings) return true;
+	if (store.settings.enable_edge_insertion === 0) return false;
+	return true;
+});
+
+const path = computed(() => {
+	// Salesforce aesthetic uses SmoothStep for everything to keep lines clean and 90-degree
+	const config = {
 		sourceX: props.sourceX,
 		sourceY: props.sourceY,
 		sourcePosition: props.sourcePosition,
 		targetX: props.targetX,
 		targetY: props.targetY,
 		targetPosition: props.targetPosition,
-	})
-);
+		borderRadius: 24,
+		offset: 40,
+	};
+
+	if (isReturnEdge.value) {
+		// Return edges go further out to avoid the node body
+		config.offset = 60;
+	} else if (isAfterLastEdge.value) {
+		// After Last (bypass) edges also benefit from a bit more breathing room
+		config.offset = 50;
+	}
+
+	return getSmoothStepPath(config);
+});
 
 function onAddClick(event) {
 	event.stopPropagation();

@@ -296,6 +296,8 @@ function onCreate() {
 		...nodeData,
 		action_id: props.id,
 		action_label: label,
+		next_step_if_true: node.data?.next_step_if_true || nodeData.next_step_if_true,
+		next_step_if_false: node.data?.next_step_if_false || nodeData.next_step_if_false,
 		suggested_parent_id: null,
 		suggested_source_handle: null,
 	};

@@ -828,6 +828,8 @@ onUnmounted(() => {
 	border-radius: 12px;
 	padding: 12px;
 	border: 1px solid #e2e8f0;
+	max-height: 250px;
+	overflow-y: auto;
 }
 
 .action-core-layout {

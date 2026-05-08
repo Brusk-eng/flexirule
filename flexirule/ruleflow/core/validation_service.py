@@ -430,6 +430,7 @@ def _validate_variable_dependencies(actions, operation_metadata=None) -> dict:
 	errors: list[str] = []
 	warnings: list[str] = []
 	available_vars = {"doc", "old_doc", "frappe"}
+	active_loop_aliases: set[str] = set()  # Track loop aliases to detect shadowing
 	operation_metadata = operation_metadata or {}
 
 	for action in actions:
@@ -466,8 +467,21 @@ def _validate_variable_dependencies(actions, operation_metadata=None) -> dict:
 
 		if normalize_action_type(_safe_get(action, "action_type")) == "Loop":
 			config = _parse_json_value(_safe_get(action, "config"), {})
-			alias = config.get("alias", "item")
+			# Use return_variable as alias, fallback to config.alias, then 'item'
+			alias = _safe_get(action, "return_variable") or config.get("alias") or "item"
+
+			# Warn on nested loop variable shadowing
+			if alias in active_loop_aliases:
+				warnings.append(
+					_(
+						"Action '{0}' uses loop alias '{1}' which shadows an outer loop's alias. "
+						"This will overwrite the outer loop's item variable. Use a unique alias."
+					).format(action_label, alias)
+				)
+			active_loop_aliases.add(alias)
+
 			available_vars.add(alias)
+			available_vars.add("loop")
 
 	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
@@ -712,8 +726,10 @@ def _get_required_variables_for_rule(rule_doc) -> list[str]:
 
 		if normalize_action_type(action.action_type) == "Loop":
 			config = _parse_json_value(action.config, {})
-			alias = config.get("alias", "item")
+			# Use return_variable as alias, fallback to config.alias, then 'item'
+			alias = getattr(action, "return_variable", None) or config.get("alias") or "item"
 			available.add(alias)
+			available.add("loop")
 
 		writes_vars = _load_json_list(op_meta.get("writes_vars"), [], action.action_label, "writes_vars")
 		for var_def in writes_vars:

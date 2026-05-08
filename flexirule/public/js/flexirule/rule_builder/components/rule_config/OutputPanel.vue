@@ -219,7 +219,13 @@ const showReturnVariable = computed(() => {
 	);
 	if (state.hidden) return false;
 	if (policy.show_return_variable === false) return false;
-	return showMutationMode.value || allowedReturnTypeOptions.value.length > 0;
+
+	return (
+		policy.show_return_variable ||
+		policy.require_return_variable ||
+		showMutationMode.value ||
+		allowedReturnTypeOptions.value.length > 0
+	);
 });
 
 const showResolvedSchema = computed(() => allowedReturnTypeOptions.value.length > 0);

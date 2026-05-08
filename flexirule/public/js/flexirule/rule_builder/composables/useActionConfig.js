@@ -161,11 +161,22 @@ export function useActionConfig(props) {
 		{ immediate: true }
 	);
 
+	// Also refresh when nodes in the store change (e.g. alias rename, new upstream node)
+	watch(
+		() => store.nodes,
+		() => refresh_variables(),
+		{ deep: true }
+	);
+
 	function is_field_valid(fieldname, dt_fields) {
 		if (!dt_fields || !dt_fields.length) return true;
 		if (!fieldname) return true;
-		// Allow expressions and variables
-		if (typeof fieldname === "string" && fieldname.startsWith("{")) return true;
+		// Allow expressions, variables, and direct var paths
+		if (
+			typeof fieldname === "string" &&
+			(fieldname.startsWith("{") || fieldname.startsWith("vars."))
+		)
+			return true;
 
 		return dt_fields.some((f) => f.value === fieldname);
 	}

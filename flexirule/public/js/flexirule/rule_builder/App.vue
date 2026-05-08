@@ -428,21 +428,26 @@ function onConnect(params) {
 	const sourceHandle = params.sourceHandle || "default";
 	const id = `e-${params.source}-${params.target}-${sourceHandle}`;
 
-	// Check for existing connection to avoid duplicates
-	const exists = (graphStore.edges || []).some(
-		(e) =>
-			e.source === params.source &&
-			e.target === params.target &&
-			(e.sourceHandle || "default") === sourceHandle
+	// Enforce single connection per source handle
+	const existingEdgeIndex = (graphStore.edges || []).findIndex(
+		(e) => e.source === params.source && (e.sourceHandle || "default") === sourceHandle
 	);
 
-	if (exists) return;
+	if (existingEdgeIndex !== -1) {
+		const existingEdge = graphStore.edges[existingEdgeIndex];
+		// If connecting to the same target, ignore
+		if (existingEdge.target === params.target) return;
+
+		// Otherwise, remove the old one to replace it
+		graphStore.edges.splice(existingEdgeIndex, 1);
+	}
 
 	const newEdge = {
 		id,
 		source: params.source,
 		target: params.target,
 		sourceHandle,
+		targetHandle: params.targetHandle,
 		type: "add",
 		animated: graphStore.nodes.find((el) => el.id === params.source)?.type === "start",
 	};

@@ -202,6 +202,33 @@ async function get_autocomplete_options(df) {
 		return get_action_node_options();
 	}
 
+	// target_field / variable_name autocomplete
+	if (df.fieldname === "target_field" || df.fieldname === "variable_name") {
+		const actionType = props.nodeData?.action_type;
+		const operation = props.nodeData?.operation;
+
+		if (actionType === "Set Value" && operation === "Context Variable") {
+			const vars = await store.getAvailableVariables(props.nodeData?.action_id);
+			return vars
+				.filter((v) => v.is_variable)
+				.map((v) => ({
+					value: v.value,
+					label: v.label,
+				}));
+		}
+
+		if (actionType === "Set Value" && operation === "Current Document") {
+			const doctype = store.rule_doc?.document_type;
+			if (doctype) {
+				const fields = await flexirule.utils.get_doctype_fields(doctype);
+				return fields.map((f) => ({
+					value: f.fieldname,
+					label: `${f.label} (${f.fieldname})`,
+				}));
+			}
+		}
+	}
+
 	return [];
 }
 
@@ -270,6 +297,8 @@ function needs_autocomplete(df) {
 	return (
 		df.fieldtype === "Autocomplete" ||
 		df.fieldname === "operation" ||
+		df.fieldname === "target_field" ||
+		df.fieldname === "variable_name" ||
 		df.options === "action_id" ||
 		(df.options === "process_name" && df.fieldname === "operation")
 	);
