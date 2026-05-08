@@ -447,8 +447,8 @@ const valueType = computed({
 }
 
 .condition-main-row :deep(.form-control:focus) {
-	border-color: var(--fr-accent);
-	box-shadow: none;
+	border-color: var(--fr-node-accent, var(--fr-accent));
+	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light));
 }
 
 .empty-value-col {

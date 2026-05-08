@@ -143,14 +143,14 @@ function handleDrop(e) {
 
 .logic-btn.active {
 	background: var(--fr-bg-card);
-	color: var(--fr-accent);
+	color: var(--fr-node-accent, var(--fr-accent));
 	box-shadow: var(--fr-shadow-sm);
 }
 
 .condition-group-ui.drag-over {
-	border-color: var(--fr-accent);
-	background: var(--fr-accent-light);
-	box-shadow: inset 0 0 0 2px var(--fr-accent);
+	border-color: var(--fr-node-accent, var(--fr-accent));
+	background: var(--fr-node-accent-light, var(--fr-accent-light));
+	box-shadow: inset 0 0 0 2px var(--fr-node-accent, var(--fr-accent));
 }
 
 .group-actions {
@@ -166,7 +166,7 @@ function handleDrop(e) {
 
 .group-actions .fr-btn--icon:hover {
 	background: var(--fr-bg-muted);
-	color: var(--fr-accent);
+	color: var(--fr-node-accent, var(--fr-accent));
 	border-color: var(--fr-border-strong);
 }
 
@@ -205,5 +205,21 @@ function handleDrop(e) {
 .group-drop-spacer {
 	height: 20px;
 	margin-top: var(--fr-space-2);
+}
+
+@media (max-width: 768px) {
+	.condition-group-ui {
+		padding: var(--fr-space-4);
+	}
+
+	.group-header {
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--fr-space-3);
+	}
+
+	.group-actions {
+		flex-wrap: wrap;
+	}
 }
 </style>

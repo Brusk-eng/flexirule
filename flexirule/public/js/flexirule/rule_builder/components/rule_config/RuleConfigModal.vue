@@ -201,10 +201,13 @@
 												class="integrated-settings-bar"
 												v-if="showSettingsBar"
 											>
-												<ActionSettings
-													:node="draftNode"
+												<ActionFieldProperties
+													:nodeData="draftNode.data"
 													:readOnly="ruleStore.is_read_only"
 													@update:field="on_update_action_field"
+													@open:conditions="
+														uiStore.config_modal_mode = 'logic'
+													"
 												/>
 											</div>
 
@@ -312,7 +315,7 @@ import ResizablePanel from "./ResizablePanel.vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
 import OutputPanel from "./OutputPanel.vue";
-import ActionSettings from "./ActionSettings.vue";
+import ActionFieldProperties from "../ActionFieldProperties.vue";
 import ConditionStep from "./types/ConditionStep.vue";
 import StartNodeProperties from "../StartNodeProperties.vue";
 import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
@@ -409,8 +412,19 @@ const title = computed(() => {
 	return baseTitle + suffix;
 });
 
-function on_update_action_field({ fieldname, value, scope }) {
+function on_update_action_field(payload, maybeValue) {
 	if (!draftNode.value?.data) return;
+	let fieldname = null;
+	let value = null;
+	let scope = null;
+	if (typeof payload === "string") {
+		fieldname = payload;
+		value = maybeValue;
+	} else if (payload && typeof payload === "object") {
+		fieldname = payload.fieldname;
+		value = payload.value;
+		scope = payload.scope;
+	}
 	if (fieldname && scope === "config") {
 		let baseConfig = {};
 		if (draftNode.value.data.config && typeof draftNode.value.data.config === "object") {
@@ -814,6 +828,8 @@ onUnmounted(() => {
 	border-radius: 12px;
 	padding: 12px;
 	border: 1px solid #e2e8f0;
+	max-height: 250px;
+	overflow-y: auto;
 }
 
 .action-core-layout {

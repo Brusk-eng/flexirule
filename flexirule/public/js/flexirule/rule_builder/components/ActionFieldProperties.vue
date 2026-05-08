@@ -14,14 +14,7 @@ import { computed, onMounted } from "vue";
 import { useStore } from "../stores";
 import ControlFactory from "../controls/ControlFactory.vue";
 import AutocompleteControl from "../controls/AutocompleteControl.vue";
-import {
-	getActionTypeOptions,
-	getContract,
-	getFieldLabel,
-	getOperationOptions,
-	isTerminalAction,
-	CONFIG_MODAL_TYPES,
-} from "../../core/contracts";
+import { getActionTypeOptions, getFieldLabel, getOperationOptions } from "../../core/contracts";
 import { useNodeConfigPolicy } from "../composables/useNodeConfigPolicy";
 
 const props = defineProps({
@@ -36,35 +29,6 @@ const { getPolicyField, getPolicyValue } = useNodeConfigPolicy({
 	actionType: () => props.nodeData?.action_type || "",
 	operation: () => props.nodeData?.operation || "",
 	processName: () => props.nodeData?.process_name || "",
-});
-
-const excluded_fields = computed(() => {
-	const base = [
-		"action_id", // Auto-generated
-		"condition_json", // Deprecated
-
-		"process_method", // Obsolete
-	];
-
-	const MODAL_TYPES = ["Query Records", "Document Action"];
-
-	if (MODAL_TYPES.includes(props.nodeData?.action_type)) {
-		base.push(
-			"operation",
-			"reference_doctype",
-			"reference_docname",
-			"mutation_mode",
-			"config",
-			"resolved_output_schema",
-			"return_type"
-		);
-	}
-
-	if (props.nodeData?.action_type === "Condition") {
-		base.push("config"); // Managed by condition builder modal
-	}
-
-	return base;
 });
 
 // Layout fields to skip
@@ -83,9 +47,6 @@ const doc_fields = computed(() => {
 		.filter((df) => {
 			// Skip layout fields
 			if (LAYOUT_FIELDS.includes(df.fieldtype)) return false;
-
-			// Skip excluded fields
-			if (excluded_fields.value.includes(df.fieldname)) return false;
 
 			// Skip always hidden fields
 			if (df.hidden) return false;
@@ -138,98 +99,11 @@ const doc_fields = computed(() => {
 		});
 });
 
-function get_visible_fieldnames(nodeData) {
-	const actionType = nodeData?.action_type;
-	if (!actionType || actionType === "Selector") {
-		return new Set();
-	}
-
-	const contract = getContract(actionType);
-	const fieldnames = new Set([
-		"action_type",
-		"is_enabled",
-		"is_async",
-		"action_label",
-		"description",
-	]);
-
-	(contract.required_fields || []).forEach((fieldname) => fieldnames.add(fieldname));
-	if (nodeData?.operation && contract?.mandatory_fields?.[nodeData.operation]) {
-		contract.mandatory_fields[nodeData.operation].forEach((fieldname) =>
-			fieldnames.add(fieldname)
-		);
-	}
-
-	if (!isTerminalAction(actionType)) {
-		fieldnames.add("next_step_if_true");
-	}
-
-	switch (actionType) {
-		case "Process":
-			fieldnames.add("process_name");
-			fieldnames.add("operation");
-			fieldnames.add("configure_operation");
-			fieldnames.add("timeout");
-			fieldnames.add("on_error");
-			if (nodeData?.on_error === "Retry") {
-				fieldnames.add("retry_count");
-			}
-			if (nodeData?.operation?.includes("Doc")) {
-				fieldnames.add("reference_docname");
-			}
-			break;
-		case "Condition":
-			fieldnames.add("compiled_expression");
-			fieldnames.add("set_conditions");
-			fieldnames.add("next_step_if_false");
-			break;
-		case "Sub-Rule":
-			fieldnames.add("rule");
-			fieldnames.add("skip_conditions");
-			fieldnames.add("skip_permissions");
-			break;
-		case "Set Value":
-			fieldnames.add("target_field");
-			fieldnames.add("value_template");
-			break;
-		case "Stop":
-			fieldnames.add("operation");
-			if (nodeData?.operation === "Error") {
-				fieldnames.add("value_template");
-			}
-			break;
-		case "Notify":
-			fieldnames.add("operation");
-			fieldnames.add("value_template");
-			break;
-		case "Query Records":
-		case "Document Action":
-			fieldnames.add("operation");
-			fieldnames.add("input_source");
-			fieldnames.add("reference_doctype");
-			fieldnames.add("mutation_mode");
-			fieldnames.add("return_variable");
-			fieldnames.add("return_type");
-			fieldnames.add("skip_permissions");
-			if (
-				(actionType === "Query Records" &&
-					["Query Doc", "Query Report"].includes(nodeData?.operation)) ||
-				(actionType === "Document Action" && nodeData?.operation === "Update Existing")
-			) {
-				fieldnames.add("reference_docname");
-			}
-			break;
-	}
-
-	return fieldnames;
-}
-
 // Filter visible fields based on depends_on evaluation
 const visible_fields = computed(() => {
-	const allowed_fields = get_visible_fieldnames(props.nodeData);
-	return doc_fields.value.filter((df) => {
-		return allowed_fields.has(df.fieldname) && evaluate_depends_on(df.depends_on);
-	});
+	const actionType = props.nodeData?.action_type;
+	if (!actionType || actionType === "Selector") return [];
+	return doc_fields.value.filter((df) => evaluate_depends_on(df.depends_on));
 });
 
 // Evaluate depends_on expression
@@ -328,6 +202,33 @@ async function get_autocomplete_options(df) {
 		return get_action_node_options();
 	}
 
+	// target_field / variable_name autocomplete
+	if (df.fieldname === "target_field" || df.fieldname === "variable_name") {
+		const actionType = props.nodeData?.action_type;
+		const operation = props.nodeData?.operation;
+
+		if (actionType === "Set Value" && operation === "Context Variable") {
+			const vars = await store.getAvailableVariables(props.nodeData?.action_id);
+			return vars
+				.filter((v) => v.is_variable)
+				.map((v) => ({
+					value: v.value,
+					label: v.label,
+				}));
+		}
+
+		if (actionType === "Set Value" && operation === "Current Document") {
+			const doctype = store.rule_doc?.document_type;
+			if (doctype) {
+				const fields = await flexirule.utils.get_doctype_fields(doctype);
+				return fields.map((f) => ({
+					value: f.fieldname,
+					label: `${f.label} (${f.fieldname})`,
+				}));
+			}
+		}
+	}
+
 	return [];
 }
 
@@ -396,6 +297,8 @@ function needs_autocomplete(df) {
 	return (
 		df.fieldtype === "Autocomplete" ||
 		df.fieldname === "operation" ||
+		df.fieldname === "target_field" ||
+		df.fieldname === "variable_name" ||
 		df.options === "action_id" ||
 		(df.options === "process_name" && df.fieldname === "operation")
 	);

@@ -1,5 +1,5 @@
 <template>
-	<div class="condition-builder">
+	<div class="condition-builder fr-accent-scope">
 		<!-- Main Header -->
 		<div class="builder-header">
 			<div class="logic-toggle">
@@ -326,7 +326,7 @@ provide(
 
 .logic-btn.active {
 	background: var(--fr-bg-card);
-	color: var(--fr-accent);
+	color: var(--fr-node-accent, var(--fr-accent));
 	box-shadow: var(--fr-shadow-sm);
 }
 
@@ -349,7 +349,7 @@ provide(
 
 .builder-actions .fr-btn i {
 	font-size: 11px;
-	color: var(--fr-accent);
+	color: var(--fr-node-accent, var(--fr-accent));
 }
 
 .conditions-container {
@@ -363,8 +363,8 @@ provide(
 }
 
 .conditions-container.drag-over {
-	background: var(--fr-accent-light);
-	box-shadow: inset 0 0 0 2px var(--fr-accent);
+	background: var(--fr-node-accent-light, var(--fr-accent-light));
+	box-shadow: inset 0 0 0 2px var(--fr-node-accent, var(--fr-accent));
 }
 
 .drop-spacer {
@@ -375,15 +375,15 @@ provide(
 	justify-content: center;
 	border-radius: var(--fr-radius-md);
 	border: 1px dashed transparent;
-	color: var(--fr-accent);
+	color: var(--fr-node-accent, var(--fr-accent));
 	font-size: var(--fr-text-sm);
 	font-weight: var(--fr-weight-semibold);
 	transition: all var(--fr-transition-fast);
 }
 
 .drop-spacer.active {
-	border-color: var(--fr-accent);
-	background: var(--fr-accent-light);
+	border-color: var(--fr-node-accent, var(--fr-accent));
+	background: var(--fr-node-accent-light, var(--fr-accent-light));
 }
 
 .empty-state {
@@ -419,5 +419,22 @@ provide(
 
 .node-wrapper {
 	transition: all var(--fr-transition-slow) ease;
+}
+
+@media (max-width: 768px) {
+	.condition-builder {
+		padding: var(--fr-space-4);
+		gap: var(--fr-space-5);
+	}
+
+	.builder-header {
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--fr-space-3);
+	}
+
+	.builder-actions {
+		flex-wrap: wrap;
+	}
 }
 </style>

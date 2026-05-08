@@ -1164,11 +1164,13 @@ class Rule(Document):
 		if not self.document_type:
 			return
 
-		# Skip DocType field validation if we are setting a context variable
+		# Skip DocType field validation if we are setting a context variable or using a variable path
 		mutation_mode = (
 			action.get("mutation_mode") if hasattr(action, "get") else getattr(action, "mutation_mode", None)
 		)
-		if mutation_mode in ["Set Context Variable", "Update Context Variable"]:
+		if mutation_mode in ["Set Context Variable", "Update Context Variable"] or (
+			target_field and str(target_field).startswith("vars.")
+		):
 			return
 
 		meta = frappe.get_meta(self.document_type)
@@ -1236,7 +1238,10 @@ class Rule(Document):
 	def validate_no_sub_rule_cycles(self):
 		"""
 		Detect direct or indirect cycles in sub-rule references.
-		Uses DFS with path tracking to detect any cycle in the full sub-rule graph.
+
+		Uses a single bulk query to build the full sub-rule adjacency graph,
+		then runs DFS entirely in-memory. This eliminates the N+1 query pattern
+		that previously caused timeouts on large rule graphs (~50+ sub-rules).
 		"""
 		# Collect sub-rule names referenced by this rule
 		sub_rules = set()
@@ -1247,22 +1252,36 @@ class Rule(Document):
 		if not sub_rules:
 			return  # No sub-rules, no cycles possible
 
-		def get_child_sub_rules(rule_name):
-			"""Get all sub-rule references from a rule"""
-			return frappe.db.get_all(
-				"Rule Action",
-				filters={
-					"parent": rule_name,
-					"action_type": "Sub-Rule",
-					"rule": ["is", "set"],
-				},
-				pluck="rule",
-			)
+		# Single bulk query: fetch the ENTIRE sub-rule adjacency graph
+		all_edges = frappe.db.get_all(
+			"Rule Action",
+			filters={
+				"action_type": "Sub-Rule",
+				"rule": ["is", "set"],
+			},
+			fields=["parent", "rule"],
+		)
 
-		def dfs_detect_cycle(current_rule, path, globally_visited):
-			"""DFS with path tracking to detect any cycle"""
+		# Build in-memory adjacency map: parent_rule → {child_rule, ...}
+		adjacency: dict[str, set[str]] = {}
+		for edge in all_edges:
+			if edge.parent and edge.rule:
+				adjacency.setdefault(edge.parent, set()).add(edge.rule)
+
+		# Include this rule's own (possibly unsaved) sub-rule edges
+		current_rule_name = self.name or self.rule_name or _("(unsaved rule)")
+		adjacency[current_rule_name] = sub_rules
+
+		# DFS with path tracking — zero additional DB queries
+		max_depth = 200  # Depth guard against Python RecursionError
+
+		def dfs_detect_cycle(current_rule, path, globally_visited, depth=0):
+			"""DFS with path tracking to detect any cycle."""
+			if depth > max_depth:
+				return None  # Depth guard: stop exploring unreasonably deep graphs
+
 			if current_rule in path:
-				# Cycle detected - build cycle path from where it starts
+				# Cycle detected — build readable cycle path
 				cycle_start = path.index(current_rule)
 				cycle_path = [*path[cycle_start:], current_rule]
 				return " → ".join([str(part) for part in cycle_path if part])
@@ -1272,10 +1291,9 @@ class Rule(Document):
 
 			path.append(current_rule)
 
-			child_sub_rules = get_child_sub_rules(current_rule)
-			for child in child_sub_rules:
+			for child in adjacency.get(current_rule, set()):
 				if child:
-					result = dfs_detect_cycle(child, path.copy(), globally_visited)
+					result = dfs_detect_cycle(child, path.copy(), globally_visited, depth + 1)
 					if result:
 						return result
 
@@ -1284,7 +1302,6 @@ class Rule(Document):
 
 		# Start DFS from this rule
 		globally_visited: set[str] = set()
-		current_rule_name = self.name or self.rule_name or _("(unsaved rule)")
 		initial_path = [current_rule_name]
 
 		for sub_rule in sub_rules:
@@ -1320,8 +1337,12 @@ class Rule(Document):
 			set(),
 		)
 
-	def _validate_variable_paths(self, action, available_vars, action_map, path):
+	def _validate_variable_paths(self, action, available_vars, action_map, path, depth=0):
 		"""Validate template variable usage for every reachable execution path."""
+		# Depth guard: prevent Python RecursionError on deeply nested graphs
+		if depth > 200:
+			return
+
 		action_id = action.action_id or action.name
 		if action_id in path:
 			return
@@ -1334,8 +1355,10 @@ class Rule(Document):
 
 		if action.action_type == "Loop":
 			config = self._parse_action_config(action)
-			alias = config.get("alias", "item")
+			# Use return_variable as alias, fallback to config.alias, then 'item'
+			alias = action.return_variable or config.get("alias") or "item"
 			next_available.add(alias)
+			next_available.add("loop")
 
 		next_path = set(path)
 		next_path.add(action_id)
@@ -1345,10 +1368,17 @@ class Rule(Document):
 				continue
 			next_action = action_map.get(next_id)
 			if next_action:
-				self._validate_variable_paths(next_action, next_available, action_map, next_path)
+				self._validate_variable_paths(next_action, next_available, action_map, next_path, depth + 1)
 
 	def _check_template_variables(self, action, available_vars):
-		"""Check Jinja template for undefined variable references"""
+		"""Check Jinja template for undefined variable references.
+
+		Uses multiple patterns to catch all variable reference styles:
+		  - {{ vars.foo }}         (Jinja dot notation)
+		  - {{ vars['foo'] }}      (Jinja bracket notation)
+		  - {{ vars.get('foo') }}  (Jinja method call)
+		  - vars.foo               (bare expression in compiled conditions)
+		"""
 		import re
 
 		# Templates to check based on action type
@@ -1360,15 +1390,24 @@ class Rule(Document):
 		elif action.action_type == "Notify":
 			templates_to_check.append(("value_template", getattr(action, "value_template", "")))
 
-		# Extract variable references from Jinja templates (e.g., {{ vars.foo }})
-		var_pattern = re.compile(r"\{\{\s*vars\.(\w+)")
+		# Multiple patterns to catch all variable reference styles
+		var_patterns = [
+			re.compile(r"\{\{\s*vars\.(\w+)"),  # {{ vars.foo }}
+			re.compile(r"\{\{\s*vars\[['\"]?(\w+)"),  # {{ vars['foo'] }} or {{ vars["foo"] }}
+			re.compile(r"\bvars\.get\(['\"]?(\w+)"),  # vars.get('foo')
+			re.compile(r"(?<!\.)\bvars\.(\w+)"),  # bare vars.foo in expressions
+		]
 
 		for _field_name, template in templates_to_check:
 			if not template:
 				continue
 
-			matches = var_pattern.findall(template)
-			for var_name in matches:
+			# Collect all unique variable names across all patterns
+			all_matches = set()
+			for pattern in var_patterns:
+				all_matches.update(pattern.findall(template))
+
+			for var_name in all_matches:
 				if var_name not in available_vars:
 					frappe.throw(
 						_(

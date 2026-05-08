@@ -301,7 +301,7 @@ onMounted(fetchChildMeta);
 .collection-ui {
 	background: var(--fr-bg-card);
 	border: 1px solid var(--fr-border);
-	border-left: 4px solid var(--fr-accent);
+	border-left: 4px solid var(--fr-node-accent, var(--fr-accent));
 	border-radius: var(--fr-radius-lg);
 	padding: var(--fr-space-6);
 }
@@ -333,8 +333,8 @@ onMounted(fetchChildMeta);
 }
 
 .nested-conditions.drag-over {
-	background: var(--fr-accent-light);
-	box-shadow: inset 0 0 0 2px var(--fr-accent);
+	background: var(--fr-node-accent-light, var(--fr-accent-light));
+	box-shadow: inset 0 0 0 2px var(--fr-node-accent, var(--fr-accent));
 	border-radius: var(--fr-radius-md);
 }
 
@@ -348,5 +348,21 @@ onMounted(fetchChildMeta);
 
 .node-wrapper {
 	margin-bottom: var(--fr-space-2);
+}
+
+@media (max-width: 768px) {
+	.collection-ui {
+		padding: var(--fr-space-4);
+	}
+
+	.collection-header {
+		flex-direction: column;
+		gap: var(--fr-space-3);
+	}
+
+	.actions-col {
+		flex-wrap: wrap;
+		align-items: center;
+	}
 }
 </style>

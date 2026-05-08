@@ -1,5 +1,5 @@
 <template>
-	<div class="resource-mapper-control fr-control">
+	<div class="resource-mapper-control fr-control fr-accent-scope">
 		<div v-if="df?.label && !hideLabel" class="fr-label" :class="{ reqd: df?.reqd }">
 			{{ __(df.label) }}
 		</div>
@@ -1509,10 +1509,10 @@ function deleteSelectedTableRows(tIdx, table) {
 
 /* ─── Preview Box ─── */
 .rm-preview-box {
-	border: 1px solid var(--fr-accent);
+	border: 1px solid var(--fr-node-accent, var(--fr-accent));
 	border-radius: var(--fr-radius-lg);
 	padding: var(--fr-space-5);
-	background: var(--fr-accent-light);
+	background: var(--fr-node-accent-light, var(--fr-accent-light));
 	display: flex;
 	flex-direction: column;
 	gap: var(--fr-space-3);
@@ -1521,7 +1521,7 @@ function deleteSelectedTableRows(tIdx, table) {
 .rm-preview-title {
 	font-size: var(--fr-text-md);
 	font-weight: var(--fr-weight-semibold);
-	color: var(--fr-accent);
+	color: var(--fr-node-accent, var(--fr-accent));
 	display: flex;
 	align-items: center;
 	gap: var(--fr-space-3);
@@ -1535,7 +1535,7 @@ function deleteSelectedTableRows(tIdx, table) {
 	height: 20px;
 	padding: 0 var(--fr-space-2);
 	border-radius: var(--fr-radius-pill);
-	background: var(--fr-accent);
+	background: var(--fr-node-accent, var(--fr-accent));
 	color: #fff;
 	font-size: 10px;
 	font-weight: var(--fr-weight-bold);
@@ -1576,7 +1576,7 @@ function deleteSelectedTableRows(tIdx, table) {
 	justify-content: flex-end;
 	gap: var(--fr-space-4);
 	padding-top: var(--fr-space-4);
-	border-top: 1px solid var(--fr-accent-border);
+	border-top: 1px solid var(--fr-node-accent-light, var(--fr-accent-border));
 	margin-top: var(--fr-space-2);
 }
 
@@ -1606,6 +1606,42 @@ function deleteSelectedTableRows(tIdx, table) {
 .rm-pagination {
 	display: flex;
 	align-items: center;
-	border-color: var(--primary, #2490ef);
+	border-color: var(--fr-node-accent, var(--fr-accent));
+}
+
+:deep(.form-control:focus),
+:deep(.awesomplete input:focus),
+:deep(.fr-input:focus),
+:deep(.fr-select:focus) {
+	border-color: var(--fr-node-accent, var(--fr-border-focus)) !important;
+	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light)) !important;
+}
+
+@media (max-width: 920px) {
+	.rm-table-options {
+		grid-template-columns: 1fr;
+	}
+
+	.rm-section-header {
+		flex-wrap: wrap;
+	}
+}
+
+@media (max-width: 768px) {
+	.rm-options-bar {
+		padding: var(--fr-space-4);
+	}
+
+	.rm-mapping-row,
+	.rm-preview-row {
+		grid-template-columns: 1fr !important;
+		gap: var(--fr-space-2);
+	}
+
+	.rm-section-footer {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--fr-space-3);
+	}
 }
 </style>

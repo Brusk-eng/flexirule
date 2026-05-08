@@ -209,8 +209,12 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			(n) => n.id === "start" || n.type === "start" || n.data?.action_type === "Entry Action"
 		);
 		const doctype = ruleDoc?.document_type || startNode?.data?.document_type || null;
-		const context_vars = [];
-		const seenContextValues = new Set();
+
+		// Initial pool: Standard doc fields (so they can be propagated into loops if iterating doc.items)
+		const baseFields = doctype ? await flexirule.utils.get_doctype_fields(doctype, "doc") : [];
+		const context_vars = [...baseFields];
+
+		const seenContextValues = new Set(context_vars.map((v) => v.value));
 		const executionLinks = buildExecutionLinks();
 		const sortedNodes = getTopologicalSort(nodes.value, executionLinks);
 		const upstreamNodeIds = findUpstreamNodeIds(upToNodeId, executionLinks);
@@ -219,8 +223,91 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				? sortedNodes.filter((n) => upstreamNodeIds.has(n.id))
 				: sortedNodes;
 
+		const isDownstreamOfHandle = (sourceId, targetId, handle, links) => {
+			if (sourceId === targetId) return false;
+			const q = [{ id: sourceId, first: true }];
+			const visited = new Set();
+			while (q.length) {
+				const { id, first } = q.shift();
+				if (id === targetId && !first) return true;
+				if (visited.has(id)) continue;
+				if (!first) visited.add(id);
+
+				const children = links.filter(
+					(l) => l.source === id && (first ? l.sourceHandle === handle : true)
+				);
+				children.forEach((c) => q.push({ id: c.target, first: false }));
+			}
+			return false;
+		};
+
 		for (const node of scopedNodes) {
 			const data = node.data || {};
+
+			// Add Loop item variable if it's a Loop node and we're inside its "For Each" body
+			if (
+				data.action_type === "Loop" &&
+				upToNodeId &&
+				isDownstreamOfHandle(node.id, upToNodeId, "default", executionLinks)
+			) {
+				// Use return_variable as alias, fallback to config.alias, then 'item'
+				const config = flexirule.utils.safe_json_parse(data.config, {});
+				const itemVar = data.return_variable || config.alias || "item";
+				const root = `vars.${itemVar}`;
+
+				if (!seenContextValues.has(root)) {
+					seenContextValues.add(root);
+					context_vars.push({
+						label: `vars.${itemVar} (${__("Loop Item")})`,
+						value: root,
+						fieldtype: "Data",
+						is_variable: true,
+					});
+				}
+
+				// Propagate schema from iterator if possible
+				const iterator = config.iterator;
+				if (iterator) {
+					// Find fields that belong to this iterator in already collected context_vars
+					const prefix = iterator.startsWith("{{")
+						? iterator.replace(/^\{\{\s*|\s*\}\}$/g, "")
+						: iterator;
+
+					// If iterator is 'vars.my_list', we look for fields like 'vars.my_list.field_name'
+					// and map them to 'vars.item.field_name'
+					const searchPrefix = prefix + ".";
+					context_vars
+						.filter((v) => v.value && v.value.startsWith(searchPrefix))
+						.forEach((v) => {
+							const suffix = v.value.slice(searchPrefix.length);
+							const subValue = `${root}.${suffix}`;
+							if (!seenContextValues.has(subValue)) {
+								seenContextValues.add(subValue);
+								context_vars.push({
+									...v,
+									label: `${root}.${suffix} (${v.label || suffix})`,
+									value: subValue,
+									is_variable: true,
+								});
+							}
+						});
+				}
+
+				// Add standard vars.loop metadata
+				["index", "first", "last", "length"].forEach((key) => {
+					const loopVar = `vars.loop.${key}`;
+					if (!seenContextValues.has(loopVar)) {
+						seenContextValues.add(loopVar);
+						context_vars.push({
+							label: `${loopVar} (${__("Loop Meta")})`,
+							value: loopVar,
+							fieldtype: key === "index" || key === "length" ? "Int" : "Check",
+							is_variable: true,
+						});
+					}
+				});
+			}
+
 			if (!data.return_variable) continue;
 			const rawReturnVariable = String(data.return_variable || "").trim();
 			const normalizedReturnVariable = normalizeReturnVariable(rawReturnVariable);
@@ -335,7 +422,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		}
 
-		return await flexirule.utils.get_combined_fields(doctype, context_vars, "doc");
+		return context_vars;
 	}
 
 	function mapReturnTypeToFieldType(returnType) {
@@ -387,7 +474,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			baseData.config = { error_type: "Validation Error" };
 		} else if (type === "loop") {
 			baseData.action_type = "Loop";
-			baseData.config = { collection_variable: "", item_variable: "item" };
+			baseData.config = { iterator: "" };
+			baseData.return_variable = "item";
 		} else if (type === "sub-rule") {
 			baseData.action_type = "Sub-Rule";
 		} else if (type === "query" || type === "query records") {
@@ -606,7 +694,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				type: "selector",
 				position: { x: 0, y: 0 },
 				label: __("Loop Body"),
-				data: { ...bodyData },
+				data: { ...bodyData, next_step_if_true: newNodeId },
 			};
 
 			// Loop: For Each (default) → body entry; After Last (false) → existing target
@@ -652,6 +740,15 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					type: "add",
 					data: { loopBody: true },
 				},
+				// Loop body return edge
+				{
+					id: `e-${bodyNodeId}-${newNodeId}-return`,
+					source: bodyNodeId,
+					target: newNodeId,
+					targetHandle: "return",
+					type: "add",
+					data: { isReturn: true },
+				},
 				// Loop → After Last → Existing target (main flow)
 				{
 					id: `e-${newNodeId}-${targetId}-false`,
@@ -659,6 +756,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					target: targetId,
 					sourceHandle: "false",
 					type: "add",
+					data: { afterLast: true },
 				},
 			];
 
@@ -787,7 +885,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				source: newNodeId,
 				target: targetId,
 				sourceHandle: "default",
+				targetHandle: edge.targetHandle, // Propagate return handle if applicable
 				type: "add",
+				data: { ...(edge.data || {}) }, // Propagate flags like loopBody or isReturn
 			});
 		}
 

@@ -439,6 +439,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 					"action_type": "Loop",
 					"action_label": "Iterate Phones",
 					"config": _j({"iterator": "doc.phone_nos", "alias": "phone_row"}),
+					"return_variable": "phone_row",
 					"next_step_if_true": "set_loop_var",
 					"next_step_if_false": "loop_stop",
 				},

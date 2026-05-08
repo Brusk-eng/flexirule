@@ -1,5 +1,5 @@
 <template>
-	<div class="input-panel" :class="mode">
+	<div class="input-panel fr-accent-scope" :class="mode" :style="panelStyleVars">
 		<div class="panel-header" v-if="mode === 'config' && !store.use_modern_layout">
 			<h4>{{ __("Setup & Input") }}</h4>
 			<p class="text-muted small">{{ __("Define reference and operation") }}</p>
@@ -276,6 +276,14 @@ const expandedGroups = ref({});
 const contract = computed(() => {
 	const type = normalizeActionType(props.node?.data?.action_type || props.node?.type);
 	return type ? getContract(type) : null;
+});
+
+const panelStyleVars = computed(() => {
+	const accent = contract.value?.css?.color || "var(--fr-accent)";
+	return {
+		"--fr-node-accent": accent,
+		"--fr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
+	};
 });
 
 const currentActionType = computed(() =>
@@ -843,7 +851,7 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: #f8fafc;
+	background: var(--fr-bg-page);
 }
 
 .panel-header {
@@ -879,14 +887,14 @@ defineExpose({
 	color: #1e293b;
 }
 .tab-btn.active {
-	color: var(--primary, #6366f1);
-	border-bottom-color: var(--primary, #6366f1);
+	color: var(--fr-node-accent, var(--fr-accent));
+	border-bottom-color: var(--fr-node-accent, var(--fr-accent));
 }
 
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: 20px;
+	padding: var(--fr-space-8);
 	display: flex;
 	flex-direction: column;
 	gap: 24px;
@@ -948,7 +956,7 @@ defineExpose({
 }
 
 .variable-item:hover {
-	border-color: var(--primary);
+	border-color: var(--fr-node-accent, var(--fr-accent));
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	transform: translateX(2px);
 }
@@ -1077,7 +1085,7 @@ defineExpose({
 .insight-label {
 	font-size: 10px;
 	font-weight: 700;
-	color: var(--primary);
+	color: var(--fr-node-accent, var(--fr-accent));
 	text-transform: uppercase;
 	display: block;
 	margin-bottom: 4px;
@@ -1089,7 +1097,7 @@ defineExpose({
 	background: #f0f9ff;
 	padding: 8px;
 	border-radius: 8px;
-	border-left: 3px solid var(--primary);
+	border-left: 3px solid var(--fr-node-accent, var(--fr-accent));
 	margin: 0;
 }
 
@@ -1118,5 +1126,31 @@ defineExpose({
 	border: 1px dashed #e2e8f0;
 	border-radius: 8px;
 	padding: 10px 12px;
+}
+
+:deep(.form-control:focus),
+:deep(.awesomplete input:focus),
+:deep(.multiselect__input:focus) {
+	border-color: var(--fr-node-accent, var(--fr-border-focus)) !important;
+	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light)) !important;
+}
+
+@media (max-width: 768px) {
+	.panel-sections {
+		padding: var(--fr-space-4);
+		gap: var(--fr-space-5);
+	}
+
+	.section-header {
+		flex-wrap: wrap;
+	}
+
+	.variable-list {
+		max-height: 260px;
+	}
+
+	.variable-item {
+		padding: var(--fr-space-3) var(--fr-space-4);
+	}
 }
 </style>

@@ -46,7 +46,7 @@ class LoopHandler(ActionHandler):
 		config = engine._get_action_config(action)
 
 		iterator_name = config.get("iterator")  # e.g., "doc.items" or "vars.my_list"
-		item_alias = config.get("alias", "item")
+		item_alias = action.return_variable or config.get("alias") or "item"
 
 		items = []
 		if iterator_name:

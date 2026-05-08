@@ -1,5 +1,5 @@
 <template>
-	<div class="configuration-panel">
+	<div class="configuration-panel fr-accent-scope" :style="panelStyleVars">
 		<div v-if="node" class="panel-content">
 			<div class="panel-header" v-if="!store.use_modern_layout">
 				<div class="header-text">
@@ -35,6 +35,7 @@
 import { computed, ref } from "vue";
 import { useStore } from "../../stores";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
+import { getContract } from "../../../core/contracts.js";
 import ProcessConfig from "./types/ProcessConfig.vue";
 import ConditionStep from "./types/ConditionStep.vue";
 import LoopConfig from "./types/LoopConfig.vue";
@@ -125,6 +126,15 @@ const emptyStateMessage = computed(() => {
 	return __("No configuration UI available for '{0}'").replace("{0}", label);
 });
 
+const panelStyleVars = computed(() => {
+	const actionType = props.node?.data?.action_type || props.node?.type;
+	const color = getContract(actionType)?.css?.color || "var(--fr-accent)";
+	return {
+		"--fr-node-accent": color,
+		"--fr-node-accent-light": `color-mix(in srgb, ${color} 12%, white)`,
+	};
+});
+
 function on_update_field(fieldname, value) {
 	if (!props.node?.data) return;
 	props.node.data[fieldname] = value;
@@ -148,6 +158,7 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	background: var(--fr-bg-page);
 }
 
 .panel-content {
@@ -195,5 +206,12 @@ defineExpose({
 	justify-content: center;
 	flex: 1;
 	padding: 20px;
+}
+
+@media (max-width: 768px) {
+	.panel-sections {
+		padding: var(--fr-space-4);
+		gap: var(--fr-space-4);
+	}
 }
 </style>

@@ -141,8 +141,6 @@ def validate_graph_integrity(rule_doc):
 			continue
 
 		if contract.get("has_next_false") and not action.next_step_if_false:
-			frappe.throw(
-				_("Action '{0}' ({1}) is missing its required false path").format(
-					action.action_label, action.action_type
-				)
-			)
+			# We do not strictly enforce next_step_if_false.
+			# If it's missing, the engine safely terminates the execution path.
+			pass

@@ -11,10 +11,11 @@ const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to
 const targetPos = computed(
 	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
 );
-// TB layout: For Each → Right column (body), After Last → Bottom (main flow continues)
-// LR layout: For Each → Bottom row (body), After Last → Right (main flow continues)
-const doPos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
-const donePos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
+// TB layout: For Each → Bottom (straight down), After Last → Left (bypass)
+// LR layout: For Each → Right (straight right), After Last → Bottom (bypass)
+const doPos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
+const donePos = computed(() => (isHorizontal.value ? Position.Top : Position.Left));
+const returnPos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -60,12 +61,7 @@ function openConfig() {
 		</div>
 		<Handle type="target" :position="targetPos" class="handle-target" />
 		<!-- Return Handle for Loop Body -->
-		<Handle
-			type="target"
-			:position="isHorizontal ? Position.Bottom : Position.Left"
-			id="return"
-			class="handle-return"
-		/>
+		<Handle type="target" :position="returnPos" id="return" class="handle-return" />
 
 		<div class="node-header">
 			<i class="fa fa-refresh icon-spin"></i>
@@ -96,21 +92,22 @@ function openConfig() {
 
 		<div class="node-body">
 			<div class="loop-title">{{ data.action_label || label }}</div>
-			<div class="loop-subtext" v-if="data.collection_variable">
-				{{ __("Collection:") }} {{ data.collection_variable }}
+			<div class="loop-subtext" v-if="data.config?.iterator">
+				{{ __("Iterator:") }} {{ data.config.iterator }} {{ __("as") }}
+				{{ data.return_variable || data.config?.alias || "item" }}
 			</div>
 		</div>
 
-		<!-- Iteration Handle: For Each → body column -->
-		<!-- TB: exits Right | LR: exits Bottom -->
-		<div :class="['out-port', isHorizontal ? 'out-bottom' : 'out-right']" class="out-do">
+		<!-- Iteration Handle: For Each → body branch -->
+		<!-- TB: exits Bottom | LR: exits Right -->
+		<div :class="['out-port', isHorizontal ? 'out-right' : 'out-bottom']" class="out-do">
 			<div class="bubble-label bubble-foreach">{{ __("For Each") }}</div>
 			<Handle type="source" :position="doPos" id="default" class="handle-out handle-do" />
 		</div>
 
 		<!-- Done Handle: After Last → main flow continues -->
-		<!-- TB: exits Bottom | LR: exits Right -->
-		<div :class="['out-port', isHorizontal ? 'out-right' : 'out-bottom']" class="out-done">
+		<!-- TB: exits Left | LR: exits Bottom -->
+		<div :class="['out-port', isHorizontal ? 'out-bottom' : 'out-left']" class="out-done">
 			<div class="bubble-label bubble-afterlast">{{ __("After Last") }}</div>
 			<Handle type="source" :position="donePos" id="false" class="handle-out handle-done" />
 		</div>
@@ -256,6 +253,12 @@ function openConfig() {
 
 .loop-node-card.is-vertical .out-right {
 	right: -40px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+.loop-node-card.is-vertical .out-left {
+	left: -40px;
 	top: 50%;
 	transform: translateY(-50%);
 }

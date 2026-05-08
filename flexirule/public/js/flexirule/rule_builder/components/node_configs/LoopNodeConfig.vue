@@ -12,13 +12,10 @@
 			</div>
 		</div>
 		<div class="form-group">
-			<label>{{ __("Item Alias") }}</label>
-			<input
-				type="text"
-				class="form-control"
-				:value="getJsonConfig('alias')"
-				@input="$emit('update-json-config', 'alias', $event.target.value)"
-				placeholder="item"
+			<ControlFactory
+				:df="aliasFieldDf"
+				:modelValue="nodeData.return_variable"
+				@update:modelValue="updateReturnVariable"
 			/>
 			<div class="help-text text-muted" style="font-size: 11px">
 				{{ __("Variable name for current item (e.g. 'row' or 'item').") }}
@@ -30,7 +27,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
 import { useStore } from "../../stores";
-import FieldPickerControl from "../../controls/FieldPickerControl.vue";
+import ControlFactory from "../../controls/ControlFactory.vue";
 
 const props = defineProps({
 	node: Object,
@@ -42,7 +39,14 @@ const loading = ref(false);
 
 const nodeData = computed(() => props.node?.data || {});
 
-defineEmits(["update-json-config"]);
+const emit = defineEmits(["update-json-config"]);
+
+const aliasFieldDf = computed(() => ({
+	fieldname: "return_variable",
+	fieldtype: "Data",
+	label: __("Item Alias"),
+	placeholder: "item",
+}));
 
 async function loadFields() {
 	if (!props.node?.id) return;
@@ -70,6 +74,35 @@ const listFields = computed(() => {
 
 onMounted(loadFields);
 watch(() => props.node?.id, loadFields);
+// Refresh only when node return_variables or action_types change (not on every drag/resize)
+watch(
+	() =>
+		store.nodes
+			?.map((n) => `${n.id}:${n.data?.return_variable}:${n.data?.action_type}`)
+			.join(","),
+	loadFields
+);
+
+function updateReturnVariable(val) {
+	if (props.node?.data) {
+		props.node.data.return_variable = val;
+		store.mark_dirty();
+	}
+}
+
+// Migration: If config.alias exists but return_variable is empty, migrate it
+watch(
+	() => nodeData.value?.config,
+	(val) => {
+		const config = flexirule.utils.safe_json_parse(val, {});
+		if (config.alias && !nodeData.value.return_variable) {
+			updateReturnVariable(config.alias);
+			// Optional: remove from config to clean up
+			emit("update-json-config", "alias", undefined);
+		}
+	},
+	{ immediate: true }
+);
 
 function getJsonConfig(key, defaultVal = "") {
 	const configStr = nodeData.value?.config || nodeData.value?.method_config;

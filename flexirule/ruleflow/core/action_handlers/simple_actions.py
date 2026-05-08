@@ -115,14 +115,29 @@ class SetValueHandler(ActionHandler):
 		rendered_value = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
 
 		if operation == "Context Variable":
-			variable_name = getattr(action, "variable_name", None)
-			if not variable_name:
-				engine._log("WARNING", _("Set Value action missing variable_name"))
+			target_field = getattr(action, "target_field", None)
+			if not target_field:
+				engine._log("WARNING", _("Set Value action missing target_field for Context Variable"))
 			else:
 				if "vars" not in context:
 					context["vars"] = {}
-				context["vars"][variable_name] = rendered_value
-				engine._log("INFO", _("Set context var {0} = {1}").format(variable_name, rendered_value))
+
+				# Parse dot notation (e.g. vars.p.full_name or just p)
+				path_parts = target_field.split(".")
+				if path_parts[0] == "vars":
+					path_parts = path_parts[1:]
+
+				if not path_parts:
+					engine._log("WARNING", _("Invalid target_field path: {0}").format(target_field))
+				else:
+					current = context["vars"]
+					for part in path_parts[:-1]:
+						if part not in current or not isinstance(current[part], dict):
+							current[part] = {}
+						current = current[part]
+
+					current[path_parts[-1]] = rendered_value
+					engine._log("INFO", _("Set context var {0} = {1}").format(target_field, rendered_value))
 
 		elif operation == "Reference Document":
 			target_field = getattr(action, "target_field", None)
