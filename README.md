@@ -42,6 +42,7 @@ In modern enterprise systems like **Frappe / ERPNext**, business logic often evo
 <summary><strong>View Detailed Screenshots</strong></summary>
 
 <br/>
+<img width="1280" height="583" alt="IMG_20260509_194450_181" src="https://github.com/user-attachments/assets/212b96bf-9259-426b-90c1-dd55efce0bd7" />
 
 <img
   src="https://github.com/user-attachments/assets/41ac7963-f334-4fb2-bf0a-49409956c4a3"
