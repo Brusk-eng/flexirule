@@ -98,19 +98,23 @@ A **Process** is a file-backed module (similar to Frappe Reports/Dashboards) tha
 ## ⚡ Execution Flow Example
 
 FlexiRule uses a deterministic graph-based execution engine with built-in cycle detection (preventing infinite loops over 100 iterations natively). The following example shows a more detailed flow with error handling and branching paths.
-
 ```mermaid
 graph LR
     Trigger[Rule Trigger]
     --> Validate[Validate Data]
+
     Validate -->|Valid| Dedup[Check Duplicates]
     Validate -->|Invalid| Stop[Stop & Notify]
+
     Dedup -->|Found| Block[Block Save]
     Dedup -->|None| Enrich[Enrich Document]
+
     Enrich -->|Success| Success[Finalize]
     Enrich -->|Failure| ErrorHandler[Error Handling]
+
     ErrorHandler -->|Retry| Retry[Retry Operation]
     ErrorHandler -->|Escalate| Escalate[Escalate to Supervisor]
+
     Retry -->|Success| Success
     Retry -->|Max Retries| Escalate
 ```
