@@ -3,8 +3,10 @@
 The **Condition** action allows for branching execution logic based on the evaluation of a Python expression.
 
 ## Visual Builder
-Conditions are built using the visual Condition Builder, which supports:
+Conditions are built using the visual Condition Builder (V2), which supports:
 - **Hierarchical Grouping**: Combine conditions using `AND` and `OR` logic.
+- **Recursive Collection Logic**: Evaluate child tables or lists using `Any`, `All`, or `None` criteria.
+- **Iterator Aliases**: Define custom aliases for nested loop contexts to avoid variable collisions.
 - **Drag-and-Drop**: Easily restructure logic by dragging conditions between groups.
 
 ## Execution
