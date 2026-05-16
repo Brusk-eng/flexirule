@@ -40,7 +40,7 @@ Represents a single executable node within a Rule's graph.
 | :--- | :--- | :--- | :--- |
 | `action_id` | Data | Action ID | Unique ID for the node. Used for graph edges. |
 | `action_label` | Data | Label | User-defined label displayed on the node. |
-| `action_type` | Select | Step Type | Category: `Condition`, `Process`, `Loop`, `Set Value`, etc. |
+| `action_type` | Select | Step Type | Category: `Condition`, `Process`, `Loop`, `Assignment`, etc. |
 | `process_name` | Link | Process | Link to a `Process` DocType. |
 | `rule` | Link | Rule | Link to a sub-rule (for `Sub-Rule` type). |
 | `operation` | Autocomplete | Mode | Operation mode for this action. |

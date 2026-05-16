@@ -13,4 +13,4 @@ The **Query Records** action retrieves data from any DocType in the system.
 The visual filter builder allows you to define complex query criteria. You can use literal values or dynamic references from the context (e.g., `{{ doc.customer }}`).
 
 ## Results
-The result of a query can be stored in a **Context Variable** for use in subsequent actions, such as a **Loop** or **Set Value**.
+The result of a query can be stored in a **Context Variable** for use in subsequent actions, such as a **Loop** or **Assignment**.
