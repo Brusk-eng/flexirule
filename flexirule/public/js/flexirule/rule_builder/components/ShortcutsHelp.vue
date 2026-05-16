@@ -1,5 +1,9 @@
 <template>
-	<div v-if="modelValue" class="shortcuts-help-overlay" @click.self="$emit('update:modelValue', false)">
+	<div
+		v-if="modelValue"
+		class="shortcuts-help-overlay"
+		@click.self="$emit('update:modelValue', false)"
+	>
 		<div class="shortcuts-help-container">
 			<header class="shortcuts-help-header">
 				<h5><i class="fa fa-keyboard-o"></i> {{ __("Keyboard Shortcuts") }}</h5>
@@ -64,9 +68,9 @@
 
 <script setup>
 defineProps({
-	modelValue: Boolean
+	modelValue: Boolean,
 });
-defineEmits(['update:modelValue']);
+defineEmits(["update:modelValue"]);
 </script>
 
 <style scoped>
@@ -76,7 +80,7 @@ defineEmits(['update:modelValue']);
 	left: 0;
 	width: 100vw;
 	height: 100vh;
-	background: rgba(0,0,0,0.4);
+	background: rgba(0, 0, 0, 0.4);
 	backdrop-filter: blur(4px);
 	z-index: 2000;
 	display: flex;
@@ -88,7 +92,7 @@ defineEmits(['update:modelValue']);
 	background: #fff;
 	width: 400px;
 	border-radius: 12px;
-	box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 	overflow: hidden;
 }
 
@@ -151,7 +155,7 @@ kbd {
 	padding: 2px 6px;
 	font-size: 11px;
 	font-family: inherit;
-	box-shadow: 0 1px 0 rgba(0,0,0,0.1);
+	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .shortcut-desc {
