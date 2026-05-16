@@ -426,11 +426,11 @@ class Rule(Document):
 		raw = action.get("config")
 		if not raw:
 			return {}
-		if isinstance(raw, (dict, list)):
+		if isinstance(raw, dict | list):
 			return raw
 		try:
 			parsed = json.loads(raw)
-			return parsed if isinstance(parsed, (dict, list)) else {}
+			return parsed if isinstance(parsed, dict | list) else {}
 		except Exception:
 			return {}
 
