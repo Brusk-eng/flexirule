@@ -108,6 +108,7 @@
 								<span class="input-group-text"><i class="fa fa-search"></i></span>
 							</div>
 							<input
+								ref="variableSearchRef"
 								type="text"
 								class="form-control"
 								v-model="searchQuery"
@@ -127,8 +128,13 @@
 								class="variable-item"
 								:title="v.label"
 								draggable="true"
+								tabindex="0"
 								@dragstart="onDragStart($event, v)"
 								@click="insertOrCopy(v.value)"
+								@keydown.enter.prevent="insertOrCopy(v.value)"
+								@keydown.c.prevent="copyToClipboard(`{{ ${v.value} }}`)"
+								@keydown.down.prevent="focusSibling($event, 1)"
+								@keydown.up.prevent="focusSibling($event, -1)"
 							>
 								<div class="variable-info">
 									<span class="variable-label">{{ v.label }}</span>
@@ -136,6 +142,7 @@
 								</div>
 								<button
 									class="btn btn-xs btn-link text-muted opacity-20 hover-opacity-100"
+									tabindex="-1"
 									@click.stop="copyToClipboard(`{{ ${v.value} }}`)"
 									:title="__('Copy to clipboard')"
 								>
@@ -216,8 +223,14 @@
 											class="tree-item"
 											:title="f.label"
 											draggable="true"
+											tabindex="0"
 											@dragstart="onDragStart($event, f, true, groupName)"
 											@click="insertOrCopy(buildFieldPath(f, groupName))"
+											@keydown.enter.prevent="
+												insertOrCopy(buildFieldPath(f, groupName))
+											"
+											@keydown.down.prevent="focusSibling($event, 1)"
+											@keydown.up.prevent="focusSibling($event, -1)"
 										>
 											<span class="tree-item-label">{{ f.fieldname }}</span>
 											<span class="tree-item-type">({{ f.fieldtype }})</span>
@@ -241,10 +254,54 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { useStore } from "../../stores";
 import { insertIntoActiveTGC } from "../../utils/tgc_focus";
 import { copyText } from "../../../utils/clipboard";
+
+const variableSearchRef = ref(null);
+
+function focusSibling(e, direction) {
+	const el = e.target;
+	const sibling = direction > 0 ? el.nextElementSibling : el.previousElementSibling;
+	if (
+		sibling &&
+		(sibling.classList.contains("variable-item") || sibling.classList.contains("tree-item"))
+	) {
+		sibling.focus();
+	}
+}
+
+function focusSearch() {
+	if (variablesCollapsed.value) {
+		variablesCollapsed.value = false;
+	}
+	nextTick(() => {
+		variableSearchRef.value?.focus();
+	});
+}
+
+defineExpose({
+	focusSearch,
+	validate: () => {
+		const errors = [];
+		if (props.node?.data?.action_type === "Document Action") {
+			if (
+				props.node.data.operation === "Add Comment" &&
+				props.node.data.reference_doctype !== "Comment"
+			) {
+				errors.push(__("Add Comment mode requires Reference DocType = Comment"));
+			}
+			if (
+				props.node.data.operation === "Create ToDo" &&
+				props.node.data.reference_doctype !== "ToDo"
+			) {
+				errors.push(__("Create ToDo mode requires Reference DocType = ToDo"));
+			}
+		}
+		return { valid: errors.length === 0, errors };
+	},
+});
 import {
 	applyOutputPolicyDefaults,
 	getContract,
@@ -821,27 +878,6 @@ function buildFieldPath(field, groupName) {
 	if (!groupName || groupName === doctypeContext.value) return `doc.${field.fieldname}`;
 	return field.fieldname;
 }
-
-defineExpose({
-	validate: () => {
-		const errors = [];
-		if (props.node?.data?.action_type === "Document Action") {
-			if (
-				props.node.data.operation === "Add Comment" &&
-				props.node.data.reference_doctype !== "Comment"
-			) {
-				errors.push(__("Add Comment mode requires Reference DocType = Comment"));
-			}
-			if (
-				props.node.data.operation === "Create ToDo" &&
-				props.node.data.reference_doctype !== "ToDo"
-			) {
-				errors.push(__("Create ToDo mode requires Reference DocType = ToDo"));
-			}
-		}
-		return { valid: errors.length === 0, errors };
-	},
-});
 </script>
 
 <style scoped>

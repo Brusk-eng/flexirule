@@ -4,7 +4,7 @@
 			{{ __(df.label) }}
 		</div>
 
-		<div class="combobox-container" ref="wrapperRef">
+		<div class="combobox-container" ref="wrapperRef" @focusout="onFocusOut">
 			<div
 				class="combobox-wrapper"
 				:class="{ 'is-focused': isDropdownOpen, 'is-button-mode': trigger === 'button' }"
@@ -427,8 +427,24 @@ function openDropdown() {
 	if (isRemote.value) runOptionFetch(query.value || "");
 }
 
-function closeDropdown() {
+function closeDropdown(restoreFocus = false) {
+	const active = document.activeElement;
+	const wasInsideDropdown = optionsRef.value && optionsRef.value.contains(active);
 	closeFloatingDropdown();
+
+	if (restoreFocus || wasInsideDropdown) {
+		nextTick(() => {
+			if (props.trigger === "button" && wrapperRef.value) {
+				const btn = wrapperRef.value.querySelector(".combobox-button-trigger");
+				if (btn) btn.focus();
+			} else if (mainInputRef.value) {
+				// Don't forcefully steal focus if they are already focused on the input
+				if (document.activeElement !== mainInputRef.value) {
+					mainInputRef.value.focus();
+				}
+			}
+		});
+	}
 }
 
 function onFocus() {
@@ -442,12 +458,25 @@ function onInput(e) {
 	if (isRemote.value) debouncedRemoteSearch(query.value || "");
 }
 
+function onFocusOut(e) {
+	if (!isDropdownOpen.value) return;
+	const related = e.relatedTarget;
+	if (wrapperRef.value && wrapperRef.value.contains(related)) return;
+	if (optionsRef.value && optionsRef.value.contains(related)) return;
+
+	if (props.trigger === "input" && query.value === "") {
+		onSelect("");
+	} else {
+		closeDropdown();
+	}
+}
+
 function onSelect(val) {
 	emit("update:modelValue", val);
 	const option = normalizedOptions.value.find((o) => String(o.value) === String(val));
 	emit("change", option?.raw || val);
 	query.value = "";
-	closeDropdown();
+	closeDropdown(true);
 }
 
 function scrollToActive() {
@@ -515,7 +544,7 @@ function onKeydown(e) {
 
 	if (e.key === "Escape") {
 		e.preventDefault();
-		closeDropdown();
+		closeDropdown(true);
 		return;
 	}
 
@@ -649,6 +678,14 @@ onBeforeUnmount(() => {
 	padding: 0;
 	border: none;
 	background: transparent;
+	min-width: 0;
+}
+
+.selected-label {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex: 1;
 	min-width: 0;
 }
 

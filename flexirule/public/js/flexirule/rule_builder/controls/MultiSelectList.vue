@@ -347,7 +347,7 @@ function onKeydown(event) {
 	}
 	if (event.key === "Escape") {
 		event.preventDefault();
-		closeDropdown();
+		closeDropdown(true);
 		return;
 	}
 	if (/^[\w\s-]$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
@@ -373,8 +373,19 @@ function openDropdown() {
 	fetchOptions("");
 }
 
-function closeDropdown() {
+function closeDropdown(restoreFocus = false) {
+	const active = document.activeElement;
+	const wasInsideDropdown = dropdownRef.value && dropdownRef.value.contains(active);
 	closeFloatingDropdown();
+
+	if (restoreFocus || wasInsideDropdown) {
+		nextTick(() => {
+			if (wrapperRef.value) {
+				const trigger = wrapperRef.value.querySelector(".multi-select-trigger");
+				if (trigger) trigger.focus();
+			}
+		});
+	}
 }
 
 function toggleDropdown() {
@@ -396,7 +407,7 @@ function handleClickOutside(event) {
 	if (!isDropdownOpen.value) return;
 	if (wrapperRef.value?.contains(event.target)) return;
 	if (dropdownRef.value?.contains(event.target)) return;
-	closeDropdown();
+	closeDropdown(false);
 }
 
 const debouncedFetch = flexirule.utils.debounce(fetchOptions, 220);
@@ -446,7 +457,10 @@ onBeforeUnmount(() => {
 				invalid,
 				compact: isCompactMode,
 			}"
+			tabindex="0"
 			@click="toggleDropdown"
+			@keydown.enter.prevent="toggleDropdown"
+			@keydown.space.prevent="toggleDropdown"
 		>
 			<template v-if="isCompactMode">
 				<div class="compact-content" :title="displaySummaryText()">
@@ -469,7 +483,10 @@ onBeforeUnmount(() => {
 						<i
 							v-if="canInteract"
 							class="fa fa-times remove-icon"
+							tabindex="0"
 							@click.stop="removeValue(opt.value)"
+							@keydown.enter.stop.prevent="removeValue(opt.value)"
+							@keydown.space.stop.prevent="removeValue(opt.value)"
 						></i>
 					</div>
 					<span v-if="collapsedBadgeHiddenCount" class="selected-badge collapsed"

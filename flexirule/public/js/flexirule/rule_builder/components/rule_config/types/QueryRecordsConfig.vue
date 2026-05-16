@@ -350,6 +350,7 @@
 				class="btn btn-xs btn-primary shadow-sm"
 				@click="test_query"
 				:disabled="readOnly"
+				tabindex="0"
 			>
 				<i class="fa fa-flask mr-1"></i> {{ __("Refresh Schema (Test Query)") }}
 			</button>

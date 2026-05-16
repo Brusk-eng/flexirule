@@ -32,7 +32,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, nextTick } from "vue";
 import { useStore } from "../../stores";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 import { getContract } from "../../../core/contracts.js";
@@ -143,8 +143,19 @@ async function validate() {
 	return { valid: true };
 }
 
+function focusFirst() {
+	nextTick(() => {
+		const sections = document.querySelector(".panel-sections");
+		if (sections) {
+			const first = sections.querySelector("button, input, select, textarea, [tabindex='0']");
+			first?.focus();
+		}
+	});
+}
+
 defineExpose({
 	validate,
+	focusFirst,
 });
 </script>
 
