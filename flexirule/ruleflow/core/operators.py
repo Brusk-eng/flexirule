@@ -48,7 +48,7 @@ class AssignmentOperator:
 
 class SetOperator(AssignmentOperator):
 	key = "set"
-	metadata = {
+	metadata: ClassVar[dict[str, Any]] = {
 		"label": "Set Value",
 		"requires_value": True,
 		"supported_target_types": [],  # All types
@@ -61,7 +61,7 @@ class SetOperator(AssignmentOperator):
 
 class ClearOperator(AssignmentOperator):
 	key = "clear"
-	metadata = {
+	metadata: ClassVar[dict[str, Any]] = {
 		"label": "Clear",
 		"requires_value": False,
 		"supported_target_types": [],  # All types
@@ -81,7 +81,7 @@ class ClearOperator(AssignmentOperator):
 
 class IncrementOperator(AssignmentOperator):
 	key = "increment"
-	metadata = {
+	metadata: ClassVar[dict[str, Any]] = {
 		"label": "Increment By",
 		"requires_value": True,
 		"supported_target_types": ["Int", "Float", "Currency", "Percent"],
@@ -99,7 +99,7 @@ class IncrementOperator(AssignmentOperator):
 
 class DecrementOperator(AssignmentOperator):
 	key = "decrement"
-	metadata = {
+	metadata: ClassVar[dict[str, Any]] = {
 		"label": "Decrement By",
 		"requires_value": True,
 		"supported_target_types": ["Int", "Float", "Currency", "Percent"],
@@ -117,7 +117,7 @@ class DecrementOperator(AssignmentOperator):
 
 class AppendOperator(AssignmentOperator):
 	key = "append"
-	metadata = {
+	metadata: ClassVar[dict[str, Any]] = {
 		"label": "Append To List",
 		"requires_value": True,
 		"supported_target_types": ["Table", "Table MultiSelect"],
@@ -131,12 +131,12 @@ class AppendOperator(AssignmentOperator):
 			return [current_value, operand_value]
 
 		# Return a new list to ensure ContextManager detects a change and mutations don't leak
-		return current_value + [operand_value]
+		return [*current_value, operand_value]
 
 
 class MergeOperator(AssignmentOperator):
 	key = "merge"
-	metadata = {
+	metadata: ClassVar[dict[str, Any]] = {
 		"label": "Merge Object",
 		"requires_value": True,
 		"supported_target_types": [
@@ -164,7 +164,7 @@ class MergeOperator(AssignmentOperator):
 
 class ToggleOperator(AssignmentOperator):
 	key = "toggle"
-	metadata = {
+	metadata: ClassVar[dict[str, Any]] = {
 		"label": "Toggle Boolean",
 		"requires_value": False,
 		"supported_target_types": ["Check"],

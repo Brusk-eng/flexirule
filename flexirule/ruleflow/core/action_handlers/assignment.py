@@ -41,7 +41,6 @@ class AssignmentHandler(ActionHandler):
 			engine._log("ERROR", _("Assignment action config is not valid JSON"))
 			raise MethodExecutionError(_("Assignment action config is not valid JSON array"))
 
-		cm = ContextManager(context)
 		event_name = context.get("event_name")
 
 		# Build template context for value evaluation
