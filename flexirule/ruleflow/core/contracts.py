@@ -30,6 +30,9 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"terminal": False,
 		"css": {"icon": "fa fa-play", "color": "#22c55e"},
 		"field_labels": {},
+		"node_type": "start",
+		"category": "Control Flow",
+		"configurable": False,
 	},
 	"Condition": {
 		"required_fields": ["config"],
@@ -42,6 +45,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			"compiled_expression": "Compiled Expression (Python)",
 			"config": "Condition Builder Config",
 		},
+		"node_type": "condition",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "ConditionStep",
 	},
 	"Process": {
 		"required_fields": ["process_name", "operation"],
@@ -72,6 +79,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		],
 		"show_return_type": True,
 		"require_return_type": False,
+		"node_type": "process",
+		"category": "Processes",
+		"configurable": True,
+		"config_component": "ProcessConfig",
 	},
 	"Loop": {
 		"required_fields": ["config", "return_variable"],  # config must have iterator
@@ -84,6 +95,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		},
 		"show_return_variable": True,
 		"require_return_variable": True,
+		"node_type": "loop",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "LoopConfig",
 	},
 	"Stop": {
 		"required_fields": ["operation"],
@@ -97,6 +112,9 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			"Error": ["value_template"],
 		},
 		"field_labels": {"operation": "Terminal Mode"},
+		"node_type": "stop",
+		"category": "Control Flow",
+		"configurable": False,
 	},
 	"Switch": {
 		"required_fields": ["config"],  # config must have cases
@@ -104,6 +122,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"has_next_false": True,  # Default case
 		"terminal": False,
 		"css": {"icon": "fa fa-random", "color": "#06b6d4"},
+		"node_type": "switch",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "SwitchConfig",
 	},
 	"Wait": {
 		"required_fields": [],  # config.duration optional
@@ -112,6 +134,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"terminal": False,
 		"css": {"icon": "fa fa-clock-o", "color": "#64748b"},
 		"field_labels": {"operation": "Wait Mode"},
+		"node_type": "wait",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "WaitConfig",
 	},
 	"Sub-Rule": {
 		"required_fields": ["rule"],
@@ -136,6 +162,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"default_return_type": "Single Record",
 		"show_return_type": True,
 		"require_return_type": False,
+		"node_type": "sub-rule",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "SubRuleConfig",
 	},
 	"Assignment": {
 		"required_fields": ["config"],
@@ -146,6 +176,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"field_labels": {
 			"config": "Assignments",
 		},
+		"node_type": "assignment",
+		"category": "Data Actions",
+		"configurable": True,
+		"config_component": "AssignmentConfig",
 	},
 	"Notify": {
 		"required_fields": ["value_template", "operation"],
@@ -167,6 +201,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			},
 		},
 		"field_labels": {"operation": "Notification Type"},
+		"node_type": "notify",
+		"category": "Notifications",
+		"configurable": True,
+		"config_component": "NotifyConfig",
 	},
 	"Raise Error": {
 		"required_fields": ["value_template"],
@@ -175,9 +213,12 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"terminal": True,
 		"css": {"icon": "fa fa-exclamation-triangle", "color": "#dc2626"},
 		"field_labels": {
-			"value_template": "Error Message Template",
 			"config": "Error Details (JSON)",
 		},
+		"node_type": "raise-error",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "RaiseErrorConfig",
 	},
 	"Query Records": {
 		"required_fields": ["reference_doctype", "operation"],
@@ -294,6 +335,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			"mutation_mode": "Result Handling",
 			"return_type": "Result Type",
 		},
+		"node_type": "query",
+		"category": "Data Actions",
+		"configurable": True,
+		"config_component": "QueryRecordsConfig",
 	},
 	"Document Action": {
 		"required_fields": ["reference_doctype", "operation"],
@@ -366,6 +411,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			"mutation_mode": "Result Handling",
 			"return_type": "Result Type",
 		},
+		"node_type": "documentaction",
+		"category": "Data Actions",
+		"configurable": True,
+		"config_component": "DocumentActionConfig",
 	},
 }
 

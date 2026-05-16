@@ -33,6 +33,9 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		has_next_false: false,
 		terminal: false,
 		css: { icon: "fa fa-play", color: "#22c55e" },
+		node_type: "start",
+		category: "Control Flow",
+		configurable: false,
 	},
 	Condition: {
 		required_fields: ["config"],
@@ -41,6 +44,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		terminal: false,
 		css: { icon: "fa fa-code-fork", color: "#3b82f6" },
 		validation: { frontend: "validate_condition" },
+		node_type: "condition",
+		category: "Control Flow",
+		configurable: true,
+		config_component: "ConditionStep",
 	},
 	Process: {
 		required_fields: ["process_name", "operation"],
@@ -49,6 +56,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		terminal: false,
 		dynamic_fields: true,
 		css: { icon: "fa fa-cog", color: "#8b5cf6" },
+		node_type: "process",
+		category: "Processes",
+		configurable: true,
+		config_component: "ProcessConfig",
 	},
 	Loop: {
 		required_fields: ["config", "return_variable"],
@@ -61,6 +72,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		},
 		show_return_variable: true,
 		require_return_variable: true,
+		node_type: "loop",
+		category: "Control Flow",
+		configurable: true,
+		config_component: "LoopConfig",
 	},
 	Stop: {
 		required_fields: ["operation"],
@@ -73,6 +88,9 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		mandatory_fields: {
 			Error: ["value_template"],
 		},
+		node_type: "stop",
+		category: "Control Flow",
+		configurable: false,
 	},
 	Switch: {
 		required_fields: ["config"],
@@ -80,6 +98,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		has_next_false: true,
 		terminal: false,
 		css: { icon: "fa fa-random", color: "#06b6d4" },
+		node_type: "switch",
+		category: "Control Flow",
+		configurable: true,
+		config_component: "SwitchConfig",
 	},
 	Wait: {
 		required_fields: [],
@@ -87,6 +109,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		has_next_false: false,
 		terminal: false,
 		css: { icon: "fa fa-clock-o", color: "#64748b" },
+		node_type: "wait",
+		category: "Control Flow",
+		configurable: true,
+		config_component: "WaitConfig",
 	},
 	"Sub-Rule": {
 		required_fields: ["rule"],
@@ -94,6 +120,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		has_next_false: false,
 		terminal: false,
 		css: { icon: "fa fa-cube", color: "#ec4899" },
+		node_type: "sub-rule",
+		category: "Control Flow",
+		configurable: true,
+		config_component: "SubRuleConfig",
 	},
 	Assignment: {
 		required_fields: ["config"],
@@ -104,6 +134,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		field_labels: { config: "Assignments" },
 		show_return_variable: false,
 		show_return_type: false,
+		node_type: "assignment",
+		category: "Data Actions",
+		configurable: true,
+		config_component: "AssignmentConfig",
 	},
 	Notify: {
 		required_fields: ["value_template", "operation"],
@@ -124,6 +158,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 				required_config_keys: ["provider", "recipient"],
 			},
 		},
+		node_type: "notify",
+		category: "Notifications",
+		configurable: true,
+		config_component: "NotifyConfig",
 	},
 	"Raise Error": {
 		required_fields: ["value_template"],
@@ -135,6 +173,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 			value_template: "Error Message Template",
 			config: "Error Details",
 		},
+		node_type: "raise-error",
+		category: "Control Flow",
+		configurable: true,
+		config_component: "RaiseErrorConfig",
 	},
 	"Query Records": {
 		required_fields: ["reference_doctype", "operation"],
@@ -163,6 +205,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		mandatory_fields: {
 			"Exist Record": ["reference_doctype"],
 		},
+		node_type: "query",
+		category: "Data Actions",
+		configurable: true,
+		config_component: "QueryRecordsConfig",
 	},
 	"Document Action": {
 		required_fields: ["reference_doctype", "operation"],
@@ -227,6 +273,10 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 			},
 		},
 		css: { icon: "fa fa-file-text", color: "#059669" },
+		node_type: "documentaction",
+		category: "Data Actions",
+		configurable: true,
+		config_component: "DocumentActionConfig",
 	},
 };
 
@@ -355,7 +405,7 @@ export let PROCESS_OPERATION_REGISTRY_V2 = {};
 export let RUNTIME_FIELD_ALIASES = {};
 
 let _contractsLoaded = false;
-const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v2";
+const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v3";
 
 function withDescriptions(contractMap) {
 	const merged = {};

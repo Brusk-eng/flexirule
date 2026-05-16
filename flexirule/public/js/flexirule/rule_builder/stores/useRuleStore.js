@@ -171,26 +171,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 			graphStore.normalize_graph_nodes();
 
-			// 1. Validate mandatory fields
-			await frappe.model.with_doctype("Rule Action");
-			const action_meta = frappe.get_meta("Rule Action");
+			// 1. Validate mandatory fields using contract
+			const { validateAgainstContract } = await import("../../core/contracts");
 			const errors = [];
-
-			const eval_depends = (expr, doc) => {
-				if (!expr) return true;
-				if (typeof expr === "boolean") return expr;
-				if (expr.startsWith("eval:")) {
-					try {
-						return frappe.utils.eval(expr.substr(5), {
-							doc,
-							parent: rule_doc.value,
-						});
-					} catch (e) {
-						return false;
-					}
-				}
-				return !!doc[expr];
-			};
 
 			for (const node of graphStore.nodes) {
 				if (node.type === "start") continue;
@@ -221,27 +204,13 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					}
 				}
 
-				// Generic meta-based validation
-				action_meta.fields.forEach((df) => {
-					// Skip fields we've already checked or handled
-					if (
-						["target_field", "value_template", "permission_audit_reason"].includes(
-							df.fieldname
-						)
-					)
-						return;
-
-					if (df.depends_on && !eval_depends(df.depends_on, doc)) return;
-					const is_mandatory =
-						df.reqd ||
-						(df.mandatory_depends_on && eval_depends(df.mandatory_depends_on, doc));
-					if (is_mandatory) {
-						const val = doc[df.fieldname];
-						if (val === null || val === undefined || val === "") {
-							errors.push(`${label}: ${df.label} is required`);
-						}
-					}
-				});
+				// Contract-based validation
+				const contractValidation = validateAgainstContract(doc);
+				if (!contractValidation.valid) {
+					contractValidation.errors.forEach((err) => {
+						errors.push(`${label}: ${err}`);
+					});
+				}
 			}
 
 			if (errors.length > 0) {

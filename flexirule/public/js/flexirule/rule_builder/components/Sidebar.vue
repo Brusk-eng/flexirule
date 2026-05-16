@@ -94,6 +94,8 @@ import { computed, onMounted } from "vue";
 import { useRuleStore, useGraphStore, useUIStore } from "../stores";
 import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
+import { getContract } from "../../core/contracts";
+import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 
 // Ensure ProcessConfigurator is loaded
 import "../../core/ProcessConfigurator.js";
@@ -128,18 +130,8 @@ const sidebar_title = computed(() => {
 const isConfigurable = computed(() => {
 	const type = selectedNode.value?.data?.action_type || selectedNode.value?.type;
 	if (!type) return false;
-	return [
-		"Process",
-		"Condition",
-		"Assignment",
-		"Stop",
-		"Notify",
-		"Loop",
-		"Wait",
-		"Query Records",
-		"Document Action",
-		"Sub-Rule",
-	].includes(type);
+	const contract = getContract(type);
+	return contract?.configurable === true;
 });
 
 function update_start_field(fieldname, value) {
@@ -195,34 +187,7 @@ function update_action_field(fieldname, value) {
 }
 
 function map_action_type(actionType) {
-	if (!actionType) return selectedNode.value?.type || "process";
-	switch (actionType) {
-		case "Entry Action":
-			return "start";
-		case "Condition":
-			return "condition";
-		case "Loop":
-			return "loop";
-		case "Wait":
-			return "wait";
-		case "Stop":
-			return "stop";
-		case "Raise Error":
-			return "stop";
-		case "Assignment":
-			return "assignment";
-		case "Notify":
-			return "notify";
-		case "Query Records":
-			return "query";
-		case "Document Action":
-			return "documentaction";
-		case "Process":
-			return "process";
-		case "Sub-Rule":
-			return "sub-rule";
-	}
-	return "process";
+	return mapActionTypeToNodeType(actionType);
 }
 
 function update_edge(field, newTarget) {

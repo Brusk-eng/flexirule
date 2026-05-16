@@ -73,6 +73,12 @@
 					<template #node-raise-error="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
 					</template>
+					<template #node-assignment="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
+					<template #node-switch="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
 
 					<template #edge-add="edgeProps">
 						<AddNodeEdge v-bind="edgeProps" @insert-node="insertNodeOnEdge" />

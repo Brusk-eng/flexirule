@@ -57,26 +57,9 @@ function fuzzyMatch(text, query) {
 	return qWords.every((qw) => words.some((w) => w.startsWith(qw) || w.includes(qw)));
 }
 
-// Categorize action types into groups for display
-const ACTION_CATEGORIES = {
-	"Control Flow": ["Condition", "Stop", "Wait", "Loop", "Sub-Rule"],
-	"Data Actions": ["Assignment", "Query Records", "Document Action"],
-	Notifications: ["Notify"],
-	Processes: ["Process"],
-};
-
 const actionTypes = computed(() => {
-	const meta = frappe.get_meta("Rule Action");
-	if (!meta || !meta.fields) return [];
-
-	const typeField = meta.fields.find((f) => f.fieldname === "action_type");
-	if (!typeField || !typeField.options) return [];
-
-	return typeField.options
-		.split("\n")
-		.filter(
-			(t) => t && t !== "Entry Action" && t !== "Start" && getActionTypeOptions().includes(t)
-		)
+	return getActionTypeOptions()
+		.filter((t) => t && t !== "Entry Action" && t !== "Start")
 		.map((t) => {
 			const contract = ACTION_TYPE_CONTRACT[t] || {};
 			return {
@@ -86,9 +69,7 @@ const actionTypes = computed(() => {
 				icon: contract.css?.icon || "fa fa-cog",
 				color: contract.css?.color || "#6b7280",
 				description: contract.description || "",
-				category:
-					Object.entries(ACTION_CATEGORIES).find(([, types]) => types.includes(t))?.[0] ||
-					__("Other"),
+				category: __(contract.category || "Other"),
 			};
 		});
 });
