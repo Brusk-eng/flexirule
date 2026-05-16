@@ -257,11 +257,9 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				},
 				{
 					"action_id": "set_status",
-					"action_type": "Set Value",
-					"operation": "Current Document",
+					"action_type": "Assignment",
+					"config": json.dumps([{"target": "doc.status", "operator": "set", "value": "Open"}]),
 					"action_label": "Set Status Open",
-					"target_field": "status",
-					"value_template": "Open",
 					"next_step_if_true": "before_save_stop",
 				},
 				{
@@ -445,13 +443,17 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				},
 				{
 					"action_id": "set_loop_var",
-					"action_type": "Set Value",
-					"operation": "Current Document",
+					"action_type": "Assignment",
+					"config": json.dumps(
+						[
+							{
+								"target": "vars.last_phone",
+								"operator": "set",
+								"value": "{{ vars.phone_row.phone }}",
+							}
+						]
+					),
 					"action_label": "Set Loop Context",
-					"target_field": "last_loop_phone",
-					"value_template": "{{ vars.phone_row.phone }}",
-					"mutation_mode": "Set Context Variable",
-					"return_variable": "last_phone",
 					"next_step_if_true": "loop_phones",
 				},
 				{

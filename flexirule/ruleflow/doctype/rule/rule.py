@@ -426,11 +426,11 @@ class Rule(Document):
 		raw = action.get("config")
 		if not raw:
 			return {}
-		if isinstance(raw, dict):
-			return dict(raw)
+		if isinstance(raw, (dict, list)):
+			return raw
 		try:
 			parsed = json.loads(raw)
-			return parsed if isinstance(parsed, dict) else {}
+			return parsed if isinstance(parsed, (dict, list)) else {}
 		except Exception:
 			return {}
 
@@ -584,6 +584,28 @@ class Rule(Document):
 		"""
 		for action in self.actions or []:
 			config = self._parse_action_config(action)
+
+			if action.action_type == "Assignment" and isinstance(config, list):
+				# Handle batch assignment compilation
+				changed = False
+				for assignment in config:
+					text_ui = assignment.get("text_generator_ui")
+					if isinstance(text_ui, dict):
+						segments = text_ui.get("segments") or []
+						known_var_roots = self._collect_known_return_variables(self.actions)
+						compiled = self._compile_segments_v2(
+							segments, action.action_label or action.action_id, known_var_roots
+						)
+						assignment["value"] = compiled
+						changed = True
+
+				if changed:
+					action.config = json.dumps(config)
+				continue
+
+			if not isinstance(config, dict):
+				continue
+
 			text_ui = config.get("text_generator_ui")
 			if not isinstance(text_ui, dict):
 				continue
@@ -821,6 +843,8 @@ class Rule(Document):
 		"""Compile config.resource_mapper_ui into backend mapping keys."""
 		for action in self.actions or []:
 			config = self._parse_action_config(action)
+			if not isinstance(config, dict):
+				continue
 			mapper_ui = config.get("resource_mapper_ui")
 			if not isinstance(mapper_ui, dict):
 				continue
@@ -1211,10 +1235,12 @@ class Rule(Document):
 
 				meta = frappe.get_meta(self.document_type)
 				df = meta.get_field(base_field)
-
-				if not df and not meta.get_field(base_field):
-					# If field is not standard, skip for now, but maybe warn
-					pass
+				if not df:
+					frappe.throw(
+						_("Action '{0}': Field '{1}' does not exist on DocType '{2}'").format(
+							action.action_label, base_field, self.document_type
+						)
+					)
 
 				after_submit_events = ["On Submit", "On Update After Submit"]
 				if self.trigger_event in after_submit_events and df:

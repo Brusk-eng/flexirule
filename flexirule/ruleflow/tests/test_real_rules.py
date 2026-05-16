@@ -183,10 +183,8 @@ class TestRealRules(FrappeTestCase):
 				_action(
 					"set_valid",
 					"Mark Valid",
-					"Set Value",
-					operation="Current Document",
-					target_field="department",
-					value_template="Validated",
+					"Assignment",
+					config=[{"target": "doc.department", "operator": "set", "value": "Validated"}],
 					next_step_if_true="done",
 				),
 				_action(
@@ -202,7 +200,7 @@ class TestRealRules(FrappeTestCase):
 		engine = RuleEngine(rule, {"test_mode": True})
 		engine.execute(contact)
 
-		# Set Value operates in memory
+		# Assignment operates in memory
 		self.assertEqual(contact.department, "Validated")
 
 	# ─────────────────────────────────────────────────────────
@@ -352,10 +350,8 @@ class TestRealRules(FrappeTestCase):
 				_action(
 					"good_step",
 					"Mark Success",
-					"Set Value",
-					operation="Current Document",
-					target_field="department",
-					value_template="ErrorHandled",
+					"Assignment",
+					config=[{"target": "doc.department", "operator": "set", "value": "ErrorHandled"}],
 					next_step_if_true="done",
 				),
 				_action("done", "Complete", "Stop", operation="Success"),
@@ -365,7 +361,7 @@ class TestRealRules(FrappeTestCase):
 		engine = RuleEngine(rule, {"test_mode": True})
 		engine.execute(contact)
 
-		# Set Value in memory
+		# Assignment in memory
 		self.assertEqual(contact.department, "ErrorHandled")
 
 	# ─────────────────────────────────────────────────────────
@@ -464,7 +460,7 @@ class TestRealRules(FrappeTestCase):
 		self.assertGreaterEqual(len(duplicates), 2)
 
 	# ─────────────────────────────────────────────────────────
-	# Rule 8: Scheduler Bulk Status Update (Query + Set Value)
+	# Rule 8: Scheduler Bulk Status Update (Query + Assignment)
 	# ─────────────────────────────────────────────────────────
 	def test_rule_08_bulk_status_update(self):
 		"""Scheduler pattern: query + process to update fields."""
@@ -497,10 +493,8 @@ class TestRealRules(FrappeTestCase):
 				_action(
 					"set_status",
 					"Mark Processed",
-					"Set Value",
-					operation="Current Document",
-					target_field="department",
-					value_template="BulkProcessed",
+					"Assignment",
+					config=[{"target": "doc.department", "operator": "set", "value": "BulkProcessed"}],
 					next_step_if_true="done",
 				),
 				_action("done", "Complete", "Stop", operation="Success"),
@@ -510,7 +504,7 @@ class TestRealRules(FrappeTestCase):
 		engine = RuleEngine(rule, {"test_mode": True})
 		ctx = engine.execute(c1)
 
-		# Set Value operates in-memory on the context doc
+		# Assignment operates in-memory on the context doc
 		self.assertEqual(c1.department, "BulkProcessed")
 		self.assertIn("stale_contacts", ctx.get("vars", {}))
 
@@ -553,10 +547,8 @@ class TestRealRules(FrappeTestCase):
 				_action(
 					"update",
 					"Set Department",
-					"Set Value",
-					operation="Current Document",
-					target_field="department",
-					value_template="CrossDocLinked",
+					"Assignment",
+					config=[{"target": "doc.department", "operator": "set", "value": "CrossDocLinked"}],
 					next_step_if_true="done",
 				),
 				_action("done", "Complete", "Stop", operation="Success"),
@@ -566,15 +558,15 @@ class TestRealRules(FrappeTestCase):
 		engine = RuleEngine(rule, {"test_mode": True})
 		ctx = engine.execute(contact)
 
-		# Set Value in memory
+		# Assignment in memory
 		self.assertEqual(contact.department, "CrossDocLinked")
 		self.assertIn("fetched_doc", ctx.get("vars", {}))
 
 	# ─────────────────────────────────────────────────────────
-	# Rule 10: Context Transform Pipeline (Process + Set Value)
+	# Rule 10: Context Transform Pipeline (Process + Assignment)
 	# ─────────────────────────────────────────────────────────
 	def test_rule_10_context_transform_pipeline(self):
-		"""Process normalization → Set Value → stop: multi-step transform."""
+		"""Process normalization → Assignment → stop: multi-step transform."""
 		contact = _make_contact(first_name="  test   user  ")
 
 		rule = _make_rule(
@@ -604,7 +596,7 @@ class TestRealRules(FrappeTestCase):
 		engine = RuleEngine(rule, {"test_mode": True})
 		engine.execute(contact)
 
-		# Normalization + Set Value operate in memory
+		# Normalization + Assignment operate in memory
 		self.assertEqual(contact.first_name, "Test User")
 
 

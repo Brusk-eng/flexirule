@@ -33,11 +33,9 @@ class TestRuleReorder(FrappeTestCase):
 		rule.append(
 			"actions",
 			{
-				"action_type": "Set Value",
+				"action_type": "Assignment",
 				"action_label": "Action 1",  # Should be 2nd
 				"action_id": "act1",
-				"target_field": "description",
-				"value_template": "test",
 			},
 		)
 
@@ -57,7 +55,7 @@ class TestRuleReorder(FrappeTestCase):
 		self.assertEqual(len(rule.actions), 2)
 		self.assertEqual(rule.actions[0].action_type, "Entry Action")
 		self.assertEqual(rule.actions[0].idx, 1)
-		self.assertEqual(rule.actions[1].action_type, "Set Value")
+		self.assertEqual(rule.actions[1].action_type, "Assignment")
 		self.assertEqual(rule.actions[1].idx, 2)
 
 	def test_ensure_start_node_reorder(self):
@@ -70,13 +68,7 @@ class TestRuleReorder(FrappeTestCase):
 		# Add one action, no entry action
 		rule.append(
 			"actions",
-			{
-				"action_type": "Set Value",
-				"action_label": "First Added",
-				"action_id": "act1",
-				"target_field": "description",
-				"value_template": "test",
-			},
+			{"action_type": "Assignment", "action_label": "First Added", "action_id": "act1"},
 		)
 
 		self._insert_with_retry(rule)
@@ -84,4 +76,4 @@ class TestRuleReorder(FrappeTestCase):
 		# Ensure start node adds Entry Action. Reorder should move it to top.
 		self.assertEqual(len(rule.actions), 2)
 		self.assertEqual(rule.actions[0].action_type, "Entry Action")
-		self.assertEqual(rule.actions[1].action_type, "Set Value")
+		self.assertEqual(rule.actions[1].action_type, "Assignment")

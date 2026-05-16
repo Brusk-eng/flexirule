@@ -30,11 +30,9 @@ class TestExecutionAPI(FrappeTestCase):
 				"actions": [
 					{
 						"action_id": "set_desc",
-						"action_type": "Set Value",
-						"operation": "Current Document",
+						"action_type": "Assignment",
+						"config": '[{"target": "doc.description", "operator": "set", "value": "Set by API"}]',
 						"action_label": "Set Description",
-						"target_field": "description",
-						"value_template": "Set by API",
 						"is_enabled": 1,
 					}
 				],
@@ -79,11 +77,9 @@ class TestExecutionAPI(FrappeTestCase):
 				"actions": [
 					{
 						"action_id": "set_desc",
-						"action_type": "Set Value",
-						"operation": "Current Document",
+						"action_type": "Assignment",
+						"config": '[{"target": "doc.description", "operator": "set", "value": "Should not persist"}]',
 						"action_label": "Set Description",
-						"target_field": "description",
-						"value_template": "Should not persist",
 						"is_enabled": 1,
 					}
 				],
@@ -121,11 +117,9 @@ class TestExecutionAPI(FrappeTestCase):
 				"actions": [
 					{
 						"action_id": "set_desc",
-						"action_type": "Set Value",
-						"operation": "Current Document",
+						"action_type": "Assignment",
+						"config": '[{"target": "doc.description", "operator": "set", "value": "API Test"}]',
 						"action_label": "Set Description",
-						"target_field": "description",
-						"value_template": "API Test",
 						"is_enabled": 1,
 					}
 				],
