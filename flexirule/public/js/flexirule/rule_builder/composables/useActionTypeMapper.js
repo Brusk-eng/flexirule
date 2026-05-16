@@ -24,7 +24,7 @@ export function mapActionTypeToNodeType(actionType) {
 	if (compact === "subrule") return "sub-rule";
 	if (compact === "queryrecords") return "query";
 	if (compact === "documentaction") return "documentaction";
-	if (compact === "setvalue") return "set-value";
+	if (compact === "assignment" || compact === "setvalue") return "assignment";
 
 	return "process";
 }

@@ -60,7 +60,7 @@ function fuzzyMatch(text, query) {
 // Categorize action types into groups for display
 const ACTION_CATEGORIES = {
 	"Control Flow": ["Condition", "Stop", "Wait", "Loop", "Sub-Rule"],
-	"Data Actions": ["Set Value", "Query Records", "Document Action"],
+	"Data Actions": ["Assignment", "Query Records", "Document Action"],
 	Notifications: ["Notify"],
 	Processes: ["Process"],
 };

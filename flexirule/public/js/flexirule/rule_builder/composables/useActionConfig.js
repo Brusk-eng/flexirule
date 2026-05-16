@@ -44,7 +44,7 @@ export function useActionConfig(props) {
 			return store.rule_doc?.document_type || "";
 		}
 
-		const TRIGGER_DOC_TYPES = ["Set Value", "Entry Action", "Notify", "Document Action"];
+		const TRIGGER_DOC_TYPES = ["Assignment", "Entry Action", "Notify", "Document Action"];
 		if (!actionType || TRIGGER_DOC_TYPES.includes(actionType)) {
 			return store.rule_doc?.document_type || "";
 		}

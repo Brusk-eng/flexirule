@@ -293,9 +293,7 @@ const currentActionType = computed(() =>
 const showReferenceDoctype = computed(() => {
 	if (!contract.value) return false;
 	const actionType = props.node.data?.action_type;
-	const fallback =
-		(contract.value.required_fields || []).includes("reference_doctype") ||
-		["Process", "Set Value"].includes(actionType);
+	const fallback = (contract.value.required_fields || []).includes("reference_doctype");
 	const state = getDerivedFieldState(
 		actionType,
 		"reference_doctype",

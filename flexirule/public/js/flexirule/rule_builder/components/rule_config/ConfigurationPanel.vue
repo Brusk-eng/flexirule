@@ -42,11 +42,11 @@ import LoopConfig from "./types/LoopConfig.vue";
 import SwitchConfig from "./types/SwitchConfig.vue";
 import SubRuleConfig from "./types/SubRuleConfig.vue";
 import WaitConfig from "./types/WaitConfig.vue";
-import SetValueConfig from "./types/SetValueConfig.vue";
 import NotifyConfig from "./types/NotifyConfig.vue";
 import RaiseErrorConfig from "./types/RaiseErrorConfig.vue";
 import QueryRecordsConfig from "./types/QueryRecordsConfig.vue";
 import DocumentActionConfig from "./types/DocumentActionConfig.vue";
+import AssignmentConfig from "./types/AssignmentConfig.vue";
 
 const props = defineProps({
 	node: Object,
@@ -63,9 +63,9 @@ const configComponents = {
 	"sub-rule": SubRuleConfig,
 	subrule: SubRuleConfig,
 	wait: WaitConfig,
-	"set-value": SetValueConfig,
-	"set value": SetValueConfig,
-	setvalue: SetValueConfig,
+	"set-value": AssignmentConfig,
+	"set value": AssignmentConfig,
+	setvalue: AssignmentConfig,
 	notify: NotifyConfig,
 	"raise-error": RaiseErrorConfig,
 	"raise error": RaiseErrorConfig,
@@ -77,6 +77,7 @@ const configComponents = {
 	documentaction: DocumentActionConfig,
 	"document-action": DocumentActionConfig,
 	"document action": DocumentActionConfig,
+	assignment: AssignmentConfig,
 };
 
 function normalizeKey(value) {

@@ -194,7 +194,7 @@ def get_node_config_schema(
 		"Raise Error",
 		"Wait",
 		"Sub-Rule",
-		"Set Value",
+		"Assignment",
 		"Notify",
 		"Query Records",
 		"Document Action",

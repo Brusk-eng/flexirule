@@ -16,7 +16,8 @@ const ACTION_TYPE_DESCRIPTION = {
 	Switch: "Direct the flow to different paths based on the value of a specific field or expression.",
 	Wait: "Introduce a delay or wait for a specific event before proceeding.",
 	"Sub-Rule": "Invoke another rule as a reusable component within this flow.",
-	"Set Value": "Update a field in the current document with a calculated value.",
+	Assignment:
+		"Declare one or more batch state mutations applied sequentially. Supports doc.* and vars.* targets with type-aware operators (set, clear, increment, decrement, toggle, append, merge).",
 	Notify: "Send a notification as a toast, realtime message, email, Notification Log entry, or provider dispatch.",
 	"Raise Error": "Stop execution immediately with a configured error message.",
 	"Query Records":
@@ -94,78 +95,15 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		terminal: false,
 		css: { icon: "fa fa-cube", color: "#ec4899" },
 	},
-	"Set Value": {
-		required_fields: ["operation", "value_template"],
+	Assignment: {
+		required_fields: ["config"],
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
-		operation_label: "Target Type",
-		operation_options: ["Current Document", "Context Variable", "Reference Document"],
-		allowed_mutations: [],
-		allowed_return_types: ["Yes / No", "Single Record", "List of Values"],
-		css: { icon: "fa fa-edit", color: "#14b8a6" },
-		default_return_type: "Yes / No",
+		css: { icon: "fa fa-list-ol", color: "#14b8a6" },
+		field_labels: { config: "Assignments" },
+		show_return_variable: false,
 		show_return_type: false,
-		require_return_type: false,
-		operation_policies: {
-			"Current Document": {
-				allowed_mutations: [
-					"Set Doc Field",
-					"Update Doc Field",
-					"Set Context Variable",
-					"Update Context Variable",
-				],
-				allowed_return_types: ["Yes / No"],
-				default_return_type: "Yes / No",
-				show_return_type: false,
-				require_return_type: false,
-				field_labels: {
-					target_field: "Current Document Field",
-					value_template: "New Field Value Template",
-					mutation_mode: "Result Handling (Optional)",
-					return_variable: "Result Variable Name (Optional)",
-				},
-			},
-			"Context Variable": {
-				allowed_mutations: ["Set Context Variable", "Update Context Variable"],
-				allowed_return_types: ["Yes / No"],
-				default_return_type: "Yes / No",
-				show_return_type: false,
-				require_return_type: false,
-				field_labels: {
-					variable_name: "Context Variable Name",
-					value_template: "Variable Value Template",
-					mutation_mode: "Result Handling (Optional)",
-					return_variable: "Result Variable Name (Optional)",
-				},
-			},
-			"Reference Document": {
-				allowed_mutations: ["Set Doc Field", "Update Doc Field"],
-				allowed_return_types: ["Yes / No"],
-				default_return_type: "Yes / No",
-				show_return_type: false,
-				require_return_type: false,
-				field_labels: {
-					reference_doctype: "Reference DocType",
-					reference_docname: "Reference Document Name",
-					target_field: "Reference Document Field",
-					value_template: "New Field Value Template",
-					mutation_mode: "Result Handling (Optional)",
-					return_variable: "Result Variable Name (Optional)",
-				},
-			},
-		},
-		validation: {
-			check_target_field_editable: true,
-		},
-		field_labels: {
-			operation: "Target Type",
-			target_field: "Field to Update",
-			value_template: "Value Template",
-			reference_doctype: "Target DocType",
-			reference_docname: "Target Record",
-			variable_name: "Variable Name",
-		},
 	},
 	Notify: {
 		required_fields: ["value_template", "operation"],
@@ -331,13 +269,13 @@ const DEFAULT_ACTION_TYPES_WITH_REFERENCE_CONTEXT = [
 	"Query Records",
 	"Document Action",
 	"Process",
-	"Set Value",
+	"Assignment",
 ];
 const DEFAULT_ACTION_TYPES_WITH_RETURN_SCHEMA = ["Process", "Query Records", "Document Action"];
 const DEFAULT_CONFIG_MODAL_TYPES = [
 	"Process",
 	"Condition",
-	"Set Value",
+	"Assignment",
 	"Stop",
 	"Raise Error",
 	"Notify",
@@ -346,6 +284,54 @@ const DEFAULT_CONFIG_MODAL_TYPES = [
 	"Document Action",
 	"Loop",
 ];
+
+// Operator metadata for the Assignment action type.
+// Mirrors operators.py AssignmentOperatorRegistry metadata.
+// Used by AssignmentConfig.vue for target-aware operator filtering.
+export const ASSIGNMENT_OPERATOR_METADATA = {
+	set: {
+		label: "Set Value",
+		requires_value: true,
+		supported_target_types: [], // All types
+		is_idempotent: true,
+	},
+	clear: {
+		label: "Clear",
+		requires_value: false,
+		supported_target_types: [], // All types
+		is_idempotent: true,
+	},
+	increment: {
+		label: "Increment By",
+		requires_value: true,
+		supported_target_types: ["Int", "Float", "Currency", "Percent"],
+		is_idempotent: false,
+	},
+	decrement: {
+		label: "Decrement By",
+		requires_value: true,
+		supported_target_types: ["Int", "Float", "Currency", "Percent"],
+		is_idempotent: false,
+	},
+	append: {
+		label: "Append To List",
+		requires_value: true,
+		supported_target_types: ["Table", "Table MultiSelect"],
+		is_idempotent: false,
+	},
+	merge: {
+		label: "Merge Object",
+		requires_value: true,
+		supported_target_types: ["JSON", "Code", "Text"],
+		is_idempotent: false,
+	},
+	toggle: {
+		label: "Toggle Boolean",
+		requires_value: false,
+		supported_target_types: ["Check"],
+		is_idempotent: false,
+	},
+};
 const DEFAULT_FEATURE_FLAGS = {
 	supports_logic_builder: false,
 	supports_reference_context: false,
@@ -552,13 +538,13 @@ export function normalizeActionType(actionType) {
 	// Normalized for easy lookup: e.g. "set-value" -> "set value"
 	const normalized = raw.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
 
-	// Case-insensitive direct match: "set value" -> "Set Value"
+	// Case-insensitive direct match: "assignment" -> "Assignment"
 	const canonicalKeys = Object.keys(ACTION_TYPE_CONTRACT);
 	const match = canonicalKeys.find((k) => k.toLowerCase() === normalized);
 	if (match) return match;
 
 	// 3. Compact match for common UI variants:
-	//    "setvalue" -> "Set Value", "subrule" / "sub-rule" -> "Sub-Rule"
+	//    "subrule" / "sub-rule" -> "Sub-Rule", "raiseerror" -> "Raise Error"
 	const compact = normalized.replace(/[^a-z0-9]/g, "");
 	const compactMatch = canonicalKeys.find(
 		(k) => k.toLowerCase().replace(/[^a-z0-9]/g, "") === compact

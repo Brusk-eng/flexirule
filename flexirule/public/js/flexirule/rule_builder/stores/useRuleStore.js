@@ -206,38 +206,13 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 				const doc = node.data;
 
-				// Deep sync value_template from text_generator_ui if missing (extra robustness)
-				if (doc.action_type === "Set Value" && !doc.value_template && doc.config) {
-					try {
-						let cfg = doc.config;
-						if (typeof cfg === "string") cfg = JSON.parse(cfg);
-						const text_ui = cfg.text_generator_ui;
-						if (text_ui?.segments) {
-							const { compileSegmentsToJinja } = await import(
-								"../utils/text_generator"
-							);
-							doc.value_template = compileSegmentsToJinja(text_ui.segments);
-						}
-					} catch (e) {
-						console.warn("Failed to auto-sync value_template", e);
-					}
-				}
-
 				// Deep sync condition_json for validation if missing
 				if (doc.action_type === "Condition" && !doc.condition_json && doc.config) {
 					doc.condition_json = JSON.stringify(doc.config);
 				}
 
-				// Special handling for Set Value validation: ensure they are in node.data
-				if (doc.action_type === "Set Value") {
-					if (!doc.target_field)
-						errors.push(`${label}: ${__("Target Field is required")}`);
-					if (!doc.value_template)
-						errors.push(`${label}: ${__("Value Template is required")}`);
-				}
-
 				// Auto-populate hidden mandatory fields
-				if (["Document Action", "Set Value", "Notify"].includes(doc.action_type)) {
+				if (["Document Action", "Assignment", "Notify"].includes(doc.action_type)) {
 					if (doc.action_type === "Document Action" && !doc.permission_audit_reason) {
 						doc.permission_audit_reason = "System Rule Execution";
 					}

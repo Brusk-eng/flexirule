@@ -32,7 +32,7 @@ ACTION_CATEGORIES = {
 	"Switch": "Logic",
 	"Stop": "Control",
 	"Wait": "Control",
-	"Set Value": "Data",
+	"Assignment": "Data",
 	"Query Records": "Data",
 	"Document Action": "Data",
 	"Process": "Process",

@@ -217,15 +217,26 @@ class Rule(Document):
 		)
 
 		for action in doc_to_check.actions:
-			# Check Set Value
-			if action.action_type == "Set Value" and effective_after_event:
-				frappe.throw(
-					_(
-						"Action '{0}' (Set Value) in Rule '{1}' is not allowed in current execution context. "
-						"Document modification is restricted after the document is saved. "
-						"Parent/Trigger: {2}"
-					).format(action.action_label, doc_to_check.name, self.trigger_event)
+			# Check Assignment (doc.* mutations are blocked in after-events)
+			if action.action_type == "Assignment" and effective_after_event:
+				# Only block if any assignment targets a doc.* path
+				config_str = getattr(action, "config", "[]") or "[]"
+				try:
+					assignments = json.loads(config_str) if isinstance(config_str, str) else config_str
+				except Exception:
+					assignments = []
+				has_doc_mutation = any(
+					(a.get("target") or "").startswith("doc.") for a in assignments if isinstance(a, dict)
 				)
+				if has_doc_mutation:
+					frappe.throw(
+						_(
+							"Action '{0}' (Assignment) in Rule '{1}' contains doc.* mutations that are not "
+							"allowed in current execution context. "
+							"Document modification is restricted after the document is saved. "
+							"Parent/Trigger: {2}"
+						).format(action.action_label, doc_to_check.name, self.trigger_event)
+					)
 
 			# Check Process operations that write to Document
 			if action.action_type == "Process" and effective_after_event:
@@ -1157,6 +1168,63 @@ class Rule(Document):
 				).format(action.action_label, action.operation)
 			)
 
+	def _validate_assignment(self, action):
+		"""Validate Assignment action configuration."""
+		config_str = action.get("config") if hasattr(action, "get") else getattr(action, "config", "[]")
+		if not config_str:
+			return
+
+		try:
+			assignments = json.loads(config_str)
+			if not isinstance(assignments, list):
+				frappe.throw(
+					_("Action '{0}': Assignment config must be a JSON array").format(action.action_label)
+				)
+		except Exception:
+			frappe.throw(_("Action '{0}': Invalid JSON in Assignment config").format(action.action_label))
+
+		# Validate fields
+		for row in assignments:
+			target = row.get("target")
+			if not target:
+				continue
+
+			forbidden_prefixes = ("meta.", "frappe.", "rule.", "caller.")
+			if target.startswith(forbidden_prefixes):
+				frappe.throw(
+					_("Action '{0}': Cannot assign to protected system path '{1}'").format(
+						action.action_label, target
+					)
+				)
+
+			if not (target.startswith("doc.") or target.startswith("vars.")):
+				frappe.throw(
+					_("Action '{0}': Assignment target '{1}' must start with 'doc.' or 'vars.'").format(
+						action.action_label, target
+					)
+				)
+
+			if target.startswith("doc.") and self.document_type:
+				# Validate doc fields similar to Set Value
+				field_path = target[4:]  # remove "doc."
+				base_field = field_path.split(".")[0]
+
+				meta = frappe.get_meta(self.document_type)
+				df = meta.get_field(base_field)
+
+				if not df and not meta.get_field(base_field):
+					# If field is not standard, skip for now, but maybe warn
+					pass
+
+				after_submit_events = ["On Submit", "On Update After Submit"]
+				if self.trigger_event in after_submit_events and df:
+					if not df.allow_on_submit:
+						frappe.throw(
+							_(
+								"Action '{0}': Cannot set field '{1}' after submit. Field does not have 'Allow on Submit' enabled."
+							).format(action.action_label, target)
+						)
+
 	def _validate_set_value_editable(self, action):
 		"""Check if Set Value target field is valid and editable for current trigger event"""
 		target_field = (
@@ -1387,8 +1455,17 @@ class Rule(Document):
 
 		# Templates to check based on action type
 		templates_to_check = []
-		if action.action_type == "Set Value":
-			templates_to_check.append(("value_template", getattr(action, "value_template", "")))
+		if action.action_type == "Assignment":
+			# Scan value_template from each assignment row in config JSON
+			config_str = getattr(action, "config", "[]") or "[]"
+			try:
+				assignments = json.loads(config_str) if isinstance(config_str, str) else config_str
+			except Exception:
+				assignments = []
+			for i, a in enumerate(assignments or []):
+				tpl = a.get("value_template") if isinstance(a, dict) else None
+				if tpl:
+					templates_to_check.append((f"assignment[{i}].value_template", tpl))
 		elif action.action_type == "Stop" and getattr(action, "operation", None) == "Error":
 			templates_to_check.append(("value_template", getattr(action, "value_template", "")))
 		elif action.action_type == "Notify":

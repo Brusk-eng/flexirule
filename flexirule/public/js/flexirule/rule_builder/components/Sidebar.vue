@@ -131,7 +131,7 @@ const isConfigurable = computed(() => {
 	return [
 		"Process",
 		"Condition",
-		"Set Value",
+		"Assignment",
 		"Stop",
 		"Notify",
 		"Loop",
@@ -209,8 +209,8 @@ function map_action_type(actionType) {
 			return "stop";
 		case "Raise Error":
 			return "stop";
-		case "Set Value":
-			return "set-value";
+		case "Assignment":
+			return "assignment";
 		case "Notify":
 			return "notify";
 		case "Query Records":
