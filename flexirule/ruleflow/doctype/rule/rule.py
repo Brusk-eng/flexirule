@@ -1489,7 +1489,7 @@ class Rule(Document):
 			except Exception:
 				assignments = []
 			for i, a in enumerate(assignments or []):
-				tpl = a.get("value_template") if isinstance(a, dict) else None
+				tpl = (a.get("value_template") or a.get("value")) if isinstance(a, dict) else None
 				if tpl:
 					templates_to_check.append((f"assignment[{i}].value_template", tpl))
 		elif action.action_type == "Stop" and getattr(action, "operation", None) == "Error":

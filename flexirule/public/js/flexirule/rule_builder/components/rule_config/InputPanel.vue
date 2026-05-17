@@ -1,5 +1,5 @@
 <template>
-	<div class="input-panel fr-accent-scope" :class="mode" :style="panelStyleVars">
+	<div class="input-panel fxr-accent-scope" :class="mode" :style="panelStyleVars">
 		<div class="panel-header" v-if="mode === 'config' && !store.use_modern_layout">
 			<h4>{{ __("Setup & Input") }}</h4>
 			<p class="text-muted small">{{ __("Define reference and operation") }}</p>
@@ -336,10 +336,10 @@ const contract = computed(() => {
 });
 
 const panelStyleVars = computed(() => {
-	const accent = contract.value?.css?.color || "var(--fr-accent)";
+	const accent = contract.value?.css?.color || "var(--fxr-accent)";
 	return {
-		"--fr-node-accent": accent,
-		"--fr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
+		"--fxr-node-accent": accent,
+		"--fxr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
 	};
 });
 
@@ -885,7 +885,7 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fr-bg-page);
+	background: var(--fxr-bg-page);
 }
 
 .panel-header {
@@ -921,14 +921,14 @@ function buildFieldPath(field, groupName) {
 	color: #1e293b;
 }
 .tab-btn.active {
-	color: var(--fr-node-accent, var(--fr-accent));
-	border-bottom-color: var(--fr-node-accent, var(--fr-accent));
+	color: var(--fxr-node-accent, var(--fxr-accent));
+	border-bottom-color: var(--fxr-node-accent, var(--fxr-accent));
 }
 
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--fr-space-8);
+	padding: var(--fxr-space-8);
 	display: flex;
 	flex-direction: column;
 	gap: 24px;
@@ -990,7 +990,7 @@ function buildFieldPath(field, groupName) {
 }
 
 .variable-item:hover {
-	border-color: var(--fr-node-accent, var(--fr-accent));
+	border-color: var(--fxr-node-accent, var(--fxr-accent));
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	transform: translateX(2px);
 }
@@ -1119,7 +1119,7 @@ function buildFieldPath(field, groupName) {
 .insight-label {
 	font-size: 10px;
 	font-weight: 700;
-	color: var(--fr-node-accent, var(--fr-accent));
+	color: var(--fxr-node-accent, var(--fxr-accent));
 	text-transform: uppercase;
 	display: block;
 	margin-bottom: 4px;
@@ -1131,7 +1131,7 @@ function buildFieldPath(field, groupName) {
 	background: #f0f9ff;
 	padding: 8px;
 	border-radius: 8px;
-	border-left: 3px solid var(--fr-node-accent, var(--fr-accent));
+	border-left: 3px solid var(--fxr-node-accent, var(--fxr-accent));
 	margin: 0;
 }
 
@@ -1165,14 +1165,14 @@ function buildFieldPath(field, groupName) {
 :deep(.form-control:focus),
 :deep(.awesomplete input:focus),
 :deep(.multiselect__input:focus) {
-	border-color: var(--fr-node-accent, var(--fr-border-focus)) !important;
-	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light)) !important;
+	border-color: var(--fxr-node-accent, var(--fxr-border-focus)) !important;
+	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light)) !important;
 }
 
 @media (max-width: 768px) {
 	.panel-sections {
-		padding: var(--fr-space-4);
-		gap: var(--fr-space-5);
+		padding: var(--fxr-space-4);
+		gap: var(--fxr-space-5);
 	}
 
 	.section-header {
@@ -1184,7 +1184,7 @@ function buildFieldPath(field, groupName) {
 	}
 
 	.variable-item {
-		padding: var(--fr-space-3) var(--fr-space-4);
+		padding: var(--fxr-space-3) var(--fxr-space-4);
 	}
 }
 </style>

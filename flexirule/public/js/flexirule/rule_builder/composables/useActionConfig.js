@@ -65,7 +65,9 @@ export function useActionConfig(props) {
 		}
 		try {
 			loading.value = true;
-			doctype_fields.value = await flexirule.utils.get_doctype_fields(doctype);
+			const metaStore = store;
+			await metaStore.fetch_metadata(doctype);
+			doctype_fields.value = metaStore.get_fields_for_doctype(doctype, "doc");
 		} catch (e) {
 			console.error("FlexiRule: Failed to load doctype fields", e);
 			doctype_fields.value = [];

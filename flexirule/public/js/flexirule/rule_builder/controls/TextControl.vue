@@ -48,31 +48,31 @@ let height = computed(() => {
 <style scoped>
 /* ─── TextControl – Unified Design ─── */
 .control-label {
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-medium);
-	margin-bottom: var(--fr-space-2);
-	color: var(--fr-text-secondary);
+	font-size: var(--fxr-text-sm);
+	font-weight: var(--fxr-weight-medium);
+	margin-bottom: var(--fxr-space-2);
+	color: var(--fxr-text-secondary);
 }
 
 .description {
-	font-size: var(--fr-text-xs);
-	color: var(--fr-text-muted);
+	font-size: var(--fxr-text-xs);
+	color: var(--fxr-text-muted);
 }
 
 textarea.form-control {
-	font-size: var(--fr-input-font-size);
-	padding: var(--fr-input-padding-y) var(--fr-input-padding-x);
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-md);
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+	font-size: var(--fxr-input-font-size);
+	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
 }
 
 textarea.form-control:focus {
-	border-color: var(--fr-border-focus);
-	box-shadow: var(--fr-shadow-focus);
+	border-color: var(--fxr-border-focus);
+	box-shadow: var(--fxr-shadow-focus);
 }
 
 textarea.form-control:hover:not(:disabled):not(:focus) {
-	border-color: var(--fr-border-strong);
+	border-color: var(--fxr-border-strong);
 }
 </style>

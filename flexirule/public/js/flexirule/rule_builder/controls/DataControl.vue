@@ -69,45 +69,53 @@ onMounted(() => {
 </script>
 
 <template>
-	<div class="fr-control" :class="{ editable: slots.label }">
-		<!-- label -->
-		<div v-if="slots.label && !hideLabel" class="field-controls">
-			<slot name="label" />
-			<slot name="actions" />
-		</div>
-		<div v-else-if="df?.label && !hideLabel" class="fr-label" :class="{ reqd: df.reqd }">
-			{{ __(df.label) }}
-		</div>
+	<div class="fxr-control" :class="{ editable: slots.label }">
+		<div
+			class="fxr-input-group"
+			:class="{
+				'has-floating-label': df?.label && !hideLabel,
+				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
+			}"
+		>
+			<!-- label -->
+			<div v-if="slots.label && !hideLabel" class="field-controls">
+				<slot name="label" />
+				<slot name="actions" />
+			</div>
+			<label v-else-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
+				{{ __(df.label) }}
+			</label>
 
-		<!-- data input -->
-		<input
-			v-if="slots.label"
-			class="fr-input"
-			type="text"
-			:style="{ height: df.fieldtype == 'Table MultiSelect' ? '42px' : '' }"
-			:placeholder="__(placeholder)"
-			readonly
-		/>
-		<input
-			v-else
-			class="fr-input"
-			type="text"
-			:value="modelValue"
-			:disabled="read_only || df.read_only"
-			@input="(event) => $emit('update:modelValue', event.target.value)"
-			@dragover.prevent
-			@drop="onDrop"
-		/>
-		<input
-			v-if="slots.label && df.fieldtype === 'Barcode'"
-			class="fr-input mt-2"
-			type="text"
-			:style="{ height: '110px' }"
-			readonly
-		/>
+			<!-- data input -->
+			<input
+				v-if="slots.label"
+				class="fxr-input"
+				type="text"
+				:style="{ height: df.fieldtype == 'Table MultiSelect' ? '42px' : '' }"
+				:placeholder="__(placeholder)"
+				readonly
+			/>
+			<input
+				v-else
+				class="fxr-input"
+				type="text"
+				:value="modelValue"
+				:disabled="read_only || df.read_only"
+				@input="(event) => $emit('update:modelValue', event.target.value)"
+				@dragover.prevent
+				@drop="onDrop"
+			/>
+			<input
+				v-if="slots.label && df.fieldtype === 'Barcode'"
+				class="fxr-input mt-2"
+				type="text"
+				:style="{ height: '110px' }"
+				readonly
+			/>
+		</div>
 
 		<!-- description -->
-		<div v-if="df.description && !hideDescription" class="fr-description">
+		<div v-if="df.description && !hideDescription" class="fxr-description">
 			{{ __(df.description) }}
 		</div>
 
@@ -128,10 +136,10 @@ onMounted(() => {
 
 <style scoped>
 .time-zone {
-	font-size: var(--fr-text-xs);
-	color: var(--fr-text-muted);
+	font-size: var(--fxr-text-xs);
+	color: var(--fxr-text-muted);
 	font-style: italic;
-	margin-top: var(--fr-space-1);
+	margin-top: var(--fxr-space-1);
 }
 
 .selected-color {

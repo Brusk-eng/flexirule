@@ -6,97 +6,97 @@
 
 :root {
 	/* ─── Color Palette ─── */
-	--fr-bg-page: #f8fafc;
-	--fr-bg-card: #ffffff;
-	--fr-bg-input: #ffffff;
-	--fr-bg-muted: #f1f5f9;
-	--fr-bg-hover: #f8fafc;
-	--fr-bg-active: #eff6ff;
-	--fr-bg-danger: #fef2f2;
-	--fr-bg-dark: #1e293b;
-	--fr-bg-input-disabled: #f8fafc;
+	--fxr-bg-page: #f8fafc;
+	--fxr-bg-card: #ffffff;
+	--fxr-bg-input: #ffffff;
+	--fxr-bg-muted: #f1f5f9;
+	--fxr-bg-hover: #f8fafc;
+	--fxr-bg-active: #eff6ff;
+	--fxr-bg-danger: #fef2f2;
+	--fxr-bg-dark: #1e293b;
+	--fxr-bg-input-disabled: #f8fafc;
 
-	--fr-border: #e2e8f0;
-	--fr-border-focus: #93c5fd;
-	--fr-border-strong: #cbd5e1;
-	--fr-border-danger: #fca5a5;
+	--fxr-border: #e2e8f0;
+	--fxr-border-focus: var(--fxr-accent);
+	--fxr-border-strong: #cbd5e1;
+	--fxr-border-danger: #fca5a5;
 
-	--fr-text: #1e293b;
-	--fr-text-secondary: #475569;
-	--fr-text-muted: #94a3b8;
-	--fr-text-danger: #ef4444;
-	--fr-text-link: #2563eb;
+	--fxr-text: #1e293b;
+	--fxr-text-secondary: #475569;
+	--fxr-text-muted: #94a3b8;
+	--fxr-text-danger: #ef4444;
+	--fxr-text-link: #2563eb;
 
-	--fr-accent: #2490ef;
-	--fr-accent-light: rgba(36, 144, 239, 0.08);
-	--fr-accent-border: rgba(36, 144, 239, 0.3);
+	--fxr-accent: #2490ef;
+	--fxr-accent-light: rgba(36, 144, 239, 0.08);
+	--fxr-accent-border: rgba(36, 144, 239, 0.3);
 
 	/* Semantic colors for value-type badges */
-	--fr-badge-literal: #e2e8f0;
-	--fr-badge-literal-text: #475569;
-	--fr-badge-number: #dbeafe;
-	--fr-badge-number-text: #1d4ed8;
-	--fr-badge-bool: #dcfce7;
-	--fr-badge-bool-text: #15803d;
-	--fr-badge-var: #f3e8ff;
-	--fr-badge-var-text: #7c3aed;
-	--fr-badge-expr: #fff7ed;
-	--fr-badge-expr-text: #c2410c;
-	--fr-badge-builder: #e0f2fe;
-	--fr-badge-builder-text: #0369a1;
+	--fxr-badge-literal: #e2e8f0;
+	--fxr-badge-literal-text: #475569;
+	--fxr-badge-number: #dbeafe;
+	--fxr-badge-number-text: #1d4ed8;
+	--fxr-badge-bool: #dcfce7;
+	--fxr-badge-bool-text: #15803d;
+	--fxr-badge-var: #f3e8ff;
+	--fxr-badge-var-text: #7c3aed;
+	--fxr-badge-expr: #fff7ed;
+	--fxr-badge-expr-text: #c2410c;
+	--fxr-badge-builder: #e0f2fe;
+	--fxr-badge-builder-text: #0369a1;
 
 	/* ─── Typography ─── */
-	--fr-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-	--fr-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+	--fxr-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	--fxr-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
-	--fr-text-xs: 10px;
-	--fr-text-sm: 11px;
-	--fr-text-base: 12px;
-	--fr-text-md: 13px;
-	--fr-text-lg: 14px;
+	--fxr-text-xs: 10px;
+	--fxr-text-sm: 11px;
+	--fxr-text-base: 12px;
+	--fxr-text-md: 13px;
+	--fxr-text-lg: 14px;
 
-	--fr-weight-normal: 400;
-	--fr-weight-medium: 500;
-	--fr-weight-semibold: 600;
-	--fr-weight-bold: 700;
+	--fxr-weight-normal: 400;
+	--fxr-weight-medium: 500;
+	--fxr-weight-semibold: 600;
+	--fxr-weight-bold: 700;
 
 	/* ─── Spacing ─── */
-	--fr-space-1: 2px;
-	--fr-space-2: 4px;
-	--fr-space-3: 6px;
-	--fr-space-4: 8px;
-	--fr-space-5: 10px;
-	--fr-space-6: 12px;
-	--fr-space-8: 16px;
-	--fr-space-10: 20px;
+	--fxr-space-1: 2px;
+	--fxr-space-2: 4px;
+	--fxr-space-3: 6px;
+	--fxr-space-4: 8px;
+	--fxr-space-5: 10px;
+	--fxr-space-6: 12px;
+	--fxr-space-8: 16px;
+	--fxr-space-10: 20px;
 
 	/* ─── Control Sizing ─── */
-	--fr-input-height: 28px;
-	--fr-input-height-sm: 24px;
-	--fr-input-padding-x: 8px;
-	--fr-input-padding-y: 4px;
-	--fr-input-font-size: var(--fr-text-base);
+	--fxr-input-height: 28px;
+	--fxr-input-height-sm: 24px;
+	--fxr-input-padding-x: 8px;
+	--fxr-input-padding-y: 4px;
+	--fxr-input-font-size: var(--fxr-text-base);
 
 	/* ─── Radii ─── */
-	--fr-radius-sm: 4px;
-	--fr-radius-md: 6px;
-	--fr-radius-lg: 8px;
-	--fr-radius-xl: 12px;
-	--fr-radius-pill: 999px;
+	--fxr-radius-sm: 4px;
+	--fxr-radius-md: 6px;
+	--fxr-radius-lg: 8px;
+	--fxr-radius-xl: 12px;
+	--fxr-radius-pill: 999px;
 
 	/* ─── Shadows ─── */
-	--fr-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-	--fr-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-	--fr-shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.12);
-	--fr-shadow-focus: 0 0 0 2px var(--fr-accent-light);
+	--fxr-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+	--fxr-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+	--fxr-shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.12);
+	--fxr-shadow-focus: 0 0 0 3px rgba(36, 144, 239, 0.18), 0 1px 2px rgba(0, 0, 0, 0.05);
 
 	/* ─── Transitions ─── */
-	--fr-transition-fast: 0.15s ease;
-	--fr-transition-normal: 0.2s ease;
-	--fr-transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	--fxr-transition-fast: 0.15s ease;
+	--fxr-transition-normal: 0.2s ease;
+	--fxr-transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
 	/* ─── Z-index layers ─── */
-	--fr-z-dropdown: 100010;
-	--fr-z-popover: 100020;
-	--fr-z-modal: 100030;
+	--fxr-z-dropdown: 100010;
+	--fxr-z-popover: 100020;
+	--fxr-z-modal: 100030;
 }

@@ -16,13 +16,17 @@
 				@mousedown.prevent="selectItem(index)"
 			>
 				<div class="item-icon" :class="item.type">
-					<i :class="getIcon(item)"></i>
+					<!-- Emoji icon takes priority over Font-Awesome for command items -->
+					<span v-if="item.icon && !item.icon.startsWith('fa')" class="item-emoji">{{
+						item.icon
+					}}</span>
+					<i v-else :class="getIcon(item)"></i>
 				</div>
 				<div class="item-info">
-					<span class="item-id">{{ item.id || item }}</span>
-					<span v-if="item.label && item.label !== (item.id || item)" class="item-label">
-						{{ item.label }}
-					</span>
+					<span class="item-label">{{ item.label || item.id || item }}</span>
+					<span v-if="item.description" class="item-description">{{
+						item.description
+					}}</span>
 				</div>
 			</button>
 		</div>
@@ -58,8 +62,19 @@ export default {
 	},
 	methods: {
 		getIcon(item) {
+			if (item.type === "variable") return "fa fa-cube";
 			if (item.type === "logic") {
-				return item.id === "if" ? "fa fa-code-fork" : "fa fa-refresh";
+				const iconMap = {
+					formula: "fa fa-calculator",
+					resolver: "fa fa-bolt",
+					formatter: "fa fa-paint-brush",
+					normalize: "fa fa-refresh",
+					localization: "fa fa-globe",
+					condition: "fa fa-code-fork",
+					link: "fa fa-link",
+					"dynamic-link": "fa fa-cubes",
+				};
+				return iconMap[item.id] || "fa fa-terminal";
 			}
 			return "fa fa-cube";
 		},
@@ -72,9 +87,13 @@ export default {
 				this.downHandler();
 				return true;
 			}
-			if (event.key === "Enter") {
+			if (event.key === "Enter" || event.key === "Tab") {
 				this.enterHandler();
 				return true;
+			}
+			if (event.key === "Escape") {
+				// Let Tiptap handle Escape to close the suggestion popup
+				return false;
 			}
 			return false;
 		},
@@ -169,7 +188,7 @@ export default {
 	min-width: 0;
 }
 
-.item-id {
+.item-label {
 	font-size: 13px;
 	font-weight: 600;
 	color: #1e293b;
@@ -178,9 +197,17 @@ export default {
 	text-overflow: ellipsis;
 }
 
-.item-label {
+.item-description {
 	font-size: 11px;
 	color: #64748b;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.item-emoji {
+	font-size: 14px;
+	line-height: 1;
 }
 
 .tg-mention-empty {

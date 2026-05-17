@@ -1,5 +1,5 @@
 <template>
-	<div class="configuration-panel fr-accent-scope" :style="panelStyleVars">
+	<div class="configuration-panel fxr-accent-scope" :style="panelStyleVars">
 		<div v-if="node" class="panel-content">
 			<div class="panel-header" v-if="!store.use_modern_layout">
 				<div class="header-text">
@@ -123,10 +123,10 @@ const emptyStateMessage = computed(() => {
 
 const panelStyleVars = computed(() => {
 	const actionType = props.node?.data?.action_type || props.node?.type;
-	const color = getContract(actionType)?.css?.color || "var(--fr-accent)";
+	const color = getContract(actionType)?.css?.color || "var(--fxr-accent)";
 	return {
-		"--fr-node-accent": color,
-		"--fr-node-accent-light": `color-mix(in srgb, ${color} 12%, white)`,
+		"--fxr-node-accent": color,
+		"--fxr-node-accent-light": `color-mix(in srgb, ${color} 12%, white)`,
 	};
 });
 
@@ -164,7 +164,7 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fr-bg-page);
+	background: var(--fxr-bg-page);
 }
 
 .panel-content {
@@ -216,8 +216,8 @@ defineExpose({
 
 @media (max-width: 768px) {
 	.panel-sections {
-		padding: var(--fr-space-4);
-		gap: var(--fr-space-4);
+		padding: var(--fxr-space-4);
+		gap: var(--fxr-space-4);
 	}
 }
 </style>

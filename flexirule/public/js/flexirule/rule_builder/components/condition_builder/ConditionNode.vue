@@ -72,7 +72,7 @@ function handleDragStart(e) {
 <style scoped>
 .condition-node-draggable {
 	cursor: grab;
-	transition: opacity var(--fr-transition-fast);
+	transition: opacity var(--fxr-transition-fast);
 }
 
 .condition-node-draggable:active {
@@ -84,11 +84,11 @@ function handleDragStart(e) {
 }
 
 .unknown-node {
-	padding: var(--fr-space-2);
-	border: 1px solid var(--fr-border-danger);
-	border-radius: var(--fr-radius-md);
-	background: var(--fr-bg-danger);
-	color: var(--fr-text-danger);
-	font-size: var(--fr-text-sm);
+	padding: var(--fxr-space-2);
+	border: 1px solid var(--fxr-border-danger);
+	border-radius: var(--fxr-radius-md);
+	background: var(--fxr-bg-danger);
+	color: var(--fxr-text-danger);
+	font-size: var(--fxr-text-sm);
 }
 </style>

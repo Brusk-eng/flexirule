@@ -430,7 +430,7 @@ function getEffectiveDf(row, col) {
 /* Focus behavior */
 .flexi-grid .grid-cell .form-control:focus {
 	background: #fff !important;
-	border-color: var(--fr-accent) !important;
+	border-color: var(--fxr-accent) !important;
 	box-shadow: none !important;
 }
 
@@ -444,7 +444,7 @@ function getEffectiveDf(row, col) {
 
 .flexi-grid .grid-cell .combobox-wrapper:hover,
 .flexi-grid .grid-cell .combobox-wrapper.is-focused {
-	border-color: var(--fr-accent) !important;
+	border-color: var(--fxr-accent) !important;
 	background: #fff !important;
 }
 

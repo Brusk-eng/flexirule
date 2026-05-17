@@ -36,14 +36,7 @@ class StopHandler(ActionHandler):
 			value_template = getattr(action, "value_template", "") or _(
 				"Rule execution stopped by terminal error"
 			)
-			template_context = {
-				"doc": context.get("doc"),
-				"vars": context.get("vars", {}),
-				"frappe": SafeFrappeAPI(),
-				"utils": frappe.utils,
-				"rule": engine.rule,
-				"rule_url": frappe.utils.get_url_to_form("Rule", engine.rule.name),
-			}
+			template_context = self._build_template_context(context, engine)
 			# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 			message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
 
@@ -105,14 +98,7 @@ class RaiseErrorHandler(ActionHandler):
 		error_code = (config.get("error_code") or "").strip()
 
 		# Render Jinja template with SafeFrappeAPI to prevent write operations
-		template_context = {
-			"doc": context.get("doc"),
-			"vars": context.get("vars", {}),
-			"frappe": SafeFrappeAPI(),
-			"utils": frappe.utils,
-			"rule": engine.rule,
-			"rule_url": frappe.utils.get_url_to_form("Rule", engine.rule.name),
-		}
+		template_context = self._build_template_context(context, engine)
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 		message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
 
@@ -245,15 +231,9 @@ class NotifyHandler(ActionHandler):
 		return mode_map.get(value, mode)
 
 	def _template_context(self, context, engine=None):
-		return {
-			"doc": context.get("doc"),
-			"vars": context.get("vars", {}),
-			"context": context,
-			"frappe": SafeFrappeAPI(),
-			"utils": frappe.utils,
-			"rule": engine.rule if engine else None,
-			"rule_url": frappe.utils.get_url_to_form("Rule", engine.rule.name) if engine else None,
-		}
+		ctx = self._build_template_context(context, engine)
+		ctx["context"] = context
+		return ctx
 
 	def _render_template(self, template, context, engine=None):
 		template = template or ""

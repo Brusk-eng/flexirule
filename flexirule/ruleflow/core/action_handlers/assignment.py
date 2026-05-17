@@ -8,7 +8,6 @@ from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.context_manager import ContextManager
-from flexirule.ruleflow.core.engine import SafeFrappeAPI
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
 from flexirule.ruleflow.core.operators import AssignmentOperatorRegistry
 from flexirule.ruleflow.core.process_runtime_v2 import AFTER_EVENT_MUTATION_BLOCKLIST
@@ -43,20 +42,18 @@ class AssignmentHandler(ActionHandler):
 
 		event_name = context.get("event_name")
 
-		# Build template context for value evaluation
-		template_context = {
-			"doc": context.get("doc"),
-			"vars": context.get("vars", {}),
-			"frappe": SafeFrappeAPI(),
-			"utils": frappe.utils,
-			"rule": engine.rule,
-			"rule_url": frappe.utils.get_url_to_form("Rule", engine.rule.name),
-		}
+		# Build shared Jinja template context for value evaluation
+		template_context = self._build_template_context(context, engine)
 
 		for idx, assignment in enumerate(assignments):
 			target_path = assignment.get("target")
 			operator_key = assignment.get("operator", "set")
-			value_template = assignment.get("value")
+
+			# Canonical key: value_template (Jinja string compiled by the frontend).
+			# Fallback: value (legacy key used before FSVC unification).
+			# NOTE: value_template_ui is the raw AST saved by the frontend for
+			# re-editing purposes only — the backend must never read it.
+			value_template = assignment.get("value_template") or assignment.get("value")
 
 			if not target_path:
 				engine._log("WARNING", _("Assignment index {0} missing target path, skipping").format(idx))

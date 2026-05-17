@@ -1,5 +1,5 @@
 <template>
-	<div class="filter-group-wrapper fr-accent-scope" :style="panelStyleVars">
+	<div class="filter-group-wrapper fxr-accent-scope" :style="panelStyleVars">
 		<div
 			v-if="!doctype && !allowAnyDoctype"
 			class="text-muted small p-2 text-center border-dashed rounded"
@@ -355,10 +355,10 @@ const store = useStore();
 const panelStyleVars = computed(() => {
 	const node = (store.nodes || []).find((n) => n.id === props.nodeId);
 	const actionType = node?.data?.action_type || node?.type;
-	const accent = getContract(actionType)?.css?.color || "var(--fr-accent)";
+	const accent = getContract(actionType)?.css?.color || "var(--fxr-accent)";
 	return {
-		"--fr-node-accent": accent,
-		"--fr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
+		"--fxr-node-accent": accent,
+		"--fxr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
 	};
 });
 
@@ -761,17 +761,15 @@ const getFieldsForDoctype = (dt) => {
 	}
 
 	const mapped = [];
-	const stdFields = frappe.model.std_fields || [];
 
-	// Build actual entries from parent/doc fields
-	for (const df of [...stdFields, ...(meta.fields || [])]) {
+	// Fetch unified fields (including standard ones like modified_by) from the meta store
+	const parentFields = store.get_fields_for_doctype(dt, "");
+	for (const df of parentFields) {
 		if (!shouldIncludeFilterField(df, dt)) continue;
 		if (frappe.model.table_fields.includes(df.fieldtype)) continue;
 		mapped.push({
 			...df,
 			parent: dt,
-			label: `${df.label || df.fieldname} (${df.fieldname})`,
-			value: df.fieldname,
 		});
 	}
 
@@ -1424,35 +1422,35 @@ onMounted(async () => {
 /* ─── FilterGroup – Unified Design ─── */
 .filter-group-wrapper {
 	width: 100%;
-	font-family: var(--fr-font-family);
+	font-family: var(--fxr-font-family);
 }
 
 .filter-list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fr-space-3);
+	gap: var(--fxr-space-3);
 }
 
 /* ─── Filter Row ─── */
 .filter-row {
 	display: flex;
 	flex-direction: column;
-	background: var(--fr-bg-card);
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-lg);
-	padding: var(--fr-space-4) var(--fr-space-5);
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-lg);
+	padding: var(--fxr-space-4) var(--fxr-space-5);
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
 }
 
 .filter-row:hover {
-	border-color: var(--fr-border-strong);
-	box-shadow: var(--fr-shadow-sm);
+	border-color: var(--fxr-border-strong);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 .filter-row-main {
 	display: grid;
 	grid-template-columns: 1.6fr 0.9fr 0.85fr 2.2fr auto;
-	gap: var(--fr-space-4);
+	gap: var(--fxr-space-4);
 	align-items: center;
 }
 
@@ -1520,12 +1518,12 @@ onMounted(async () => {
 .expression-wrapper {
 	display: flex;
 	align-items: center;
-	background: var(--fr-badge-expr);
+	background: var(--fxr-badge-expr);
 	border: 1px solid #fed7aa;
-	border-radius: var(--fr-radius-md);
-	padding: 0 var(--fr-space-2);
+	border-radius: var(--fxr-radius-md);
+	padding: 0 var(--fxr-space-2);
 	width: 100%;
-	transition: border-color var(--fr-transition-fast);
+	transition: border-color var(--fxr-transition-fast);
 }
 
 .expression-wrapper:focus-within {
@@ -1535,14 +1533,14 @@ onMounted(async () => {
 
 .expr-bracket {
 	color: #ea580c;
-	font-weight: var(--fr-weight-bold);
-	padding: 0 var(--fr-space-2);
-	font-size: var(--fr-text-md);
+	font-weight: var(--fxr-weight-bold);
+	padding: 0 var(--fxr-space-2);
+	font-size: var(--fxr-text-md);
 	user-select: none;
 }
 
 .expression-wrapper.variable-mode {
-	background: var(--fr-badge-var);
+	background: var(--fxr-badge-var);
 	border-color: #c4b5fd;
 }
 
@@ -1552,19 +1550,19 @@ onMounted(async () => {
 }
 
 .expression-wrapper.variable-mode .expr-bracket {
-	color: var(--fr-badge-var-text);
+	color: var(--fxr-badge-var-text);
 }
 
 /* ─── Value Type Select ─── */
 .type-select {
-	font-size: var(--fr-text-xs) !important;
-	height: var(--fr-input-height-sm) !important;
+	font-size: var(--fxr-text-xs) !important;
+	height: var(--fxr-input-height-sm) !important;
 	padding: 1px 20px 1px 6px !important;
-	background-color: var(--fr-bg-muted) !important;
+	background-color: var(--fxr-bg-muted) !important;
 	border: 1px solid transparent !important;
-	border-radius: var(--fr-radius-pill) !important;
-	color: var(--fr-text-secondary);
-	font-weight: var(--fr-weight-semibold);
+	border-radius: var(--fxr-radius-pill) !important;
+	color: var(--fxr-text-secondary);
+	font-weight: var(--fxr-weight-semibold);
 	appearance: none;
 	-webkit-appearance: none;
 	cursor: pointer;
@@ -1572,26 +1570,26 @@ onMounted(async () => {
 	background-repeat: no-repeat;
 	background-position: right 5px center;
 	background-size: 10px;
-	transition: all var(--fr-transition-fast);
+	transition: all var(--fxr-transition-fast);
 	letter-spacing: 0.01em;
 }
 
 .type-select:hover:not(:disabled) {
 	background-color: #e2e8f0 !important;
-	border-color: var(--fr-border-strong) !important;
+	border-color: var(--fxr-border-strong) !important;
 }
 
 .type-select:focus {
-	border-color: var(--fr-border-focus) !important;
-	box-shadow: var(--fr-shadow-focus) !important;
-	background-color: var(--fr-bg-card) !important;
+	border-color: var(--fxr-border-focus) !important;
+	box-shadow: var(--fxr-shadow-focus) !important;
+	background-color: var(--fxr-bg-card) !important;
 }
 
 /* ─── Between / Dual Value ─── */
 .dual-value-wrapper {
 	display: flex;
 	align-items: center;
-	gap: var(--fr-space-3);
+	gap: var(--fxr-space-3);
 	width: 100%;
 }
 
@@ -1605,9 +1603,9 @@ onMounted(async () => {
 }
 
 .between-sep {
-	font-size: var(--fr-text-sm);
-	color: var(--fr-text-muted);
-	font-weight: var(--fr-weight-semibold);
+	font-size: var(--fxr-text-sm);
+	color: var(--fxr-text-muted);
+	font-weight: var(--fxr-weight-semibold);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	flex-shrink: 0;
@@ -1618,14 +1616,14 @@ onMounted(async () => {
 .filter-actions {
 	display: flex;
 	align-items: center;
-	padding-top: var(--fr-space-4);
+	padding-top: var(--fxr-space-4);
 }
 
 .filter-actions .btn {
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-medium);
-	border-radius: var(--fr-radius-md);
-	transition: all var(--fr-transition-fast);
+	font-size: var(--fxr-text-sm);
+	font-weight: var(--fxr-weight-medium);
+	border-radius: var(--fxr-radius-md);
+	transition: all var(--fxr-transition-fast);
 }
 
 .filter-actions .btn:hover {
@@ -1640,9 +1638,9 @@ onMounted(async () => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: var(--fr-radius-sm);
+	border-radius: var(--fxr-radius-sm);
 	opacity: 0.4;
-	transition: all var(--fr-transition-fast);
+	transition: all var(--fxr-transition-fast);
 }
 
 .filter-row:hover .filter-col.action-col .btn {
@@ -1651,13 +1649,13 @@ onMounted(async () => {
 
 .filter-col.action-col .btn:hover {
 	opacity: 1;
-	background: var(--fr-bg-danger);
+	background: var(--fxr-bg-danger);
 }
 
 /* ─── Empty State ─── */
 .border-dashed {
-	border: 1px dashed var(--fr-border);
-	border-radius: var(--fr-radius-lg);
+	border: 1px dashed var(--fxr-border);
+	border-radius: var(--fxr-radius-lg);
 }
 
 /* ─── Deep Overrides for Nested Controls ─── */
@@ -1673,15 +1671,15 @@ onMounted(async () => {
 .filter-row-main :deep(.form-control),
 .filter-row-main :deep(input.form-control),
 .filter-row-main :deep(select.form-control) {
-	height: var(--fr-input-height) !important;
-	padding: var(--fr-input-padding-y) var(--fr-input-padding-x) !important;
-	font-size: var(--fr-input-font-size) !important;
-	border: 1px solid var(--fr-border) !important;
-	border-radius: var(--fr-radius-md) !important;
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+	height: var(--fxr-input-height) !important;
+	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x) !important;
+	font-size: var(--fxr-input-font-size) !important;
+	border: 1px solid var(--fxr-border) !important;
+	border-radius: var(--fxr-radius-md) !important;
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
 }
 
-.filter-row-main :deep(.fr-control),
+.filter-row-main :deep(.fxr-control),
 .filter-row-main :deep(.combobox-container),
 .filter-row-main :deep(.multi-select-list) {
 	width: 100%;
@@ -1689,12 +1687,12 @@ onMounted(async () => {
 }
 
 .filter-row-main :deep(.form-control:focus) {
-	border-color: var(--fr-node-accent, var(--fr-border-focus)) !important;
-	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light)) !important;
+	border-color: var(--fxr-node-accent, var(--fxr-border-focus)) !important;
+	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light)) !important;
 }
 
 .filter-row-main :deep(.form-control:hover:not(:disabled):not(:focus)) {
-	border-color: var(--fr-border-strong) !important;
+	border-color: var(--fxr-border-strong) !important;
 }
 
 /* Select dropdown arrow consistency */
@@ -1712,14 +1710,14 @@ onMounted(async () => {
 /* Link control consistency */
 .filter-row-main :deep(.link-field .form-control),
 .filter-row-main :deep(.awesomplete input) {
-	height: var(--fr-input-height) !important;
-	font-size: var(--fr-input-font-size) !important;
+	height: var(--fxr-input-height) !important;
+	font-size: var(--fxr-input-font-size) !important;
 }
 
 @media (max-width: 920px) {
 	.filter-row-main {
 		grid-template-columns: 1fr;
-		gap: var(--fr-space-3);
+		gap: var(--fxr-space-3);
 	}
 
 	.action-col {
@@ -1730,7 +1728,7 @@ onMounted(async () => {
 
 @media (max-width: 640px) {
 	.filter-row {
-		padding: var(--fr-space-4);
+		padding: var(--fxr-space-4);
 	}
 
 	.dual-value-wrapper {
@@ -1744,7 +1742,7 @@ onMounted(async () => {
 
 	.filter-actions {
 		flex-wrap: wrap;
-		gap: var(--fr-space-3);
+		gap: var(--fxr-space-3);
 	}
 }
 </style>

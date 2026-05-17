@@ -9,93 +9,80 @@
 			</div>
 		</div>
 
+		<!-- Horizontal Table Grid Header -->
+		<div
+			v-if="assignments.length"
+			class="assignment-grid-header mb-1 text-muted small fw-semibold"
+		>
+			<div class="grid-col-target">{{ __("Target Field") }}</div>
+			<div class="grid-col-operator">{{ __("Operator") }}</div>
+			<div class="grid-col-value">{{ __("Value Expression") }}</div>
+			<div class="grid-col-actions"></div>
+		</div>
+
 		<div class="assignments-list">
 			<div
 				v-for="(assignment, index) in assignments"
 				:key="index"
-				class="assignment-row section-card mb-3"
+				class="assignment-grid-row align-items-center mb-2"
 			>
-				<div class="d-flex justify-content-between align-items-center mb-2">
-					<span class="row-label text-muted small fw-semibold">
-						<i class="fa fa-bars me-1 cursor-grab" title="Sequence order"></i>
-						{{ __("Assignment") }} #{{ index + 1 }}
-					</span>
+				<!-- Target ComboBox with Type Badge support -->
+				<div class="grid-col-target">
+					<ComboBoxControl
+						:df="{ fieldtype: 'FieldPicker', label: '' }"
+						:modelValue="assignment.target"
+						:options="targetOptions"
+						:read_only="readOnly"
+						:hideLabel="true"
+						:trigger="'button'"
+						:placeholder="__('Target field/variable...')"
+						:allowCustomValue="false"
+						@update:modelValue="(val) => onTargetChange(index, val)"
+					/>
+				</div>
+
+				<!-- Operator Selector -->
+				<div class="grid-col-operator">
+					<ComboBoxControl
+						:df="{ fieldtype: 'Select', label: '' }"
+						:options="getAvailableOperators(assignment.target)"
+						:modelValue="assignment.operator"
+						:read_only="readOnly"
+						:hideLabel="true"
+						:trigger="'button'"
+						@update:modelValue="(val) => onOperatorChange(index, val)"
+					/>
+				</div>
+
+				<!-- Value Expression Editor -->
+				<div class="grid-col-value">
+					<FlexStructuredValueControl
+						v-if="needsValue(assignment.operator)"
+						:fieldType="getTargetFieldtype(assignment.target) || 'Data'"
+						:modelValue="assignment.value_template_ui"
+						:read_only="readOnly"
+						:variableOptions="variable_options"
+						:referenceDoctype="getTargetDoctype(assignment.target)"
+						:placeholder="__('Type value...')"
+						:options="getTargetOptions(assignment.target)"
+						@update:modelValue="(val) => updateTemplate(index, val)"
+					/>
+					<div v-else class="operator-hint-text text-muted small">
+						<i class="fa fa-info-circle me-1"></i>
+						{{ operatorNoValueHint(assignment.operator) }}
+					</div>
+				</div>
+
+				<!-- Row Actions -->
+				<div class="grid-col-actions text-end">
 					<button
-						class="btn btn-xs btn-outline-danger"
+						class="btn btn-sm btn-link text-danger p-1"
 						@click="removeAssignment(index)"
 						:disabled="readOnly"
 						:title="__('Remove')"
 					>
 						<i class="fa fa-trash"></i>
 					</button>
-				</div>
-
-				<!-- Target + Operator row -->
-				<div class="row gx-2 mb-2">
-					<div class="col-sm-6">
-						<label class="form-label small">
-							{{ __("Target") }} <span class="text-danger">*</span>
-						</label>
-						<ComboBoxControl
-							:df="{ fieldtype: 'Autocomplete', label: '' }"
-							:modelValue="assignment.target"
-							:get_query="async () => targetOptions"
-							:read_only="readOnly"
-							:hideLabel="true"
-							:placeholder="__('doc.field or vars.variable')"
-							@update:modelValue="(val) => onTargetChange(index, val)"
-						/>
-						<small
-							v-if="getTargetFieldtype(assignment.target)"
-							class="text-muted fieldtype-badge"
-						>
-							<i class="fa fa-tag"></i>
-							{{ getTargetFieldtype(assignment.target) }}
-						</small>
-					</div>
-					<div class="col-sm-6">
-						<label class="form-label small">
-							{{ __("Operator") }} <span class="text-danger">*</span>
-						</label>
-						<select
-							class="form-control form-control-sm"
-							:value="assignment.operator"
-							@change="(e) => onOperatorChange(index, e.target.value)"
-							:disabled="readOnly"
-						>
-							<option
-								v-for="op in getAvailableOperators(assignment.target)"
-								:key="op.value"
-								:value="op.value"
-							>
-								{{ op.label }}
-							</option>
-						</select>
-						<small v-if="getOperatorHint(assignment.operator)" class="text-muted">{{
-							getOperatorHint(assignment.operator)
-						}}</small>
-					</div>
-				</div>
-
-				<!-- Value Template (hidden for 'clear' and 'toggle') -->
-				<div v-if="needsValue(assignment.operator)" class="mt-2">
-					<label class="form-label small">
-						{{ __("Value Template") }} <span class="text-danger">*</span>
-					</label>
-					<TextGeneratorControl
-						:df="{ fieldtype: 'Text Generator', label: '' }"
-						:modelValue="assignment.value_template_ui"
-						:read_only="readOnly"
-						:variableOptions="variable_options"
-						:docFieldOptions="doctype_fields"
-						@update:modelValue="(val) => updateTemplate(index, val)"
-					/>
-				</div>
-				<div v-else class="mt-1">
-					<small class="text-muted fst-italic">
-						<i class="fa fa-info-circle"></i>
-						{{ operatorNoValueHint(assignment.operator) }}
-					</small>
 				</div>
 			</div>
 		</div>
@@ -119,7 +106,7 @@
 import { computed, watch, ref } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
-import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
+import FlexStructuredValueControl from "../../../controls/FlexStructuredValueControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
@@ -156,21 +143,70 @@ function getOperatorHint(operator) {
 
 /**
  * Resolve a Frappe fieldtype for a target path.
- * For doc.* paths: looks up meta. For vars.*: unknown (returns null).
+ * Reuses existing doctype_fields and variable_options arrays.
  */
 function getTargetFieldtype(target) {
+	if (!target) return null;
+	if (target.startsWith("doc.")) {
+		const fieldname = target.slice(4).split(".")[0];
+		if (fieldname === "docstatus") return "Select";
+		const field = (doctype_fields.value || []).find((f) => f.fieldname === fieldname);
+		return field?.fieldtype || null;
+	}
+	if (target.startsWith("vars.")) {
+		const varname = target.slice(5).split(".")[0];
+		const variable = (variable_options.value || []).find(
+			(v) => v.value === varname || v.fieldname === varname
+		);
+		return variable?.fieldtype || variable?.type || null;
+	}
+	return null;
+}
+
+function getTargetDoctype(target) {
 	if (!target || !target.startsWith("doc.")) return null;
 	const fieldname = target.slice(4).split(".")[0];
 	const field = (doctype_fields.value || []).find((f) => f.fieldname === fieldname);
-	return field?.fieldtype || null;
+	return field?.options || null;
+}
+
+/**
+ * Custom metadata target options list.
+ */
+function getTargetOptions(target) {
+	if (!target) return [];
+	if (target.startsWith("doc.")) {
+		const fieldname = target.slice(4).split(".")[0];
+		if (fieldname === "docstatus") {
+			return [
+				{ label: __("0 (Draft)"), value: "0" },
+				{ label: __("1 (Submitted)"), value: "1" },
+				{ label: __("2 (Cancelled)"), value: "2" },
+			];
+		}
+		const field = (doctype_fields.value || []).find((f) => f.fieldname === fieldname);
+		if (field && field.fieldtype === "Select" && field.options) {
+			return field.options;
+		}
+	}
+	return [];
 }
 
 /**
  * Target-aware operator filtering: the key architectural enhancement.
- * Empty `supported_target_types` means "all types".
  */
 function getAvailableOperators(target) {
 	const fieldtype = getTargetFieldtype(target);
+
+	const operatorIcons = {
+		set: "fa fa-pencil",
+		clear: "fa fa-eraser",
+		increment: "fa fa-plus",
+		decrement: "fa fa-minus",
+		append: "fa fa-list-ul",
+		merge: "fa fa-compress",
+		toggle: "fa fa-toggle-on",
+	};
 
 	return Object.entries(ASSIGNMENT_OPERATOR_METADATA)
 		.filter(([, meta]) => {
@@ -178,7 +214,11 @@ function getAvailableOperators(target) {
 			if (!fieldtype) return true; // vars.* or unknown – show all
 			return meta.supported_target_types.includes(fieldtype);
 		})
-		.map(([key, meta]) => ({ value: key, label: __(meta.label) }));
+		.map(([key, meta]) => ({
+			value: key,
+			label: __(meta.label),
+			icon: operatorIcons[key] || "fa fa-cog",
+		}));
 }
 
 // ─── Assignments State ────────────────────────────────────────────────────────
@@ -198,6 +238,19 @@ watch(
 		} else if (Array.isArray(val)) {
 			parsed = val;
 		}
+
+		// Map parsed to ensure both value_template and value are populated on load
+		parsed = parsed.map((a) => {
+			const value_tpl = a.value_template || a.value || "";
+			return {
+				target: a.target || "",
+				operator: a.operator || "set",
+				value_template_ui: a.value_template_ui || { version: 2, segments: [] },
+				value_template: value_tpl,
+				value: value_tpl,
+			};
+		});
+
 		if (JSON.stringify(parsed) !== JSON.stringify(assignments.value)) {
 			assignments.value = JSON.parse(JSON.stringify(parsed));
 		}
@@ -210,21 +263,31 @@ watch(
 const targetOptions = computed(() => {
 	const opts = [];
 
-	// Context variables (vars.*)
+	// ── Context variables (vars.*) ────────────────────────────────────────────
 	(variable_options.value || [])
 		.filter((v) => v.is_variable)
 		.forEach((v) => {
 			opts.push({
 				value: `vars.${v.value}`,
-				label: `[Var] ${v.label}`,
+				label: `${v.label} (vars.${v.value})`,
+				icon: "fa fa-code",
+				fieldtype: v.fieldtype || "Variable",
+				type: v.fieldtype || "Variable",
+				is_variable: true,
+				fieldname: v.value,
 			});
 		});
 
-	// Doc fields (doc.*)
+	// ── Doc fields (doc.*) ────────────────────────────────────────────────────
 	(doctype_fields.value || []).forEach((f) => {
 		opts.push({
-			value: `doc.${f.fieldname}`,
-			label: `[Doc] ${f.label} (${f.fieldname})`,
+			value: f.value,
+			label: f.label,
+			icon: f.icon || "fa fa-columns",
+			fieldtype: f.fieldtype,
+			type: f.fieldtype,
+			fieldname: f.fieldname,
+			options: f.options,
 		});
 	});
 
@@ -239,6 +302,7 @@ function syncToNode() {
 		operator: a.operator,
 		value_template_ui: a.value_template_ui,
 		value_template: a.value_template,
+		value: a.value_template, // standardized output key alignment
 	}));
 	update_action_field("config", JSON.stringify(clean));
 	store.mark_dirty();
@@ -250,6 +314,7 @@ function addAssignment() {
 		operator: "set",
 		value_template_ui: { version: 2, segments: [] },
 		value_template: "",
+		value: "",
 	});
 	syncToNode();
 }
@@ -275,21 +340,62 @@ function onOperatorChange(index, value) {
 	if (!needsValue(value)) {
 		assignments.value[index].value_template_ui = { version: 2, segments: [] };
 		assignments.value[index].value_template = "";
+		assignments.value[index].value = "";
 	}
 	syncToNode();
+}
+
+function compileStructuredValueToJinja(val) {
+	if (!val) return "";
+	if (val.mode === "static") {
+		return String(val.value ?? "");
+	}
+	if (val.mode === "variable") {
+		let path = val.path;
+		if (path && !path.startsWith("vars.") && !path.startsWith("doc.")) {
+			const isVar = (variable_options.value || []).some(
+				(opt) => opt.value === path && opt.is_variable
+			);
+			path = isVar ? `vars.${path}` : `doc.${path}`;
+		}
+		return `{{ ${path} }}`;
+	}
+	if (val.mode === "formula") {
+		return `{{ ${val.expression} }}`;
+	}
+	if (val.mode === "resolver") {
+		const args = Object.entries(val.config || {})
+			.map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+			.join(", ");
+		return `{{ resolve("${val.resolver}", ${args}) }}`;
+	}
+	if (val.mode === "formatter") {
+		return `{{ format(${JSON.stringify(val.formatter)}, ${JSON.stringify(val.options)}) }}`;
+	}
+	if (val.mode === "link" || val.mode === "dynamic_link") {
+		return String(val.value ?? "");
+	}
+	return "";
 }
 
 function updateTemplate(index, value) {
 	assignments.value[index].value_template_ui = value;
 
-	const knownVarRoots = (variable_options.value || [])
-		.map((v) => String(v?.value || ""))
-		.filter((p) => p.startsWith("vars."))
-		.map((p) => p.slice(5).split(".")[0]);
+	let compiled = "";
+	if (value && typeof value === "object" && "mode" in value) {
+		compiled = compileStructuredValueToJinja(value);
+	} else if (value && typeof value === "object" && Array.isArray(value.segments)) {
+		const knownVarRoots = (variable_options.value || [])
+			.map((v) => String(v?.value || ""))
+			.filter((p) => p.startsWith("vars."))
+			.map((p) => p.slice(5).split(".")[0]);
+		compiled = compileSegmentsToJinja(value.segments, { knownVarRoots });
+	} else {
+		compiled = String(value || "");
+	}
 
-	assignments.value[index].value_template = compileSegmentsToJinja(value?.segments || [], {
-		knownVarRoots,
-	});
+	assignments.value[index].value_template = compiled;
+	assignments.value[index].value = compiled;
 	syncToNode();
 }
 
@@ -303,7 +409,7 @@ function validate() {
 		if (!a.operator) errors.push(__(`Assignment #${n}: Operator is required`));
 		if (needsValue(a.operator)) {
 			const ui = a.value_template_ui;
-			if (!ui || !Array.isArray(ui.segments) || !ui.segments.length) {
+			if (!ui || (!Array.isArray(ui.segments) && !ui.mode)) {
 				errors.push(
 					__(`Assignment #${n}: Value Template is required for operator '${a.operator}'`)
 				);
@@ -327,7 +433,7 @@ defineExpose({ validate });
 }
 
 .section-card {
-	border: 1px solid var(--border-color);
+	border: 1px solid var(--border-color, #e2e8f0);
 	border-radius: 8px;
 	padding: 12px;
 	background: var(--bg-light, #fff);
@@ -337,47 +443,49 @@ defineExpose({ validate });
 	background: var(--gray-50, #f8fafc);
 }
 
-.assignment-row {
-	transition: box-shadow 0.15s ease;
+/* Horizontal Table Grid Styling */
+.assignment-grid-header,
+.assignment-grid-row {
+	display: grid;
+	grid-template-columns: 32% 18% 44% 6%;
+	gap: 8px;
 }
 
-.assignment-row:hover {
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.cursor-grab {
-	cursor: grab;
-	color: var(--text-muted);
-	opacity: 0.6;
-}
-
-.row-label {
-	display: flex;
-	align-items: center;
-	gap: 4px;
+.assignment-grid-header {
+	padding: 0 4px;
 	font-size: 11px;
 	text-transform: uppercase;
-	letter-spacing: 0.04em;
+	letter-spacing: 0.05em;
 }
 
-.fieldtype-badge {
-	display: inline-block;
-	margin-top: 3px;
-	font-size: 10px;
-	gap: 3px;
-	color: var(--text-muted);
+.assignment-grid-row {
+	background: var(--card-bg, #ffffff);
+	border: 1px solid var(--border-color, #e2e8f0);
+	border-radius: 6px;
+	padding: 4px;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.assignment-grid-row:hover {
+	border-color: #cbd5e1;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.operator-hint-text {
+	display: flex;
+	align-items: center;
+	padding: 6px 12px;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	height: 32px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .empty-state {
-	border: 1px dashed var(--border-color);
+	border: 1px dashed var(--border-color, #e2e8f0);
 	border-radius: 8px;
-}
-
-.form-label {
-	font-weight: 500;
-	font-size: 12px;
-	margin-bottom: 4px;
-	display: block;
-	color: var(--text-muted);
 }
 </style>
