@@ -2,10 +2,21 @@
 	<div class="assignment-config">
 		<div class="config-section section-card header-compact mb-3">
 			<div class="d-flex align-items-center justify-content-between">
-				<h5 class="mb-0">{{ __("Batch Assignments") }}</h5>
-				<span class="text-muted small">{{
-					__("Sequential state mutations applied in order")
-				}}</span>
+				<div class="d-flex flex-column">
+					<h5 class="mb-0">{{ __("Batch Assignments") }}</h5>
+					<span class="text-muted fxr-text-xs">
+						{{ __("Sequential state mutations applied in order") }}
+					</span>
+				</div>
+				<button
+					v-if="assignments.length > 1"
+					class="fxr-btn fxr-btn--ghost fxr-btn--sm text-danger"
+					@click="clearAssignments"
+					:disabled="readOnly"
+				>
+					<i class="fa fa-eraser mr-1"></i>
+					{{ __("Clear All") }}
+				</button>
 			</div>
 		</div>
 
@@ -74,12 +85,31 @@
 				</div>
 
 				<!-- Row Actions -->
-				<div class="grid-col-actions text-end">
+				<div class="grid-col-actions d-flex align-items-center justify-content-end fxr-gap-1">
 					<button
-						class="btn btn-sm btn-link text-danger p-1"
+						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
+						@click="moveAssignment(index, -1)"
+						:disabled="readOnly || index === 0"
+						:title="__('Move Up')"
+						aria-label="Move Up"
+					>
+						<i class="fa fa-chevron-up"></i>
+					</button>
+					<button
+						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
+						@click="moveAssignment(index, 1)"
+						:disabled="readOnly || index === assignments.length - 1"
+						:title="__('Move Down')"
+						aria-label="Move Down"
+					>
+						<i class="fa fa-chevron-down"></i>
+					</button>
+					<button
+						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger"
 						@click="removeAssignment(index)"
 						:disabled="readOnly"
 						:title="__('Remove')"
+						aria-label="Remove Assignment"
 					>
 						<i class="fa fa-trash"></i>
 					</button>
@@ -87,9 +117,19 @@
 			</div>
 		</div>
 
-		<div v-if="!assignments.length" class="empty-state text-center text-muted py-4">
-			<i class="fa fa-list-ol fa-2x mb-2 d-block"></i>
-			<p class="small">{{ __("No assignments defined. Add one below.") }}</p>
+		<div
+			v-if="!assignments.length"
+			class="empty-state d-flex flex-column align-items-center justify-content-center py-5"
+		>
+			<div class="empty-state-icon mb-3">
+				<i class="fa fa-list-ol fa-3x text-muted opacity-25"></i>
+			</div>
+			<div class="text-center px-4">
+				<h6 class="mb-1 fw-bold text-muted">{{ __("No Assignments Yet") }}</h6>
+				<p class="small text-muted mb-0">
+					{{ __("Add an assignment to start mutating document fields or variables.") }}
+				</p>
+			</div>
 		</div>
 
 		<button
@@ -324,6 +364,21 @@ function removeAssignment(index) {
 	syncToNode();
 }
 
+function moveAssignment(index, direction) {
+	const newIndex = index + direction;
+	if (newIndex < 0 || newIndex >= assignments.value.length) return;
+	const item = assignments.value.splice(index, 1)[0];
+	assignments.value.splice(newIndex, 0, item);
+	syncToNode();
+}
+
+function clearAssignments() {
+	frappe.confirm(__("Are you sure you want to clear all assignments?"), () => {
+		assignments.value = [];
+		syncToNode();
+	});
+}
+
 function onTargetChange(index, value) {
 	assignments.value[index].target = value;
 	// Reset operator if it's no longer compatible with new target type
@@ -447,7 +502,7 @@ defineExpose({ validate });
 .assignment-grid-header,
 .assignment-grid-row {
 	display: grid;
-	grid-template-columns: 32% 18% 44% 6%;
+	grid-template-columns: 30% 18% 44% 8%;
 	gap: 8px;
 }
 
@@ -485,7 +540,14 @@ defineExpose({ validate });
 }
 
 .empty-state {
-	border: 1px dashed var(--border-color, #e2e8f0);
-	border-radius: 8px;
+	border: 2px dashed var(--fxr-border, #e2e8f0);
+	border-radius: var(--fxr-radius-lg, 12px);
+	background-color: var(--fxr-bg-muted, #f8fafc);
+	transition: all 0.2s ease;
+}
+
+.empty-state:hover {
+	border-color: var(--fxr-border-strong);
+	background-color: var(--fxr-bg-hover);
 }
 </style>
