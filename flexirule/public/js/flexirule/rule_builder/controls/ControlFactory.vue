@@ -203,6 +203,25 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
+		<FlexStructuredValueControl
+			v-else-if="df?.fieldtype === 'Structured Value'"
+			:df="df"
+			:modelValue="modelValue"
+			:read_only="df?.read_only"
+			:variableOptions="df?.variable_options || []"
+			:fieldType="df?.target_fieldtype || 'Data'"
+			:compact="df?.compact || false"
+			:placeholder="df?.placeholder || ''"
+			:allowedModes="df?.allowed_modes || []"
+			:options="df?.options"
+			:referenceDoctype="df?.reference_doctype"
+			:referenceField="df?.reference_field"
+			:doctypeOptions="df?.doctype_options"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
+
 		<TextGeneratorControl
 			v-else-if="df?.fieldtype === 'Text Generator'"
 			:df="df"
@@ -247,10 +266,14 @@
 <script setup>
 import { nextTick, onMounted, watch, computed, defineAsyncComponent } from "vue";
 import ComboBoxControl from "./ComboBoxControl.vue";
+import FlexStructuredValueControl from "./FlexStructuredValueControl.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import ResourceMapperControl from "./ResourceMapperControl.vue";
 import TextGeneratorControl from "./TextGeneratorControl.vue";
 import TimePickerControl from "./TimePickerControl.vue";
+import SelectControl from "./SelectControl.vue";
+import CheckControl from "./CheckControl.vue";
+import DataControl from "./DataControl.vue";
 
 // Use async component for FlexiGrid to handle circular dependency with ControlFactory
 const FlexiGrid = defineAsyncComponent(() => import("./FlexiGrid.vue"));

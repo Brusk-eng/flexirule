@@ -1,58 +1,66 @@
 <template>
-	<div class="control frappe-control">
-		<!-- label -->
-		<div v-if="df?.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
-			{{ __(df.label) }}
-		</div>
+	<div class="fxr-control">
+		<div
+			class="fxr-input-group"
+			:class="{
+				'has-floating-label': df?.label && !hideLabel,
+				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
+			}"
+		>
+			<!-- label -->
+			<label v-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
+				{{ __(df.label) }}
+			</label>
 
-		<!-- Single Date/Datetime Input -->
-		<div v-if="!isRange" class="time-picker-container">
-			<input
-				:type="inputType"
-				class="form-control input-sm"
-				:value="formattedValue"
-				:disabled="read_only || df.read_only"
-				:aria-label="__(df.label)"
-				:min="df.min_value"
-				:max="df.max_value"
-				@input="handleSingleInput"
-			/>
-		</div>
+			<!-- Single Date/Datetime Input -->
+			<div v-if="!isRange" class="time-picker-container">
+				<input
+					:type="inputType"
+					class="form-control input-sm"
+					:value="formattedValue"
+					:disabled="read_only || df.read_only"
+					:aria-label="__(df.label)"
+					:min="df.min_value"
+					:max="df.max_value"
+					@input="handleSingleInput"
+				/>
+			</div>
 
-		<!-- Range Input -->
-		<div v-else class="time-picker-container range-input">
-			<div class="range-fields">
-				<div class="range-field">
-					<label class="range-label">{{ __("From") }}</label>
-					<input
-						:type="inputType"
-						class="form-control input-sm"
-						:value="formattedStartValue"
-						:disabled="read_only || df.read_only"
-						:aria-label="__(df.label) + ' ' + __('From')"
-						:min="df.min_value"
-						:max="df.max_value"
-						@input="handleRangeStartInput"
-					/>
-				</div>
-				<div class="range-field">
-					<label class="range-label">{{ __("To") }}</label>
-					<input
-						:type="inputType"
-						class="form-control input-sm"
-						:value="formattedEndValue"
-						:disabled="read_only || df.read_only"
-						:aria-label="__(df.label) + ' ' + __('To')"
-						:min="df.min_value"
-						:max="df.max_value"
-						@input="handleRangeEndInput"
-					/>
+			<!-- Range Input -->
+			<div v-else class="time-picker-container range-input">
+				<div class="range-fields">
+					<div class="range-field">
+						<label class="range-label">{{ __("From") }}</label>
+						<input
+							:type="inputType"
+							class="form-control input-sm"
+							:value="formattedStartValue"
+							:disabled="read_only || df.read_only"
+							:aria-label="__(df.label) + ' ' + __('From')"
+							:min="df.min_value"
+							:max="df.max_value"
+							@input="handleRangeStartInput"
+						/>
+					</div>
+					<div class="range-field">
+						<label class="range-label">{{ __("To") }}</label>
+						<input
+							:type="inputType"
+							class="form-control input-sm"
+							:value="formattedEndValue"
+							:disabled="read_only || df.read_only"
+							:aria-label="__(df.label) + ' ' + __('To')"
+							:min="df.min_value"
+							:max="df.max_value"
+							@input="handleRangeEndInput"
+						/>
+					</div>
 				</div>
 			</div>
 		</div>
 
 		<!-- description -->
-		<div v-if="df.description && !hideDescription" class="mt-2 description">
+		<div v-if="df.description && !hideDescription" class="fxr-description mt-2">
 			{{ __(df.description) }}
 		</div>
 

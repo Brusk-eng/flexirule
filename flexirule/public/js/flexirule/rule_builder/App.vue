@@ -73,6 +73,12 @@
 					<template #node-raise-error="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
 					</template>
+					<template #node-assignment="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
+					<template #node-switch="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
 
 					<template #edge-add="edgeProps">
 						<AddNodeEdge v-bind="edgeProps" @insert-node="insertNodeOnEdge" />
@@ -134,6 +140,15 @@
 							:title="__('Copy Selected Nodes (Ctrl+C)')"
 						>
 							<i class="fa fa-copy"></i> {{ __("Copy") }}
+						</button>
+
+						<div class="divider-vertical"></div>
+						<button
+							class="btn btn-sm btn-default"
+							@click="uiStore.show_shortcuts_help = true"
+							:title="__('Keyboard Shortcuts (Shift+?)')"
+						>
+							<i class="fa fa-keyboard-o"></i>
 						</button>
 
 						<div class="divider-vertical"></div>
@@ -212,6 +227,7 @@
 			:node="graphStore.nodes.find((n) => n.id === uiStore.selected_id)"
 			@save="ruleStore.mark_dirty()"
 		/>
+		<ShortcutsHelp v-model="uiStore.show_shortcuts_help" />
 	</div>
 </template>
 
@@ -242,6 +258,7 @@ import ActionSelectorNode from "./components/nodes/ActionSelectorNode.vue";
 
 import Sidebar from "./components/Sidebar.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
+import ShortcutsHelp from "./components/ShortcutsHelp.vue";
 import AddNodeEdge from "./components/AddNodeEdge.vue";
 
 const edgeTypes = {
@@ -373,6 +390,24 @@ function handleKeydown(e) {
 	// Paste: Ctrl+V
 	if ((e.ctrlKey || e.metaKey) && e.key === "v") {
 		pasteFromClipboardWrapper();
+	}
+
+	// Shortcuts Help: Shift+?
+	if (e.shiftKey && e.key === "?") {
+		uiStore.show_shortcuts_help = !uiStore.show_shortcuts_help;
+	}
+
+	// Alt+1: Focus Sidebar
+	if (e.altKey && e.key === "1") {
+		if (uiStore.selected_id) {
+			uiStore.show_sidebar = true;
+			e.preventDefault();
+		}
+	}
+
+	// Alt+2: Variable Search (Global Sidebar)
+	if (e.altKey && e.key === "2") {
+		// Not implemented in sidebar yet, but could be added if Sidebar had a search
 	}
 }
 

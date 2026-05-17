@@ -64,12 +64,18 @@ class TestRuleCoordinator(FrappeTestCase):
 				or [
 					{
 						"action_id": "ACT-TEST",
-						"action_type": "Set Value",
-						"operation": "Current Document",
+						"action_type": "Assignment",
 						"action_label": "Set Description",
 						"is_enabled": 1,
-						"target_field": target_field,
-						"value_template": "Set by Coordinator",
+						"config": json.dumps(
+							[
+								{
+									"target": f"doc.{target_field}",
+									"operator": "set",
+									"value": "Set by Coordinator",
+								}
+							]
+						),
 						"next_step_if_true": "ACT-STOP",
 					},
 					{

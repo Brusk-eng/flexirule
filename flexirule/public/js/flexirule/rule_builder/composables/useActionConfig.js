@@ -44,7 +44,7 @@ export function useActionConfig(props) {
 			return store.rule_doc?.document_type || "";
 		}
 
-		const TRIGGER_DOC_TYPES = ["Set Value", "Entry Action", "Notify", "Document Action"];
+		const TRIGGER_DOC_TYPES = ["Assignment", "Entry Action", "Notify", "Document Action"];
 		if (!actionType || TRIGGER_DOC_TYPES.includes(actionType)) {
 			return store.rule_doc?.document_type || "";
 		}
@@ -65,7 +65,9 @@ export function useActionConfig(props) {
 		}
 		try {
 			loading.value = true;
-			doctype_fields.value = await flexirule.utils.get_doctype_fields(doctype);
+			const metaStore = store;
+			await metaStore.fetch_metadata(doctype);
+			doctype_fields.value = metaStore.get_fields_for_doctype(doctype, "doc");
 		} catch (e) {
 			console.error("FlexiRule: Failed to load doctype fields", e);
 			doctype_fields.value = [];

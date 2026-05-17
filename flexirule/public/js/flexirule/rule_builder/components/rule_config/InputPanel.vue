@@ -1,5 +1,5 @@
 <template>
-	<div class="input-panel fr-accent-scope" :class="mode" :style="panelStyleVars">
+	<div class="input-panel fxr-accent-scope" :class="mode" :style="panelStyleVars">
 		<div class="panel-header" v-if="mode === 'config' && !store.use_modern_layout">
 			<h4>{{ __("Setup & Input") }}</h4>
 			<p class="text-muted small">{{ __("Define reference and operation") }}</p>
@@ -108,6 +108,7 @@
 								<span class="input-group-text"><i class="fa fa-search"></i></span>
 							</div>
 							<input
+								ref="variableSearchRef"
 								type="text"
 								class="form-control"
 								v-model="searchQuery"
@@ -127,8 +128,13 @@
 								class="variable-item"
 								:title="v.label"
 								draggable="true"
+								tabindex="0"
 								@dragstart="onDragStart($event, v)"
 								@click="insertOrCopy(v.value)"
+								@keydown.enter.prevent="insertOrCopy(v.value)"
+								@keydown.c.prevent="copyToClipboard(`{{ ${v.value} }}`)"
+								@keydown.down.prevent="focusSibling($event, 1)"
+								@keydown.up.prevent="focusSibling($event, -1)"
 							>
 								<div class="variable-info">
 									<span class="variable-label">{{ v.label }}</span>
@@ -136,6 +142,7 @@
 								</div>
 								<button
 									class="btn btn-xs btn-link text-muted opacity-20 hover-opacity-100"
+									tabindex="-1"
 									@click.stop="copyToClipboard(`{{ ${v.value} }}`)"
 									:title="__('Copy to clipboard')"
 								>
@@ -216,8 +223,14 @@
 											class="tree-item"
 											:title="f.label"
 											draggable="true"
+											tabindex="0"
 											@dragstart="onDragStart($event, f, true, groupName)"
 											@click="insertOrCopy(buildFieldPath(f, groupName))"
+											@keydown.enter.prevent="
+												insertOrCopy(buildFieldPath(f, groupName))
+											"
+											@keydown.down.prevent="focusSibling($event, 1)"
+											@keydown.up.prevent="focusSibling($event, -1)"
 										>
 											<span class="tree-item-label">{{ f.fieldname }}</span>
 											<span class="tree-item-type">({{ f.fieldtype }})</span>
@@ -241,10 +254,54 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { useStore } from "../../stores";
 import { insertIntoActiveTGC } from "../../utils/tgc_focus";
 import { copyText } from "../../../utils/clipboard";
+
+const variableSearchRef = ref(null);
+
+function focusSibling(e, direction) {
+	const el = e.target;
+	const sibling = direction > 0 ? el.nextElementSibling : el.previousElementSibling;
+	if (
+		sibling &&
+		(sibling.classList.contains("variable-item") || sibling.classList.contains("tree-item"))
+	) {
+		sibling.focus();
+	}
+}
+
+function focusSearch() {
+	if (variablesCollapsed.value) {
+		variablesCollapsed.value = false;
+	}
+	nextTick(() => {
+		variableSearchRef.value?.focus();
+	});
+}
+
+defineExpose({
+	focusSearch,
+	validate: () => {
+		const errors = [];
+		if (props.node?.data?.action_type === "Document Action") {
+			if (
+				props.node.data.operation === "Add Comment" &&
+				props.node.data.reference_doctype !== "Comment"
+			) {
+				errors.push(__("Add Comment mode requires Reference DocType = Comment"));
+			}
+			if (
+				props.node.data.operation === "Create ToDo" &&
+				props.node.data.reference_doctype !== "ToDo"
+			) {
+				errors.push(__("Create ToDo mode requires Reference DocType = ToDo"));
+			}
+		}
+		return { valid: errors.length === 0, errors };
+	},
+});
 import {
 	applyOutputPolicyDefaults,
 	getContract,
@@ -279,10 +336,10 @@ const contract = computed(() => {
 });
 
 const panelStyleVars = computed(() => {
-	const accent = contract.value?.css?.color || "var(--fr-accent)";
+	const accent = contract.value?.css?.color || "var(--fxr-accent)";
 	return {
-		"--fr-node-accent": accent,
-		"--fr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
+		"--fxr-node-accent": accent,
+		"--fxr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
 	};
 });
 
@@ -293,9 +350,7 @@ const currentActionType = computed(() =>
 const showReferenceDoctype = computed(() => {
 	if (!contract.value) return false;
 	const actionType = props.node.data?.action_type;
-	const fallback =
-		(contract.value.required_fields || []).includes("reference_doctype") ||
-		["Process", "Set Value"].includes(actionType);
+	const fallback = (contract.value.required_fields || []).includes("reference_doctype");
 	const state = getDerivedFieldState(
 		actionType,
 		"reference_doctype",
@@ -823,27 +878,6 @@ function buildFieldPath(field, groupName) {
 	if (!groupName || groupName === doctypeContext.value) return `doc.${field.fieldname}`;
 	return field.fieldname;
 }
-
-defineExpose({
-	validate: () => {
-		const errors = [];
-		if (props.node?.data?.action_type === "Document Action") {
-			if (
-				props.node.data.operation === "Add Comment" &&
-				props.node.data.reference_doctype !== "Comment"
-			) {
-				errors.push(__("Add Comment mode requires Reference DocType = Comment"));
-			}
-			if (
-				props.node.data.operation === "Create ToDo" &&
-				props.node.data.reference_doctype !== "ToDo"
-			) {
-				errors.push(__("Create ToDo mode requires Reference DocType = ToDo"));
-			}
-		}
-		return { valid: errors.length === 0, errors };
-	},
-});
 </script>
 
 <style scoped>
@@ -851,7 +885,7 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fr-bg-page);
+	background: var(--fxr-bg-page);
 }
 
 .panel-header {
@@ -887,14 +921,14 @@ defineExpose({
 	color: #1e293b;
 }
 .tab-btn.active {
-	color: var(--fr-node-accent, var(--fr-accent));
-	border-bottom-color: var(--fr-node-accent, var(--fr-accent));
+	color: var(--fxr-node-accent, var(--fxr-accent));
+	border-bottom-color: var(--fxr-node-accent, var(--fxr-accent));
 }
 
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--fr-space-8);
+	padding: var(--fxr-space-8);
 	display: flex;
 	flex-direction: column;
 	gap: 24px;
@@ -956,7 +990,7 @@ defineExpose({
 }
 
 .variable-item:hover {
-	border-color: var(--fr-node-accent, var(--fr-accent));
+	border-color: var(--fxr-node-accent, var(--fxr-accent));
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	transform: translateX(2px);
 }
@@ -1085,7 +1119,7 @@ defineExpose({
 .insight-label {
 	font-size: 10px;
 	font-weight: 700;
-	color: var(--fr-node-accent, var(--fr-accent));
+	color: var(--fxr-node-accent, var(--fxr-accent));
 	text-transform: uppercase;
 	display: block;
 	margin-bottom: 4px;
@@ -1097,7 +1131,7 @@ defineExpose({
 	background: #f0f9ff;
 	padding: 8px;
 	border-radius: 8px;
-	border-left: 3px solid var(--fr-node-accent, var(--fr-accent));
+	border-left: 3px solid var(--fxr-node-accent, var(--fxr-accent));
 	margin: 0;
 }
 
@@ -1131,14 +1165,14 @@ defineExpose({
 :deep(.form-control:focus),
 :deep(.awesomplete input:focus),
 :deep(.multiselect__input:focus) {
-	border-color: var(--fr-node-accent, var(--fr-border-focus)) !important;
-	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light)) !important;
+	border-color: var(--fxr-node-accent, var(--fxr-border-focus)) !important;
+	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light)) !important;
 }
 
 @media (max-width: 768px) {
 	.panel-sections {
-		padding: var(--fr-space-4);
-		gap: var(--fr-space-5);
+		padding: var(--fxr-space-4);
+		gap: var(--fxr-space-5);
 	}
 
 	.section-header {
@@ -1150,7 +1184,7 @@ defineExpose({
 	}
 
 	.variable-item {
-		padding: var(--fr-space-3) var(--fr-space-4);
+		padding: var(--fxr-space-3) var(--fxr-space-4);
 	}
 }
 </style>

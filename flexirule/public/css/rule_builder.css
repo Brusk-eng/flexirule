@@ -52,3 +52,9 @@
 .simple-condition {
     margin-bottom: 8px;
 }
+
+/* 6. Accessibility & Keyboard Navigation */
+:focus-visible {
+    outline: 2px solid var(--fxr-accent, var(--primary-color, #3b82f6)) !important;
+    outline-offset: 2px !important;
+}

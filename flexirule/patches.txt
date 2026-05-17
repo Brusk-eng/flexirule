@@ -14,3 +14,4 @@ flexirule.patches.add_execution_id_to_rule_execution_log
 flexirule.patches.migrate_subrule_mapping_to_reusable_fields
 flexirule.patches.normalize_rule_action_payload_keys
 flexirule.patches.sync_action_type_enums_and_typings
+flexirule.patches.migrate_set_value_to_assignment

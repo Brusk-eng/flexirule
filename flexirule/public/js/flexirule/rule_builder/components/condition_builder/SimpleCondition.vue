@@ -288,7 +288,7 @@ const valueType = computed({
 
 			<!-- Operator -->
 			<div class="condition-col operator-col">
-				<select v-model="node.op" class="fr-select operator-select" :disabled="readOnly">
+				<select v-model="node.op" class="fxr-select operator-select" :disabled="readOnly">
 					<option v-for="op in operators" :key="op.value" :value="op.value">
 						{{ op.label }}
 					</option>
@@ -310,7 +310,7 @@ const valueType = computed({
 			>
 				<select
 					v-model="valueType"
-					class="fr-select value-type-select"
+					class="fxr-select value-type-select"
 					:disabled="readOnly"
 				>
 					<option value="static">{{ __("Static") }}</option>
@@ -356,7 +356,7 @@ const valueType = computed({
 			<!-- Remove -->
 			<div class="condition-col action-col" v-if="!readOnly">
 				<button
-					class="fr-btn fr-btn--icon fr-btn--danger"
+					class="fxr-btn fxr-btn--icon fxr-btn--danger"
 					@click="emit('remove')"
 					:title="__('Remove')"
 				>
@@ -369,21 +369,21 @@ const valueType = computed({
 
 <style scoped>
 .simple-condition {
-	background: var(--fr-bg-card);
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-md);
-	padding: var(--fr-space-2);
-	transition: border-color var(--fr-transition-fast), background-color var(--fr-transition-fast);
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	padding: var(--fxr-space-2);
+	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
 }
 
 .simple-condition:hover {
-	border-color: var(--fr-border-strong);
+	border-color: var(--fxr-border-strong);
 }
 
 .condition-main-row {
 	display: grid;
 	grid-template-columns: 1.5fr 0.8fr 2.5fr auto;
-	gap: var(--fr-space-4);
+	gap: var(--fxr-space-4);
 	align-items: center;
 	overflow: visible !important;
 }
@@ -393,39 +393,39 @@ const valueType = computed({
 }
 
 .operator-select {
-	font-weight: var(--fr-weight-semibold);
-	color: var(--fr-text);
-	background-color: var(--fr-bg-muted);
+	font-weight: var(--fxr-weight-semibold);
+	color: var(--fxr-text);
+	background-color: var(--fxr-bg-muted);
 }
 
 .value-group-col {
 	display: flex;
 	align-items: center;
-	gap: var(--fr-space-1);
-	background: var(--fr-bg-card);
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-md);
-	padding: var(--fr-space-1);
+	gap: var(--fxr-space-1);
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	padding: var(--fxr-space-1);
 }
 
 .value-type-select {
 	width: auto;
 	min-width: 70px;
 	border: none;
-	background-color: var(--fr-bg-hover);
-	color: var(--fr-text-muted);
-	font-weight: var(--fr-weight-bold);
-	font-size: var(--fr-text-xs);
+	background-color: var(--fxr-bg-hover);
+	color: var(--fxr-text-muted);
+	font-weight: var(--fxr-weight-bold);
+	font-size: var(--fxr-text-xs);
 	text-transform: uppercase;
-	height: var(--fr-input-height-sm);
-	border-inline-end: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-sm) 0 0 var(--fr-radius-sm);
+	height: var(--fxr-input-height-sm);
+	border-inline-end: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-sm) 0 0 var(--fxr-radius-sm);
 	cursor: pointer;
 	padding-inline-end: 20px;
 }
 
 [dir="rtl"] .value-type-select {
-	border-radius: 0 var(--fr-radius-sm) var(--fr-radius-sm) 0;
+	border-radius: 0 var(--fxr-radius-sm) var(--fxr-radius-sm) 0;
 }
 
 .value-input-wrapper {
@@ -437,17 +437,17 @@ const valueType = computed({
 }
 
 .dynamic-dt-picker {
-	margin-bottom: var(--fr-space-1);
+	margin-bottom: var(--fxr-space-1);
 }
 
 .condition-main-row :deep(.form-control) {
-	height: var(--fr-input-height);
-	font-size: var(--fr-input-font-size);
-	padding: var(--fr-input-padding-y) var(--fr-input-padding-x);
+	height: var(--fxr-input-height);
+	font-size: var(--fxr-input-font-size);
+	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x);
 	border: 1px solid transparent;
 }
 
-.condition-main-row :deep(.fr-control),
+.condition-main-row :deep(.fxr-control),
 .condition-main-row :deep(.combobox-container),
 .condition-main-row :deep(.multi-select-list) {
 	width: 100%;
@@ -455,8 +455,8 @@ const valueType = computed({
 }
 
 .condition-main-row :deep(.form-control:focus) {
-	border-color: var(--fr-node-accent, var(--fr-accent));
-	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light));
+	border-color: var(--fxr-node-accent, var(--fxr-accent));
+	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light));
 }
 
 .empty-value-col {
@@ -468,7 +468,7 @@ const valueType = computed({
 	.condition-main-row {
 		display: flex;
 		flex-direction: column;
-		gap: var(--fr-space-2);
+		gap: var(--fxr-space-2);
 		align-items: stretch;
 	}
 	.condition-col {

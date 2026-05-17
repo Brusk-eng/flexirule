@@ -194,10 +194,12 @@ All APIs are accessible via `frappe.call()` and follow standard Frappe whitelist
 The FlexiRule codebase has undergone significant architectural improvements:
 
 ### Core Engine Enhancements
-- **Node Execution State Management**: Real-time tracking of execution state across components for visualization and debugging
-- **Compiled Runtime Registry**: Layered caching system (request-local → Redis → DB) for compiled rules and dependencies
-- **Graph Validation Improvements**: Enhanced cycle detection with visit counting and iteration limits
-- **Async Execution Refinements**: Better background job handling and timeout protection
+- **Assignment Action (V2)**: Replaced legacy "Set Value" with a powerful batch assignment system supporting multiple operators (Set, Clear, Increment, Decrement, Append, Merge, Toggle).
+- **Condition System (V2)**: Introduced recursive collection logic (Any, All, None) and iterator aliases for complex child-table evaluations.
+- **Node Execution State Management**: Real-time tracking of execution state across components for visualization and debugging.
+- **Compiled Runtime Registry**: Layered caching system (request-local → Redis → DB) for compiled rules and dependencies.
+- **Graph Validation Improvements**: Enhanced cycle detection with visit counting and iteration limits.
+- **Async Execution Refinements**: Better background job handling and timeout protection.
 
 ### Security & Reliability
 - **Permission Audit Logging**: `skip_permissions` with audit reason for tracking bypassed permission checks

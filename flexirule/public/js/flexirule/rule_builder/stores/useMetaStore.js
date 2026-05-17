@@ -34,12 +34,22 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 
 	// ── Standard fields available on all documents ──
 	const STANDARD_FIELDS = [
-		{ label: "Name (name)", fieldname: "name", fieldtype: "Data" },
-		{ label: "Owner (owner)", fieldname: "owner", fieldtype: "Data" },
-		{ label: "Creation (creation)", fieldname: "creation", fieldtype: "Datetime" },
-		{ label: "Modified (modified)", fieldname: "modified", fieldtype: "Datetime" },
-		{ label: "Modified By (modified_by)", fieldname: "modified_by", fieldtype: "Data" },
-		{ label: "DocStatus (docstatus)", fieldname: "docstatus", fieldtype: "Int" },
+		{ label: "Name", fieldname: "name", fieldtype: "Data" },
+		{ label: "Owner", fieldname: "owner", fieldtype: "Link", options: "User" },
+		{ label: "Creation", fieldname: "creation", fieldtype: "Datetime" },
+		{ label: "Modified", fieldname: "modified", fieldtype: "Datetime" },
+		{ label: "Modified By", fieldname: "modified_by", fieldtype: "Link", options: "User" },
+		{
+			label: "DocStatus",
+			fieldname: "docstatus",
+			fieldtype: "Select",
+			options: [
+				{ label: "0 (Draft)", value: "0" },
+				{ label: "1 (Submitted)", value: "1" },
+				{ label: "2 (Cancelled)", value: "2" },
+			],
+		},
+		{ label: "Index", fieldname: "idx", fieldtype: "Int" },
 	];
 
 	/**
@@ -63,15 +73,12 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 
 			const fields = [];
 
-			// Main table fields (doc.*)
+			// Main table fields
 			meta.fields.forEach((f) => {
 				if (!EXCLUDED_FIELDTYPES.has(f.fieldtype)) {
 					fields.push({
-						label: `doc.${f.fieldname} (${f.label})`,
-						value: `doc.${f.fieldname}`,
-						fieldname: f.fieldname,
-						fieldtype: f.fieldtype,
-						options: f.options,
+						...f,
+						original_label: f.label || f.fieldname,
 						is_main: true,
 					});
 				}
@@ -80,10 +87,8 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 			// Standard fields
 			STANDARD_FIELDS.forEach((f) => {
 				fields.push({
-					label: `doc.${f.fieldname} (${f.label})`,
-					value: `doc.${f.fieldname}`,
-					fieldname: f.fieldname,
-					fieldtype: f.fieldtype,
+					...f,
+					original_label: f.label,
 					is_std: true,
 				});
 			});
@@ -109,6 +114,7 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 
 	/**
 	 * Get fields for a DocType with an optional alias prefix.
+	 * Returns standardized objects ready for FieldPicker and ComboBoxControl.
 	 *
 	 * @param {string} doctype
 	 * @param {string} alias - Variable prefix (default "doc")
@@ -117,13 +123,16 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 	function get_fields_for_doctype(doctype, alias = "doc") {
 		if (!doctype || !doc_meta[doctype]) return [];
 
-		return doc_meta[doctype].map((f) => ({
-			...f,
-			label: `${alias}.${f.fieldname} (${
-				f.label.split("(")[1] ? f.label.split("(")[1].replace(")", "") : f.label
-			})`,
-			value: `${alias}.${f.fieldname}`,
-		}));
+		return doc_meta[doctype].map((f) => {
+			const isSpecial = f.fieldname === "docstatus" || f.fieldname === "name" || f.is_std;
+			const prefix = alias ? `${alias}.` : "";
+			return {
+				...f,
+				label: `${f.original_label || f.fieldname} (${prefix}${f.fieldname})`,
+				value: `${prefix}${f.fieldname}`,
+				icon: isSpecial ? "fa fa-asterisk" : "fa fa-columns",
+			};
+		});
 	}
 
 	/**

@@ -461,9 +461,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		} else if (type === "wait") {
 			baseData.action_type = "Wait";
 			baseData.config = { wait_type: "Duration", value: 1, unit: "Minutes" };
-		} else if (type === "set value") {
-			baseData.action_type = "Set Value";
-			baseData.config = { static_values: {} };
+		} else if (type === "assignment") {
+			baseData.action_type = "Assignment";
+			baseData.config = [];
 		} else if (type === "stop") {
 			baseData.action_type = "Stop";
 			baseData.operation = "Success";
@@ -1273,23 +1273,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		}
 		if (actionType === "Stop" && normalized.operation !== "Error") {
 			normalized.value_template = null;
-		}
-
-		// Ensure Set Value always maintains its template
-		if (actionType === "Set Value" && !normalized.value_template && normalized.config) {
-			try {
-				let cfg = normalized.config;
-				if (typeof cfg === "string") cfg = JSON.parse(cfg);
-				const text_ui = cfg.text_generator_ui;
-				if (text_ui?.segments) {
-					// Fallback re-compile if somehow lost
-					normalized.value_template = (text_ui.segments || [])
-						.map((s) => s.content || s.text || "")
-						.join("");
-				}
-			} catch (e) {
-				// ignore parse error
-			}
 		}
 
 		return normalized;

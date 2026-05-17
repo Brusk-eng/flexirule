@@ -1,4 +1,4 @@
-import { normalizeActionType } from "../../core/contracts";
+import { normalizeActionType, getContract } from "../../core/contracts";
 
 /**
  * Shared mapper from Action Type (Rule Action value) to VueFlow node type.
@@ -6,13 +6,15 @@ import { normalizeActionType } from "../../core/contracts";
  */
 export function mapActionTypeToNodeType(actionType) {
 	if (!actionType) return "process";
-	const normalized = String(normalizeActionType(actionType) || "")
-		.toLowerCase()
-		.replace(/[_-]+/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-	const compact = normalized.replace(/\s+/g, "");
+	const normalized = normalizeActionType(actionType);
+	const contract = getContract(normalized);
 
+	if (contract && contract.node_type) {
+		return contract.node_type;
+	}
+
+	// Fallback for legacy types not in contract
+	const compact = normalized.toLowerCase().replace(/[^a-z0-9]/g, "");
 	if (compact === "selector") return "selector";
 	if (compact === "entryaction" || compact === "start") return "start";
 	if (compact === "condition") return "condition";
@@ -24,7 +26,7 @@ export function mapActionTypeToNodeType(actionType) {
 	if (compact === "subrule") return "sub-rule";
 	if (compact === "queryrecords") return "query";
 	if (compact === "documentaction") return "documentaction";
-	if (compact === "setvalue") return "set-value";
+	if (compact === "assignment" || compact === "setvalue") return "assignment";
 
 	return "process";
 }

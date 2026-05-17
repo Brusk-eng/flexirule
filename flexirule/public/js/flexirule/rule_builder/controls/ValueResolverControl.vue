@@ -1,28 +1,28 @@
 <template>
-	<div class="value-resolver-control fr-control" ref="controlRef">
+	<div class="value-resolver-control fxr-control" ref="controlRef">
 		<!-- Token UI -->
-		<div class="fr-token" :class="{ 'is-active': showPopover }" @click="togglePopover">
-			<div class="fr-token__content">
+		<div class="fxr-token" :class="{ 'is-active': showPopover }" @click="togglePopover">
+			<div class="fxr-token__content">
 				<i :class="categoryIcon" class="text-muted mr-1"></i>
-				<span class="fr-token__text">{{ previewText }}</span>
+				<span class="fxr-token__text">{{ previewText }}</span>
 			</div>
-			<i class="fa fa-chevron-down fr-token__caret"></i>
+			<i class="fa fa-chevron-down fxr-token__caret"></i>
 		</div>
 
 		<!-- Popover -->
 		<Teleport to="body">
-			<div v-if="showPopover" class="fr-popover" :style="popoverStyle">
-				<div class="fr-popover__header">
-					<span class="fr-label-sm mb-0">{{ __(popoverTitle) }}</span>
-					<button class="fr-btn fr-btn--icon fr-btn--sm" @click="closePopover">
+			<div v-if="showPopover" class="fxr-popover" :style="popoverStyle">
+				<div class="fxr-popover__header">
+					<span class="fxr-label-sm mb-0">{{ __(popoverTitle) }}</span>
+					<button class="fxr-btn fxr-btn--icon fxr-btn--sm" @click="closePopover">
 						<i class="fa fa-times"></i>
 					</button>
 				</div>
-				<div class="fr-popover__body">
+				<div class="fxr-popover__body">
 					<!-- Category Selector -->
-					<div class="d-flex flex-column fr-gap-1">
-						<label class="fr-label-sm">{{ __("Formula Type") }}</label>
-						<select class="fr-select" v-model="localState.kind" :disabled="readOnly">
+					<div class="d-flex flex-column fxr-gap-1">
+						<label class="fxr-label-sm">{{ __("Formula Type") }}</label>
+						<select class="fxr-select" v-model="localState.kind" :disabled="readOnly">
 							<option
 								v-for="cat in availableCategories"
 								:key="cat.value"
@@ -37,11 +37,11 @@
 
 					<!-- ═══════════ Date Formula ═══════════ -->
 					<template v-if="localState.kind === 'date_formula'">
-						<div class="d-flex flex-column fr-gap-1">
-							<label class="fr-label-sm">{{ __("Base Date") }}</label>
-							<div class="d-flex fr-gap-2">
+						<div class="d-flex flex-column fxr-gap-1">
+							<label class="fxr-label-sm">{{ __("Base Date") }}</label>
+							<div class="d-flex fxr-gap-2">
 								<select
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.base_type"
 									:disabled="readOnly"
 								>
@@ -50,7 +50,7 @@
 								</select>
 								<select
 									v-if="localState.base_type === 'doc_field'"
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.base_field"
 									:disabled="readOnly"
 								>
@@ -64,11 +64,11 @@
 								</select>
 							</div>
 						</div>
-						<div class="d-flex flex-column fr-gap-1 mt-2">
-							<label class="fr-label-sm">{{ __("Offset") }}</label>
-							<div class="d-flex align-items-center fr-gap-2">
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Offset") }}</label>
+							<div class="d-flex align-items-center fxr-gap-2">
 								<select
-									class="fr-select"
+									class="fxr-select"
 									v-model="localState.offset_sign"
 									style="width: 70px"
 									:disabled="readOnly"
@@ -78,14 +78,14 @@
 								</select>
 								<input
 									type="number"
-									class="fr-input"
+									class="fxr-input"
 									style="width: 80px"
 									v-model.number="localState.offset_value"
 									min="0"
 									:disabled="readOnly"
 								/>
 								<select
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.offset_unit"
 									:disabled="readOnly"
 								>
@@ -101,10 +101,10 @@
 
 					<!-- ═══════════ Math Formula ═══════════ -->
 					<template v-else-if="localState.kind === 'math_formula'">
-						<div class="d-flex flex-column fr-gap-1">
-							<label class="fr-label-sm">{{ __("Field A") }}</label>
+						<div class="d-flex flex-column fxr-gap-1">
+							<label class="fxr-label-sm">{{ __("Field A") }}</label>
 							<select
-								class="fr-select"
+								class="fxr-select"
 								v-model="localState.field_a"
 								:disabled="readOnly"
 							>
@@ -118,10 +118,10 @@
 								</option>
 							</select>
 						</div>
-						<div class="d-flex flex-column fr-gap-1 mt-2">
-							<label class="fr-label-sm">{{ __("Operator") }}</label>
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Operator") }}</label>
 							<select
-								class="fr-select"
+								class="fxr-select"
 								v-model="localState.math_op"
 								:disabled="readOnly"
 							>
@@ -131,11 +131,11 @@
 								<option value="/">{{ __("Divide (÷)") }}</option>
 							</select>
 						</div>
-						<div class="d-flex flex-column fr-gap-1 mt-2">
-							<label class="fr-label-sm">{{ __("Field B / Value") }}</label>
-							<div class="d-flex fr-gap-2">
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Field B / Value") }}</label>
+							<div class="d-flex fxr-gap-2">
 								<select
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.field_b_type"
 									:disabled="readOnly"
 								>
@@ -144,7 +144,7 @@
 								</select>
 								<select
 									v-if="localState.field_b_type === 'field'"
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.field_b"
 									:disabled="readOnly"
 								>
@@ -161,26 +161,26 @@
 									v-else
 									type="number"
 									step="any"
-									class="fr-input flex-1"
+									class="fxr-input flex-1"
 									v-model.number="localState.constant_b"
 									:disabled="readOnly"
 									:placeholder="__('Enter value')"
 								/>
 							</div>
 						</div>
-						<div class="d-flex flex-column fr-gap-1 mt-2">
-							<label class="fr-label-sm">{{ __("Round To") }}</label>
-							<div class="d-flex align-items-center fr-gap-2">
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Round To") }}</label>
+							<div class="d-flex align-items-center fxr-gap-2">
 								<input
 									type="number"
-									class="fr-input"
+									class="fxr-input"
 									style="width: 80px"
 									v-model.number="localState.precision"
 									min="0"
 									max="9"
 									:disabled="readOnly"
 								/>
-								<span class="text-muted fr-text-xs">{{
+								<span class="text-muted fxr-text-xs">{{
 									__("decimal places")
 								}}</span>
 							</div>
@@ -189,11 +189,11 @@
 
 					<!-- ═══════════ Date Difference ═══════════ -->
 					<template v-else-if="localState.kind === 'date_diff'">
-						<div class="d-flex flex-column fr-gap-1">
-							<label class="fr-label-sm">{{ __("Start Date") }}</label>
-							<div class="d-flex fr-gap-2">
+						<div class="d-flex flex-column fxr-gap-1">
+							<label class="fxr-label-sm">{{ __("Start Date") }}</label>
+							<div class="d-flex fxr-gap-2">
 								<select
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.diff_start_type"
 									:disabled="readOnly"
 								>
@@ -202,7 +202,7 @@
 								</select>
 								<select
 									v-if="localState.diff_start_type === 'doc_field'"
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.diff_start_field"
 									:disabled="readOnly"
 								>
@@ -216,11 +216,11 @@
 								</select>
 							</div>
 						</div>
-						<div class="d-flex flex-column fr-gap-1 mt-2">
-							<label class="fr-label-sm">{{ __("End Date") }}</label>
-							<div class="d-flex fr-gap-2">
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("End Date") }}</label>
+							<div class="d-flex fxr-gap-2">
 								<select
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.diff_end_type"
 									:disabled="readOnly"
 								>
@@ -229,7 +229,7 @@
 								</select>
 								<select
 									v-if="localState.diff_end_type === 'doc_field'"
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.diff_end_field"
 									:disabled="readOnly"
 								>
@@ -243,10 +243,10 @@
 								</select>
 							</div>
 						</div>
-						<div class="d-flex flex-column fr-gap-1 mt-2">
-							<label class="fr-label-sm">{{ __("Result Unit") }}</label>
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Result Unit") }}</label>
 							<select
-								class="fr-select"
+								class="fxr-select"
 								v-model="localState.diff_unit"
 								:disabled="readOnly"
 							>
@@ -259,10 +259,10 @@
 
 					<!-- ═══════════ Aggregation Formula ═══════════ -->
 					<template v-else-if="localState.kind === 'child_aggregation'">
-						<div class="d-flex flex-column fr-gap-1">
-							<label class="fr-label-sm">{{ __("Child Table") }}</label>
+						<div class="d-flex flex-column fxr-gap-1">
+							<label class="fxr-label-sm">{{ __("Child Table") }}</label>
 							<select
-								class="fr-select"
+								class="fxr-select"
 								v-model="localState.agg_table"
 								:disabled="readOnly"
 							>
@@ -277,12 +277,12 @@
 							</select>
 						</div>
 						<div
-							class="d-flex flex-column fr-gap-1 mt-2"
+							class="d-flex flex-column fxr-gap-1 mt-2"
 							v-if="localState.agg_op !== 'count'"
 						>
-							<label class="fr-label-sm">{{ __("Numeric Field") }}</label>
+							<label class="fxr-label-sm">{{ __("Numeric Field") }}</label>
 							<select
-								class="fr-select"
+								class="fxr-select"
 								v-model="localState.agg_field"
 								:disabled="readOnly"
 							>
@@ -296,10 +296,10 @@
 								</option>
 							</select>
 						</div>
-						<div class="d-flex flex-column fr-gap-1 mt-2">
-							<label class="fr-label-sm">{{ __("Operation") }}</label>
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Operation") }}</label>
 							<select
-								class="fr-select"
+								class="fxr-select"
 								v-model="localState.agg_op"
 								:disabled="readOnly"
 							>
@@ -312,10 +312,10 @@
 
 					<!-- ═══════════ String Formula ═══════════ -->
 					<template v-else-if="localState.kind === 'string_formula'">
-						<div class="d-flex flex-column fr-gap-1">
-							<label class="fr-label-sm">{{ __("Operation") }}</label>
+						<div class="d-flex flex-column fxr-gap-1">
+							<label class="fxr-label-sm">{{ __("Operation") }}</label>
 							<select
-								class="fr-select"
+								class="fxr-select"
 								v-model="localState.str_op"
 								:disabled="readOnly"
 							>
@@ -325,15 +325,15 @@
 								<option value="lowercase">{{ __("Lowercase") }}</option>
 							</select>
 						</div>
-						<div class="d-flex flex-column fr-gap-1 mt-2">
-							<label class="fr-label-sm">{{
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{
 								localState.str_op === "fmt_money"
 									? __("Numeric Field")
 									: __("Value A")
 							}}</label>
 							<div class="d-flex gap-2">
 								<select
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.str_a_type"
 									:disabled="readOnly"
 								>
@@ -342,7 +342,7 @@
 								</select>
 								<select
 									v-if="localState.str_a_type === 'field'"
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.str_a"
 									:disabled="readOnly"
 								>
@@ -360,7 +360,7 @@
 								<input
 									v-else
 									type="text"
-									class="fr-input flex-1"
+									class="fxr-input flex-1"
 									v-model="localState.str_a"
 									:disabled="readOnly"
 									:placeholder="__('Enter text')"
@@ -368,15 +368,15 @@
 							</div>
 						</div>
 						<div
-							class="d-flex flex-column fr-gap-1 mt-2"
+							class="d-flex flex-column fxr-gap-1 mt-2"
 							v-if="['concat', 'fmt_money'].includes(localState.str_op)"
 						>
-							<label class="fr-label-sm">{{
+							<label class="fxr-label-sm">{{
 								localState.str_op === "fmt_money" ? __("Currency") : __("Value B")
 							}}</label>
 							<div class="d-flex gap-2">
 								<select
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.str_b_type"
 									:disabled="readOnly"
 								>
@@ -391,7 +391,7 @@
 								</select>
 								<select
 									v-if="localState.str_b_type === 'field'"
-									class="fr-select flex-1"
+									class="fxr-select flex-1"
 									v-model="localState.str_b"
 									:disabled="readOnly"
 								>
@@ -407,7 +407,7 @@
 								<input
 									v-else
 									type="text"
-									class="fr-input flex-1"
+									class="fxr-input flex-1"
 									v-model="localState.str_b"
 									:disabled="readOnly"
 									:placeholder="
@@ -422,10 +422,10 @@
 
 					<!-- ═══════════ System Context ═══════════ -->
 					<template v-else-if="localState.kind === 'system_context'">
-						<div class="d-flex flex-column fr-gap-1">
-							<label class="fr-label-sm">{{ __("System Token") }}</label>
+						<div class="d-flex flex-column fxr-gap-1">
+							<label class="fxr-label-sm">{{ __("System Token") }}</label>
 							<select
-								class="fr-select"
+								class="fxr-select"
 								v-model="localState.sys_token"
 								:disabled="readOnly"
 							>
@@ -434,13 +434,13 @@
 							</select>
 						</div>
 						<div
-							class="d-flex flex-column fr-gap-1 mt-2"
+							class="d-flex flex-column fxr-gap-1 mt-2"
 							v-if="localState.sys_token === 'role_check'"
 						>
-							<label class="fr-label-sm">{{ __("Role Name") }}</label>
+							<label class="fxr-label-sm">{{ __("Role Name") }}</label>
 							<input
 								type="text"
-								class="fr-input"
+								class="fxr-input"
 								v-model="localState.sys_role"
 								:disabled="readOnly"
 								:placeholder="__('e.g. System Manager')"
@@ -448,8 +448,8 @@
 						</div>
 					</template>
 				</div>
-				<div class="fr-popover__footer">
-					<div class="fr-preview-snippet">
+				<div class="fxr-popover__footer">
+					<div class="fxr-preview-snippet">
 						<code>{{ expressionSnippet }}</code>
 					</div>
 				</div>
@@ -814,7 +814,7 @@ onBeforeUnmount(() => {
 const handleClickOutside = (e) => {
 	if (controlRef.value && !controlRef.value.contains(e.target)) {
 		// Also check if click was inside the teleported popover
-		const popover = document.querySelector(".fr-popover");
+		const popover = document.querySelector(".fxr-popover");
 		if (popover && popover.contains(e.target)) return;
 
 		showPopover.value = false;
@@ -978,32 +978,32 @@ const expressionSnippet = computed(() => {
 </script>
 
 <style scoped>
-.fr-preview-snippet {
-	font-family: var(--fr-font-mono);
-	font-size: var(--fr-text-xs);
-	color: var(--fr-text-muted);
+.fxr-preview-snippet {
+	font-family: var(--fxr-font-mono);
+	font-size: var(--fxr-text-xs);
+	color: var(--fxr-text-muted);
 	text-align: center;
 	word-break: break-all;
 }
 
 .preview-snippet code {
 	background: transparent;
-	color: var(--fr-accent);
+	color: var(--fxr-accent);
 }
 
 .config-row {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fr-space-1);
+	gap: var(--fxr-space-1);
 }
 
-.fr-gap-2 {
-	gap: var(--fr-space-2);
+.fxr-gap-2 {
+	gap: var(--fxr-space-2);
 }
 
 hr.border-top {
-	border-color: var(--fr-border);
+	border-color: var(--fxr-border);
 	opacity: 0.5;
-	margin: var(--fr-space-2) 0;
+	margin: var(--fxr-space-2) 0;
 }
 </style>

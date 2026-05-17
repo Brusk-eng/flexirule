@@ -70,6 +70,23 @@ class ActionHandler(ABC):
 		"""
 		return []
 
+	def _build_template_context(self, context, engine=None):
+		"""Standard Jinja template context shared by all evaluations."""
+		import frappe
+
+		from flexirule.ruleflow.core.engine import SafeFrappeAPI
+
+		ctx = {
+			"doc": context.get("doc"),
+			"vars": context.get("vars", {}),
+			"frappe": SafeFrappeAPI(),
+			"utils": frappe.utils,
+		}
+		if engine:
+			ctx["rule"] = engine.rule
+			ctx["rule_url"] = frappe.utils.get_url_to_form("Rule", engine.rule.name)
+		return ctx
+
 	def _parse_config(self, config_str):
 		"""Safely parse config JSON."""
 		if not config_str:
@@ -259,6 +276,7 @@ class HandlerRegistry:
 
 		# Import all built-in handlers to trigger registration
 		from flexirule.ruleflow.core.action_handlers import (
+			assignment,
 			condition,
 			create_doc,
 			loop,

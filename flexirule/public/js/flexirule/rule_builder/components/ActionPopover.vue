@@ -93,59 +93,26 @@ function parseScopedQuery(rawQuery) {
 	};
 }
 
-const ACTION_CATEGORIES = {
-	"Control Flow": ["Condition", "Stop", "Wait", "Sub-Rule"],
-	"Data Actions": ["Set Value", "Query Records", "Document Action"],
-	Notifications: ["Notify"],
-	Processes: ["Process"],
-};
-
 const actionTypes = computed(() => {
 	try {
-		const meta = window.frappe ? frappe.get_meta("Rule Action") : null;
-		if (!meta || !meta.fields) {
-			// Fallback if meta is not loaded
-			return getActionTypeOptions().map((t) => {
-				const contract = ACTION_TYPE_CONTRACT[t] || {};
-				return {
-					label: t,
-					value: t,
-					actionType: t,
-					icon: contract.css?.icon || "fa fa-cog",
-					color: contract.css?.color || "#6b7280",
-					description: contract.description || "",
-					category:
-						Object.entries(ACTION_CATEGORIES).find(([, types]) =>
-							types.includes(t)
-						)?.[0] || "Other",
-				};
-			});
-		}
+		const validTypes = getActionTypeOptions();
 
-		const typeField = meta.fields.find((f) => f.fieldname === "action_type");
-		if (!typeField || !typeField.options) return [];
+		const getTypeMetadata = (t) => {
+			const contract = ACTION_TYPE_CONTRACT[t] || {};
+			return {
+				label: window.__ ? __(t) : t,
+				value: t,
+				actionType: t,
+				icon: contract.css?.icon || "fa fa-cog",
+				color: contract.css?.color || "#6b7280",
+				description: contract.description || "",
+				category: contract.category || (window.__ ? __("Other") : "Other"),
+			};
+		};
 
-		return typeField.options
-			.split("\n")
-			.filter(
-				(t) =>
-					t && t !== "Entry Action" && t !== "Start" && getActionTypeOptions().includes(t)
-			)
-			.map((t) => {
-				const contract = ACTION_TYPE_CONTRACT[t] || {};
-				return {
-					label: window.__ ? __(t) : t,
-					value: t,
-					actionType: t,
-					icon: contract.css?.icon || "fa fa-cog",
-					color: contract.css?.color || "#6b7280",
-					description: contract.description || "",
-					category:
-						Object.entries(ACTION_CATEGORIES).find(([, types]) =>
-							types.includes(t)
-						)?.[0] || (window.__ ? __("Other") : "Other"),
-				};
-			});
+		return validTypes
+			.filter((t) => t && t !== "Entry Action" && t !== "Start")
+			.map(getTypeMetadata);
 	} catch (e) {
 		console.error("Error computing actionTypes:", e);
 		return [];

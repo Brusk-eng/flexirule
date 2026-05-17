@@ -45,6 +45,15 @@ Any attempt to call the following will raise a `PermissionError`:
 - **Active Reactivity**: Moving a condition in the UI immediately re-calculates the logic tree's structure.
 - **Auto-Nesting**: Logic is scaffolded automatically when elements are dropped onto each other, ensuring a valid JSON AST is always maintained.
 
+### Collection Evaluation (V2)
+The V2 condition system introduces specialized nodes for collection processing:
+- **Recursive Groups**: Can target any iterable (e.g., `doc.items`) and apply sub-conditions to each element.
+- **Quantifiers**:
+    - `Any`: Returns true if at least one item matches the sub-conditions.
+    - `All`: Returns true only if all items match.
+    - `None`: Returns true if no items match.
+- **Contextual Aliasing**: When nesting collections, users can specify an **Alias** (e.g., `row`) which is then available in sub-conditions via `row.fieldname`.
+
 ---
 
 ## Scope Resolution & Aliases

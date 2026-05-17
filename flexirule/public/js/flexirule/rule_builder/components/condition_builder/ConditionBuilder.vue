@@ -1,5 +1,5 @@
 <template>
-	<div class="condition-builder fr-accent-scope">
+	<div class="condition-builder fxr-accent-scope">
 		<!-- Main Header -->
 		<div class="builder-header">
 			<div class="logic-toggle">
@@ -24,15 +24,15 @@
 			</div>
 
 			<div class="builder-actions" v-if="!readOnly">
-				<button class="fr-btn" @click="addCondition(rootGroup)">
+				<button class="fxr-btn" @click="addCondition(rootGroup)">
 					<i class="fa fa-plus"></i>
 					<span>{{ __("Condition") }}</span>
 				</button>
-				<button class="fr-btn" @click="addGroup(rootGroup)">
+				<button class="fxr-btn" @click="addGroup(rootGroup)">
 					<i class="fa fa-folder-open-o"></i>
 					<span>{{ __("Group") }}</span>
 				</button>
-				<button class="fr-btn" @click="addCollection(rootGroup)">
+				<button class="fxr-btn" @click="addCollection(rootGroup)">
 					<i class="fa fa-table"></i>
 					<span>{{ __("Collection") }}</span>
 				</button>
@@ -290,10 +290,10 @@ provide(
 .condition-builder {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fr-space-10);
-	background: var(--fr-bg-page);
-	border-radius: var(--fr-radius-lg);
-	padding: var(--fr-space-8);
+	gap: var(--fxr-space-10);
+	background: var(--fxr-bg-page);
+	border-radius: var(--fxr-radius-lg);
+	padding: var(--fxr-space-8);
 	min-height: 200px;
 }
 
@@ -301,89 +301,89 @@ provide(
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding-bottom: var(--fr-space-6);
-	border-bottom: 1px solid var(--fr-border);
+	padding-bottom: var(--fxr-space-6);
+	border-bottom: 1px solid var(--fxr-border);
 }
 
 .logic-toggle {
 	display: flex;
-	background: var(--fr-border);
-	padding: var(--fr-space-1);
-	border-radius: var(--fr-radius-md);
+	background: var(--fxr-border);
+	padding: var(--fxr-space-1);
+	border-radius: var(--fxr-radius-md);
 }
 
 .logic-btn {
 	border: none;
 	background: transparent;
-	padding: var(--fr-space-2) var(--fr-space-6);
-	border-radius: var(--fr-radius-sm);
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-bold);
-	color: var(--fr-text-muted);
-	transition: all var(--fr-transition-fast);
+	padding: var(--fxr-space-2) var(--fxr-space-6);
+	border-radius: var(--fxr-radius-sm);
+	font-size: var(--fxr-text-sm);
+	font-weight: var(--fxr-weight-bold);
+	color: var(--fxr-text-muted);
+	transition: all var(--fxr-transition-fast);
 	cursor: pointer;
 }
 
 .logic-btn.active {
-	background: var(--fr-bg-card);
-	color: var(--fr-node-accent, var(--fr-accent));
-	box-shadow: var(--fr-shadow-sm);
+	background: var(--fxr-bg-card);
+	color: var(--fxr-node-accent, var(--fxr-accent));
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 .builder-actions {
 	display: flex;
-	gap: var(--fr-space-3);
+	gap: var(--fxr-space-3);
 }
 
-.builder-actions .fr-btn {
-	background: var(--fr-bg-card);
-	border: 1px solid var(--fr-border);
-	color: var(--fr-text-secondary);
+.builder-actions .fxr-btn {
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	color: var(--fxr-text-secondary);
 }
 
-.builder-actions .fr-btn:hover {
-	background: var(--fr-bg-muted);
-	border-color: var(--fr-border-strong);
+.builder-actions .fxr-btn:hover {
+	background: var(--fxr-bg-muted);
+	border-color: var(--fxr-border-strong);
 	transform: translateY(-1px);
 }
 
-.builder-actions .fr-btn i {
+.builder-actions .fxr-btn i {
 	font-size: 11px;
-	color: var(--fr-node-accent, var(--fr-accent));
+	color: var(--fxr-node-accent, var(--fxr-accent));
 }
 
 .conditions-container {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fr-space-5);
+	gap: var(--fxr-space-5);
 	min-height: 100px;
-	padding: var(--fr-space-2);
-	border-radius: var(--fr-radius-lg);
-	transition: all var(--fr-transition-fast);
+	padding: var(--fxr-space-2);
+	border-radius: var(--fxr-radius-lg);
+	transition: all var(--fxr-transition-fast);
 }
 
 .conditions-container.drag-over {
-	background: var(--fr-node-accent-light, var(--fr-accent-light));
-	box-shadow: inset 0 0 0 2px var(--fr-node-accent, var(--fr-accent));
+	background: var(--fxr-node-accent-light, var(--fxr-accent-light));
+	box-shadow: inset 0 0 0 2px var(--fxr-node-accent, var(--fxr-accent));
 }
 
 .drop-spacer {
 	height: 40px;
-	margin-top: var(--fr-space-4);
+	margin-top: var(--fxr-space-4);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: var(--fr-radius-md);
+	border-radius: var(--fxr-radius-md);
 	border: 1px dashed transparent;
-	color: var(--fr-node-accent, var(--fr-accent));
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-semibold);
-	transition: all var(--fr-transition-fast);
+	color: var(--fxr-node-accent, var(--fxr-accent));
+	font-size: var(--fxr-text-sm);
+	font-weight: var(--fxr-weight-semibold);
+	transition: all var(--fxr-transition-fast);
 }
 
 .drop-spacer.active {
-	border-color: var(--fr-node-accent, var(--fr-accent));
-	background: var(--fr-node-accent-light, var(--fr-accent-light));
+	border-color: var(--fxr-node-accent, var(--fxr-accent));
+	background: var(--fxr-node-accent-light, var(--fxr-accent-light));
 }
 
 .empty-state {
@@ -392,45 +392,45 @@ provide(
 	align-items: center;
 	justify-content: center;
 	padding: 40px;
-	background: var(--fr-bg-card);
-	border: 2px dashed var(--fr-border);
-	border-radius: var(--fr-radius-lg);
+	background: var(--fxr-bg-card);
+	border: 2px dashed var(--fxr-border);
+	border-radius: var(--fxr-radius-lg);
 	text-align: center;
 }
 
 .empty-icon {
 	width: 48px;
 	height: 48px;
-	background: var(--fr-bg-muted);
-	color: var(--fr-text-muted);
+	background: var(--fxr-bg-muted);
+	color: var(--fxr-text-muted);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	border-radius: 50%;
 	font-size: 20px;
-	margin-bottom: var(--fr-space-4);
+	margin-bottom: var(--fxr-space-4);
 }
 
 .empty-text {
-	font-size: var(--fr-text-md);
-	color: var(--fr-text-secondary);
+	font-size: var(--fxr-text-md);
+	color: var(--fxr-text-secondary);
 	margin: 0;
 }
 
 .node-wrapper {
-	transition: all var(--fr-transition-slow) ease;
+	transition: all var(--fxr-transition-slow) ease;
 }
 
 @media (max-width: 768px) {
 	.condition-builder {
-		padding: var(--fr-space-4);
-		gap: var(--fr-space-5);
+		padding: var(--fxr-space-4);
+		gap: var(--fxr-space-5);
 	}
 
 	.builder-header {
 		flex-direction: column;
 		align-items: stretch;
-		gap: var(--fr-space-3);
+		gap: var(--fxr-space-3);
 	}
 
 	.builder-actions {

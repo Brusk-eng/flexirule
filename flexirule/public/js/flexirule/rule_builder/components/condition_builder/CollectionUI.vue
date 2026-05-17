@@ -206,8 +206,8 @@ onMounted(fetchChildMeta);
 		<div class="collection-header">
 			<!-- Logic -->
 			<div class="header-col" style="width: 100px">
-				<label class="fr-label">{{ __("Match") }}</label>
-				<select v-model="node.op" class="fr-select" :disabled="readOnly">
+				<label class="fxr-label">{{ __("Match") }}</label>
+				<select v-model="node.op" class="fxr-select" :disabled="readOnly">
 					<option value="any">{{ __("Any") }}</option>
 					<option value="all">{{ __("All") }}</option>
 					<option value="none">{{ __("None") }}</option>
@@ -216,10 +216,10 @@ onMounted(fetchChildMeta);
 
 			<!-- Table -->
 			<div class="header-col flex-grow-1">
-				<label class="fr-label">{{ __("Table") }}</label>
+				<label class="fxr-label">{{ __("Table") }}</label>
 				<select
 					v-model="node.collection"
-					class="fr-select"
+					class="fxr-select"
 					@change="fetchChildMeta"
 					:disabled="readOnly"
 				>
@@ -232,11 +232,11 @@ onMounted(fetchChildMeta);
 
 			<!-- Alias -->
 			<div class="header-col" style="width: 120px">
-				<label class="fr-label">{{ __("Alias") }}</label>
+				<label class="fxr-label">{{ __("Alias") }}</label>
 				<input
 					type="text"
 					v-model="node.alias"
-					class="fr-input"
+					class="fxr-input"
 					placeholder="row"
 					@input="fetchChildMeta"
 					:disabled="readOnly"
@@ -246,21 +246,21 @@ onMounted(fetchChildMeta);
 			<!-- Actions -->
 			<div class="header-col actions-col" v-if="!readOnly">
 				<button
-					class="fr-btn fr-btn--icon"
+					class="fxr-btn fxr-btn--icon"
 					@click="addConditionForCollection"
 					:title="__('Add Condition')"
 				>
 					<i class="fa fa-plus"></i>
 				</button>
 				<button
-					class="fr-btn fr-btn--icon"
+					class="fxr-btn fxr-btn--icon"
 					@click="addGroup(node.where)"
 					:title="__('Add Group')"
 				>
 					<i class="fa fa-folder-open-o"></i>
 				</button>
 				<button
-					class="fr-btn fr-btn--icon fr-btn--danger"
+					class="fxr-btn fxr-btn--icon fxr-btn--danger"
 					@click="emit('remove')"
 					:title="__('Remove')"
 				>
@@ -299,19 +299,19 @@ onMounted(fetchChildMeta);
 
 <style scoped>
 .collection-ui {
-	background: var(--fr-bg-card);
-	border: 1px solid var(--fr-border);
-	border-left: 4px solid var(--fr-node-accent, var(--fr-accent));
-	border-radius: var(--fr-radius-lg);
-	padding: var(--fr-space-6);
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-left: 4px solid var(--fxr-node-accent, var(--fxr-accent));
+	border-radius: var(--fxr-radius-lg);
+	padding: var(--fxr-space-6);
 }
 
 .collection-header {
 	display: flex;
-	gap: var(--fr-space-6);
-	margin-bottom: var(--fr-space-6);
-	padding-bottom: var(--fr-space-4);
-	border-bottom: 1px solid var(--fr-bg-muted);
+	gap: var(--fxr-space-6);
+	margin-bottom: var(--fxr-space-6);
+	padding-bottom: var(--fxr-space-4);
+	border-bottom: 1px solid var(--fxr-bg-muted);
 }
 
 .header-col {
@@ -322,42 +322,42 @@ onMounted(fetchChildMeta);
 .actions-col {
 	flex-direction: row;
 	align-items: flex-end;
-	gap: var(--fr-space-1);
+	gap: var(--fxr-space-1);
 }
 
 .nested-conditions {
-	padding-inline-start: var(--fr-space-6);
-	border-inline-start: 2px solid var(--fr-border);
+	padding-inline-start: var(--fxr-space-6);
+	border-inline-start: 2px solid var(--fxr-border);
 	min-height: 20px;
-	transition: all var(--fr-transition-fast);
+	transition: all var(--fxr-transition-fast);
 }
 
 .nested-conditions.drag-over {
-	background: var(--fr-node-accent-light, var(--fr-accent-light));
-	box-shadow: inset 0 0 0 2px var(--fr-node-accent, var(--fr-accent));
-	border-radius: var(--fr-radius-md);
+	background: var(--fxr-node-accent-light, var(--fxr-accent-light));
+	box-shadow: inset 0 0 0 2px var(--fxr-node-accent, var(--fxr-accent));
+	border-radius: var(--fxr-radius-md);
 }
 
 .empty-text {
-	font-size: var(--fr-text-sm);
-	color: var(--fr-text-muted);
+	font-size: var(--fxr-text-sm);
+	color: var(--fxr-text-muted);
 	font-style: italic;
-	padding: var(--fr-space-4) 0;
+	padding: var(--fxr-space-4) 0;
 	text-align: center;
 }
 
 .node-wrapper {
-	margin-bottom: var(--fr-space-2);
+	margin-bottom: var(--fxr-space-2);
 }
 
 @media (max-width: 768px) {
 	.collection-ui {
-		padding: var(--fr-space-4);
+		padding: var(--fxr-space-4);
 	}
 
 	.collection-header {
 		flex-direction: column;
-		gap: var(--fr-space-3);
+		gap: var(--fxr-space-3);
 	}
 
 	.actions-col {

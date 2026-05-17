@@ -434,8 +434,8 @@ def _validate_action_specifics(
 		if not config.get("cases"):
 			warnings.append(_("Action '{0}' is a Switch but no cases are defined.").format(action_label))
 
-	elif action_type == "Set Value":
-		_capture_validation(errors, rule_doc._validate_set_value_editable, action)
+	elif action_type == "Assignment":
+		_capture_validation(errors, rule_doc._validate_assignment, action)
 
 
 def _build_operation_metadata(actions) -> dict:

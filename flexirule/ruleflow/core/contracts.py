@@ -30,6 +30,9 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"terminal": False,
 		"css": {"icon": "fa fa-play", "color": "#22c55e"},
 		"field_labels": {},
+		"node_type": "start",
+		"category": "Control Flow",
+		"configurable": False,
 	},
 	"Condition": {
 		"required_fields": ["config"],
@@ -42,6 +45,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			"compiled_expression": "Compiled Expression (Python)",
 			"config": "Condition Builder Config",
 		},
+		"node_type": "condition",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "ConditionStep",
 	},
 	"Process": {
 		"required_fields": ["process_name", "operation"],
@@ -72,6 +79,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		],
 		"show_return_type": True,
 		"require_return_type": False,
+		"node_type": "process",
+		"category": "Processes",
+		"configurable": True,
+		"config_component": "ProcessConfig",
 	},
 	"Loop": {
 		"required_fields": ["config", "return_variable"],  # config must have iterator
@@ -84,6 +95,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		},
 		"show_return_variable": True,
 		"require_return_variable": True,
+		"node_type": "loop",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "LoopConfig",
 	},
 	"Stop": {
 		"required_fields": ["operation"],
@@ -97,6 +112,9 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			"Error": ["value_template"],
 		},
 		"field_labels": {"operation": "Terminal Mode"},
+		"node_type": "stop",
+		"category": "Control Flow",
+		"configurable": False,
 	},
 	"Switch": {
 		"required_fields": ["config"],  # config must have cases
@@ -104,6 +122,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"has_next_false": True,  # Default case
 		"terminal": False,
 		"css": {"icon": "fa fa-random", "color": "#06b6d4"},
+		"node_type": "switch",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "SwitchConfig",
 	},
 	"Wait": {
 		"required_fields": [],  # config.duration optional
@@ -112,6 +134,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"terminal": False,
 		"css": {"icon": "fa fa-clock-o", "color": "#64748b"},
 		"field_labels": {"operation": "Wait Mode"},
+		"node_type": "wait",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "WaitConfig",
 	},
 	"Sub-Rule": {
 		"required_fields": ["rule"],
@@ -136,79 +162,24 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"default_return_type": "Single Record",
 		"show_return_type": True,
 		"require_return_type": False,
+		"node_type": "sub-rule",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "SubRuleConfig",
 	},
-	"Set Value": {
-		"required_fields": ["operation", "value_template"],
+	"Assignment": {
+		"required_fields": ["config"],
 		"has_next_true": True,
 		"has_next_false": False,
 		"terminal": False,
-		"css": {"icon": "fa fa-edit", "color": "#14b8a6"},
-		"operation_label": "Target Type",
-		"operation_options": ["Current Document", "Context Variable", "Reference Document"],
-		"allowed_mutations": [],
-		"allowed_return_types": ["Yes / No", "Single Record", "List of Values"],
-		"default_return_type": "Yes / No",
-		"show_return_type": False,
-		"require_return_type": False,
-		"operation_policies": {
-			"Current Document": {
-				"allowed_mutations": [
-					"Set Doc Field",
-					"Update Doc Field",
-					"Set Context Variable",
-					"Update Context Variable",
-				],
-				"allowed_return_types": ["Yes / No"],
-				"default_return_type": "Yes / No",
-				"show_return_type": False,
-				"require_return_type": False,
-				"field_labels": {
-					"target_field": "Current Document Field",
-					"value_template": "New Field Value Template",
-					"mutation_mode": "Result Handling (Optional)",
-					"return_variable": "Result Variable Name (Optional)",
-				},
-			},
-			"Context Variable": {
-				"allowed_mutations": ["Set Context Variable", "Update Context Variable"],
-				"allowed_return_types": ["Yes / No"],
-				"default_return_type": "Yes / No",
-				"show_return_type": False,
-				"require_return_type": False,
-				"field_labels": {
-					"target_field": "Target Property/Field",
-					"value_template": "Variable Value Template",
-					"mutation_mode": "Result Handling (Optional)",
-					"return_variable": "Result Variable Name (Optional)",
-				},
-			},
-			"Reference Document": {
-				"allowed_mutations": ["Set Doc Field", "Update Doc Field"],
-				"allowed_return_types": ["Yes / No"],
-				"default_return_type": "Yes / No",
-				"show_return_type": False,
-				"require_return_type": False,
-				"field_labels": {
-					"reference_doctype": "Reference DocType",
-					"reference_docname": "Reference Document Name",
-					"target_field": "Reference Document Field",
-					"value_template": "New Field Value Template",
-					"mutation_mode": "Result Handling (Optional)",
-					"return_variable": "Result Variable Name (Optional)",
-				},
-			},
-		},
-		"validation": {
-			"check_target_field_editable": True,
-		},
+		"css": {"icon": "fa fa-list-ol", "color": "#14b8a6"},
 		"field_labels": {
-			"operation": "Target Type",
-			"target_field": "Field to Update",
-			"value_template": "Value Template",
-			"reference_doctype": "Target DocType",
-			"reference_docname": "Target Record",
-			"variable_name": "Variable Name",
+			"config": "Assignments",
 		},
+		"node_type": "assignment",
+		"category": "Data Actions",
+		"configurable": True,
+		"config_component": "AssignmentConfig",
 	},
 	"Notify": {
 		"required_fields": ["value_template", "operation"],
@@ -230,6 +201,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			},
 		},
 		"field_labels": {"operation": "Notification Type"},
+		"node_type": "notify",
+		"category": "Notifications",
+		"configurable": True,
+		"config_component": "NotifyConfig",
 	},
 	"Raise Error": {
 		"required_fields": ["value_template"],
@@ -238,9 +213,12 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"terminal": True,
 		"css": {"icon": "fa fa-exclamation-triangle", "color": "#dc2626"},
 		"field_labels": {
-			"value_template": "Error Message Template",
 			"config": "Error Details (JSON)",
 		},
+		"node_type": "raise-error",
+		"category": "Control Flow",
+		"configurable": True,
+		"config_component": "RaiseErrorConfig",
 	},
 	"Query Records": {
 		"required_fields": ["reference_doctype", "operation"],
@@ -357,6 +335,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			"mutation_mode": "Result Handling",
 			"return_type": "Result Type",
 		},
+		"node_type": "query",
+		"category": "Data Actions",
+		"configurable": True,
+		"config_component": "QueryRecordsConfig",
 	},
 	"Document Action": {
 		"required_fields": ["reference_doctype", "operation"],
@@ -429,6 +411,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 			"mutation_mode": "Result Handling",
 			"return_type": "Result Type",
 		},
+		"node_type": "documentaction",
+		"category": "Data Actions",
+		"configurable": True,
+		"config_component": "DocumentActionConfig",
 	},
 }
 
@@ -541,46 +527,17 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 		],
 		"Validation": {"backend": "validate_sub_rule"},
 	},
-	# Set Value operations
-	"Set Value": {
+	"Assignment": {
 		"Rule": [],
 		"Rule Action": [
-			{"fieldname": "action_type", "default": "Set Value"},
-			{
-				"fieldname": "operation",
-				"default": "Current Document",
-				"reqd": 1,
-				"description": "Type of target to update",
-			},
-			{
-				"fieldname": "reference_doctype",
-				"mandatory_depends_on": "eval:doc.operation==='Reference Document'",
-				"hidden": "eval:doc.operation!=='Reference Document'",
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
-			},
-			{
-				"fieldname": "reference_docname",
-				"mandatory_depends_on": "eval:doc.operation==='Reference Document'",
-				"hidden": "eval:doc.operation!=='Reference Document'",
-			},
-			{
-				"fieldname": "target_field",
-				"mandatory_depends_on": "eval:['Current Document', 'Reference Document', 'Context Variable'].includes(doc.operation)",
-				"hidden": "eval:!['Current Document', 'Reference Document', 'Context Variable'].includes(doc.operation)",
-				"description": "⚠️ Field to update (e.g., status)",
-			},
-			{
-				"fieldname": "variable_name",
-				"hidden": 1,
-				"description": "Legacy field - use target_field instead for full dot paths",
-			},
-			{"fieldname": "value_template", "reqd": 1, "description": "Jinja template for the new value"},
+			{"fieldname": "action_type", "default": "Assignment"},
+			{"fieldname": "config", "reqd": 1, "description": "Array of assignments (JSON)"},
 			{
 				"fieldname": "description",
-				"description": "⚠️ Updates a document field or context variable with a computed value",
+				"description": "Updates document fields or context variables in batch",
 			},
 		],
-		"Validation": {"backend": "validate_set_value", "check_target_field_editable": True},
+		"Validation": {"backend": "validate_assignment"},
 	},
 	# Notify operations
 	"Toast": {
@@ -1132,12 +1089,12 @@ def apply_field_overrides(base_fields: list, overrides: list) -> list:
 	return list(field_map.values())
 
 
-ACTION_TYPES_WITH_REFERENCE_CONTEXT = {"Query Records", "Document Action", "Process", "Set Value"}
+ACTION_TYPES_WITH_REFERENCE_CONTEXT = {"Query Records", "Document Action", "Process", "Assignment"}
 ACTION_TYPES_WITH_RETURN_SCHEMA = {"Process", "Query Records", "Document Action"}
 CONFIG_MODAL_TYPES = {
 	"Process",
 	"Condition",
-	"Set Value",
+	"Assignment",
 	"Stop",
 	"Raise Error",
 	"Notify",

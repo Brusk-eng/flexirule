@@ -44,50 +44,53 @@ class TestCompiledControls(FrappeTestCase):
 				},
 				{
 					"action_id": "set_1",
-					"action_type": "Set Value",
-					"operation": "Current Document",
+					"action_type": "Assignment",
 					"action_label": "Set Description",
-					"target_field": "description",
 					"config": json.dumps(
-						{
-							"text_generator_ui": {
-								"version": 2,
-								"segments": [
-									{"type": "text", "content": "Hello "},
-									{"type": "variable", "path": "doc.name"},
-									{
-										"type": "conditional",
-										"condition": {
-											"op": "and",
-											"conditions": [
+						[
+							{
+								"target": "doc.description",
+								"operator": "set",
+								"value": "",
+								"text_generator_ui": {
+									"version": 2,
+									"segments": [
+										{"type": "text", "content": "Hello "},
+										{"type": "variable", "path": "doc.name"},
+										{
+											"type": "conditional",
+											"condition": {
+												"op": "and",
+												"conditions": [
+													{
+														"left": {"ref": "doc.priority"},
+														"op": "==",
+														"right": {"value": "High"},
+													}
+												],
+											},
+											"then_segments": [{"type": "text", "content": " URGENT!"}],
+											"elif_branches": [
 												{
-													"left": {"ref": "doc.priority"},
-													"op": "==",
-													"right": {"value": "High"},
+													"condition": {
+														"op": "and",
+														"conditions": [
+															{
+																"left": {"ref": "doc.priority"},
+																"op": "==",
+																"right": {"value": "Medium"},
+															}
+														],
+													},
+													"segments": [{"type": "text", "content": " (medium)"}],
 												}
 											],
+											"else_segments": [{"type": "text", "content": " (low)"}],
 										},
-										"then_segments": [{"type": "text", "content": " URGENT!"}],
-										"elif_branches": [
-											{
-												"condition": {
-													"op": "and",
-													"conditions": [
-														{
-															"left": {"ref": "doc.priority"},
-															"op": "==",
-															"right": {"value": "Medium"},
-														}
-													],
-												},
-												"segments": [{"type": "text", "content": " (medium)"}],
-											}
-										],
-										"else_segments": [{"type": "text", "content": " (low)"}],
-									},
-								],
+									],
+								},
 							}
-						}
+						]
 					),
 					"next_step_if_true": "stop_1",
 				},
@@ -109,7 +112,7 @@ class TestCompiledControls(FrappeTestCase):
 			"{% else %} (low)"
 			"{% endif %}"
 		)
-		self.assertEqual(action.value_template, expected)
+		self.assertEqual(json.loads(action.config)[0]["value"], expected)
 
 	def test_compile_text_generator_normalizes_shorthand_roots(self):
 		"""Shorthand refs (is_pos / result.total) should normalize to doc./vars. roots."""
@@ -125,35 +128,38 @@ class TestCompiledControls(FrappeTestCase):
 				},
 				{
 					"action_id": "set_1",
-					"action_type": "Set Value",
-					"operation": "Current Document",
+					"action_type": "Assignment",
 					"action_label": "Set Remarks",
-					"target_field": "description",
 					"config": json.dumps(
-						{
-							"text_generator_ui": {
-								"version": 2,
-								"segments": [
-									{"type": "text", "content": "Value: {{ is_pos }} / "},
-									{
-										"type": "conditional",
-										"condition": {
-											"op": "and",
-											"conditions": [
-												{
-													"left": {"ref": "is_pos"},
-													"op": "!=",
-													"right": {"value": 1},
-												}
-											],
+						[
+							{
+								"target": "doc.description",
+								"operator": "set",
+								"value": "",
+								"text_generator_ui": {
+									"version": 2,
+									"segments": [
+										{"type": "text", "content": "Value: {{ is_pos }} / "},
+										{
+											"type": "conditional",
+											"condition": {
+												"op": "and",
+												"conditions": [
+													{
+														"left": {"ref": "is_pos"},
+														"op": "!=",
+														"right": {"value": 1},
+													}
+												],
+											},
+											"then_segments": [{"type": "variable", "path": "result.total"}],
+											"elif_branches": [],
+											"else_segments": [],
 										},
-										"then_segments": [{"type": "variable", "path": "result.total"}],
-										"elif_branches": [],
-										"else_segments": [],
-									},
-								],
+									],
+								},
 							}
-						}
+						]
 					),
 					"next_step_if_true": "stop_1",
 				},
@@ -169,9 +175,10 @@ class TestCompiledControls(FrappeTestCase):
 		rule.validate()
 
 		action = next(a for a in rule.actions if a.action_id == "set_1")
-		self.assertIn("{{ doc.is_pos }}", action.value_template)
-		self.assertIn("{% if doc.is_pos != 1 %}", action.value_template)
-		self.assertIn("{{ vars.result.total }}", action.value_template)
+		config = json.loads(action.config)
+		self.assertIn("{{ doc.is_pos }}", config[0]["value"])
+		self.assertIn("{% if doc.is_pos != 1 %}", config[0]["value"])
+		self.assertIn("{{ vars.result.total }}", config[0]["value"])
 
 	def test_compile_action_mappings_from_resource_mapper_ui(self):
 		rule = self._base_rule(

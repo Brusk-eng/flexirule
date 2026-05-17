@@ -25,9 +25,8 @@ class TestRule(FrappeTestCase):
 				"actions": [
 					{
 						"action_label": "Invalid Field Update",
-						"action_type": "Set Value",
-						"target_field": "this_field_definitely_does_not_exist",
-						"value_template": "test",
+						"action_type": "Assignment",
+						"config": '[{"target": "doc.this_field_definitely_does_not_exist", "operator": "set", "value": "test"}]',
 					}
 				],
 			}

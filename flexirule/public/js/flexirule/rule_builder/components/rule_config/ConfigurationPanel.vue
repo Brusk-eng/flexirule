@@ -1,5 +1,5 @@
 <template>
-	<div class="configuration-panel fr-accent-scope" :style="panelStyleVars">
+	<div class="configuration-panel fxr-accent-scope" :style="panelStyleVars">
 		<div v-if="node" class="panel-content">
 			<div class="panel-header" v-if="!store.use_modern_layout">
 				<div class="header-text">
@@ -32,21 +32,22 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, nextTick } from "vue";
 import { useStore } from "../../stores";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 import { getContract } from "../../../core/contracts.js";
-import ProcessConfig from "./types/ProcessConfig.vue";
+
+import AssignmentConfig from "./types/AssignmentConfig.vue";
 import ConditionStep from "./types/ConditionStep.vue";
-import LoopConfig from "./types/LoopConfig.vue";
-import SwitchConfig from "./types/SwitchConfig.vue";
-import SubRuleConfig from "./types/SubRuleConfig.vue";
-import WaitConfig from "./types/WaitConfig.vue";
-import SetValueConfig from "./types/SetValueConfig.vue";
-import NotifyConfig from "./types/NotifyConfig.vue";
-import RaiseErrorConfig from "./types/RaiseErrorConfig.vue";
-import QueryRecordsConfig from "./types/QueryRecordsConfig.vue";
 import DocumentActionConfig from "./types/DocumentActionConfig.vue";
+import LoopConfig from "./types/LoopConfig.vue";
+import NotifyConfig from "./types/NotifyConfig.vue";
+import ProcessConfig from "./types/ProcessConfig.vue";
+import QueryRecordsConfig from "./types/QueryRecordsConfig.vue";
+import RaiseErrorConfig from "./types/RaiseErrorConfig.vue";
+import SubRuleConfig from "./types/SubRuleConfig.vue";
+import SwitchConfig from "./types/SwitchConfig.vue";
+import WaitConfig from "./types/WaitConfig.vue";
 
 const props = defineProps({
 	node: Object,
@@ -55,60 +56,52 @@ const props = defineProps({
 
 const store = useStore();
 
-const configComponents = {
-	process: ProcessConfig,
-	condition: ConditionStep,
-	loop: LoopConfig,
-	switch: SwitchConfig,
-	"sub-rule": SubRuleConfig,
-	subrule: SubRuleConfig,
-	wait: WaitConfig,
-	"set-value": SetValueConfig,
-	"set value": SetValueConfig,
-	setvalue: SetValueConfig,
-	notify: NotifyConfig,
-	"raise-error": RaiseErrorConfig,
-	"raise error": RaiseErrorConfig,
-	raiseerror: RaiseErrorConfig,
-	query: QueryRecordsConfig,
-	"query-records": QueryRecordsConfig,
-	"query records": QueryRecordsConfig,
-	queryrecords: QueryRecordsConfig,
-	documentaction: DocumentActionConfig,
-	"document-action": DocumentActionConfig,
-	"document action": DocumentActionConfig,
+const componentRegistry = {
+	AssignmentConfig,
+	ConditionStep,
+	DocumentActionConfig,
+	LoopConfig,
+	NotifyConfig,
+	ProcessConfig,
+	QueryRecordsConfig,
+	RaiseErrorConfig,
+	SubRuleConfig,
+	SwitchConfig,
+	WaitConfig,
 };
 
-function normalizeKey(value) {
-	return String(value || "")
-		.toLowerCase()
-		.replace(/[_-]+/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-}
+const staticComponentMap = {
+	Condition: "ConditionStep",
+	Process: "ProcessConfig",
+	Loop: "LoopConfig",
+	Switch: "SwitchConfig",
+	"Sub-Rule": "SubRuleConfig",
+	Wait: "WaitConfig",
+	Assignment: "AssignmentConfig",
+	Notify: "NotifyConfig",
+	"Raise Error": "RaiseErrorConfig",
+	"Query Records": "QueryRecordsConfig",
+	"Document Action": "DocumentActionConfig",
+};
 
 const configComponent = computed(() => {
-	const mappedType = normalizeKey(
-		mapActionTypeToNodeType(props.node?.data?.action_type || props.node?.type) || ""
-	);
-	const rawType = normalizeKey(props.node?.data?.action_type || props.node?.type || "");
-	const compactRaw = rawType.replace(/\s+/g, "");
-	return (
-		configComponents[mappedType] ||
-		configComponents[rawType] ||
-		configComponents[compactRaw] ||
-		null
-	);
+	const actionType = props.node?.data?.action_type || props.node?.type;
+	if (!actionType) return null;
+
+	const contract = getContract(actionType);
+
+	// Fallback to static mapping if the contract is missing config_component (e.g. stale cache)
+	let componentName = contract?.config_component;
+	if (!componentName && staticComponentMap[actionType]) {
+		componentName = staticComponentMap[actionType];
+	}
+
+	if (!componentName || !componentRegistry[componentName]) return null;
+
+	return componentRegistry[componentName];
 });
 
 const configRef = ref(null);
-const NO_DYNAMIC_CONFIG_TYPES = new Set([
-	"entry action",
-	"start",
-	"stop",
-	"raise error",
-	"raise-error",
-]);
 
 const normalizedActionType = computed(() =>
 	String(props.node?.data?.action_type || props.node?.type || "")
@@ -118,7 +111,9 @@ const normalizedActionType = computed(() =>
 
 const emptyStateMessage = computed(() => {
 	const label = props.node?.data?.action_type || props.node?.type || __("Action");
-	if (NO_DYNAMIC_CONFIG_TYPES.has(normalizedActionType.value)) {
+	const contract = getContract(props.node?.data?.action_type || props.node?.type);
+
+	if (contract && contract.configurable === false) {
 		return __(
 			"Dynamic configuration is not required for '{0}'. Use Setup/Input/Output panels."
 		).replace("{0}", label);
@@ -128,10 +123,10 @@ const emptyStateMessage = computed(() => {
 
 const panelStyleVars = computed(() => {
 	const actionType = props.node?.data?.action_type || props.node?.type;
-	const color = getContract(actionType)?.css?.color || "var(--fr-accent)";
+	const color = getContract(actionType)?.css?.color || "var(--fxr-accent)";
 	return {
-		"--fr-node-accent": color,
-		"--fr-node-accent-light": `color-mix(in srgb, ${color} 12%, white)`,
+		"--fxr-node-accent": color,
+		"--fxr-node-accent-light": `color-mix(in srgb, ${color} 12%, white)`,
 	};
 });
 
@@ -148,8 +143,19 @@ async function validate() {
 	return { valid: true };
 }
 
+function focusFirst() {
+	nextTick(() => {
+		const sections = document.querySelector(".panel-sections");
+		if (sections) {
+			const first = sections.querySelector("button, input, select, textarea, [tabindex='0']");
+			first?.focus();
+		}
+	});
+}
+
 defineExpose({
 	validate,
+	focusFirst,
 });
 </script>
 
@@ -158,7 +164,7 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fr-bg-page);
+	background: var(--fxr-bg-page);
 }
 
 .panel-content {
@@ -210,8 +216,8 @@ defineExpose({
 
 @media (max-width: 768px) {
 	.panel-sections {
-		padding: var(--fr-space-4);
-		gap: var(--fr-space-4);
+		padding: var(--fxr-space-4);
+		gap: var(--fxr-space-4);
 	}
 }
 </style>

@@ -46,7 +46,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const metaStore = useMetaStore();
 		const doctype = rule_doc.value?.document_type;
 		if (!doctype || !metaStore.doc_meta[doctype]) return [];
-		return metaStore.doc_meta[doctype];
+		return metaStore.get_fields_for_doctype(doctype, "doc");
 	});
 
 	const raw_meta = computed(() => {
@@ -171,26 +171,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 			graphStore.normalize_graph_nodes();
 
-			// 1. Validate mandatory fields
-			await frappe.model.with_doctype("Rule Action");
-			const action_meta = frappe.get_meta("Rule Action");
+			// 1. Validate mandatory fields using contract
+			const { validateAgainstContract } = await import("../../core/contracts");
 			const errors = [];
-
-			const eval_depends = (expr, doc) => {
-				if (!expr) return true;
-				if (typeof expr === "boolean") return expr;
-				if (expr.startsWith("eval:")) {
-					try {
-						return frappe.utils.eval(expr.substr(5), {
-							doc,
-							parent: rule_doc.value,
-						});
-					} catch (e) {
-						return false;
-					}
-				}
-				return !!doc[expr];
-			};
 
 			for (const node of graphStore.nodes) {
 				if (node.type === "start") continue;
@@ -206,38 +189,13 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 				const doc = node.data;
 
-				// Deep sync value_template from text_generator_ui if missing (extra robustness)
-				if (doc.action_type === "Set Value" && !doc.value_template && doc.config) {
-					try {
-						let cfg = doc.config;
-						if (typeof cfg === "string") cfg = JSON.parse(cfg);
-						const text_ui = cfg.text_generator_ui;
-						if (text_ui?.segments) {
-							const { compileSegmentsToJinja } = await import(
-								"../utils/text_generator"
-							);
-							doc.value_template = compileSegmentsToJinja(text_ui.segments);
-						}
-					} catch (e) {
-						console.warn("Failed to auto-sync value_template", e);
-					}
-				}
-
 				// Deep sync condition_json for validation if missing
 				if (doc.action_type === "Condition" && !doc.condition_json && doc.config) {
 					doc.condition_json = JSON.stringify(doc.config);
 				}
 
-				// Special handling for Set Value validation: ensure they are in node.data
-				if (doc.action_type === "Set Value") {
-					if (!doc.target_field)
-						errors.push(`${label}: ${__("Target Field is required")}`);
-					if (!doc.value_template)
-						errors.push(`${label}: ${__("Value Template is required")}`);
-				}
-
 				// Auto-populate hidden mandatory fields
-				if (["Document Action", "Set Value", "Notify"].includes(doc.action_type)) {
+				if (["Document Action", "Assignment", "Notify"].includes(doc.action_type)) {
 					if (doc.action_type === "Document Action" && !doc.permission_audit_reason) {
 						doc.permission_audit_reason = "System Rule Execution";
 					}
@@ -246,27 +204,13 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					}
 				}
 
-				// Generic meta-based validation
-				action_meta.fields.forEach((df) => {
-					// Skip fields we've already checked or handled
-					if (
-						["target_field", "value_template", "permission_audit_reason"].includes(
-							df.fieldname
-						)
-					)
-						return;
-
-					if (df.depends_on && !eval_depends(df.depends_on, doc)) return;
-					const is_mandatory =
-						df.reqd ||
-						(df.mandatory_depends_on && eval_depends(df.mandatory_depends_on, doc));
-					if (is_mandatory) {
-						const val = doc[df.fieldname];
-						if (val === null || val === undefined || val === "") {
-							errors.push(`${label}: ${df.label} is required`);
-						}
-					}
-				});
+				// Contract-based validation
+				const contractValidation = validateAgainstContract(doc);
+				if (!contractValidation.valid) {
+					contractValidation.errors.forEach((err) => {
+						errors.push(`${label}: ${err}`);
+					});
+				}
 			}
 
 			if (errors.length > 0) {

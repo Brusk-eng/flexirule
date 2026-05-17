@@ -347,7 +347,7 @@ function onKeydown(event) {
 	}
 	if (event.key === "Escape") {
 		event.preventDefault();
-		closeDropdown();
+		closeDropdown(true);
 		return;
 	}
 	if (/^[\w\s-]$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
@@ -373,8 +373,19 @@ function openDropdown() {
 	fetchOptions("");
 }
 
-function closeDropdown() {
+function closeDropdown(restoreFocus = false) {
+	const active = document.activeElement;
+	const wasInsideDropdown = dropdownRef.value && dropdownRef.value.contains(active);
 	closeFloatingDropdown();
+
+	if (restoreFocus || wasInsideDropdown) {
+		nextTick(() => {
+			if (wrapperRef.value) {
+				const trigger = wrapperRef.value.querySelector(".multi-select-trigger");
+				if (trigger) trigger.focus();
+			}
+		});
+	}
 }
 
 function toggleDropdown() {
@@ -396,7 +407,7 @@ function handleClickOutside(event) {
 	if (!isDropdownOpen.value) return;
 	if (wrapperRef.value?.contains(event.target)) return;
 	if (dropdownRef.value?.contains(event.target)) return;
-	closeDropdown();
+	closeDropdown(false);
 }
 
 const debouncedFetch = flexirule.utils.debounce(fetchOptions, 220);
@@ -433,8 +444,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<div class="fr-control multi-select-list" :class="{ 'no-label': hideLabel }" ref="wrapperRef">
-		<div v-if="df.label && !hideLabel" class="fr-label" :class="{ reqd: df.reqd }">
+	<div class="fxr-control multi-select-list" :class="{ 'no-label': hideLabel }" ref="wrapperRef">
+		<div v-if="df.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>
 
@@ -446,7 +457,10 @@ onBeforeUnmount(() => {
 				invalid,
 				compact: isCompactMode,
 			}"
+			tabindex="0"
 			@click="toggleDropdown"
+			@keydown.enter.prevent="toggleDropdown"
+			@keydown.space.prevent="toggleDropdown"
 		>
 			<template v-if="isCompactMode">
 				<div class="compact-content" :title="displaySummaryText()">
@@ -469,7 +483,10 @@ onBeforeUnmount(() => {
 						<i
 							v-if="canInteract"
 							class="fa fa-times remove-icon"
+							tabindex="0"
 							@click.stop="removeValue(opt.value)"
+							@keydown.enter.stop.prevent="removeValue(opt.value)"
+							@keydown.space.stop.prevent="removeValue(opt.value)"
 						></i>
 					</div>
 					<span v-if="collapsedBadgeHiddenCount" class="selected-badge collapsed"
@@ -599,7 +616,7 @@ onBeforeUnmount(() => {
 			<transition name="dropdown-fade">
 				<div
 					v-if="isDropdownOpen && !showExpanded"
-					class="fr-dropdown multi-select-dropdown"
+					class="fxr-dropdown multi-select-dropdown"
 					:style="dropdownStyle"
 					ref="dropdownRef"
 				>
@@ -700,10 +717,10 @@ onBeforeUnmount(() => {
 			</transition>
 		</Teleport>
 
-		<div v-if="(error || errorMessage) && !isDropdownOpen" class="fr-description text-danger">
+		<div v-if="(error || errorMessage) && !isDropdownOpen" class="fxr-description text-danger">
 			{{ error || errorMessage }}
 		</div>
-		<div v-if="df.description && !hideLabel" class="fr-description">
+		<div v-if="df.description && !hideLabel" class="fxr-description">
 			{{ __(df.description) }}
 		</div>
 	</div>
@@ -716,10 +733,10 @@ onBeforeUnmount(() => {
 }
 
 .multi-select-trigger {
-	min-height: var(--fr-input-height);
-	background: var(--fr-bg-input);
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-md);
+	min-height: var(--fxr-input-height);
+	background: var(--fxr-bg-input);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
 	padding: 4px 8px;
 	display: flex;
 	align-items: center;
@@ -733,8 +750,8 @@ onBeforeUnmount(() => {
 }
 
 .multi-select-trigger.is-active {
-	border-color: var(--fr-accent);
-	box-shadow: 0 0 0 3px var(--fr-accent-light);
+	border-color: var(--fxr-accent);
+	box-shadow: 0 0 0 3px var(--fxr-accent-light);
 }
 
 .multi-select-trigger.disabled {
@@ -761,13 +778,13 @@ onBeforeUnmount(() => {
 	white-space: nowrap;
 	padding: 2px 8px;
 	border-radius: 999px;
-	background: var(--fr-bg-muted);
+	background: var(--fxr-bg-muted);
 	font-size: 11px;
 	font-weight: 600;
 }
 
 .compact-pill.muted {
-	color: var(--fr-text-muted);
+	color: var(--fxr-text-muted);
 }
 
 .selected-badges {
@@ -778,10 +795,10 @@ onBeforeUnmount(() => {
 }
 
 .selected-badge {
-	background: var(--fr-accent-light);
-	color: var(--fr-accent);
+	background: var(--fxr-accent-light);
+	color: var(--fxr-accent);
 	padding: 2px 8px;
-	border-radius: var(--fr-radius-sm);
+	border-radius: var(--fxr-radius-sm);
 	font-size: 11px;
 	font-weight: 600;
 	display: inline-flex;
@@ -790,8 +807,8 @@ onBeforeUnmount(() => {
 }
 
 .selected-badge.collapsed {
-	background: var(--fr-bg-muted);
-	color: var(--fr-text-muted);
+	background: var(--fxr-bg-muted);
+	color: var(--fxr-text-muted);
 }
 
 .remove-icon {
@@ -804,12 +821,12 @@ onBeforeUnmount(() => {
 }
 
 .placeholder-text {
-	color: var(--fr-text-muted);
-	font-size: var(--fr-input-font-size);
+	color: var(--fxr-text-muted);
+	font-size: var(--fxr-input-font-size);
 }
 
 .trigger-icon {
-	color: var(--fr-text-muted);
+	color: var(--fxr-text-muted);
 	font-size: 10px;
 	margin-left: auto;
 	flex-shrink: 0;
@@ -817,8 +834,8 @@ onBeforeUnmount(() => {
 
 .multi-select-dropdown,
 .expanded-options-container {
-	background: var(--fr-bg-card, #fff);
-	border: 1px solid var(--fr-border, #dbe2ea);
+	background: var(--fxr-bg-card, #fff);
+	border: 1px solid var(--fxr-border, #dbe2ea);
 	border-radius: 12px;
 	box-shadow: 0 16px 34px rgba(15, 23, 42, 0.18);
 	overflow: hidden;
@@ -830,8 +847,8 @@ onBeforeUnmount(() => {
 
 .selected-list {
 	margin-top: 8px;
-	background: var(--fr-bg-card);
-	border: 1px solid var(--fr-border);
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
 	border-radius: 10px;
 	max-height: 240px;
 	overflow: auto;
@@ -852,13 +869,13 @@ onBeforeUnmount(() => {
 }
 
 .list-item:hover {
-	background: var(--fr-bg-muted);
+	background: var(--fxr-bg-muted);
 }
 
 .item-label {
 	font-size: 13px;
 	line-height: 1.3;
-	color: var(--fr-text);
+	color: var(--fxr-text);
 	min-width: 0;
 	white-space: nowrap;
 	overflow: hidden;
@@ -874,13 +891,13 @@ onBeforeUnmount(() => {
 .empty-selection-text {
 	padding: 10px 12px;
 	font-size: 12px;
-	color: var(--fr-text-muted);
+	color: var(--fxr-text-muted);
 }
 
 .sticky-row {
 	position: sticky;
 	z-index: 2;
-	background: var(--fr-bg-card, #fff);
+	background: var(--fxr-bg-card, #fff);
 }
 
 .dropdown-search {
@@ -888,7 +905,7 @@ onBeforeUnmount(() => {
 	padding: 10px 12px;
 	display: flex;
 	align-items: center;
-	border-bottom: 1px solid var(--fr-border);
+	border-bottom: 1px solid var(--fxr-border);
 }
 
 .dropdown-actions {
@@ -896,15 +913,15 @@ onBeforeUnmount(() => {
 	padding: 8px 12px;
 	display: flex;
 	gap: 6px;
-	border-bottom: 1px solid var(--fr-border);
+	border-bottom: 1px solid var(--fxr-border);
 }
 
 .action-btn {
 	padding: 4px 8px;
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-sm, 4px);
-	background: var(--fr-bg-card, #fff);
-	color: var(--fr-text-muted);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-sm, 4px);
+	background: var(--fxr-bg-card, #fff);
+	color: var(--fxr-text-muted);
 	font-size: 11px;
 	font-weight: 600;
 	cursor: pointer;
@@ -913,21 +930,21 @@ onBeforeUnmount(() => {
 }
 
 .action-btn:hover {
-	background: var(--fr-bg-muted, #f8fafc);
-	border-color: var(--fr-border-strong, #cbd5e1);
-	color: var(--fr-text);
+	background: var(--fxr-bg-muted, #f8fafc);
+	border-color: var(--fxr-border-strong, #cbd5e1);
+	color: var(--fxr-text);
 }
 
 .action-btn.select-all {
-	color: var(--fr-accent, #2563eb);
-	border-color: var(--fr-accent-light, #dbeafe);
-	background: var(--fr-accent-light, #f0f7ff);
+	color: var(--fxr-accent, #2563eb);
+	border-color: var(--fxr-accent-light, #dbeafe);
+	background: var(--fxr-accent-light, #f0f7ff);
 }
 
 .action-btn.select-all:hover {
-	background: var(--fr-accent);
+	background: var(--fxr-accent);
 	color: #fff;
-	border-color: var(--fr-accent);
+	border-color: var(--fxr-accent);
 }
 
 .search-input {
@@ -935,13 +952,13 @@ onBeforeUnmount(() => {
 	border: none;
 	background: transparent;
 	outline: none;
-	font-size: var(--fr-text-sm);
+	font-size: var(--fxr-text-sm);
 }
 
 .dropdown-state {
 	padding: 18px 12px;
 	text-align: center;
-	color: var(--fr-text-muted);
+	color: var(--fxr-text-muted);
 	font-size: 12px;
 }
 
@@ -966,11 +983,11 @@ onBeforeUnmount(() => {
 
 .option-item:hover,
 .option-item.is-active {
-	background: var(--fr-bg-muted);
+	background: var(--fxr-bg-muted);
 }
 
 .option-item.is-selected {
-	background: var(--fr-accent-light);
+	background: var(--fxr-accent-light);
 }
 
 .option-icon {
@@ -981,7 +998,7 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--fr-accent);
+	color: var(--fxr-accent);
 	font-size: 12px;
 }
 
@@ -1000,7 +1017,7 @@ onBeforeUnmount(() => {
 .option-label {
 	font-size: 13px;
 	font-weight: 600;
-	color: var(--fr-text);
+	color: var(--fxr-text);
 	line-height: 1.25;
 	white-space: nowrap;
 	overflow: hidden;
@@ -1014,14 +1031,14 @@ onBeforeUnmount(() => {
 	padding: 1px 6px;
 	border-radius: 4px;
 	letter-spacing: 0.05em;
-	background: var(--fr-bg-muted);
-	color: var(--fr-text-muted);
+	background: var(--fxr-bg-muted);
+	color: var(--fxr-text-muted);
 	flex-shrink: 0;
 }
 
 .option-desc {
 	font-size: 11px;
-	color: var(--fr-text-muted);
+	color: var(--fxr-text-muted);
 	margin-top: 2px;
 	white-space: nowrap;
 	overflow: hidden;
@@ -1057,7 +1074,7 @@ onBeforeUnmount(() => {
 .multi-select-dropdown .option-label {
 	font-size: 13px;
 	font-weight: 600;
-	color: var(--fr-text, #1e293b);
+	color: var(--fxr-text, #1e293b);
 	line-height: 1.25;
 	white-space: nowrap;
 	overflow: hidden;
@@ -1071,14 +1088,14 @@ onBeforeUnmount(() => {
 	padding: 1px 6px;
 	border-radius: 4px;
 	letter-spacing: 0.05em;
-	background: var(--fr-bg-muted, #f1f5f9);
-	color: var(--fr-text-muted, #64748b);
+	background: var(--fxr-bg-muted, #f1f5f9);
+	color: var(--fxr-text-muted, #64748b);
 	flex-shrink: 0;
 }
 
 .multi-select-dropdown .option-desc {
 	font-size: 11px;
-	color: var(--fr-text-muted, #64748b);
+	color: var(--fxr-text-muted, #64748b);
 	margin-top: 2px;
 	white-space: nowrap;
 	overflow: hidden;

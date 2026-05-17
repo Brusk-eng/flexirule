@@ -1,208 +1,221 @@
 <template>
-	<div class="fr-control" :class="{ 'no-label': hideLabel }">
-		<div v-if="df?.label && !hideLabel" class="fr-label" :class="{ reqd: df.reqd }">
-			{{ __(df.label) }}
-		</div>
+	<div class="fxr-control" :class="{ 'no-label': hideLabel }">
+		<div
+			class="fxr-input-group"
+			:class="{
+				'has-floating-label': df?.label && !hideLabel,
+				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
+			}"
+		>
+			<label v-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
+				{{ __(df.label) }}
+			</label>
 
-		<div class="combobox-container" ref="wrapperRef">
-			<div
-				class="combobox-wrapper"
-				:class="{ 'is-focused': isDropdownOpen, 'is-button-mode': trigger === 'button' }"
-			>
-				<div class="combobox-input-group">
-					<!-- Prefix Slot / Selected Icon -->
-					<div v-if="selectedOption?.icon || $slots.prefix" class="selection-icon">
-						<slot name="prefix" v-bind="{ selectedOption }">
-							<i v-if="selectedOption?.icon" :class="selectedOption.icon"></i>
-						</slot>
-					</div>
-
-					<!-- Trigger: Button Mode -->
-					<button
-						v-if="trigger === 'button'"
-						class="combobox-button-trigger"
-						@click.prevent="toggleDropdown"
-						:disabled="read_only"
-					>
-						<span class="selected-label truncate">
-							{{ displayValue || placeholder || __("Select option") }}
-						</span>
-						<i
-							class="fa fa-chevron-down ml-2 text-xs opacity-50 transition-transform"
-							:class="{ 'rotate-180': isDropdownOpen }"
-						></i>
-					</button>
-
-					<!-- Trigger: Input Mode -->
-					<input
-						v-else
-						ref="mainInputRef"
-						type="text"
-						class="combobox-input"
-						:value="isDropdownOpen ? query : displayValue"
-						@input="onInput"
-						@focus="onFocus"
-						@keydown="onKeydown"
-						:placeholder="__(placeholder || df?.placeholder || '')"
-						autocomplete="off"
-						:disabled="read_only"
-					/>
-
-					<!-- Clear Button -->
-					<button
-						v-if="trigger === 'input' && modelValue && !read_only"
-						class="combobox-trigger clear-btn"
-						@click.prevent="onSelect('')"
-						title="Clear"
-						tabindex="-1"
-					>
-						<i class="fa fa-times"></i>
-					</button>
-
-					<!-- Open Link Button — excluded from keyboard tab flow -->
-					<button
-						v-if="
-							(df?.fieldtype === 'Link' || df?.fieldtype === 'Dynamic Link') &&
-							modelValue
-						"
-						class="combobox-trigger open-link-btn"
-						title="Open in new tab"
-						tabindex="-1"
-						@click.stop.prevent="openLink"
-					>
-						<i class="fa fa-external-link"></i>
-					</button>
-
-					<!-- Dropdown Chevron -->
-					<button
-						v-if="trigger === 'input'"
-						class="combobox-trigger"
-						@click.prevent="toggleDropdown"
-						:disabled="read_only"
-						tabindex="-1"
-					>
-						<i
-							class="fa fa-chevron-down transition-transform"
-							:class="{ 'rotate-180': isDropdownOpen }"
-						></i>
-					</button>
-				</div>
-			</div>
-
-			<Teleport to="body">
-				<transition name="dropdown-fade">
-					<div
-						v-if="isDropdownOpen"
-						class="fr-dropdown"
-						:style="dropdownStyle"
-						ref="optionsRef"
-						@mousedown.prevent
-					>
-						<!-- Search box inside popover for button mode -->
-						<div v-if="trigger === 'button'" class="popover-search">
-							<i class="fa fa-search text-muted mr-2"></i>
-							<input
-								ref="popoverSearchInput"
-								class="popover-search-input"
-								:value="query"
-								@input="onInput"
-								@keydown="onKeydown"
-								:placeholder="__('Search...')"
-								autocomplete="off"
-							/>
+			<div class="combobox-container" ref="wrapperRef" @focusout="onFocusOut">
+				<div
+					class="combobox-wrapper"
+					:class="{
+						'is-focused': isDropdownOpen,
+						'is-button-mode': trigger === 'button',
+					}"
+				>
+					<div class="combobox-input-group">
+						<!-- Prefix Slot / Selected Icon -->
+						<div v-if="selectedOption?.icon || $slots.prefix" class="selection-icon">
+							<slot name="prefix" v-bind="{ selectedOption }">
+								<i v-if="selectedOption?.icon" :class="selectedOption.icon"></i>
+							</slot>
 						</div>
 
-						<div v-if="loading" class="fr-dropdown-item text-center text-muted">
-							<i class="fa fa-spinner fa-spin mr-2"></i>
-							{{ __("Loading...") }}
-						</div>
+						<!-- Trigger: Button Mode -->
+						<button
+							v-if="trigger === 'button'"
+							class="combobox-button-trigger"
+							@click.prevent="toggleDropdown"
+							:disabled="read_only"
+						>
+							<span class="selected-label truncate">
+								{{ displayValue || placeholder || __("Select option") }}
+							</span>
+							<i
+								class="fa fa-chevron-down ml-2 text-xs opacity-50 transition-transform"
+								:class="{ 'rotate-180': isDropdownOpen }"
+							></i>
+						</button>
 
-						<div
-							v-else-if="
-								(filteredOptions || []).length === 0 &&
-								query !== '' &&
-								!allowCustomValue
+						<!-- Trigger: Input Mode -->
+						<input
+							v-else
+							ref="mainInputRef"
+							type="text"
+							class="combobox-input"
+							:value="isDropdownOpen ? query : displayValue"
+							@input="onInput"
+							@focus="onFocus"
+							@keydown="onKeydown"
+							:placeholder="__(placeholder || df?.placeholder || '')"
+							autocomplete="off"
+							:disabled="read_only"
+						/>
+
+						<!-- Clear Button -->
+						<button
+							v-if="trigger === 'input' && modelValue && !read_only"
+							class="combobox-trigger clear-btn"
+							@click.prevent="onSelect('')"
+							title="Clear"
+							tabindex="-1"
+						>
+							<i class="fa fa-times"></i>
+						</button>
+
+						<!-- Open Link Button — excluded from keyboard tab flow -->
+						<button
+							v-if="
+								(df?.fieldtype === 'Link' || df?.fieldtype === 'Dynamic Link') &&
+								modelValue
 							"
-							class="fr-dropdown-item text-center text-muted"
+							class="combobox-trigger open-link-btn"
+							title="Open in new tab"
+							tabindex="-1"
+							@click.stop.prevent="openLink"
 						>
-							{{ __("No results found") }}
-						</div>
+							<i class="fa fa-external-link"></i>
+						</button>
 
-						<!-- Create New Option -->
-						<div
-							v-if="allowCustomValue && query !== '' && !exactMatch"
-							class="fr-dropdown-item is-create"
-							:class="{ active: activeIndex === -2 }"
-							@click="onSelect(query)"
-							@mouseover="activeIndex = -2"
+						<!-- Dropdown Chevron -->
+						<button
+							v-if="trigger === 'input'"
+							class="combobox-trigger"
+							@click.prevent="toggleDropdown"
+							:disabled="read_only"
+							tabindex="-1"
 						>
-							<div class="option-content">
-								<div class="option-icon"><i class="fa fa-plus"></i></div>
-								<div class="option-text">
-									<div class="option-label text-primary font-medium">
-										{{ __("Create '{0}'", [query]) }}
-									</div>
-								</div>
-							</div>
-						</div>
-
-						<div
-							v-for="(option, idx) in filteredOptions"
-							:key="option.value || idx"
-							class="fr-dropdown-item"
-							:class="{
-								active: idx === activeIndex,
-								selected: option.value === modelValue,
-								'is-compact': hideLabel,
-							}"
-							@click="onSelect(option.value)"
-							@mouseover="activeIndex = idx"
-						>
-							<div class="option-content">
-								<div v-if="option.icon" class="option-icon">
-									<i :class="option.icon"></i>
-								</div>
-								<div class="option-text">
-									<div class="option-label-row">
-										<span class="option-label">
-											{{ option.label || option.value }}
-										</span>
-										<span
-											v-if="option.raw?.fieldtype || option.raw?.type"
-											class="option-badge"
-											:class="
-												'type-' +
-												String(
-													option.raw?.fieldtype || option.raw?.type || ''
-												)
-													.toLowerCase()
-													.replace(' ', '-')
-											"
-										>
-											{{ option.raw?.fieldtype || option.raw?.type }}
-										</span>
-									</div>
-									<div
-										v-if="option.description"
-										class="option-description text-muted"
-									>
-										{{ option.description }}
-									</div>
-								</div>
-								<div v-if="option.value === modelValue" class="selected-check">
-									<i class="fa fa-check"></i>
-								</div>
-							</div>
-						</div>
-
-						<!-- Custom Slot for Footer (like 'Add New') -->
-						<slot name="footer"></slot>
+							<i
+								class="fa fa-chevron-down transition-transform"
+								:class="{ 'rotate-180': isDropdownOpen }"
+							></i>
+						</button>
 					</div>
-				</transition>
-			</Teleport>
+				</div>
+
+				<Teleport to="body">
+					<transition name="dropdown-fade">
+						<div
+							v-if="isDropdownOpen"
+							class="fxr-dropdown"
+							:style="dropdownStyle"
+							ref="optionsRef"
+							@mousedown.prevent
+						>
+							<!-- Search box inside popover for button mode -->
+							<div v-if="trigger === 'button'" class="popover-search">
+								<i class="fa fa-search text-muted mr-2"></i>
+								<input
+									ref="popoverSearchInput"
+									class="popover-search-input"
+									:value="query"
+									@input="onInput"
+									@keydown="onKeydown"
+									:placeholder="__('Search...')"
+									autocomplete="off"
+								/>
+							</div>
+
+							<div v-if="loading" class="fxr-dropdown-item text-center text-muted">
+								<i class="fa fa-spinner fa-spin mr-2"></i>
+								{{ __("Loading...") }}
+							</div>
+
+							<div
+								v-else-if="
+									(filteredOptions || []).length === 0 &&
+									query !== '' &&
+									!allowCustomValue
+								"
+								class="fxr-dropdown-item text-center text-muted"
+							>
+								{{ __("No results found") }}
+							</div>
+
+							<!-- Create New Option -->
+							<div
+								v-if="allowCustomValue && query !== '' && !exactMatch"
+								class="fxr-dropdown-item is-create"
+								:class="{ active: activeIndex === -2 }"
+								@click="onSelect(query)"
+								@mouseover="activeIndex = -2"
+							>
+								<div class="option-content">
+									<div class="option-icon"><i class="fa fa-plus"></i></div>
+									<div class="option-text">
+										<div class="option-label text-primary font-medium">
+											{{ __("Create '{0}'", [query]) }}
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<div
+								v-for="(option, idx) in filteredOptions"
+								:key="option.value || idx"
+								class="fxr-dropdown-item"
+								:class="{
+									active: idx === activeIndex,
+									selected: option.value === modelValue,
+									'is-compact': hideLabel,
+								}"
+								@click="onSelect(option.value)"
+								@mouseover="activeIndex = idx"
+							>
+								<div class="option-content">
+									<div v-if="option.icon" class="option-icon">
+										<i :class="option.icon"></i>
+									</div>
+									<div class="option-text">
+										<div class="option-label-row">
+											<span class="option-label">
+												{{ option.label || option.value }}
+											</span>
+											<span
+												v-if="option.raw?.fieldtype || option.raw?.type"
+												class="option-badge"
+												:class="
+													'type-' +
+													String(
+														option.raw?.fieldtype ||
+															option.raw?.type ||
+															''
+													)
+														.toLowerCase()
+														.replace(' ', '-')
+												"
+											>
+												{{ option.raw?.fieldtype || option.raw?.type }}
+											</span>
+										</div>
+										<div
+											v-if="option.description"
+											class="option-description text-muted"
+										>
+											{{ option.description }}
+										</div>
+									</div>
+									<div v-if="option.value === modelValue" class="selected-check">
+										<i class="fa fa-check"></i>
+									</div>
+								</div>
+							</div>
+
+							<!-- Custom Slot for Footer (like 'Add New') -->
+							<slot name="footer"></slot>
+						</div>
+					</transition>
+				</Teleport>
+			</div>
 		</div>
 
-		<div v-if="df?.description && !hideDescription" class="fr-description">
+		<div v-if="df?.description && !hideDescription" class="fxr-description">
 			{{ __(df.description) }}
 		</div>
 	</div>
@@ -427,8 +440,24 @@ function openDropdown() {
 	if (isRemote.value) runOptionFetch(query.value || "");
 }
 
-function closeDropdown() {
+function closeDropdown(restoreFocus = false) {
+	const active = document.activeElement;
+	const wasInsideDropdown = optionsRef.value && optionsRef.value.contains(active);
 	closeFloatingDropdown();
+
+	if (restoreFocus || wasInsideDropdown) {
+		nextTick(() => {
+			if (props.trigger === "button" && wrapperRef.value) {
+				const btn = wrapperRef.value.querySelector(".combobox-button-trigger");
+				if (btn) btn.focus();
+			} else if (mainInputRef.value) {
+				// Don't forcefully steal focus if they are already focused on the input
+				if (document.activeElement !== mainInputRef.value) {
+					mainInputRef.value.focus();
+				}
+			}
+		});
+	}
 }
 
 function onFocus() {
@@ -442,12 +471,25 @@ function onInput(e) {
 	if (isRemote.value) debouncedRemoteSearch(query.value || "");
 }
 
+function onFocusOut(e) {
+	if (!isDropdownOpen.value) return;
+	const related = e.relatedTarget;
+	if (wrapperRef.value && wrapperRef.value.contains(related)) return;
+	if (optionsRef.value && optionsRef.value.contains(related)) return;
+
+	if (props.trigger === "input" && query.value === "") {
+		onSelect("");
+	} else {
+		closeDropdown();
+	}
+}
+
 function onSelect(val) {
 	emit("update:modelValue", val);
 	const option = normalizedOptions.value.find((o) => String(o.value) === String(val));
 	emit("change", option?.raw || val);
 	query.value = "";
-	closeDropdown();
+	closeDropdown(true);
 }
 
 function scrollToActive() {
@@ -515,7 +557,7 @@ function onKeydown(e) {
 
 	if (e.key === "Escape") {
 		e.preventDefault();
-		closeDropdown();
+		closeDropdown(true);
 		return;
 	}
 
@@ -598,39 +640,39 @@ onBeforeUnmount(() => {
 .combobox-wrapper {
 	position: relative;
 	width: 100%;
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-md);
-	background: var(--fr-bg-input);
-	transition: all var(--fr-transition-normal);
-	box-shadow: var(--fr-shadow-sm);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	background: var(--fxr-bg-input);
+	transition: all var(--fxr-transition-normal);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 .combobox-wrapper.is-focused {
-	border-color: var(--fr-accent);
-	box-shadow: 0 0 0 3px var(--fr-accent-light);
+	border-color: var(--fxr-accent);
+	box-shadow: 0 0 0 3px var(--fxr-accent-light);
 }
 
-.fr-control.no-label .combobox-wrapper {
-	border-color: var(--fr-border);
-	background: var(--fr-bg-input);
-	box-shadow: var(--fr-shadow-sm);
+.fxr-control.no-label .combobox-wrapper {
+	border-color: var(--fxr-border);
+	background: var(--fxr-bg-input);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
-.fr-control.no-label .combobox-wrapper:hover {
-	border-color: var(--fr-border-strong);
+.fxr-control.no-label .combobox-wrapper:hover {
+	border-color: var(--fxr-border-strong);
 }
 
-.fr-control.no-label .combobox-wrapper.is-focused {
-	border-color: var(--fr-accent);
-	background: var(--fr-bg-input);
-	box-shadow: 0 0 0 3px var(--fr-accent-light);
+.fxr-control.no-label .combobox-wrapper.is-focused {
+	border-color: var(--fxr-accent);
+	background: var(--fxr-bg-input);
+	box-shadow: 0 0 0 3px var(--fxr-accent-light);
 }
 
 .combobox-input-group {
 	display: flex;
 	align-items: center;
-	padding: 0 var(--fr-input-padding-x);
-	height: var(--fr-input-height);
+	padding: 0 var(--fxr-input-padding-x);
+	height: var(--fxr-input-height);
 	width: 100%;
 }
 
@@ -642,13 +684,21 @@ onBeforeUnmount(() => {
 	height: 100%;
 	width: 100%;
 	text-align: left;
-	font-size: var(--fr-input-font-size);
-	font-weight: var(--fr-weight-medium);
-	color: var(--fr-text);
+	font-size: var(--fxr-input-font-size);
+	font-weight: var(--fxr-weight-medium);
+	color: var(--fxr-text);
 	cursor: pointer;
 	padding: 0;
 	border: none;
 	background: transparent;
+	min-width: 0;
+}
+
+.selected-label {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex: 1;
 	min-width: 0;
 }
 
@@ -658,8 +708,8 @@ onBeforeUnmount(() => {
 	background: transparent;
 	padding: 0;
 	height: 100%;
-	font-size: var(--fr-input-font-size);
-	color: var(--fr-text);
+	font-size: var(--fxr-input-font-size);
+	color: var(--fxr-text);
 	outline: none;
 	width: 100%;
 	min-width: 0;
@@ -671,20 +721,20 @@ onBeforeUnmount(() => {
 	justify-content: center;
 	width: 20px;
 	height: 20px;
-	color: var(--fr-text-muted);
+	color: var(--fxr-text-muted);
 	cursor: pointer;
 	background: transparent;
 	border: none;
 	padding: 0;
 	margin-left: 4px;
-	border-radius: var(--fr-radius-sm);
+	border-radius: var(--fxr-radius-sm);
 	transition: all 0.2s;
 	flex-shrink: 0;
 }
 
 .combobox-trigger:hover:not(:disabled) {
-	color: var(--fr-accent);
-	background: var(--fr-accent-light);
+	color: var(--fxr-accent);
+	background: var(--fxr-accent-light);
 }
 
 /* Open-link is purely decorative — smaller, more muted */
@@ -697,8 +747,8 @@ onBeforeUnmount(() => {
 }
 .combobox-trigger.open-link-btn:hover {
 	opacity: 1;
-	color: var(--fr-accent);
-	background: var(--fr-accent-light);
+	color: var(--fxr-accent);
+	background: var(--fxr-accent-light);
 }
 
 /* Clear button same footprint as chevron but slightly warmer */
@@ -715,7 +765,7 @@ onBeforeUnmount(() => {
 .option-content {
 	display: flex;
 	align-items: flex-start;
-	gap: var(--fr-space-3);
+	gap: var(--fxr-space-3);
 	width: 100%;
 }
 
@@ -727,7 +777,7 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--fr-accent);
+	color: var(--fxr-accent);
 	font-size: 12px;
 }
 
@@ -740,13 +790,13 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--fr-space-3);
+	gap: var(--fxr-space-3);
 }
 
 .option-label {
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-semibold);
-	color: var(--fr-text);
+	font-size: var(--fxr-text-sm);
+	font-weight: var(--fxr-weight-semibold);
+	color: var(--fxr-text);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -759,8 +809,8 @@ onBeforeUnmount(() => {
 	padding: 1px 6px;
 	border-radius: 4px;
 	letter-spacing: 0.05em;
-	background: var(--fr-bg-muted);
-	color: var(--fr-text-muted);
+	background: var(--fxr-bg-muted);
+	color: var(--fxr-text-muted);
 	flex-shrink: 0;
 }
 
@@ -775,7 +825,7 @@ onBeforeUnmount(() => {
 
 .selected-check {
 	flex-shrink: 0;
-	color: var(--fr-accent);
+	color: var(--fxr-accent);
 	font-size: 10px;
 	margin-top: 4px;
 }
@@ -802,13 +852,13 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	padding: 10px 14px;
-	border-bottom: 1px solid var(--fr-border);
+	border-bottom: 1px solid var(--fxr-border);
 	background: rgba(255, 255, 255, 0.5);
 	backdrop-filter: blur(4px);
 }
 
 .popover-search-icon {
-	color: var(--fr-text-muted);
+	color: var(--fxr-text-muted);
 	margin-right: 8px;
 	display: flex;
 	align-items: center;
@@ -821,25 +871,25 @@ onBeforeUnmount(() => {
 	font-size: 13px;
 	outline: none !important;
 	box-shadow: none !important;
-	color: var(--fr-text);
+	color: var(--fxr-text);
 	width: 100%;
 	padding: 0;
 }
 
 .popover-search-input::placeholder {
-	color: var(--fr-text-muted);
+	color: var(--fxr-text-muted);
 	opacity: 0.7;
 }
 
-.fr-dropdown {
-	background: var(--fr-bg-card, #fff);
-	border: 1px solid var(--fr-border, #dbe2ea);
-	border-radius: var(--fr-radius-lg, 12px);
-	box-shadow: var(--fr-shadow-lg, 0 18px 36px rgba(15, 23, 42, 0.16));
+.fxr-dropdown {
+	background: var(--fxr-bg-card, #fff);
+	border: 1px solid var(--fxr-border, #dbe2ea);
+	border-radius: var(--fxr-radius-lg, 12px);
+	box-shadow: var(--fxr-shadow-lg, 0 18px 36px rgba(15, 23, 42, 0.16));
 	overflow: auto;
 }
 
-.fr-dropdown-item {
+.fxr-dropdown-item {
 	padding: 8px 12px;
 	cursor: pointer;
 	border-bottom: 1px solid rgba(148, 163, 184, 0.12);
@@ -847,30 +897,30 @@ onBeforeUnmount(() => {
 	transition: background 0.12s ease;
 }
 
-.fr-dropdown-item:last-child {
+.fxr-dropdown-item:last-child {
 	border-bottom: none;
 }
 
-.fr-dropdown-item:hover,
-.fr-dropdown-item.active {
-	background: var(--fr-bg-muted, #f8fafc);
+.fxr-dropdown-item:hover,
+.fxr-dropdown-item.active {
+	background: var(--fxr-bg-muted, #f8fafc);
 }
 
-.fr-dropdown-item.selected {
-	background: var(--fr-accent-light, #e8f0ff);
+.fxr-dropdown-item.selected {
+	background: var(--fxr-accent-light, #e8f0ff);
 }
 </style>
 
 <style>
 /* Global styles for teleported ComboBox dropdown content */
-.fr-dropdown .option-content {
+.fxr-dropdown .option-content {
 	display: flex;
 	align-items: flex-start;
-	gap: var(--fr-space-3, 12px);
+	gap: var(--fxr-space-3, 12px);
 	width: 100%;
 }
 
-.fr-dropdown .option-icon {
+.fxr-dropdown .option-icon {
 	flex-shrink: 0;
 	margin-top: 2px;
 	width: 16px;
@@ -878,56 +928,56 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--fr-accent, #2563eb);
+	color: var(--fxr-accent, #2563eb);
 	font-size: 12px;
 }
 
-.fr-dropdown .option-text {
+.fxr-dropdown .option-text {
 	flex: 1;
 	min-width: 0;
 }
 
-.fr-dropdown .option-label-row {
+.fxr-dropdown .option-label-row {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--fr-space-3, 12px);
+	gap: var(--fxr-space-3, 12px);
 }
 
-.fr-dropdown .option-label {
+.fxr-dropdown .option-label {
 	font-size: 13px;
 	font-weight: 600;
-	color: var(--fr-text, #1e293b);
+	color: var(--fxr-text, #1e293b);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-.fr-dropdown .option-badge {
+.fxr-dropdown .option-badge {
 	font-size: 9px;
 	font-weight: 700;
 	text-transform: uppercase;
 	padding: 1px 6px;
 	border-radius: 4px;
 	letter-spacing: 0.05em;
-	background: var(--fr-bg-muted, #f1f5f9);
-	color: var(--fr-text-muted, #64748b);
+	background: var(--fxr-bg-muted, #f1f5f9);
+	color: var(--fxr-text-muted, #64748b);
 	flex-shrink: 0;
 }
 
-.fr-dropdown .option-description {
+.fxr-dropdown .option-description {
 	font-size: 10px;
 	line-height: 1.4;
 	margin-top: 2px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	color: var(--fr-text-muted, #64748b);
+	color: var(--fxr-text-muted, #64748b);
 }
 
-.fr-dropdown .selected-check {
+.fxr-dropdown .selected-check {
 	flex-shrink: 0;
-	color: var(--fr-accent, #2563eb);
+	color: var(--fxr-accent, #2563eb);
 	font-size: 10px;
 	margin-top: 4px;
 }

@@ -20,10 +20,11 @@ The `ValueResolverControl` is a "magic" input widget that allows users to define
 - **Dynamic Expression Preview:** As the user configures the formula via the popover UI, a live Jinja-compatible expression snippet is generated and displayed at the bottom of the popover.
 - **Context-Aware Field Pickers:** Automatically filters and displays relevant document fields based on the selected formula type (e.g., only showing numeric fields for Math Formulas).
 - **Tokenized UI:** Displays a compact, icon-rich "token" in the form that summarizes the configured logic (e.g., "Today + 5 Days").
-- **Intelligent Viewport Positioning:** The control automatically calculates available screen space. If there isn't enough room below the input, the configuration popover intelligently "flips" to appear above the token, ensuring the UI is never cut off by the browser window.
+- **Intelligent Viewport Positioning (Auto-Flipping):** The control automatically calculates available screen space. If there isn't enough room below the input, the configuration popover intelligently "flips" to appear above the token, ensuring the UI is never cut off by the browser window.
 - **Granular Category Filtering:** Developers can use the `allowedKinds` prop to restrict which formula categories are available. This is useful for specific fields where only "Date" or "Math" logic might be appropriate.
 - **Seamless Backwards Compatibility:** Includes a robust hydration layer that automatically migrates older rule schemas (like legacy `function_name` or `offset_days` fields) into the modern multi-mode format without user intervention.
 - **Deep Frappe Utility Integration:** The generated snippets leverage high-level Frappe Python utilities (e.g., `frappe.utils.add_to_date`, `frappe.utils.fmt_money`), ensuring the resulting logic is both powerful and standard-compliant.
+- **Intelligent Teleportation:** Uses Vue's `<Teleport to="body">` to escape `overflow: hidden` containers (like graph nodes or side panels) while maintaining correct z-index stacking.
 
 ---
 
@@ -42,6 +43,7 @@ The `ResourceMapperControl` is a high-density mapping interface used to define h
   - **Static:** A hardcoded literal value.
 - **Batch Operations:** Supports multi-select and bulk deletion of mappings to speed up configuration.
 - **Read-Only / No-Copy Detection:** Visually highlights fields that are read-only or marked as "No Copy" in the DocType metadata.
+- **Type Validation:** Highlights potential type mismatches (e.g., trying to map a text field to a numeric field).
 
 ---
 
@@ -54,10 +56,11 @@ A sophisticated rich-text editor based on Tiptap that seamlessly blends static t
 - **Visual Logic Blocks:** Instead of writing complex Jinja tags (`{% if ... %}`), users insert visual "Badges" for conditions and loops.
 - **Nested Recursive Editing:** Double-clicking a logic badge opens a "Bottom Panel" containing another instance of `TextGeneratorControl`, allowing users to define content for "IF TRUE", "ELSE", or "LOOP BODY" in a structured, hierarchical way.
 - **Slash Commands & Mentions:**
-  - Typing `@` opens a variable picker.
+  - Typing `@` or `{{` triggers a field picker for inserting dynamic variables.
   - Typing `/` opens a logic block picker.
 - **Live Jinja Synchronization:** Seamlessly toggles between a "Visual" mode and a "Raw Jinja" mode, ensuring compatibility for power users while maintaining simplicity for others.
 - **Context-Aware Iterators:** Inside a loop block, the variable picker automatically includes properties of the current loop item (e.g., `item.qty`).
+- **Live Preview:** Renders a sample of the generated Jinja template in real-time.
 
 ---
 
@@ -72,6 +75,7 @@ A visual "Spider-Web" style mapper for connecting two data schemas.
 - **Drag-to-Connect:** Users can initiate a connection by clicking an anchor on a source field and "dropping" it onto a target field.
 - **Fuzzy Search & Filtering:** Both source and target columns have independent search bars to quickly locate fields in large schemas.
 - **Auto-Syncing Lines:** The mapping lines automatically recalculate and redraw as the user scrolls, expands nodes, or resizes the window.
+- **Standard Functions:** Includes built-in filters like `unique`, `sum`, `map`, and `filter`.
 
 ---
 
@@ -100,6 +104,7 @@ A highly optimized replacement for the standard HTML select/autocomplete, tailor
 - **Rich Option Rendering:** Supports icons, descriptions, and "Type Badges" for each option, making it easier to distinguish between different types of variables or fields.
 - **Button vs. Input Modes:** Can function as a standard autocomplete input or a compact "Button" trigger that opens a searchable popover.
 - **Keyboard Navigation:** Full support for arrow keys, Enter to select, and Escape to close, including type-ahead matching in button mode.
+- **Frappe Link Integration:** Can be configured to fetch options from any Frappe DocType via the standard `frappe.call` API.
 
 ---
 
@@ -115,3 +120,28 @@ A high-performance filter builder used in `Query Records` and `Trigger Condition
 - **Enhanced Timespan Filtering:** Includes a "Timespan" operator with human-readable tokens (e.g., "Last 30 Days", "Next Quarter") that the engine automatically resolves to date ranges.
 - **Dynamic Field Validation:** Visually flags fields with a warning icon if they are no longer present in the DocType metadata (useful when DocTypes are modified after a rule is created).
 - **Themed UI Integration:** Automatically adopts the accent color of its parent action node (e.g., cyan for Query actions) using dynamic CSS variables.
+
+---
+
+## Technical Patterns
+
+### Teleport & Z-Index Management
+To ensure overlays (dropdowns, pickers) always appear above other UI elements, FlexiRule uses a standard "Teleport to Body" pattern:
+```vue
+<template>
+  <div class="control-container">
+    <button @click="isOpen = !isOpen">Open</button>
+    <Teleport to="body">
+      <div v-if="isOpen" class="floating-overlay" :style="positionStyle">
+        <!-- Overlay Content -->
+      </div>
+    </Teleport>
+  </div>
+</template>
+```
+
+### Viewport-Aware Positioning
+Controls use a custom `useFloating` composable that monitors the element's `getBoundingClientRect()` to decide the optimal rendering direction (Top vs Bottom).
+
+### Frappe Utility Integration
+Controls are deeply integrated with Frappe's utility functions. For example, `ValueResolverControl` can automatically generate Jinja snippets that use `frappe.utils.format_value` or `frappe.db.get_value` based on the user's visual selection.

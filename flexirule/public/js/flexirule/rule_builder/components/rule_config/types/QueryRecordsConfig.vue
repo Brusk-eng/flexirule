@@ -350,6 +350,7 @@
 				class="btn btn-xs btn-primary shadow-sm"
 				@click="test_query"
 				:disabled="readOnly"
+				tabindex="0"
 			>
 				<i class="fa fa-flask mr-1"></i> {{ __("Refresh Schema (Test Query)") }}
 			</button>
@@ -1034,75 +1035,75 @@ defineExpose({
 .query-config {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fr-space-8);
-	font-family: var(--fr-font-family);
+	gap: var(--fxr-space-8);
+	font-family: var(--fxr-font-family);
 }
 
 .config-section {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fr-space-6);
+	gap: var(--fxr-space-6);
 }
 
 .section-card {
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-xl);
-	padding: var(--fr-space-6);
-	background: var(--fr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-xl);
+	padding: var(--fxr-space-6);
+	background: var(--fxr-bg-card);
 }
 
 .section-subcard {
-	border: 1px dashed var(--fr-border);
-	border-radius: var(--fr-radius-lg);
-	padding: var(--fr-space-5);
+	border: 1px dashed var(--fxr-border);
+	border-radius: var(--fxr-radius-lg);
+	padding: var(--fxr-space-5);
 }
 
 .sub-section {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fr-space-4);
+	gap: var(--fxr-space-4);
 }
 
 .table-rows {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fr-space-3);
+	gap: var(--fxr-space-3);
 }
 
 .row-item {
 	display: grid;
 	grid-template-columns: 1.4fr 0.8fr 1.6fr 0.8fr auto;
-	gap: var(--fr-space-3);
+	gap: var(--fxr-space-3);
 	align-items: center;
 }
 
 .row-item.report-filter-row {
 	grid-template-columns: 1fr 2fr;
-	padding: var(--fr-space-2) 0;
-	border-bottom: 1px solid var(--fr-bg-muted);
+	padding: var(--fxr-space-2) 0;
+	border-bottom: 1px solid var(--fxr-bg-muted);
 }
 
 .filter-label-group {
 	display: flex;
 	align-items: center;
-	gap: var(--fr-space-4);
+	gap: var(--fxr-space-4);
 }
 
 .filter-label {
 	margin: 0;
-	font-size: var(--fr-text-base);
-	color: var(--fr-text-secondary);
-	font-weight: var(--fr-weight-medium);
+	font-size: var(--fxr-text-base);
+	color: var(--fxr-text-secondary);
+	font-weight: var(--fxr-weight-medium);
 }
 
 .expression-input-group {
 	display: flex;
 	align-items: center;
-	background: var(--fr-badge-expr);
-	border-radius: var(--fr-radius-md);
-	padding: 0 var(--fr-space-4);
+	background: var(--fxr-badge-expr);
+	border-radius: var(--fxr-radius-md);
+	padding: 0 var(--fxr-space-4);
 	border: 1px solid #fed7aa;
-	transition: border-color var(--fr-transition-fast);
+	transition: border-color var(--fxr-transition-fast);
 }
 
 .expression-input-group:focus-within {
@@ -1112,7 +1113,7 @@ defineExpose({
 
 .expr-prefix,
 .expr-suffix {
-	font-weight: var(--fr-weight-bold);
+	font-weight: var(--fxr-weight-bold);
 	color: #ea580c;
 	user-select: none;
 }
@@ -1130,7 +1131,7 @@ defineExpose({
 	z-index: 5;
 	pointer-events: all;
 	cursor: help;
-	font-size: var(--fr-text-sm);
+	font-size: var(--fxr-text-sm);
 }
 
 :deep(.border-warning .form-control) {
@@ -1141,7 +1142,7 @@ defineExpose({
 .field-row {
 	display: flex;
 	align-items: center;
-	gap: var(--fr-space-4);
+	gap: var(--fxr-space-4);
 }
 
 :deep(.field-picker-control) {
@@ -1156,21 +1157,21 @@ defineExpose({
 :deep(.form-control),
 :deep(input.form-control),
 :deep(select.form-control) {
-	height: var(--fr-input-height) !important;
-	padding: var(--fr-input-padding-y) var(--fr-input-padding-x) !important;
-	font-size: var(--fr-input-font-size) !important;
-	border: 1px solid var(--fr-border) !important;
-	border-radius: var(--fr-radius-md) !important;
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+	height: var(--fxr-input-height) !important;
+	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x) !important;
+	font-size: var(--fxr-input-font-size) !important;
+	border: 1px solid var(--fxr-border) !important;
+	border-radius: var(--fxr-radius-md) !important;
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
 }
 
 :deep(.form-control:focus) {
-	border-color: var(--fr-border-focus) !important;
-	box-shadow: var(--fr-shadow-focus) !important;
+	border-color: var(--fxr-border-focus) !important;
+	box-shadow: var(--fxr-shadow-focus) !important;
 }
 
 :deep(.form-control:hover:not(:disabled):not(:focus)) {
-	border-color: var(--fr-border-strong) !important;
+	border-color: var(--fxr-border-strong) !important;
 }
 
 :deep(select.form-control) {

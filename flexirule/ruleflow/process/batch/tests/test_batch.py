@@ -24,14 +24,12 @@ class TestBatchProcess(FrappeTestCase):
 					"is_active": 1,
 					"actions": [
 						{
-							"action_type": "Set Value",
-							"operation": "Current Document",
+							"action_type": "Assignment",
+							"config": '[{"target": "doc.priority", "operator": "set", "value": "High"}]',
 							"action_label": "Make High Priority",
 							"action_id": "act_high_prio",
 							"is_entry_action": 1,
 							"next_step_if_true": None,
-							"target_field": "priority",
-							"value_template": "High",
 						}
 					],
 				}

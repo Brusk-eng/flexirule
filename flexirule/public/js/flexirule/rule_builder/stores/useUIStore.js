@@ -19,6 +19,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const show_config_modal = ref(false);
 	const config_modal_mode = ref("setup"); // "setup" | "logic"
 	const use_modern_layout = ref(true); // Enable unified layout by default
+	const show_shortcuts_help = ref(false);
 
 	// ── Test Execution Visualization ──
 	const test_execution_path = ref([]);
@@ -114,6 +115,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		show_config_modal,
 		config_modal_mode,
 		use_modern_layout,
+		show_shortcuts_help,
 		test_execution_path,
 		test_context,
 		node_execution_state,

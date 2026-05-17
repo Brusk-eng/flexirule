@@ -15,16 +15,24 @@ FlexiRule provides a variety of action types, each represented as a node in the 
 
 ## Data & Logic Actions
 
+| Action | Purpose | Branches |
+| :--- | :--- | :--- |
+| **Assignment** | Performs batch state mutations (replaces Set Value). | `Next` |
+| **Process** | Executes reusable business logic from Process DocType. | `Next` |
+| **Query Records** | Retrieves data from the database. | `Next` |
+| **Document Action** | Performs CRUD operations on records. | `Next` |
+
 ### **Process**
 Executes reusable business logic defined in a `Process` DocType. This is the primary way to extend FlexiRule with custom Python code.
 - **Inputs**: Defined by the Operation's `config_schema`.
 - **Outputs**: Defined by the Operation's `output_schema`.
 - **Mutation Logic**: Processes are designed to be side-effect free. They return results (data) or explicit **Mutation Intents**. The Rule Engine is responsible for applying these changes (e.g., updating a document field or context variable) based on the **Mutation Mode** selected by the rule designer.
 
-### **Set Value**
-Updates a field or variable using a Jinja template.
-- **Targets**: `Current Document`, `Context Variable`, or `Reference Document`.
-- **Mutation Modes**: `Set`, `Update` (for dicts), `Append` (for lists).
+### **Assignment**
+Updates a document field or a context variable using a suite of operators. This action replaces the legacy **Set Value** action.
+- **Batching**: Allows multiple assignments in a single node.
+- **Operators**: Supports `Set`, `Clear`, `Increment`, `Decrement`, `Append`, `Merge`, and `Toggle`.
+- **Validation**: Strict path protection and event-based mutation blocking.
 
 ### **Query Records**
 Retrieves data from the database.

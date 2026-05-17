@@ -159,16 +159,12 @@ const docFields = computed(() => {
 	let fields = Array.from(dedupe.values());
 
 	if (showOldDoc.value) {
-		const oldFields = store.doc_fields
-			.filter((f) => f.value.startsWith("doc."))
-			.map((f) => ({
-				...f,
-				label: `old_doc.${f.fieldname} (${
-					f.label.split("(")[1]?.replace(")", "") || f.label
-				})`,
-				value: f.value.replace("doc.", "old_doc."),
-			}));
-		fields = [...fields, ...oldFields];
+		const metaStore = store;
+		const doctype = store.rule_doc?.document_type;
+		if (doctype) {
+			const oldFields = metaStore.get_fields_for_doctype(doctype, "old_doc");
+			fields = [...fields, ...oldFields];
+		}
 	}
 
 	const triggerTypeOptions = "DocType Event\nScheduler Event\nCallable Event";

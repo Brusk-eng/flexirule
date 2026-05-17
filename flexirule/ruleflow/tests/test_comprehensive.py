@@ -103,11 +103,9 @@ class TestNewTriggerEvents(FrappeTestCase):
 			actions=[
 				{
 					"action_id": "set_desc_naming",
-					"action_type": "Set Value",
-					"operation": "Current Document",
+					"action_type": "Assignment",
+					"config": '[{"target": "doc.description", "operator": "set", "value": "Set by Naming"}]',
 					"action_label": "Set Description",
-					"target_field": "description",
-					"value_template": "Set by Naming",
 					"is_enabled": 1,
 				}
 			],

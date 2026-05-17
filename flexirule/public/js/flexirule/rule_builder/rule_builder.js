@@ -4,7 +4,6 @@ import { createPinia } from "pinia";
 // Import FlexiRule Utilities
 import "../utils/utils.js";
 import "../utils/patches.js";
-import "../controls/flexi_autocomplete.js";
 import "../core/ProcessConfigurator.js";
 import { useRuleStore } from "./stores/useRuleStore";
 import { useUIStore } from "./stores/useUIStore";

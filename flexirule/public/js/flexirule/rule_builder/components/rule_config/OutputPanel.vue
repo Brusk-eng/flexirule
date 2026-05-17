@@ -1,5 +1,5 @@
 <template>
-	<div class="output-panel fr-accent-scope" :style="panelStyleVars">
+	<div class="output-panel fxr-accent-scope" :style="panelStyleVars">
 		<div class="panel-header" v-if="!store.use_modern_layout">
 			<h4>{{ __("Output & Mutation") }}</h4>
 			<p class="text-muted small">{{ __("Manage results and data storage") }}</p>
@@ -172,10 +172,10 @@ const policyContext = computed(() => ({
 
 const panelStyleVars = computed(() => {
 	const actionType = props.node?.data?.action_type || props.node?.type;
-	const accent = getContract(actionType)?.css?.color || "var(--fr-accent)";
+	const accent = getContract(actionType)?.css?.color || "var(--fxr-accent)";
 	return {
-		"--fr-node-accent": accent,
-		"--fr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
+		"--fxr-node-accent": accent,
+		"--fxr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
 	};
 });
 
@@ -502,7 +502,7 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fr-bg-page);
+	background: var(--fxr-bg-page);
 }
 
 .panel-header {
@@ -525,7 +525,7 @@ defineExpose({ validate });
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--fr-space-8);
+	padding: var(--fxr-space-8);
 	display: flex;
 	flex-direction: column;
 	gap: 24px;
@@ -582,9 +582,9 @@ defineExpose({ validate });
 }
 
 .mapping-inputs:focus-within {
-	border-color: var(--fr-node-accent, var(--fr-accent));
+	border-color: var(--fxr-node-accent, var(--fxr-accent));
 	background: #fff;
-	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light));
+	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light));
 }
 
 .mapping-inputs :deep(.autocomplete-control),
@@ -639,14 +639,14 @@ defineExpose({ validate });
 :deep(.form-control:focus),
 :deep(.awesomplete input:focus),
 :deep(.multiselect__input:focus) {
-	border-color: var(--fr-node-accent, var(--fr-border-focus)) !important;
-	box-shadow: 0 0 0 2px var(--fr-node-accent-light, var(--fr-accent-light)) !important;
+	border-color: var(--fxr-node-accent, var(--fxr-border-focus)) !important;
+	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light)) !important;
 }
 
 @media (max-width: 768px) {
 	.panel-sections {
-		padding: var(--fr-space-4);
-		gap: var(--fr-space-5);
+		padding: var(--fxr-space-4);
+		gap: var(--fxr-space-5);
 	}
 
 	.mapping-row {

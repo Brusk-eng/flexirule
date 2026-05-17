@@ -614,6 +614,16 @@ function onCompactTabKeydown(event) {
 function handleKeydown(e) {
 	if (!props.modelValue) return;
 
+	// Don't trigger if typing in an input
+	if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) || e.target.isContentEditable) {
+		// Exception for Esc to close modal even if focused on input
+		if (e.key === "Escape") {
+			cancel();
+			e.preventDefault();
+		}
+		return;
+	}
+
 	// Esc to close
 	if (e.key === "Escape") {
 		cancel();
@@ -630,8 +640,8 @@ function handleKeydown(e) {
 		}
 	}
 
-	// Ctrl+Up to previous node
-	if ((e.ctrlKey || e.metaKey) && e.key === "ArrowUp") {
+	// Ctrl+Up/Left to previous node
+	if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowUp" || e.key === "ArrowLeft")) {
 		if (currentNodeIndex.value > 0) {
 			ruleStore.prev_config_node();
 			e.preventDefault();
@@ -639,13 +649,34 @@ function handleKeydown(e) {
 		}
 	}
 
-	// Ctrl+Down to next node
-	if ((e.ctrlKey || e.metaKey) && e.key === "ArrowDown") {
+	// Ctrl+Down/Right to next node
+	if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowDown" || e.key === "ArrowRight")) {
 		if (currentNodeIndex.value < totalNodes.value - 1) {
 			ruleStore.next_config_node();
 			e.preventDefault();
 			e.stopPropagation();
 		}
+	}
+
+	// Alt+1: Variables
+	if (e.altKey && e.key === "1") {
+		e.preventDefault();
+		showContextSidebar.value = true;
+		nextTick(() => {
+			panelRefs.input.value?.focusSearch();
+		});
+	}
+
+	// Alt+2: Configuration
+	if (e.altKey && e.key === "2") {
+		e.preventDefault();
+		panelRefs.config.value?.focusFirst();
+	}
+
+	// Alt+3: Settings Bar
+	if (e.altKey && e.key === "3") {
+		e.preventDefault();
+		showSettingsBar.value = !showSettingsBar.value;
 	}
 }
 
