@@ -16,6 +16,7 @@ from frappe import _
 from frappe.model import child_table_fields, default_fields, table_fields
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_plan_cache import get_action_plan
 from flexirule.ruleflow.core.permissions import can_skip_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
@@ -27,11 +28,14 @@ class DocumentActionHandler(ActionHandler):
 
 	def execute(self, action, context, engine):
 		"""Execute document creation/update based on mode."""
-		mode = action.operation
-		reference_doctype = action.reference_doctype
-		config = self._parse_config(action.config)
+		plan = get_action_plan(engine.rule, action)
+		mode = plan.get("mode") or action.operation
+		reference_doctype = plan.get("reference_doctype") or action.reference_doctype
+		config = (
+			plan.get("config") if isinstance(plan.get("config"), dict) else self._parse_config(action.config)
+		)
 		ignore_permissions = can_skip_permissions(action, context, throw=True)
-		is_async = bool(action.is_async)
+		is_async = bool(plan.get("is_async") if "is_async" in plan else action.is_async)
 
 		if not mode:
 			frappe.throw(_("Operation/Mode is required for Document Action"))
@@ -40,9 +44,12 @@ class DocumentActionHandler(ActionHandler):
 			frappe.throw(_("Reference DocType is required for Document Action"))
 
 		# Apply input mapping (Context -> Config)
-		action_config = frappe.parse_json(getattr(action, "config", "{}") or "{}")
-		if action_config.get("input_mapping"):
-			config = apply_input_mapping(context, action_config.get("input_mapping"), config)
+		if plan.get("has_input_mapping"):
+			config = apply_input_mapping(context, plan.get("input_mapping"), config)
+		else:
+			action_config = frappe.parse_json(getattr(action, "config", "{}") or "{}")
+			if action_config.get("input_mapping"):
+				config = apply_input_mapping(context, action_config.get("input_mapping"), config)
 
 		# Dispatch to mode handler
 		if mode == "Create New":

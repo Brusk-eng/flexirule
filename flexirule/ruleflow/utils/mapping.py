@@ -9,7 +9,7 @@ import json
 from typing import Any
 
 
-def apply_input_mapping(context: dict, mapping_json: str, config: dict) -> dict:
+def apply_input_mapping(context: dict, mapping_json: Any, config: dict) -> dict:
 	"""
 	Apply input mapping to merge context variables into config
 
@@ -41,7 +41,7 @@ def apply_input_mapping(context: dict, mapping_json: str, config: dict) -> dict:
 	return result
 
 
-def apply_output_mapping(result: Any, mapping_json: str, context: dict) -> dict:
+def apply_output_mapping(result: Any, mapping_json: Any, context: dict) -> dict:
 	"""
 	Apply output mapping to store result in context
 

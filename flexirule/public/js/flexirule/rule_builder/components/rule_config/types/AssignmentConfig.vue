@@ -28,6 +28,7 @@
 			<div class="grid-col-target">{{ __("Target Field") }}</div>
 			<div class="grid-col-operator">{{ __("Operator") }}</div>
 			<div class="grid-col-value">{{ __("Value Expression") }}</div>
+			<div class="grid-col-when">{{ __("Run If") }}</div>
 			<div class="grid-col-actions"></div>
 		</div>
 
@@ -109,6 +110,7 @@
 								:modelValue="assignment.value_template_ui"
 								:read_only="readOnly"
 								:variableOptions="variable_options"
+								:allowedModes="supportedTemplateModes"
 								:referenceDoctype="getTargetDoctype(assignment.target)"
 								:placeholder="__('Type value...')"
 								:options="getTargetOptions(assignment.target)"
@@ -119,6 +121,29 @@
 					<div v-else class="operator-hint-text text-muted small">
 						<i class="fa fa-info-circle me-1"></i>
 						{{ operatorNoValueHint(assignment.operator) }}
+					</div>
+				</div>
+
+				<div class="grid-col-when">
+					<div class="when-editor-cell">
+						<button
+							class="fxr-btn fxr-btn--ghost fxr-btn--sm w-100 text-start"
+							:disabled="readOnly"
+							@click="openWhenConditionEditor(index)"
+						>
+							<i class="fa fa-code-fork me-1"></i>
+							{{
+								hasWhenCondition(assignment)
+									? __("Condition Set")
+									: __("Always Run")
+							}}
+						</button>
+						<div
+							v-if="assignment.when_expression && !assignment.when_condition"
+							class="text-muted fxr-text-xs mt-1"
+						>
+							{{ __("Legacy expression detected") }}
+						</div>
 					</div>
 				</div>
 
@@ -179,6 +204,57 @@
 		>
 			<i class="fa fa-plus me-1"></i> {{ __("Add Assignment") }}
 		</button>
+
+		<Teleport to="body">
+			<div
+				v-if="whenEditor.open"
+				class="fxr-modal-overlay"
+				@click.self="closeWhenConditionEditor"
+			>
+				<div class="fxr-modal-card">
+					<div class="d-flex align-items-center justify-content-between mb-2">
+						<h5 class="mb-0">{{ __("Assignment Run Condition") }}</h5>
+						<button
+							class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
+							@click="closeWhenConditionEditor"
+						>
+							<i class="fa fa-times"></i>
+						</button>
+					</div>
+					<div class="condition-builder-wrap">
+						<ConditionBuilder
+							:modelValue="whenEditor.draft"
+							:docFields="whenConditionDocFields"
+							:variableOptions="variable_options"
+							:readOnly="false"
+							@update:modelValue="(val) => (whenEditor.draft = val)"
+						/>
+					</div>
+					<div class="d-flex justify-content-between mt-3">
+						<button
+							class="fxr-btn fxr-btn--sm fxr-btn--ghost text-danger"
+							@click="clearWhenCondition"
+						>
+							{{ __("Clear Condition") }}
+						</button>
+						<div class="d-flex fxr-gap-1">
+							<button
+								class="fxr-btn fxr-btn--sm fxr-btn--secondary"
+								@click="closeWhenConditionEditor"
+							>
+								{{ __("Cancel") }}
+							</button>
+							<button
+								class="fxr-btn fxr-btn--sm fxr-btn--primary"
+								@click="saveWhenCondition"
+							>
+								{{ __("Save Condition") }}
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</Teleport>
 	</div>
 </template>
 
@@ -188,6 +264,7 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexStructuredValueControl from "../../../controls/FlexStructuredValueControl.vue";
 import ValueResolverControl from "../../../controls/ValueResolverControl.vue";
+import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
@@ -197,6 +274,8 @@ const props = defineProps({
 });
 
 const { doctype_fields, variable_options, update_action_field, store } = useActionConfig(props);
+const supportedTemplateModes = ["formula", "resolver", "link", "dynamic-link"];
+const whenEditor = ref({ open: false, index: -1, draft: null });
 
 // ─── Operator Helpers ────────────────────────────────────────────────────────
 
@@ -334,6 +413,8 @@ watch(
 				operator: a.operator || "set",
 				value_mode: isResolverUi ? "resolver" : "template",
 				value_template_ui: a.value_template_ui || { version: 2, segments: [] },
+				when_condition: a.when_condition || null,
+				when_expression: a.when_expression || a.when || "",
 				value_template: value_tpl,
 				value: value_tpl,
 			};
@@ -389,6 +470,8 @@ function syncToNode() {
 		target: a.target,
 		operator: a.operator,
 		value_mode: a.value_mode || "template",
+		when_condition: a.when_condition || null,
+		when_expression: a.when_condition ? "" : a.when_expression || "",
 		value_template_ui: a.value_template_ui,
 		value_template: a.value_template,
 		value: a.value_template, // standardized output key alignment
@@ -402,6 +485,8 @@ function addAssignment() {
 		target: "",
 		operator: "set",
 		value_mode: "template",
+		when_condition: null,
+		when_expression: "",
 		value_template_ui: { version: 2, segments: [] },
 		value_template: "",
 		value: "",
@@ -439,6 +524,51 @@ function onTargetChange(index, value) {
 	syncToNode();
 }
 
+function hasWhenCondition(assignment) {
+	return !!(assignment?.when_condition && Array.isArray(assignment.when_condition.conditions));
+}
+
+const whenConditionDocFields = computed(() =>
+	(doctype_fields.value || []).map((f) => ({
+		label: f.label || f.fieldname,
+		value: f.value || `doc.${f.fieldname}`,
+		fieldname: f.fieldname,
+		fieldtype: f.fieldtype,
+		options: f.options,
+	}))
+);
+
+function openWhenConditionEditor(index) {
+	const current = assignments.value[index];
+	const fallback = { op: "and", conditions: [] };
+	whenEditor.value = {
+		open: true,
+		index,
+		draft: JSON.parse(JSON.stringify(current?.when_condition || fallback)),
+	};
+}
+
+function closeWhenConditionEditor() {
+	whenEditor.value = { open: false, index: -1, draft: null };
+}
+
+function saveWhenCondition() {
+	if (whenEditor.value.index < 0) return;
+	const tree = whenEditor.value.draft;
+	const hasConditions = !!(tree && Array.isArray(tree.conditions) && tree.conditions.length);
+	assignments.value[whenEditor.value.index].when_condition = hasConditions ? tree : null;
+	assignments.value[whenEditor.value.index].when_expression = "";
+	syncToNode();
+	closeWhenConditionEditor();
+}
+
+function clearWhenCondition() {
+	if (whenEditor.value.index < 0) return;
+	assignments.value[whenEditor.value.index].when_condition = null;
+	assignments.value[whenEditor.value.index].when_expression = "";
+	syncToNode();
+	closeWhenConditionEditor();
+}
 function toggleValueMode(index) {
 	const current = assignments.value[index].value_mode || "template";
 	const next = current === "resolver" ? "template" : "resolver";
@@ -649,10 +779,43 @@ defineExpose({ validate });
 .assignment-grid-header,
 .assignment-grid-row {
 	display: grid;
-	grid-template-columns: 30% 18% 44% 8%;
+	grid-template-columns: 24% 14% 34% 20% 8%;
 	gap: 8px;
 }
 
+.when-editor-cell {
+	display: flex;
+	flex-direction: column;
+}
+
+.fxr-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(15, 23, 42, 0.35);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 13000;
+}
+
+.fxr-modal-card {
+	width: min(980px, 92vw);
+	max-height: 86vh;
+	background: #fff;
+	border-radius: 10px;
+	border: 1px solid #e2e8f0;
+	padding: 14px;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.condition-builder-wrap {
+	overflow: auto;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	padding: 8px;
+}
 /* Value mode toggle + control wrapper */
 .value-mode-wrap {
 	display: flex;
