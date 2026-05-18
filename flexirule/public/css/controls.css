@@ -81,6 +81,39 @@
 .fxr-input-group:focus-within :deep(.combobox-container input) {
 	border-color: var(--fxr-border-focus) !important;
 	box-shadow: var(--fxr-shadow-focus) !important;
+	background: var(--fxr-bg-input) !important;
+}
+
+/* ─── Flat Control Variant (No default border/bg) ─── */
+.fxr-control--flat .fxr-input,
+.fxr-control--flat .fxr-select,
+.fxr-control--flat .combobox-wrapper,
+.fxr-control--flat :deep(.form-control),
+.fxr-control--flat :deep(.combobox-wrapper),
+.fxr-control--flat :deep(.fsvc-editor-container) {
+	border-color: transparent !important;
+	background: transparent !important;
+	box-shadow: none !important;
+}
+
+.fxr-control--flat:hover .fxr-input,
+.fxr-control--flat:hover .fxr-select,
+.fxr-control--flat:hover .combobox-wrapper,
+.fxr-control--flat:hover :deep(.form-control),
+.fxr-control--flat:hover :deep(.combobox-wrapper),
+.fxr-control--flat:hover :deep(.fsvc-editor-container) {
+	background: var(--fxr-bg-hover) !important;
+}
+
+.fxr-control--flat:focus-within .fxr-input,
+.fxr-control--flat:focus-within .fxr-select,
+.fxr-control--flat:focus-within .combobox-wrapper,
+.fxr-control--flat:focus-within :deep(.form-control),
+.fxr-control--flat:focus-within :deep(.combobox-wrapper),
+.fxr-control--flat:focus-within :deep(.fsvc-editor-container) {
+	border-color: var(--fxr-border-focus) !important;
+	background: var(--fxr-bg-input) !important;
+	box-shadow: var(--fxr-shadow-focus) !important;
 }
 
 .fxr-input-group.has-floating-label .fxr-label {
@@ -91,7 +124,8 @@
 	font-size: var(--fxr-text-sm);
 	color: var(--fxr-text-muted);
 	pointer-events: none;
-	transition: transform var(--fxr-transition-fast), top var(--fxr-transition-fast), font-size var(--fxr-transition-fast), color var(--fxr-transition-fast);
+	transition: transform var(--fxr-transition-fast), top var(--fxr-transition-fast),
+		font-size var(--fxr-transition-fast), color var(--fxr-transition-fast);
 	background: transparent;
 	padding: 0 6px;
 	z-index: 2;
@@ -195,15 +229,110 @@
 	transition: all 0.2s ease;
 }
 
-.option-badge.type-link { background: rgba(59, 130, 246, 0.15); color: #2563eb; }
-.option-badge.type-dynamic-link { background: rgba(59, 130, 246, 0.15); color: #2563eb; }
-.option-badge.type-table { background: rgba(245, 158, 11, 0.15); color: #d97706; }
-.option-badge.type-check { background: rgba(16, 185, 129, 0.15); color: #059669; }
-.option-badge.type-select { background: rgba(139, 92, 246, 0.15); color: #7c3aed; }
-.option-badge.type-data { background: rgba(107, 114, 128, 0.15); color: #4b5563; }
-.option-badge.type-datetime { background: rgba(236, 72, 153, 0.15); color: #db2777; }
-.option-badge.type-autocomplete { background: rgba(20, 184, 166, 0.15); color: #0d9488; }
-.option-badge.type-fieldpicker { background: rgba(244, 63, 94, 0.15); color: #e11d48; }
+.option-badge.type-link {
+	background: rgba(59, 130, 246, 0.15);
+	color: #2563eb;
+}
+.option-badge.type-dynamic-link {
+	background: rgba(59, 130, 246, 0.15);
+	color: #2563eb;
+}
+.option-badge.type-table {
+	background: rgba(245, 158, 11, 0.15);
+	color: #d97706;
+}
+.option-badge.type-check {
+	background: rgba(16, 185, 129, 0.15);
+	color: #059669;
+}
+.option-badge.type-select {
+	background: rgba(139, 92, 246, 0.15);
+	color: #7c3aed;
+}
+.option-badge.type-data {
+	background: rgba(107, 114, 128, 0.15);
+	color: #4b5563;
+}
+.option-badge.type-datetime {
+	background: rgba(236, 72, 153, 0.15);
+	color: #db2777;
+}
+.option-badge.type-autocomplete {
+	background: rgba(20, 184, 166, 0.15);
+	color: #0d9488;
+}
+.option-badge.type-fieldpicker {
+	background: rgba(244, 63, 94, 0.15);
+	color: #e11d48;
+}
+
+/* ─── Token Chips (Unified) ─── */
+.token-chip {
+	display: inline-flex;
+	align-items: center;
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 600;
+	margin: 0 2px;
+	cursor: pointer;
+	border: 1px solid transparent;
+	transition: all 0.2s ease;
+	white-space: nowrap;
+	vertical-align: middle;
+	user-select: none;
+}
+
+.token-chip:hover {
+	filter: brightness(0.95);
+	transform: scale(1.02);
+}
+
+.token-variable {
+	background: var(--fxr-badge-bool);
+	color: var(--fxr-badge-bool-text);
+	border-color: rgba(16, 185, 129, 0.2);
+}
+.token-formula {
+	background: var(--fxr-badge-var);
+	color: var(--fxr-badge-var-text);
+	border-color: rgba(124, 58, 237, 0.2);
+}
+.token-resolver {
+	background: var(--fxr-badge-resolver);
+	color: var(--fxr-badge-resolver-text);
+	border-color: rgba(217, 119, 6, 0.2);
+}
+.token-formatter {
+	background: var(--fxr-badge-formatter);
+	color: var(--fxr-badge-formatter-text);
+	border-color: rgba(219, 39, 119, 0.2);
+}
+.token-normalize {
+	background: var(--fxr-badge-normalize);
+	color: var(--fxr-badge-normalize-text);
+	border-color: rgba(37, 99, 235, 0.2);
+}
+.token-condition {
+	background: #fae8ff;
+	color: #c084fc;
+	border-color: rgba(217, 70, 239, 0.2);
+}
+.token-localization {
+	background: #e0f2fe;
+	color: #0284c7;
+	border-color: rgba(14, 165, 233, 0.2);
+}
+.token-link {
+	background: #f1f5f9;
+	color: #475569;
+	border-color: rgba(100, 116, 139, 0.2);
+}
+.token-dynamic-link {
+	background: #f0fdfa;
+	color: #0d9488;
+	border-color: rgba(20, 184, 166, 0.2);
+}
 
 /* ─── Value Type Badge ─── */
 .fxr-badge {
@@ -472,11 +601,27 @@
 }
 
 /* ─── Layout Utilities ─── */
-.fxr-gap-1 { gap: var(--fxr-space-1); }
-.fxr-gap-2 { gap: var(--fxr-space-2); }
-.fxr-gap-3 { gap: var(--fxr-space-3); }
-.fxr-gap-4 { gap: var(--fxr-space-4); }
-.fxr-gap-5 { gap: var(--fxr-space-5); }
-.fxr-gap-6 { gap: var(--fxr-space-6); }
-.fxr-gap-7 { gap: var(--fxr-space-7); }
-.fxr-gap-8 { gap: var(--fxr-space-8); }
+.fxr-gap-1 {
+	gap: var(--fxr-space-1);
+}
+.fxr-gap-2 {
+	gap: var(--fxr-space-2);
+}
+.fxr-gap-3 {
+	gap: var(--fxr-space-3);
+}
+.fxr-gap-4 {
+	gap: var(--fxr-space-4);
+}
+.fxr-gap-5 {
+	gap: var(--fxr-space-5);
+}
+.fxr-gap-6 {
+	gap: var(--fxr-space-6);
+}
+.fxr-gap-7 {
+	gap: var(--fxr-space-7);
+}
+.fxr-gap-8 {
+	gap: var(--fxr-space-8);
+}

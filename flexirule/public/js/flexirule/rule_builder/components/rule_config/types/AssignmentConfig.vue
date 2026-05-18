@@ -14,7 +14,7 @@
 					@click="clearAssignments"
 					:disabled="readOnly"
 				>
-					<i class="fa fa-eraser mr-1"></i>
+					<i class="fa fa-eraser me-1"></i>
 					{{ __("Clear All") }}
 				</button>
 			</div>

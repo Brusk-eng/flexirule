@@ -4,9 +4,9 @@ The **Assignment** action is a powerful tool for performing batch state mutation
 
 ## Key Features
 
-- **Batch Processing**: Define multiple mutations within a single action node.
-- **Multiple Operators**: Beyond simple assignment, it supports math, list operations, and object merging.
-- **Path Validation**: Prevents accidental mutation of protected system paths.
+-   **Batch Processing**: Define multiple mutations within a single action node.
+-   **Multiple Operators**: Beyond simple assignment, it supports math, list operations, and object merging.
+-   **Path Validation**: Prevents accidental mutation of protected system paths.
 
 ## Operators
 
@@ -30,15 +30,15 @@ Assignments can target two primary scopes:
 
 Mutates fields on the document that triggered the rule.
 
-- **Root Fields**: `doc.status`, `doc.naming_series`.
-- **Note**: In V1, deep document path assignments for child tables (e.g., `doc.items.0.qty`) are not supported directly via this action.
+-   **Root Fields**: `doc.status`, `doc.naming_series`.
+-   **Note**: In V1, deep document path assignments for child tables (e.g., `doc.items.0.qty`) are not supported directly via this action.
 
 ### 2. Context Variables (`vars.*`)
 
 Mutates variables in the execution context.
 
-- **Nesting**: Supports deep paths like `vars.totals.tax_amount`.
-- **Auto-Initialization**: Intermediate dictionaries are created automatically if they don't exist.
+-   **Nesting**: Supports deep paths like `vars.totals.tax_amount`.
+-   **Auto-Initialization**: Intermediate dictionaries are created automatically if they don't exist.
 
 ## Configuration (JSON)
 
@@ -61,6 +61,6 @@ The configuration is stored as a JSON array of assignment objects:
 
 ## Safety & Restrictions
 
-- **System Protection**: Mutations to paths starting with `meta.`, `frappe.`, `rule.`, or `caller.` are blocked.
-- **Event Awareness**: `doc.*` mutations are prohibited during `after_save` and other read-only events to prevent inconsistent states.
-- **Sandboxed Evaluation**: Values are evaluated using Jinja templates with a restricted `SafeFrappeAPI` context.
+-   **System Protection**: Mutations to paths starting with `meta.`, `frappe.`, `rule.`, or `caller.` are blocked.
+-   **Event Awareness**: `doc.*` mutations are prohibited during `after_save` and other read-only events to prevent inconsistent states.
+-   **Sandboxed Evaluation**: Values are evaluated using Jinja templates with a restricted `SafeFrappeAPI` context.
