@@ -69,15 +69,17 @@ class AssignmentHandler(ActionHandler):
 			# 3. Get operator
 			operator = AssignmentOperatorRegistry.get(operator_key)
 
+			# Fetch current value for apply
+			current_value = self._get_current_value(target_path, context)
+
 			# 4. Evaluate value if required
 			operand_value = None
 			if operator.metadata.get("requires_value"):
 				if template_context is None:
 					template_context = self._build_template_context(context, engine)
+				# Inject current value so the format helper can access it
+				template_context["value"] = current_value
 				operand_value = self._resolve_operand(assignment, context, template_context)
-
-			# 5. Fetch current value for apply
-			current_value = self._get_current_value(target_path, context)
 
 			# 6. Optional: Validate Target Type (deferred for runtime, but operator can check if needed)
 			# (In a real implementation, we'd fetch the Frappe metadata for doc.* fields here)
@@ -318,14 +320,25 @@ class AssignmentHandler(ActionHandler):
 
 		if base == "doc":
 			doc = context.get("doc")
-			if doc and hasattr(doc, "set"):
-				# Support dot notation setting on doc if it's a child table?
-				# For v1, limit to root doc fields.
-				if len(parts) == 2:
-					doc.set(parts[1], value)
-					engine._log("INFO", _("Assignment: Set doc.{0} = {1}").format(parts[1], value))
-				else:
-					raise MethodExecutionError(_("Deep document path assignment is not yet supported in v1"))
+			if doc:
+				if hasattr(doc, "set") and callable(getattr(doc, "set", None)):
+					# Support dot notation setting on doc if it's a child table?
+					# For v1, limit to root doc fields.
+					if len(parts) == 2:
+						doc.set(parts[1], value)
+						engine._log("INFO", _("Assignment: Set doc.{0} = {1}").format(parts[1], value))
+					else:
+						raise MethodExecutionError(
+							_("Deep document path assignment is not yet supported in v1")
+						)
+				elif isinstance(doc, dict):
+					if len(parts) == 2:
+						doc[parts[1]] = value
+						engine._log("INFO", _("Assignment: Set doc.{0} = {1}").format(parts[1], value))
+					else:
+						raise MethodExecutionError(
+							_("Deep document path assignment is not yet supported in v1")
+						)
 
 		elif base == "vars":
 			if "vars" not in context:
