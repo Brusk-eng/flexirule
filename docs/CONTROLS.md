@@ -70,7 +70,26 @@ A sophisticated rich-text editor based on Tiptap that seamlessly blends static t
 
 ---
 
-## 4. TransformControl
+## 4. FlexStructuredValueControl
+
+**File:** `flexirule/public/js/flexirule/rule_builder/controls/FlexStructuredValueControl.vue`
+
+The `FlexStructuredValueControl` is a hybrid, single-line input field that seamlessly blends standard Frappe form controls with a powerful tokenized expression editor.
+
+### ✨ Key Features & Innovation
+
+-   **Context-Aware Static Mode:** Automatically renders the appropriate Frappe control (Link, Select, Check, etc.) based on the target field's type.
+-   **Tiptap-Powered Expression Mode:** A single-line rich-text editor that supports:
+    -   **@ Mentions**: For inserting document fields or context variables.
+    -   **Slash Commands (/)**: A command palette for inserting advanced logic tokens like formulas, formatters, and localizations.
+-   **Unified UI:** Users can switch between static input and dynamic expressions without leaving the field. Typing `@` or `/` in a static field automatically upgrades it to expression mode.
+-   **Tokenized Logic Chips:** Advanced logic is represented as compact, color-coded "chips" (e.g., 🧮 Formula, 🎨 Format) that open a specialized configuration popover when clicked.
+-   **Field-Type Intelligent Filtering**: The command palette (/) intelligently filters available logic tokens based on the field's data type (e.g., only showing currency formatting for numeric fields).
+-   **Single-Line Constraint**: Custom Tiptap extensions ensure the editor remains a single line, ideal for grid-based configurations like the Assignment action.
+
+---
+
+## 5. TransformControl
 
 **File:** `flexirule/public/js/flexirule/rule_builder/controls/TransformControl.vue`
 
@@ -87,7 +106,7 @@ A visual "Spider-Web" style mapper for connecting two data schemas.
 
 ---
 
-## 5. ConditionBuilder
+## 6. ConditionBuilder
 
 **File:** `flexirule/public/js/flexirule/rule_builder/components/condition_builder/ConditionBuilder.vue`
 
@@ -103,7 +122,7 @@ A powerful, recursive interface for building complex boolean logic.
 
 ---
 
-## 6. ComboBoxControl
+## 7. ComboBoxControl
 
 **File:** `flexirule/public/js/flexirule/rule_builder/controls/ComboBoxControl.vue`
 
@@ -120,7 +139,7 @@ A highly optimized replacement for the standard HTML select/autocomplete, tailor
 
 ---
 
-## 7. FilterGroup
+## 8. FilterGroup
 
 **File:** `flexirule/public/js/flexirule/rule_builder/components/rule_config/FilterGroup.vue`
 
