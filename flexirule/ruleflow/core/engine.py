@@ -445,6 +445,9 @@ class RuleEngine:
 		if isinstance(meta_overrides, dict):
 			base_meta.update(meta_overrides)
 
+		if isinstance(doc, dict):
+			doc = frappe._dict(doc)
+
 		return {
 			**self.context,
 			"doc": doc,
@@ -708,6 +711,11 @@ class RuleEngine:
 	def _build_eval_locals(self, context):
 		"""Build safe locals for expression evaluation."""
 		doc = context.get("doc")
+		if isinstance(doc, dict):
+			doc = frappe._dict(doc)
+		old_doc = context.get("old_doc")
+		if isinstance(old_doc, dict):
+			old_doc = frappe._dict(old_doc)
 		rule_meta = context.get("rule") or {
 			"name": self.rule.name,
 			"trigger_type": self.rule.trigger_type,
@@ -769,7 +777,7 @@ class RuleEngine:
 
 		return {
 			"doc": doc,
-			"old_doc": context.get("old_doc"),
+			"old_doc": old_doc,
 			"vars": context.get("vars", {}),
 			"item": context.get("item"),
 			"loop": context.get("loop"),

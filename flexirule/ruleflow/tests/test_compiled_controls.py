@@ -615,3 +615,57 @@ class TestCompiledControls(FrappeTestCase):
 		created = frappe.get_doc("Contact", created_name[0])
 		self.assertEqual(created.first_name, source_first_name)
 		self.assertTrue(created.last_name in (None, ""))
+
+	def test_jinja_format_filter_and_dict_attribute_evaluation(self):
+		"""Test that uppercase/lowercase formatters and dict attribute access evaluate correctly."""
+		todo = frappe.get_doc({"doctype": "ToDo", "description": "initial"}).insert(ignore_permissions=True)
+
+		rule = self._base_rule(
+			self._uid(),
+			[
+				{
+					"action_id": "root",
+					"action_type": "Entry Action",
+					"action_label": "Start",
+					"next_step_if_true": "set_1",
+				},
+				{
+					"action_id": "set_1",
+					"action_type": "Assignment",
+					"action_label": "Test Formatter",
+					"config": json.dumps(
+						[
+							{
+								"target": "doc.description",
+								"operator": "set",
+								"value": "{{ format('uppercase', {}) }}",
+								"value_template": "{{ format('uppercase', {}) }}",
+								"value_template_ui": {
+									"mode": "template",
+									"value": "{{ format('uppercase', {}) }}",
+								},
+							}
+						]
+					),
+					"next_step_if_true": "stop_1",
+				},
+				{
+					"action_id": "stop_1",
+					"action_type": "Stop",
+					"action_label": "Stop",
+					"operation": "Success",
+				},
+			],
+		)
+		rule.is_active = 1
+		rule.insert(ignore_permissions=True)
+
+		engine = RuleEngine(rule, execution_context={"allow_inactive_rule_test": True})
+		# Test with actual Document object
+		context = engine.execute(todo)
+		self.assertEqual(context.get("doc").description, "INITIAL")
+
+		# Test with dictionary to verify dict dot-access wrapping
+		todo_dict = {"doctype": "ToDo", "description": "lowercase text", "name": todo.name}
+		context_dict = engine.execute(todo_dict)
+		self.assertEqual(context_dict.get("doc").description, "LOWERCASE TEXT")

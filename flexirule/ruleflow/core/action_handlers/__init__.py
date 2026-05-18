@@ -73,8 +73,53 @@ class ActionHandler(ABC):
 	def _build_template_context(self, context, engine=None):
 		"""Standard Jinja template context shared by all evaluations."""
 		import frappe
+		from jinja2 import pass_context
 
 		from flexirule.ruleflow.core.engine import SafeFrappeAPI
+
+		@pass_context
+		def format_jinja(jinja_ctx, formatter_type, options=None, val=None):
+			if options is None:
+				options = {}
+			if val is None:
+				val = jinja_ctx.get("value")
+
+			if val is None:
+				return ""
+
+			formatter_type = str(formatter_type).lower().strip()
+
+			if formatter_type == "uppercase":
+				return str(val).upper()
+			elif formatter_type == "lowercase":
+				return str(val).lower()
+			elif formatter_type == "currency":
+				symbol = options.get("currency") or ""
+				decimals = options.get("decimals")
+				if decimals is not None:
+					try:
+						decimals = int(decimals)
+					except (ValueError, TypeError):
+						decimals = None
+				return frappe.utils.fmt_money(val, precision=decimals, currency=symbol)
+			elif formatter_type == "date":
+				date_format = options.get("format")
+				return frappe.utils.format_date(val, date_format)
+			elif formatter_type == "percent":
+				try:
+					return f"{float(val) * 100:.2f}%"
+				except (ValueError, TypeError):
+					return f"{val}%"
+			elif formatter_type == "number":
+				precision = options.get("precision")
+				if precision is not None:
+					try:
+						return f"{float(val):.{int(precision)}f}"
+					except (ValueError, TypeError):
+						pass
+				return str(val)
+
+			return str(val)
 
 		ctx = {
 			"doc": context.get("doc"),
@@ -92,6 +137,7 @@ class ActionHandler(ABC):
 			"abs": abs,
 			"bool": bool,
 			"float": float,
+			"format": format_jinja,
 		}
 		if engine:
 			ctx["rule"] = engine.rule
@@ -182,6 +228,13 @@ class ActionHandler(ABC):
 		import frappe
 		from frappe.utils import add_days, getdate, nowdate
 
+		doc = context.get("doc")
+		if isinstance(doc, dict):
+			doc = frappe._dict(doc)
+		old_doc = context.get("old_doc")
+		if isinstance(old_doc, dict):
+			old_doc = frappe._dict(old_doc)
+
 		safe_frappe = context.get("frappe") or frappe
 		safe_expression = (expression or "").strip()
 		# frappe.safe_eval can block module attribute traversal like frappe.utils.add_days.
@@ -190,8 +243,8 @@ class ActionHandler(ABC):
 		safe_expression = safe_expression.replace("frappe.utils.nowdate", "nowdate")
 		safe_expression = safe_expression.replace("frappe.utils.getdate", "getdate")
 		eval_locals = {
-			"doc": context.get("doc"),
-			"old_doc": context.get("old_doc"),
+			"doc": doc,
+			"old_doc": old_doc,
 			"vars": context.get("vars", {}),
 			"item": context.get("item"),
 			"loop": context.get("loop"),
