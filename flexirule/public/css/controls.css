@@ -141,6 +141,7 @@
 	color: var(--fxr-node-accent, var(--fxr-accent));
 	font-weight: var(--fxr-weight-semibold);
 	letter-spacing: 0.02em;
+	z-index: 10;
 }
 
 /* ─── Unified Input Styles ─── */

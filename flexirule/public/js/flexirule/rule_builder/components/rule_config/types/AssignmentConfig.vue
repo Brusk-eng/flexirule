@@ -877,6 +877,7 @@ defineExpose({ validate });
 	border-radius: var(--fxr-radius-lg, 12px);
 	background-color: var(--fxr-bg-muted, #f8fafc);
 	transition: all 0.2s ease;
+	flex: 0 0 auto;
 }
 
 .empty-state:hover {

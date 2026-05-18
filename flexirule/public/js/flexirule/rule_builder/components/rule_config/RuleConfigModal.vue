@@ -1004,7 +1004,7 @@ onUnmounted(() => {
 	display: grid;
 	grid-template-columns: minmax(220px, 25%) minmax(0, 75%);
 	gap: 4px;
-	align-items: stretch;
+	align-items: start;
 	height: 100%;
 	flex: 1;
 	min-height: 0;

@@ -190,7 +190,7 @@ defineExpose({
 }
 
 .panel-sections {
-	flex: 1;
+	flex: 0 1 auto;
 	overflow-y: auto;
 	padding: var(--panel-padding, 8px);
 	display: flex;

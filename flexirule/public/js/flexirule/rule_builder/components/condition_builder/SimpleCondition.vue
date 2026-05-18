@@ -386,6 +386,8 @@ const valueType = computed({
 	gap: var(--fxr-space-4);
 	align-items: center;
 	overflow: visible !important;
+	position: relative;
+	z-index: 1;
 }
 
 .condition-col {
