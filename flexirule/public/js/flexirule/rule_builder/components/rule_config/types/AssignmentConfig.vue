@@ -67,17 +67,55 @@
 
 				<!-- Value Expression Editor -->
 				<div class="grid-col-value">
-					<FlexStructuredValueControl
-						v-if="needsValue(assignment.operator)"
-						:fieldType="getTargetFieldtype(assignment.target) || 'Data'"
-						:modelValue="assignment.value_template_ui"
-						:read_only="readOnly"
-						:variableOptions="variable_options"
-						:referenceDoctype="getTargetDoctype(assignment.target)"
-						:placeholder="__('Type value...')"
-						:options="getTargetOptions(assignment.target)"
-						@update:modelValue="(val) => updateTemplate(index, val)"
-					/>
+					<template v-if="needsValue(assignment.operator)">
+						<div class="value-mode-wrap">
+							<!-- Mode toggle -->
+							<button
+								class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost value-mode-toggle"
+								:title="
+									assignment.value_mode === 'resolver'
+										? __('Switch to Template Editor')
+										: __('Switch to Formula Resolver')
+								"
+								:disabled="readOnly"
+								@click="toggleValueMode(index)"
+							>
+								<i
+									:class="
+										assignment.value_mode === 'resolver'
+											? 'fa fa-pencil'
+											: 'fa fa-calculator'
+									"
+								></i>
+							</button>
+							<!-- Resolver mode -->
+							<ValueResolverControl
+								v-if="assignment.value_mode === 'resolver'"
+								class="flex-1 min-w-0"
+								:modelValue="assignment.value_template_ui"
+								:doctype="
+									getTargetDoctype(assignment.target) ||
+									store.rule?.document_type ||
+									''
+								"
+								:readOnly="readOnly"
+								@update:modelValue="(val) => updateResolverTemplate(index, val)"
+							/>
+							<!-- Template (TipTap) mode -->
+							<FlexStructuredValueControl
+								v-else
+								class="flex-1 min-w-0"
+								:fieldType="getTargetFieldtype(assignment.target) || 'Data'"
+								:modelValue="assignment.value_template_ui"
+								:read_only="readOnly"
+								:variableOptions="variable_options"
+								:referenceDoctype="getTargetDoctype(assignment.target)"
+								:placeholder="__('Type value...')"
+								:options="getTargetOptions(assignment.target)"
+								@update:modelValue="(val) => updateTemplate(index, val)"
+							/>
+						</div>
+					</template>
 					<div v-else class="operator-hint-text text-muted small">
 						<i class="fa fa-info-circle me-1"></i>
 						{{ operatorNoValueHint(assignment.operator) }}
@@ -149,6 +187,7 @@ import { computed, watch, ref } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexStructuredValueControl from "../../../controls/FlexStructuredValueControl.vue";
+import ValueResolverControl from "../../../controls/ValueResolverControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
@@ -284,9 +323,16 @@ watch(
 		// Map parsed to ensure both value_template and value are populated on load
 		parsed = parsed.map((a) => {
 			const value_tpl = a.value_template || a.value || "";
+			// Auto-detect resolver mode: value_template_ui has a `kind` field (no `segments` array)
+			const isResolverUi =
+				a.value_template_ui &&
+				typeof a.value_template_ui === "object" &&
+				"kind" in a.value_template_ui &&
+				!Array.isArray(a.value_template_ui.segments);
 			return {
 				target: a.target || "",
 				operator: a.operator || "set",
+				value_mode: isResolverUi ? "resolver" : "template",
 				value_template_ui: a.value_template_ui || { version: 2, segments: [] },
 				value_template: value_tpl,
 				value: value_tpl,
@@ -342,6 +388,7 @@ function syncToNode() {
 	const clean = assignments.value.map((a) => ({
 		target: a.target,
 		operator: a.operator,
+		value_mode: a.value_mode || "template",
 		value_template_ui: a.value_template_ui,
 		value_template: a.value_template,
 		value: a.value_template, // standardized output key alignment
@@ -354,6 +401,7 @@ function addAssignment() {
 	assignments.value.push({
 		target: "",
 		operator: "set",
+		value_mode: "template",
 		value_template_ui: { version: 2, segments: [] },
 		value_template: "",
 		value: "",
@@ -388,6 +436,21 @@ function onTargetChange(index, value) {
 	if (!available.includes(assignments.value[index].operator)) {
 		assignments.value[index].operator = "set";
 	}
+	syncToNode();
+}
+
+function toggleValueMode(index) {
+	const current = assignments.value[index].value_mode || "template";
+	const next = current === "resolver" ? "template" : "resolver";
+	assignments.value[index].value_mode = next;
+	// Reset UI state when switching modes
+	if (next === "resolver") {
+		assignments.value[index].value_template_ui = { kind: "date_formula" };
+	} else {
+		assignments.value[index].value_template_ui = { version: 2, segments: [] };
+	}
+	assignments.value[index].value_template = "";
+	assignments.value[index].value = "";
 	syncToNode();
 }
 
@@ -433,6 +496,88 @@ function compileStructuredValueToJinja(val) {
 		return String(val.value ?? "");
 	}
 	return "";
+}
+
+/**
+ * Compile ValueResolverControl structured state → Jinja {{ expr }} string.
+ * Mirrors the expressionSnippet logic in ValueResolverControl.vue.
+ */
+function compileValueResolverToJinja(s) {
+	if (!s || !s.kind) return "";
+
+	if (s.kind === "date_formula") {
+		const baseExpr = s.base_type === "today" ? "frappe.utils.nowdate()" : `doc.${s.base_field}`;
+		const offset =
+			s.offset_sign === "-" ? -Math.abs(s.offset_value || 0) : Math.abs(s.offset_value || 0);
+		if (offset === 0) return `{{ ${baseExpr} }}`;
+		if (s.offset_unit === "days") return `{{ frappe.utils.add_days(${baseExpr}, ${offset}) }}`;
+		return `{{ frappe.utils.add_to_date(${baseExpr}, ${s.offset_unit}=${offset}) }}`;
+	}
+
+	if (s.kind === "math_formula") {
+		const a = s.field_a ? `frappe.utils.flt(doc.${s.field_a})` : "0";
+		const b =
+			s.field_b_type === "field"
+				? s.field_b
+					? `frappe.utils.flt(doc.${s.field_b})`
+					: "0"
+				: String(s.constant_b ?? 0);
+		const prec = s.precision ?? 2;
+		return `{{ frappe.utils.flt(${a} ${s.math_op || "+"} ${b}, ${prec}) }}`;
+	}
+
+	if (s.kind === "date_diff") {
+		const start =
+			s.diff_start_type === "today" ? "frappe.utils.nowdate()" : `doc.${s.diff_start_field}`;
+		const end =
+			s.diff_end_type === "today" ? "frappe.utils.nowdate()" : `doc.${s.diff_end_field}`;
+		if (s.diff_unit === "days") return `{{ frappe.utils.date_diff(${end}, ${start}) }}`;
+		if (s.diff_unit === "months") return `{{ frappe.utils.month_diff(${end}, ${start}) }}`;
+		return `{{ int(frappe.utils.month_diff(${end}, ${start}) / 12) }}`;
+	}
+
+	if (s.kind === "child_aggregation") {
+		const tbl = s.agg_table || "items";
+		const fld = s.agg_field || "amount";
+		if (s.agg_op === "sum")
+			return `{{ sum([frappe.utils.flt(row.${fld}) for row in doc.get("${tbl}")]) }}`;
+		if (s.agg_op === "avg")
+			return `{{ sum([frappe.utils.flt(row.${fld}) for row in doc.get("${tbl}")]) / max(len(doc.get("${tbl}")), 1) }}`;
+		if (s.agg_op === "count") return `{{ len(doc.get("${tbl}")) }}`;
+	}
+
+	if (s.kind === "string_formula") {
+		const a = s.str_a_type === "field" ? `doc.${s.str_a || ""}` : `"${s.str_a || ""}"`;
+		if (s.str_op === "concat") {
+			const b = s.str_b_type === "field" ? `doc.${s.str_b || ""}` : `"${s.str_b || ""}"`;
+			return `{{ str(${a} or "") + str(${b} or "") }}`;
+		}
+		if (s.str_op === "fmt_money") {
+			const curr = s.str_b_type === "field" ? `doc.${s.str_b || ""}` : `"${s.str_b || ""}"`;
+			return `{{ frappe.utils.fmt_money(${a}, currency=${curr}) }}`;
+		}
+		if (s.str_op === "uppercase") return `{{ str(${a} or "").upper() }}`;
+		if (s.str_op === "lowercase") return `{{ str(${a} or "").lower() }}`;
+	}
+
+	if (s.kind === "system_context") {
+		if (s.sys_token === "user") return `{{ frappe.session.user }}`;
+		if (s.sys_token === "role_check")
+			return `{{ "${s.sys_role || ""}" in frappe.get_roles(frappe.session.user) }}`;
+	}
+
+	return "";
+}
+
+/**
+ * Handler for ValueResolverControl updates.
+ */
+function updateResolverTemplate(index, value) {
+	assignments.value[index].value_template_ui = value;
+	const compiled = compileValueResolverToJinja(value);
+	assignments.value[index].value_template = compiled;
+	assignments.value[index].value = compiled;
+	syncToNode();
 }
 
 function updateTemplate(index, value) {
@@ -506,6 +651,29 @@ defineExpose({ validate });
 	display: grid;
 	grid-template-columns: 30% 18% 44% 8%;
 	gap: 8px;
+}
+
+/* Value mode toggle + control wrapper */
+.value-mode-wrap {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	width: 100%;
+}
+
+.value-mode-toggle {
+	flex-shrink: 0;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	color: var(--text-muted);
+	border-color: transparent;
+}
+
+.value-mode-toggle:hover {
+	color: var(--primary);
+	border-color: var(--primary-light);
+	background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 .assignment-grid-header {
