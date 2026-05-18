@@ -851,7 +851,9 @@ defineExpose({ validate });
 	border: 1px solid var(--border-color, #e2e8f0);
 	border-radius: 6px;
 	padding: 4px;
-	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
 }
 
 .assignment-grid-row:hover {
@@ -877,6 +879,7 @@ defineExpose({ validate });
 	border-radius: var(--fxr-radius-lg, 12px);
 	background-color: var(--fxr-bg-muted, #f8fafc);
 	transition: all 0.2s ease;
+	flex: 0 0 auto;
 }
 
 .empty-state:hover {

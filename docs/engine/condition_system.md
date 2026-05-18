@@ -18,7 +18,7 @@ COMPILED_FIELD_PATTERNS = (
 )
 ```
 
--   **Pruning**: If `doc.status` is extracted, the coordinator will only run the rule if `status` is in the document's changed fields.
+- **Pruning**: If `doc.status` is extracted, the coordinator will only run the rule if `status` is in the document's changed fields.
 
 ---
 
@@ -28,15 +28,15 @@ To ensure that conditions cannot cause unintended side effects, they are execute
 
 ### Whitelisted (Read-Only) Methods
 
--   `get_value`, `get_all`, `db_exists`, `get_meta`, `format_value`.
--   `utils`: Access to `frappe.utils` (date math, etc.).
+- `get_value`, `get_all`, `db_exists`, `get_meta`, `format_value`.
+- `utils`: Access to `frappe.utils` (date math, etc.).
 
 ### Prohibited (Write) Methods
 
 Any attempt to call the following will raise a `PermissionError`:
 
--   `get_doc`, `new_doc`, `delete_doc`.
--   `db_set_value`, `db.sql`, `db.commit`, `db.rollback`.
+- `get_doc`, `new_doc`, `delete_doc`.
+- `db_set_value`, `db.sql`, `db.commit`, `db.rollback`.
 
 ---
 
@@ -44,35 +44,35 @@ Any attempt to call the following will raise a `PermissionError`:
 
 ### Hierarchical Logical Grouping (AND/OR)
 
--   **Infinite Nesting**: Supports arbitrary depth of `AND` and `OR` groups.
--   **Short-Circuiting**: Compiled Python strings leverage native `and`/`or` short-circuiting for performance.
+- **Infinite Nesting**: Supports arbitrary depth of `AND` and `OR` groups.
+- **Short-Circuiting**: Compiled Python strings leverage native `and`/`or` short-circuiting for performance.
 
 ### Visual Drag-and-Group UI
 
--   **Active Reactivity**: Moving a condition in the UI immediately re-calculates the logic tree's structure.
--   **Auto-Nesting**: Logic is scaffolded automatically when elements are dropped onto each other, ensuring a valid JSON AST is always maintained.
+- **Active Reactivity**: Moving a condition in the UI immediately re-calculates the logic tree's structure.
+- **Auto-Nesting**: Logic is scaffolded automatically when elements are dropped onto each other, ensuring a valid JSON AST is always maintained.
 
 ### Collection Evaluation (V2)
 
 The V2 condition system introduces specialized nodes for collection processing:
 
--   **Recursive Groups**: Can target any iterable (e.g., `doc.items`) and apply sub-conditions to each element.
--   **Quantifiers**:
-    -   `Any`: Returns true if at least one item matches the sub-conditions.
-    -   `All`: Returns true only if all items match.
-    -   `None`: Returns true if no items match.
--   **Contextual Aliasing**: When nesting collections, users can specify an **Alias** (e.g., `row`) which is then available in sub-conditions via `row.fieldname`.
+- **Recursive Groups**: Can target any iterable (e.g., `doc.items`) and apply sub-conditions to each element.
+- **Quantifiers**:
+    - `Any`: Returns true if at least one item matches the sub-conditions.
+    - `All`: Returns true only if all items match.
+    - `None`: Returns true if no items match.
+- **Contextual Aliasing**: When nesting collections, users can specify an **Alias** (e.g., `row`) which is then available in sub-conditions via `row.fieldname`.
 
 ---
 
 ## Scope Resolution & Aliases
 
--   `doc.fieldname`: `doc.get('fieldname')`
--   `old_doc.fieldname`: `old_doc.get('fieldname')`
--   `vars.varname`: `vars.get('varname')`
--   `item` / `row`: Accesses the current row within a collection query or loop.
--   **Custom Aliases**: Users can define custom aliases for collection iterators to prevent naming collisions in nested loops.
--   Deep Paths: `resolve(doc, 'items.0.qty')`
+- `doc.fieldname`: `doc.get('fieldname')`
+- `old_doc.fieldname`: `old_doc.get('fieldname')`
+- `vars.varname`: `vars.get('varname')`
+- `item` / `row`: Accesses the current row within a collection query or loop.
+- **Custom Aliases**: Users can define custom aliases for collection iterators to prevent naming collisions in nested loops.
+- Deep Paths: `resolve(doc, 'items.0.qty')`
 
 ---
 
@@ -80,13 +80,13 @@ The V2 condition system introduces specialized nodes for collection processing:
 
 The condition system supports specialized "Collection" nodes that can evaluate logic across child tables:
 
--   **Any**: True if at least one row in the collection matches the sub-conditions.
--   **All**: True if every row in the collection matches the sub-conditions (vacuously True if the collection is empty).
--   **None**: True if no rows match the sub-conditions.
+- **Any**: True if at least one row in the collection matches the sub-conditions.
+- **All**: True if every row in the collection matches the sub-conditions (vacuously True if the collection is empty).
+- **None**: True if no rows match the sub-conditions.
 
 ## Security Constraints
 
 All condition evaluation (both Python-based and JSON-based) is strictly read-only:
 
--   **SafeFrappeAPI**: As detailed above, write operations are strictly prohibited.
--   **Pure Logic**: The `method` value type (calling arbitrary Python functions) has been deprecated and removed for security reasons.
+- **SafeFrappeAPI**: As detailed above, write operations are strictly prohibited.
+- **Pure Logic**: The `method` value type (calling arbitrary Python functions) has been deprecated and removed for security reasons.
