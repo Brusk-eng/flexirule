@@ -363,6 +363,9 @@ async function pasteFromClipboardWrapper() {
 }
 
 function handleKeydown(e) {
+	// If the config modal is open, let it handle keypress events
+	if (uiStore.show_config_modal) return;
+
 	// Don't trigger if typing in an input
 	if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) || e.target.isContentEditable)
 		return;

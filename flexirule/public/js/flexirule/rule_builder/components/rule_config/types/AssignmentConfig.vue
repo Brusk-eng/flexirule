@@ -96,7 +96,7 @@
 								:modelValue="assignment.value_template_ui"
 								:doctype="
 									getTargetDoctype(assignment.target) ||
-									store.rule?.document_type ||
+									store.rule_doc?.document_type ||
 									''
 								"
 								:readOnly="readOnly"
@@ -197,12 +197,9 @@
 			</div>
 		</div>
 
-		<button
-			class="btn btn-sm btn-default w-100 mt-2"
-			@click="addAssignment"
-			:disabled="readOnly"
-		>
-			<i class="fa fa-plus me-1"></i> {{ __("Add Assignment") }}
+		<button class="add-assignment-btn mt-2" @click="addAssignment" :disabled="readOnly">
+			<i class="fa fa-plus"></i>
+			<span>{{ __("Add Assignment") }}</span>
 		</button>
 
 		<Teleport to="body">
@@ -569,13 +566,27 @@ function clearWhenCondition() {
 	syncToNode();
 	closeWhenConditionEditor();
 }
+function getDefaultResolverKind(target) {
+	const fieldtype = getTargetFieldtype(target);
+	if (!fieldtype) return "string_formula";
+
+	if (["Int", "Float", "Percent", "Currency"].includes(fieldtype)) {
+		return "math_formula";
+	}
+	if (["Date", "Datetime"].includes(fieldtype)) {
+		return "date_formula";
+	}
+	return "string_formula";
+}
+
 function toggleValueMode(index) {
 	const current = assignments.value[index].value_mode || "template";
 	const next = current === "resolver" ? "template" : "resolver";
 	assignments.value[index].value_mode = next;
 	// Reset UI state when switching modes
 	if (next === "resolver") {
-		assignments.value[index].value_template_ui = { kind: "date_formula" };
+		const defaultKind = getDefaultResolverKind(assignments.value[index].target);
+		assignments.value[index].value_template_ui = { kind: defaultKind };
 	} else {
 		assignments.value[index].value_template_ui = { version: 2, segments: [] };
 	}
@@ -779,8 +790,11 @@ defineExpose({ validate });
 .assignment-grid-header,
 .assignment-grid-row {
 	display: grid;
-	grid-template-columns: 24% 14% 34% 20% 8%;
-	gap: 8px;
+	grid-template-columns:
+		minmax(180px, 1.2fr) minmax(110px, 0.8fr) minmax(220px, 2fr) minmax(120px, 1fr)
+		100px;
+	gap: 12px;
+	align-items: center;
 }
 
 .when-editor-cell {
@@ -816,47 +830,59 @@ defineExpose({ validate });
 	border-radius: 8px;
 	padding: 8px;
 }
+
 /* Value mode toggle + control wrapper */
 .value-mode-wrap {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: 8px;
 	width: 100%;
 }
 
 .value-mode-toggle {
 	flex-shrink: 0;
-	width: 26px;
-	height: 26px;
-	padding: 0;
-	color: var(--text-muted);
-	border-color: transparent;
+	width: 32px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	color: #64748b;
+	border: 1px solid #e2e8f0;
+	background: #ffffff;
+	transition: all 0.2s ease;
+	cursor: pointer;
 }
 
-.value-mode-toggle:hover {
-	color: var(--primary);
-	border-color: var(--primary-light);
-	background: color-mix(in srgb, var(--primary) 8%, transparent);
+.value-mode-toggle:hover:not(:disabled) {
+	color: var(--primary, #1e293b);
+	border-color: #cbd5e1;
+	background: #f8fafc;
 }
 
 .assignment-grid-header {
-	padding: 0 4px;
+	padding: 8px 12px;
 	font-size: 11px;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
+	font-weight: 600;
+	color: #64748b;
+	letter-spacing: 0.02em;
+	border-bottom: 1px solid #e2e8f0;
+	margin-bottom: 8px !important;
 }
 
 .assignment-grid-row {
-	background: var(--card-bg, #ffffff);
-	border: 1px solid var(--border-color, #e2e8f0);
-	border-radius: 6px;
-	padding: 4px;
-	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	padding: 8px 12px;
+	transition: all 0.2s ease;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .assignment-grid-row:hover {
-	border-color: #cbd5e1;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	border-color: var(--primary, #1e293b);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+	transform: translateY(-1px);
 }
 
 .operator-hint-text {
@@ -883,5 +909,27 @@ defineExpose({ validate });
 .empty-state:hover {
 	border-color: var(--fxr-border-strong);
 	background-color: var(--fxr-bg-hover);
+}
+
+.add-assignment-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	background: #f8fafc;
+	border: 1px dashed #cbd5e1;
+	border-radius: 8px;
+	padding: 10px;
+	width: 100%;
+	color: #475569;
+	font-weight: 500;
+	transition: all 0.2s ease;
+	cursor: pointer;
+}
+
+.add-assignment-btn:hover:not(:disabled) {
+	background: #f1f5f9;
+	border-color: var(--primary, #1e293b);
+	color: var(--primary, #1e293b);
 }
 </style>
