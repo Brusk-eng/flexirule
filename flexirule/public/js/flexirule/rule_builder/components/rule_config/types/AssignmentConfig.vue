@@ -2,10 +2,21 @@
 	<div class="assignment-config">
 		<div class="config-section section-card header-compact mb-3">
 			<div class="d-flex align-items-center justify-content-between">
-				<h5 class="mb-0">{{ __("Batch Assignments") }}</h5>
-				<span class="text-muted small">{{
-					__("Sequential state mutations applied in order")
-				}}</span>
+				<div class="d-flex flex-column">
+					<h5 class="mb-0">{{ __("Batch Assignments") }}</h5>
+					<span class="text-muted fxr-text-xs">
+						{{ __("Sequential state mutations applied in order") }}
+					</span>
+				</div>
+				<button
+					v-if="assignments.length > 1"
+					class="fxr-btn fxr-btn--ghost fxr-btn--sm text-danger"
+					@click="clearAssignments"
+					:disabled="readOnly"
+				>
+					<i class="fa fa-eraser me-1"></i>
+					{{ __("Clear All") }}
+				</button>
 			</div>
 		</div>
 
@@ -17,6 +28,7 @@
 			<div class="grid-col-target">{{ __("Target Field") }}</div>
 			<div class="grid-col-operator">{{ __("Operator") }}</div>
 			<div class="grid-col-value">{{ __("Value Expression") }}</div>
+			<div class="grid-col-when">{{ __("Run If") }}</div>
 			<div class="grid-col-actions"></div>
 		</div>
 
@@ -56,30 +68,113 @@
 
 				<!-- Value Expression Editor -->
 				<div class="grid-col-value">
-					<FlexStructuredValueControl
-						v-if="needsValue(assignment.operator)"
-						:fieldType="getTargetFieldtype(assignment.target) || 'Data'"
-						:modelValue="assignment.value_template_ui"
-						:read_only="readOnly"
-						:variableOptions="variable_options"
-						:referenceDoctype="getTargetDoctype(assignment.target)"
-						:placeholder="__('Type value...')"
-						:options="getTargetOptions(assignment.target)"
-						@update:modelValue="(val) => updateTemplate(index, val)"
-					/>
+					<template v-if="needsValue(assignment.operator)">
+						<div class="value-mode-wrap">
+							<!-- Mode toggle -->
+							<button
+								class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost value-mode-toggle"
+								:title="
+									assignment.value_mode === 'resolver'
+										? __('Switch to Template Editor')
+										: __('Switch to Formula Resolver')
+								"
+								:disabled="readOnly"
+								@click="toggleValueMode(index)"
+							>
+								<i
+									:class="
+										assignment.value_mode === 'resolver'
+											? 'fa fa-pencil'
+											: 'fa fa-calculator'
+									"
+								></i>
+							</button>
+							<!-- Resolver mode -->
+							<ValueResolverControl
+								v-if="assignment.value_mode === 'resolver'"
+								class="flex-1 min-w-0"
+								:modelValue="assignment.value_template_ui"
+								:doctype="
+									getTargetDoctype(assignment.target) ||
+									store.rule?.document_type ||
+									''
+								"
+								:readOnly="readOnly"
+								@update:modelValue="(val) => updateResolverTemplate(index, val)"
+							/>
+							<!-- Template (TipTap) mode -->
+							<FlexStructuredValueControl
+								v-else
+								class="flex-1 min-w-0"
+								:fieldType="getTargetFieldtype(assignment.target) || 'Data'"
+								:modelValue="assignment.value_template_ui"
+								:read_only="readOnly"
+								:variableOptions="variable_options"
+								:allowedModes="supportedTemplateModes"
+								:referenceDoctype="getTargetDoctype(assignment.target)"
+								:placeholder="__('Type value...')"
+								:options="getTargetOptions(assignment.target)"
+								@update:modelValue="(val) => updateTemplate(index, val)"
+							/>
+						</div>
+					</template>
 					<div v-else class="operator-hint-text text-muted small">
 						<i class="fa fa-info-circle me-1"></i>
 						{{ operatorNoValueHint(assignment.operator) }}
 					</div>
 				</div>
 
+				<div class="grid-col-when">
+					<div class="when-editor-cell">
+						<button
+							class="fxr-btn fxr-btn--ghost fxr-btn--sm w-100 text-start"
+							:disabled="readOnly"
+							@click="openWhenConditionEditor(index)"
+						>
+							<i class="fa fa-code-fork me-1"></i>
+							{{
+								hasWhenCondition(assignment)
+									? __("Condition Set")
+									: __("Always Run")
+							}}
+						</button>
+						<div
+							v-if="assignment.when_expression && !assignment.when_condition"
+							class="text-muted fxr-text-xs mt-1"
+						>
+							{{ __("Legacy expression detected") }}
+						</div>
+					</div>
+				</div>
+
 				<!-- Row Actions -->
-				<div class="grid-col-actions text-end">
+				<div
+					class="grid-col-actions d-flex align-items-center justify-content-end fxr-gap-1"
+				>
 					<button
-						class="btn btn-sm btn-link text-danger p-1"
+						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
+						@click="moveAssignment(index, -1)"
+						:disabled="readOnly || index === 0"
+						:title="__('Move Up')"
+						aria-label="Move Up"
+					>
+						<i class="fa fa-chevron-up"></i>
+					</button>
+					<button
+						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
+						@click="moveAssignment(index, 1)"
+						:disabled="readOnly || index === assignments.length - 1"
+						:title="__('Move Down')"
+						aria-label="Move Down"
+					>
+						<i class="fa fa-chevron-down"></i>
+					</button>
+					<button
+						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger"
 						@click="removeAssignment(index)"
 						:disabled="readOnly"
 						:title="__('Remove')"
+						aria-label="Remove Assignment"
 					>
 						<i class="fa fa-trash"></i>
 					</button>
@@ -87,9 +182,19 @@
 			</div>
 		</div>
 
-		<div v-if="!assignments.length" class="empty-state text-center text-muted py-4">
-			<i class="fa fa-list-ol fa-2x mb-2 d-block"></i>
-			<p class="small">{{ __("No assignments defined. Add one below.") }}</p>
+		<div
+			v-if="!assignments.length"
+			class="empty-state d-flex flex-column align-items-center justify-content-center py-5"
+		>
+			<div class="empty-state-icon mb-3">
+				<i class="fa fa-list-ol fa-3x text-muted opacity-25"></i>
+			</div>
+			<div class="text-center px-4">
+				<h6 class="mb-1 fw-bold text-muted">{{ __("No Assignments Yet") }}</h6>
+				<p class="small text-muted mb-0">
+					{{ __("Add an assignment to start mutating document fields or variables.") }}
+				</p>
+			</div>
 		</div>
 
 		<button
@@ -99,6 +204,57 @@
 		>
 			<i class="fa fa-plus me-1"></i> {{ __("Add Assignment") }}
 		</button>
+
+		<Teleport to="body">
+			<div
+				v-if="whenEditor.open"
+				class="fxr-modal-overlay"
+				@click.self="closeWhenConditionEditor"
+			>
+				<div class="fxr-modal-card">
+					<div class="d-flex align-items-center justify-content-between mb-2">
+						<h5 class="mb-0">{{ __("Assignment Run Condition") }}</h5>
+						<button
+							class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
+							@click="closeWhenConditionEditor"
+						>
+							<i class="fa fa-times"></i>
+						</button>
+					</div>
+					<div class="condition-builder-wrap">
+						<ConditionBuilder
+							:modelValue="whenEditor.draft"
+							:docFields="whenConditionDocFields"
+							:variableOptions="variable_options"
+							:readOnly="false"
+							@update:modelValue="(val) => (whenEditor.draft = val)"
+						/>
+					</div>
+					<div class="d-flex justify-content-between mt-3">
+						<button
+							class="fxr-btn fxr-btn--sm fxr-btn--ghost text-danger"
+							@click="clearWhenCondition"
+						>
+							{{ __("Clear Condition") }}
+						</button>
+						<div class="d-flex fxr-gap-1">
+							<button
+								class="fxr-btn fxr-btn--sm fxr-btn--secondary"
+								@click="closeWhenConditionEditor"
+							>
+								{{ __("Cancel") }}
+							</button>
+							<button
+								class="fxr-btn fxr-btn--sm fxr-btn--primary"
+								@click="saveWhenCondition"
+							>
+								{{ __("Save Condition") }}
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</Teleport>
 	</div>
 </template>
 
@@ -107,6 +263,8 @@ import { computed, watch, ref } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexStructuredValueControl from "../../../controls/FlexStructuredValueControl.vue";
+import ValueResolverControl from "../../../controls/ValueResolverControl.vue";
+import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
@@ -116,6 +274,8 @@ const props = defineProps({
 });
 
 const { doctype_fields, variable_options, update_action_field, store } = useActionConfig(props);
+const supportedTemplateModes = ["formula", "resolver", "link", "dynamic-link"];
+const whenEditor = ref({ open: false, index: -1, draft: null });
 
 // ─── Operator Helpers ────────────────────────────────────────────────────────
 
@@ -242,10 +402,19 @@ watch(
 		// Map parsed to ensure both value_template and value are populated on load
 		parsed = parsed.map((a) => {
 			const value_tpl = a.value_template || a.value || "";
+			// Auto-detect resolver mode: value_template_ui has a `kind` field (no `segments` array)
+			const isResolverUi =
+				a.value_template_ui &&
+				typeof a.value_template_ui === "object" &&
+				"kind" in a.value_template_ui &&
+				!Array.isArray(a.value_template_ui.segments);
 			return {
 				target: a.target || "",
 				operator: a.operator || "set",
+				value_mode: isResolverUi ? "resolver" : "template",
 				value_template_ui: a.value_template_ui || { version: 2, segments: [] },
+				when_condition: a.when_condition || null,
+				when_expression: a.when_expression || a.when || "",
 				value_template: value_tpl,
 				value: value_tpl,
 			};
@@ -300,6 +469,9 @@ function syncToNode() {
 	const clean = assignments.value.map((a) => ({
 		target: a.target,
 		operator: a.operator,
+		value_mode: a.value_mode || "template",
+		when_condition: a.when_condition || null,
+		when_expression: a.when_condition ? "" : a.when_expression || "",
 		value_template_ui: a.value_template_ui,
 		value_template: a.value_template,
 		value: a.value_template, // standardized output key alignment
@@ -312,6 +484,9 @@ function addAssignment() {
 	assignments.value.push({
 		target: "",
 		operator: "set",
+		value_mode: "template",
+		when_condition: null,
+		when_expression: "",
 		value_template_ui: { version: 2, segments: [] },
 		value_template: "",
 		value: "",
@@ -324,6 +499,21 @@ function removeAssignment(index) {
 	syncToNode();
 }
 
+function moveAssignment(index, direction) {
+	const newIndex = index + direction;
+	if (newIndex < 0 || newIndex >= assignments.value.length) return;
+	const item = assignments.value.splice(index, 1)[0];
+	assignments.value.splice(newIndex, 0, item);
+	syncToNode();
+}
+
+function clearAssignments() {
+	frappe.confirm(__("Are you sure you want to clear all assignments?"), () => {
+		assignments.value = [];
+		syncToNode();
+	});
+}
+
 function onTargetChange(index, value) {
 	assignments.value[index].target = value;
 	// Reset operator if it's no longer compatible with new target type
@@ -331,6 +521,66 @@ function onTargetChange(index, value) {
 	if (!available.includes(assignments.value[index].operator)) {
 		assignments.value[index].operator = "set";
 	}
+	syncToNode();
+}
+
+function hasWhenCondition(assignment) {
+	return !!(assignment?.when_condition && Array.isArray(assignment.when_condition.conditions));
+}
+
+const whenConditionDocFields = computed(() =>
+	(doctype_fields.value || []).map((f) => ({
+		label: f.label || f.fieldname,
+		value: f.value || `doc.${f.fieldname}`,
+		fieldname: f.fieldname,
+		fieldtype: f.fieldtype,
+		options: f.options,
+	}))
+);
+
+function openWhenConditionEditor(index) {
+	const current = assignments.value[index];
+	const fallback = { op: "and", conditions: [] };
+	whenEditor.value = {
+		open: true,
+		index,
+		draft: JSON.parse(JSON.stringify(current?.when_condition || fallback)),
+	};
+}
+
+function closeWhenConditionEditor() {
+	whenEditor.value = { open: false, index: -1, draft: null };
+}
+
+function saveWhenCondition() {
+	if (whenEditor.value.index < 0) return;
+	const tree = whenEditor.value.draft;
+	const hasConditions = !!(tree && Array.isArray(tree.conditions) && tree.conditions.length);
+	assignments.value[whenEditor.value.index].when_condition = hasConditions ? tree : null;
+	assignments.value[whenEditor.value.index].when_expression = "";
+	syncToNode();
+	closeWhenConditionEditor();
+}
+
+function clearWhenCondition() {
+	if (whenEditor.value.index < 0) return;
+	assignments.value[whenEditor.value.index].when_condition = null;
+	assignments.value[whenEditor.value.index].when_expression = "";
+	syncToNode();
+	closeWhenConditionEditor();
+}
+function toggleValueMode(index) {
+	const current = assignments.value[index].value_mode || "template";
+	const next = current === "resolver" ? "template" : "resolver";
+	assignments.value[index].value_mode = next;
+	// Reset UI state when switching modes
+	if (next === "resolver") {
+		assignments.value[index].value_template_ui = { kind: "date_formula" };
+	} else {
+		assignments.value[index].value_template_ui = { version: 2, segments: [] };
+	}
+	assignments.value[index].value_template = "";
+	assignments.value[index].value = "";
 	syncToNode();
 }
 
@@ -376,6 +626,88 @@ function compileStructuredValueToJinja(val) {
 		return String(val.value ?? "");
 	}
 	return "";
+}
+
+/**
+ * Compile ValueResolverControl structured state → Jinja {{ expr }} string.
+ * Mirrors the expressionSnippet logic in ValueResolverControl.vue.
+ */
+function compileValueResolverToJinja(s) {
+	if (!s || !s.kind) return "";
+
+	if (s.kind === "date_formula") {
+		const baseExpr = s.base_type === "today" ? "frappe.utils.nowdate()" : `doc.${s.base_field}`;
+		const offset =
+			s.offset_sign === "-" ? -Math.abs(s.offset_value || 0) : Math.abs(s.offset_value || 0);
+		if (offset === 0) return `{{ ${baseExpr} }}`;
+		if (s.offset_unit === "days") return `{{ frappe.utils.add_days(${baseExpr}, ${offset}) }}`;
+		return `{{ frappe.utils.add_to_date(${baseExpr}, ${s.offset_unit}=${offset}) }}`;
+	}
+
+	if (s.kind === "math_formula") {
+		const a = s.field_a ? `frappe.utils.flt(doc.${s.field_a})` : "0";
+		const b =
+			s.field_b_type === "field"
+				? s.field_b
+					? `frappe.utils.flt(doc.${s.field_b})`
+					: "0"
+				: String(s.constant_b ?? 0);
+		const prec = s.precision ?? 2;
+		return `{{ frappe.utils.flt(${a} ${s.math_op || "+"} ${b}, ${prec}) }}`;
+	}
+
+	if (s.kind === "date_diff") {
+		const start =
+			s.diff_start_type === "today" ? "frappe.utils.nowdate()" : `doc.${s.diff_start_field}`;
+		const end =
+			s.diff_end_type === "today" ? "frappe.utils.nowdate()" : `doc.${s.diff_end_field}`;
+		if (s.diff_unit === "days") return `{{ frappe.utils.date_diff(${end}, ${start}) }}`;
+		if (s.diff_unit === "months") return `{{ frappe.utils.month_diff(${end}, ${start}) }}`;
+		return `{{ int(frappe.utils.month_diff(${end}, ${start}) / 12) }}`;
+	}
+
+	if (s.kind === "child_aggregation") {
+		const tbl = s.agg_table || "items";
+		const fld = s.agg_field || "amount";
+		if (s.agg_op === "sum")
+			return `{{ sum([frappe.utils.flt(row.${fld}) for row in doc.get("${tbl}")]) }}`;
+		if (s.agg_op === "avg")
+			return `{{ sum([frappe.utils.flt(row.${fld}) for row in doc.get("${tbl}")]) / max(len(doc.get("${tbl}")), 1) }}`;
+		if (s.agg_op === "count") return `{{ len(doc.get("${tbl}")) }}`;
+	}
+
+	if (s.kind === "string_formula") {
+		const a = s.str_a_type === "field" ? `doc.${s.str_a || ""}` : `"${s.str_a || ""}"`;
+		if (s.str_op === "concat") {
+			const b = s.str_b_type === "field" ? `doc.${s.str_b || ""}` : `"${s.str_b || ""}"`;
+			return `{{ str(${a} or "") + str(${b} or "") }}`;
+		}
+		if (s.str_op === "fmt_money") {
+			const curr = s.str_b_type === "field" ? `doc.${s.str_b || ""}` : `"${s.str_b || ""}"`;
+			return `{{ frappe.utils.fmt_money(${a}, currency=${curr}) }}`;
+		}
+		if (s.str_op === "uppercase") return `{{ str(${a} or "").upper() }}`;
+		if (s.str_op === "lowercase") return `{{ str(${a} or "").lower() }}`;
+	}
+
+	if (s.kind === "system_context") {
+		if (s.sys_token === "user") return `{{ frappe.session.user }}`;
+		if (s.sys_token === "role_check")
+			return `{{ "${s.sys_role || ""}" in frappe.get_roles(frappe.session.user) }}`;
+	}
+
+	return "";
+}
+
+/**
+ * Handler for ValueResolverControl updates.
+ */
+function updateResolverTemplate(index, value) {
+	assignments.value[index].value_template_ui = value;
+	const compiled = compileValueResolverToJinja(value);
+	assignments.value[index].value_template = compiled;
+	assignments.value[index].value = compiled;
+	syncToNode();
 }
 
 function updateTemplate(index, value) {
@@ -447,8 +779,64 @@ defineExpose({ validate });
 .assignment-grid-header,
 .assignment-grid-row {
 	display: grid;
-	grid-template-columns: 32% 18% 44% 6%;
+	grid-template-columns: 24% 14% 34% 20% 8%;
 	gap: 8px;
+}
+
+.when-editor-cell {
+	display: flex;
+	flex-direction: column;
+}
+
+.fxr-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(15, 23, 42, 0.35);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 13000;
+}
+
+.fxr-modal-card {
+	width: min(980px, 92vw);
+	max-height: 86vh;
+	background: #fff;
+	border-radius: 10px;
+	border: 1px solid #e2e8f0;
+	padding: 14px;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.condition-builder-wrap {
+	overflow: auto;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	padding: 8px;
+}
+/* Value mode toggle + control wrapper */
+.value-mode-wrap {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	width: 100%;
+}
+
+.value-mode-toggle {
+	flex-shrink: 0;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	color: var(--text-muted);
+	border-color: transparent;
+}
+
+.value-mode-toggle:hover {
+	color: var(--primary);
+	border-color: var(--primary-light);
+	background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 .assignment-grid-header {
@@ -485,7 +873,14 @@ defineExpose({ validate });
 }
 
 .empty-state {
-	border: 1px dashed var(--border-color, #e2e8f0);
-	border-radius: 8px;
+	border: 2px dashed var(--fxr-border, #e2e8f0);
+	border-radius: var(--fxr-radius-lg, 12px);
+	background-color: var(--fxr-bg-muted, #f8fafc);
+	transition: all 0.2s ease;
+}
+
+.empty-state:hover {
+	border-color: var(--fxr-border-strong);
+	background-color: var(--fxr-bg-hover);
 }
 </style>

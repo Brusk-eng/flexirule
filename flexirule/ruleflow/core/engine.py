@@ -140,6 +140,16 @@ class SafeFrappeAPI:
 		self.utils = frappe.utils
 		self._dict = frappe._dict
 
+	@property
+	def session(self):
+		"""Read-only access to frappe.session (current user, roles, etc.)"""
+		return frappe.session
+
+	@staticmethod
+	def get_roles(user=None):
+		"""Read-only: return roles for the given user (or current session user)."""
+		return frappe.get_roles(user)
+
 	# Safe read operations
 	@staticmethod
 	def get_value(doctype, filters, fieldname=None, **kwargs):

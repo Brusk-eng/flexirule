@@ -14,6 +14,7 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_plan_cache import get_action_plan
 from flexirule.ruleflow.core.engine import SafeFrappeAPI
 from flexirule.ruleflow.utils.field_resolver import parse_field_list
 
@@ -139,13 +140,15 @@ class NotifyHandler(ActionHandler):
 		- System Notification: Creates a Notification Log row
 		- Provider: Dispatches to a hook-registered provider
 		"""
-		value_template = getattr(action, "value_template", "") or ""
-		notification_type = self._normalize_mode(
+		plan = get_action_plan(engine.rule, action)
+		fallback_config = engine._get_action_config(action)
+		notification_type = plan.get("mode") or self._normalize_mode(
 			getattr(action, "operation", self.MODE_TOAST) or self.MODE_TOAST
 		)
-		config = engine._get_action_config(action)
 
-		message = self._render_template(value_template, context, engine)
+		message = self._render_from_spec(
+			plan.get("message_spec"), context, engine, default=getattr(action, "value_template", "") or ""
+		)
 		doc = context.get("doc")
 
 		if notification_type == self.MODE_TOAST:
@@ -157,10 +160,17 @@ class NotifyHandler(ActionHandler):
 				user=frappe.session.user,
 			)
 		elif notification_type == self.MODE_TO_EMAIL:
-			recipients = self._get_recipients(config.get("recipients"), context)
-			subject_template = config.get("subject") or _("Rule Notification: {0}").format(engine.rule.name)
-			subject = self._render_template(subject_template, context, engine)
-			attachments = self._build_email_attachments(config, doc)
+			recipients = self._resolve_recipients_from_spec(
+				plan.get("recipients_spec"), context, default_value=fallback_config.get("recipients")
+			)
+			subject = self._render_from_spec(
+				plan.get("subject_spec"),
+				context,
+				engine,
+				default=fallback_config.get("subject")
+				or _("Rule Notification: {0}").format(engine.rule.name),
+			)
+			attachments = self._build_email_attachments({"attach_doc": plan.get("attach_doc")}, doc)
 
 			frappe.sendmail(
 				recipients=recipients,
@@ -171,10 +181,17 @@ class NotifyHandler(ActionHandler):
 				reference_name=getattr(doc, "name", None),
 			)
 		elif notification_type == self.MODE_SYSTEM_NOTIFICATION:
-			subject_template = config.get("subject") or _("Rule Notification")
-			subject = self._render_template(subject_template, context, engine)
-			for_user_template = config.get("for_user") or getattr(doc, "owner", None) or frappe.session.user
-			for_user = self._render_scalar(for_user_template, context)
+			subject = self._render_from_spec(
+				plan.get("subject_spec"),
+				context,
+				engine,
+				default=fallback_config.get("subject") or _("Rule Notification"),
+			)
+			for_user = self._resolve_value_from_spec(
+				plan.get("for_user_spec"),
+				context,
+				default=fallback_config.get("for_user") or getattr(doc, "owner", None) or frappe.session.user,
+			)
 
 			notification = frappe.get_doc(
 				{
@@ -189,6 +206,12 @@ class NotifyHandler(ActionHandler):
 			notification.insert(ignore_permissions=True)
 			message = notification.name
 		elif notification_type == self.MODE_PROVIDER:
+			config = {
+				"provider": plan.get("provider") or fallback_config.get("provider"),
+				"recipient": self._resolve_value_from_spec(
+					plan.get("recipient_spec"), context, default=fallback_config.get("recipient")
+				),
+			}
 			message = self._send_via_provider(config, context, message)
 		else:
 			frappe.throw(_("Unknown notification mode: {0}").format(notification_type))
@@ -248,6 +271,38 @@ class NotifyHandler(ActionHandler):
 		if isinstance(value, str):
 			return self._render_template(value, context)
 		return value
+
+	def _render_from_spec(self, spec, context, engine=None, default=""):
+		spec = spec or {}
+		source = spec.get("source")
+		if source == "jinja":
+			return self._render_template(spec.get("value") or "", context, engine)
+		if source == "literal":
+			return spec.get("value")
+		if isinstance(default, str):
+			return self._render_template(default, context, engine)
+		return default
+
+	def _resolve_value_from_spec(self, spec, context, default=None):
+		spec = spec or {}
+		source = spec.get("source")
+		if source == "jinja":
+			return self._render_template(spec.get("value") or "", context)
+		if source == "literal":
+			return spec.get("value")
+		if isinstance(default, str):
+			return self._render_template(default, context)
+		return default
+
+	def _resolve_recipients_from_spec(self, spec, context, default_value=None):
+		spec = spec or {}
+		if spec.get("source") == "list":
+			values = [self._resolve_value_from_spec(item, context) for item in spec.get("items") or []]
+			return [v for v in values if v]
+		value = self._resolve_value_from_spec(spec, context, default=default_value)
+		if isinstance(value, list):
+			return [v for v in value if v]
+		return parse_field_list(value)
 
 	def _get_recipients(self, recipients_value, context):
 		rendered = self._render_scalar(recipients_value, context)

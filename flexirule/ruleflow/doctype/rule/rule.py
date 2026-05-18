@@ -588,16 +588,39 @@ class Rule(Document):
 			if action.action_type == "Assignment" and isinstance(config, list):
 				# Handle batch assignment compilation
 				changed = False
+				known_var_roots = self._collect_known_return_variables(self.actions)
+				from flexirule.ruleflow.core.compiler import ConditionCompiler
+
+				condition_compiler = ConditionCompiler()
+
 				for assignment in config:
+					if not isinstance(assignment, dict):
+						continue
+
 					text_ui = assignment.get("text_generator_ui")
 					if isinstance(text_ui, dict):
 						segments = text_ui.get("segments") or []
-						known_var_roots = self._collect_known_return_variables(self.actions)
 						compiled = self._compile_segments_v2(
 							segments, action.action_label or action.action_id, known_var_roots
 						)
 						assignment["value"] = compiled
+						assignment["value_template"] = compiled
 						changed = True
+
+					compiled_when = self._compile_assignment_when_expression(
+						assignment,
+						condition_compiler,
+						action_label=action.action_label or action.action_id or _("Assignment"),
+					)
+					if assignment.get("when_expression") != compiled_when:
+						assignment["when_expression"] = compiled_when
+						changed = True
+
+					compiled_operand = self._compile_assignment_operand_metadata(assignment, known_var_roots)
+					for key, value in compiled_operand.items():
+						if assignment.get(key) != value:
+							assignment[key] = value
+							changed = True
 
 				if changed:
 					action.config = json.dumps(config)
@@ -618,6 +641,109 @@ class Rule(Document):
 
 			action.value_template = compiled
 			action.config = json.dumps(config)
+
+	def _compile_assignment_operand_metadata(self, assignment: dict, known_var_roots: set[str]) -> dict:
+		operator_key = assignment.get("operator", "set")
+		try:
+			from flexirule.ruleflow.core.operators import AssignmentOperatorRegistry
+
+			operator = AssignmentOperatorRegistry.get(operator_key)
+			if not operator.metadata.get("requires_value"):
+				return {
+					"value_source": "none",
+					"value_literal": None,
+					"value_path": None,
+					"value_template": None,
+				}
+		except Exception:
+			pass
+
+		value_ui = assignment.get("value_template_ui")
+		if not isinstance(value_ui, dict):
+			value_ui = {}
+		mode = value_ui.get("mode")
+
+		value_template = assignment.get("value_template")
+		if value_template is None:
+			value_template = assignment.get("value")
+
+		if mode in {"static", "link", "dynamic_link"}:
+			return {
+				"value_source": "literal",
+				"value_literal": value_ui.get("value"),
+				"value_path": None,
+				"value_template": None,
+			}
+
+		if mode == "variable":
+			normalized_path = self._normalize_context_ref(
+				value_ui.get("path") or "", known_var_roots, extra_allowed_roots=None
+			)
+			return {
+				"value_source": "context_path",
+				"value_literal": None,
+				"value_path": self._normalize_assignment_context_path(normalized_path),
+				"value_template": None,
+			}
+
+		if isinstance(value_template, str):
+			contains_jinja = "{{" in value_template or "{%" in value_template
+			if mode in {"formula", "resolver"} or contains_jinja:
+				return {
+					"value_source": "jinja",
+					"value_literal": None,
+					"value_path": None,
+					"value_template": value_template,
+				}
+
+			return {
+				"value_source": "literal",
+				"value_literal": value_template,
+				"value_path": None,
+				"value_template": None,
+			}
+
+		return {
+			"value_source": "literal",
+			"value_literal": value_template,
+			"value_path": None,
+			"value_template": None,
+		}
+
+	def _compile_assignment_when_expression(
+		self,
+		assignment: dict,
+		condition_compiler,
+		action_label: str,
+	) -> str:
+		when_condition = assignment.get("when_condition")
+		if isinstance(when_condition, dict | list):
+			compiled_when = condition_compiler.compile(when_condition)
+			is_valid, error = condition_compiler.validate(compiled_when)
+			if not is_valid:
+				frappe.throw(
+					_("Action '{0}' assignment condition is invalid: {1}").format(action_label, error)
+				)
+			return compiled_when or ""
+
+		when_expression = (assignment.get("when_expression") or assignment.get("when") or "").strip()
+		if when_expression:
+			self._validate_allowed_roots(
+				when_expression,
+				_("Action '{0}' assignment expression").format(action_label),
+			)
+		return when_expression
+
+	@staticmethod
+	def _normalize_assignment_context_path(path: str | None) -> str | None:
+		if not path:
+			return None
+		path = str(path).strip()
+		if not path:
+			return None
+		if path.startswith("doc.") or path.startswith("vars."):
+			return path
+		return f"vars.{path}"
 
 	def _compile_segments_v2(self, segments, action_label, known_var_roots=None, extra_allowed_roots=None):
 		"""Compile v2 segment list to Jinja template string."""

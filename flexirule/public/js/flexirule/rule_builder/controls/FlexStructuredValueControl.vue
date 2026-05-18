@@ -45,7 +45,7 @@
 							class="flex-1 min-w-0"
 							@update:modelValue="updateStaticValue"
 						/>
-						<span v-else class="text-muted fxr-text-xs ml-2 flex-1">{{
+						<span v-else class="text-muted fxr-text-xs ms-2 flex-1">{{
 							__("Select DocType first")
 						}}</span>
 					</div>
@@ -97,7 +97,7 @@
 					<span class="fxr-label-sm mb-0">
 						<i
 							:class="activeTokenPresentation.icon"
-							class="mr-2 text-primary font-medium"
+							class="me-2 text-primary fw-medium"
 						></i>
 						<strong>{{ activeTokenPresentation.title }}</strong>
 					</span>
@@ -160,7 +160,7 @@
 										class="fxr-btn fxr-btn--sm fxr-btn--secondary py-0"
 										@click="addConfigParam"
 									>
-										<i class="fa fa-plus mr-1"></i> {{ __("Add Param") }}
+										<i class="fa fa-plus me-1"></i> {{ __("Add Param") }}
 									</button>
 								</label>
 
@@ -182,7 +182,7 @@
 											placeholder="Value"
 										/>
 										<button
-											class="btn btn-sm btn-outline-danger"
+											class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger px-0"
 											@click="removeConfigKey(k)"
 										>
 											<i class="fa fa-trash"></i>
@@ -280,7 +280,7 @@
 									class="fxr-btn fxr-btn--sm fxr-btn--secondary py-0"
 									@click="tokenDraftAttrs.steps.push({ type: 'trim' })"
 								>
-									<i class="fa fa-plus mr-1"></i> {{ __("Add Step") }}
+									<i class="fa fa-plus me-1"></i> {{ __("Add Step") }}
 								</button>
 							</label>
 
@@ -296,11 +296,11 @@
 									<div
 										class="d-flex justify-content-between align-items-center mb-2"
 									>
-										<span class="badge badge-info"
+										<span class="badge bg-info text-white"
 											>{{ __("Step") }} {{ idx + 1 }}</span
 										>
 										<button
-											class="btn btn-sm btn-outline-danger"
+											class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger px-0"
 											@click="tokenDraftAttrs.steps.splice(idx, 1)"
 										>
 											<i class="fa fa-trash"></i>
@@ -524,7 +524,7 @@
 							<div class="dynamic-resolved-preview-block p-3 border rounded mt-2">
 								<div class="mb-2 fxr-text-sm">
 									<strong>{{ __("Resolved Doctype:") }}</strong>
-									<span class="badge badge-success ml-2">{{
+									<span class="badge bg-success ms-2">{{
 										resolvedDynamicDoctype || __("None")
 									}}</span>
 								</div>
@@ -2233,75 +2233,6 @@ input:checked + .tg-slider:before {
 }
 .fxr-text-sm {
 	font-size: 13px;
-}
-
-.fxr-label-sm {
-	font-size: 11px;
-	font-weight: 700;
-	color: #475569;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	margin-bottom: 4px;
-}
-
-.fxr-label-xs {
-	font-size: 10px;
-	font-weight: 700;
-	color: #64748b;
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-	margin-bottom: 2px;
-	display: block;
-}
-
-.fxr-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	padding: 6px 12px;
-	font-size: 13px;
-	font-weight: 600;
-	border-radius: 6px;
-	border: 1px solid transparent;
-	cursor: pointer;
-	transition: all 0.2s ease;
-}
-
-.fxr-btn-primary {
-	background: #3b82f6;
-	color: #ffffff;
-}
-.fxr-btn-primary:hover {
-	background: #2563eb;
-}
-
-.fxr-btn-secondary {
-	background: #ffffff;
-	border-color: #cbd5e1;
-	color: #334155;
-}
-.fxr-btn-secondary:hover {
-	background: #f1f5f9;
-}
-
-.fxr-select,
-.fxr-input,
-.fxr-textarea {
-	border: 1px solid #cbd5e1;
-	border-radius: 6px;
-	padding: 6px 10px;
-	font-size: 13px;
-	color: #1e293b;
-	background: #ffffff;
-	width: 100%;
-	outline: none;
-	transition: border-color 0.2s ease;
-}
-
-.fxr-select:focus,
-.fxr-input:focus,
-.fxr-textarea:focus {
-	border-color: #3b82f6;
 }
 
 .select-sm,

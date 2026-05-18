@@ -17,6 +17,7 @@
 	--fxr-bg-input-disabled: #f8fafc;
 
 	--fxr-border: #e2e8f0;
+	--fxr-border-subtle: #f1f5f9;
 	--fxr-border-focus: var(--fxr-accent);
 	--fxr-border-strong: #cbd5e1;
 	--fxr-border-danger: #fca5a5;
@@ -31,23 +32,31 @@
 	--fxr-accent-light: rgba(36, 144, 239, 0.08);
 	--fxr-accent-border: rgba(36, 144, 239, 0.3);
 
-	/* Semantic colors for value-type badges */
+	/* Semantic colors for value-type badges & tokens */
 	--fxr-badge-literal: #e2e8f0;
 	--fxr-badge-literal-text: #475569;
 	--fxr-badge-number: #dbeafe;
 	--fxr-badge-number-text: #1d4ed8;
-	--fxr-badge-bool: #dcfce7;
-	--fxr-badge-bool-text: #15803d;
+	--fxr-badge-bool: #ecfdf5;
+	--fxr-badge-bool-text: #059669;
 	--fxr-badge-var: #f3e8ff;
 	--fxr-badge-var-text: #7c3aed;
 	--fxr-badge-expr: #fff7ed;
 	--fxr-badge-expr-text: #c2410c;
 	--fxr-badge-builder: #e0f2fe;
 	--fxr-badge-builder-text: #0369a1;
+	--fxr-badge-resolver: #fffbeb;
+	--fxr-badge-resolver-text: #d97706;
+	--fxr-badge-formatter: #fdf2f8;
+	--fxr-badge-formatter-text: #db2777;
+	--fxr-badge-normalize: #eff6ff;
+	--fxr-badge-normalize-text: #2563eb;
 
 	/* ─── Typography ─── */
-	--fxr-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-	--fxr-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+	--fxr-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+		Arial, sans-serif;
+	--fxr-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+		monospace;
 
 	--fxr-text-xs: 10px;
 	--fxr-text-sm: 11px;

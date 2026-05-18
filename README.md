@@ -78,9 +78,10 @@ FlexiRule is built around three core pillars that bridge the gap between design 
 ### 1. The Rule (The Entry Point)
 
 A **Rule** defines _when_ logic should trigger. It serves as the gateway to the graph and binds to one of three context sources:
-- **DocType Event**: Tied to database hooks (e.g., `Before Save`, `On Submit`).
-- **Scheduler Event**: Scheduled CRON-based executions via background jobs.
-- **Callable Event**: A sub-rule meant strictly to be executed by other parent rules via `Priority: 0`.
+
+-   **DocType Event**: Tied to database hooks (e.g., `Before Save`, `On Submit`).
+-   **Scheduler Event**: Scheduled CRON-based executions via background jobs.
+-   **Callable Event**: A sub-rule meant strictly to be executed by other parent rules via `Priority: 0`.
 
 ### 2. The Rule Action (The Node)
 
@@ -98,6 +99,7 @@ A **Process** is a file-backed module (similar to Frappe Reports/Dashboards) tha
 ## ⚡ Execution Flow Example
 
 FlexiRule uses a deterministic graph-based execution engine with built-in cycle detection (preventing infinite loops over 100 iterations natively). The following example shows a more detailed flow with error handling and branching paths.
+
 ```mermaid
 graph LR
     Trigger[Rule Trigger]
@@ -130,11 +132,11 @@ graph LR
 -   **Role-Based Execution Control**: `skip_for_roles` field to prevent rule execution for specific roles.
 -   **Permission Audit Logging**: `skip_permissions` with audit reason for tracking bypassed permission checks.
 -   **Watched Fields Optimization**: Automatic extraction and change-based filtering for event-driven rules.
--   **Comprehensive Error Handling**: 
-    - Retry with exponential backoff
-    - Rollback with savepoints  
-    - Escalate to caller
-    - Continue or Stop (default)
+-   **Comprehensive Error Handling**:
+    -   Retry with exponential backoff
+    -   Rollback with savepoints
+    -   Escalate to caller
+    -   Continue or Stop (default)
 -   **Async Execution via Background Queues**: Offload long-running rules to background jobs.
 -   **Timeout Protection**: Per-rule and per-action timeout limits.
 -   **Asynchronous Execution Log Enqueuing**: Non-blocking persistence of execution traces.
@@ -194,30 +196,34 @@ All APIs are accessible via `frappe.call()` and follow standard Frappe whitelist
 The FlexiRule codebase has undergone significant architectural improvements:
 
 ### Core Engine Enhancements
-- **Assignment Action (V2)**: Replaced legacy "Set Value" with a powerful batch assignment system supporting multiple operators (Set, Clear, Increment, Decrement, Append, Merge, Toggle).
-- **Condition System (V2)**: Introduced recursive collection logic (Any, All, None) and iterator aliases for complex child-table evaluations.
-- **Node Execution State Management**: Real-time tracking of execution state across components for visualization and debugging.
-- **Compiled Runtime Registry**: Layered caching system (request-local → Redis → DB) for compiled rules and dependencies.
-- **Graph Validation Improvements**: Enhanced cycle detection with visit counting and iteration limits.
-- **Async Execution Refinements**: Better background job handling and timeout protection.
+
+-   **Assignment Action (V2)**: Replaced legacy "Set Value" with a powerful batch assignment system supporting multiple operators (Set, Clear, Increment, Decrement, Append, Merge, Toggle).
+-   **Condition System (V2)**: Introduced recursive collection logic (Any, All, None) and iterator aliases for complex child-table evaluations.
+-   **Node Execution State Management**: Real-time tracking of execution state across components for visualization and debugging.
+-   **Compiled Runtime Registry**: Layered caching system (request-local → Redis → DB) for compiled rules and dependencies.
+-   **Graph Validation Improvements**: Enhanced cycle detection with visit counting and iteration limits.
+-   **Async Execution Refinements**: Better background job handling and timeout protection.
 
 ### Security & Reliability
-- **Permission Audit Logging**: `skip_permissions` with audit reason for tracking bypassed permission checks
-- **Role-Based Execution Control**: `skip_for_roles` field to prevent rule execution for specific roles
-- **Watched Fields Optimization**: Automatic extraction and change-based filtering for event-driven rules
-- **Comprehensive Error Handling**: Retry with exponential backoff, rollback with savepoints, escalate to caller
+
+-   **Permission Audit Logging**: `skip_permissions` with audit reason for tracking bypassed permission checks
+-   **Role-Based Execution Control**: `skip_for_roles` field to prevent rule execution for specific roles
+-   **Watched Fields Optimization**: Automatic extraction and change-based filtering for event-driven rules
+-   **Comprehensive Error Handling**: Retry with exponential backoff, rollback with savepoints, escalate to caller
 
 ### Developer Experience
-- **Dynamic Configuration Schemas**: Improved `get_node_config_schema` and `get_action_context_schema` APIs
-- **Extended Process Operation Metadata**: New fields like `writes_to`, `requires_doc`, `transactional`, `has_side_effect`, `config_schema`, `output_schema`, `action_overrides`
-- **Enhanced Rule Lifecycle APIs**: Better `clone_rule`, `amend_rule`, `transition_rule` functionality
-- **Improved Monitoring**: Enhanced `get_rule_stats` and execution tracing capabilities
+
+-   **Dynamic Configuration Schemas**: Improved `get_node_config_schema` and `get_action_context_schema` APIs
+-   **Extended Process Operation Metadata**: New fields like `writes_to`, `requires_doc`, `transactional`, `has_side_effect`, `config_schema`, `output_schema`, `action_overrides`
+-   **Enhanced Rule Lifecycle APIs**: Better `clone_rule`, `amend_rule`, `transition_rule` functionality
+-   **Improved Monitoring**: Enhanced `get_rule_stats` and execution tracing capabilities
 
 ### Frontend Improvements
-- **Vue 3 + Pinia Architecture**: Modular state management with 5 dedicated stores
-- **Real-time Execution Visualization**: `useNodeExecutionState` composable for test runs
-- **Enhanced Condition Builder**: Improved visual multi-condition builder with nested AND/OR groups
-- **Dynamic Control Factory**: Schema-driven UI generation for Process Operations
+
+-   **Vue 3 + Pinia Architecture**: Modular state management with 5 dedicated stores
+-   **Real-time Execution Visualization**: `useNodeExecutionState` composable for test runs
+-   **Enhanced Condition Builder**: Improved visual multi-condition builder with nested AND/OR groups
+-   **Dynamic Control Factory**: Schema-driven UI generation for Process Operations
 
 These changes solidify FlexiRule as a production-ready, enterprise-grade workflow automation platform for Frappe/ERPNext.
 

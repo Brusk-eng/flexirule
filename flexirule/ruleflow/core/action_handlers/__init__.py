@@ -81,6 +81,17 @@ class ActionHandler(ABC):
 			"vars": context.get("vars", {}),
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
+			# Python builtins needed for Jinja templates (Jinja2 does not expose these by default)
+			"sum": sum,
+			"int": int,
+			"str": str,
+			"len": len,
+			"max": max,
+			"min": min,
+			"round": round,
+			"abs": abs,
+			"bool": bool,
+			"float": float,
 		}
 		if engine:
 			ctx["rule"] = engine.rule

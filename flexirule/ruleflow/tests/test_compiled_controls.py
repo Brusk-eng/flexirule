@@ -6,6 +6,11 @@ import json
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from flexirule.ruleflow.core.action_plan_cache import (
+	clear_rule_action_plan_cache,
+	get_rule_action_plan,
+	get_rule_version_hash,
+)
 from flexirule.ruleflow.core.engine import RuleEngine
 
 
@@ -179,6 +184,208 @@ class TestCompiledControls(FrappeTestCase):
 		self.assertIn("{{ doc.is_pos }}", config[0]["value"])
 		self.assertIn("{% if doc.is_pos != 1 %}", config[0]["value"])
 		self.assertIn("{{ vars.result.total }}", config[0]["value"])
+
+	def test_assignment_compiles_operand_and_guard_metadata(self):
+		rule = self._base_rule(
+			self._uid(),
+			[
+				{
+					"action_id": "root",
+					"action_type": "Entry Action",
+					"action_label": "Start",
+					"next_step_if_true": "set_1",
+				},
+				{
+					"action_id": "set_1",
+					"action_type": "Assignment",
+					"action_label": "Set Description",
+					"config": json.dumps(
+						[
+							{
+								"target": "doc.description",
+								"operator": "set",
+								"value_template_ui": {"mode": "static", "value": "Compiled Literal"},
+								"when_condition": {
+									"op": "and",
+									"conditions": [
+										{
+											"left": {"ref": "doc.status"},
+											"op": "==",
+											"right": {"value": "Open"},
+										}
+									],
+								},
+							}
+						]
+					),
+					"next_step_if_true": "stop_1",
+				},
+				{
+					"action_id": "stop_1",
+					"action_type": "Stop",
+					"action_label": "Stop",
+					"operation": "Success",
+				},
+			],
+		)
+
+		rule.insert(ignore_permissions=True)
+		action = next(a for a in rule.actions if a.action_id == "set_1")
+		row = json.loads(action.config)[0]
+		self.assertEqual(row.get("value_source"), "literal")
+		self.assertEqual(row.get("value_literal"), "Compiled Literal")
+		when_expression = row.get("when_expression", "")
+		self.assertIn("Open", when_expression)
+		self.assertIn("status", when_expression)
+
+	def test_assignment_row_when_expression_skips_row(self):
+		todo = frappe.get_doc({"doctype": "ToDo", "description": "Initial"}).insert(ignore_permissions=True)
+
+		rule = self._base_rule(
+			self._uid(),
+			[
+				{
+					"action_id": "root",
+					"action_type": "Entry Action",
+					"action_label": "Start",
+					"next_step_if_true": "set_1",
+				},
+				{
+					"action_id": "set_1",
+					"action_type": "Assignment",
+					"action_label": "Conditional Assignment",
+					"config": json.dumps(
+						[
+							{
+								"target": "doc.description",
+								"operator": "set",
+								"value_template_ui": {"mode": "static", "value": "Should Not Run"},
+								"when_expression": "doc.status == 'Closed'",
+							},
+							{
+								"target": "doc.description",
+								"operator": "set",
+								"value_template_ui": {"mode": "static", "value": "Executed"},
+							},
+						]
+					),
+					"next_step_if_true": "stop_1",
+				},
+				{
+					"action_id": "stop_1",
+					"action_type": "Stop",
+					"action_label": "Stop",
+					"operation": "Success",
+				},
+			],
+		)
+		rule.is_active = 1
+		rule.insert(ignore_permissions=True)
+
+		engine = RuleEngine(rule, execution_context={"allow_inactive_rule_test": True})
+		context = engine.execute(todo)
+		self.assertEqual(context.get("doc").description, "Executed")
+
+	def test_rule_action_plan_cache_compiles_notify_and_document_action(self):
+		rule = self._base_rule(
+			self._uid(),
+			[
+				{
+					"action_id": "root",
+					"action_type": "Entry Action",
+					"action_label": "Start",
+					"next_step_if_true": "notify_1",
+				},
+				{
+					"action_id": "notify_1",
+					"action_type": "Notify",
+					"action_label": "Notify",
+					"operation": "Toast",
+					"value_template": "Hello {{ doc.name }}",
+					"config": json.dumps({"subject": "Subject {{ doc.name }}"}),
+					"next_step_if_true": "doc_1",
+				},
+				{
+					"action_id": "doc_1",
+					"action_type": "Document Action",
+					"action_label": "Create Todo",
+					"reference_doctype": "ToDo",
+					"operation": "Create New",
+					"return_type": "Single Record",
+					"return_variable": "created_todo",
+					"config": json.dumps({"static_values": {"description": "From Plan"}}),
+					"next_step_if_true": "stop_1",
+				},
+				{
+					"action_id": "stop_1",
+					"action_type": "Stop",
+					"action_label": "Stop",
+					"operation": "Success",
+				},
+			],
+		)
+		rule.insert(ignore_permissions=True)
+
+		clear_rule_action_plan_cache(rule.name)
+		plan = get_rule_action_plan(rule)
+		compiled_actions = plan.get("actions", {})
+
+		notify_action = next(a for a in rule.actions if a.action_id == "notify_1")
+		doc_action = next(a for a in rule.actions if a.action_id == "doc_1")
+
+		notify_plan = compiled_actions.get(notify_action.name)
+		doc_plan = compiled_actions.get(doc_action.name)
+
+		self.assertEqual(notify_plan.get("action_type"), "Notify")
+		self.assertEqual(notify_plan.get("mode"), "Toast")
+		self.assertEqual(notify_plan.get("message_spec", {}).get("source"), "jinja")
+
+		self.assertEqual(doc_plan.get("action_type"), "Document Action")
+		self.assertEqual(doc_plan.get("mode"), "Create New")
+		self.assertEqual(doc_plan.get("reference_doctype"), "ToDo")
+		self.assertEqual(doc_plan.get("config", {}).get("static_values", {}).get("description"), "From Plan")
+
+	def test_rule_version_hash_changes_when_execution_payload_changes(self):
+		rule = self._base_rule(
+			self._uid(),
+			[
+				{
+					"action_id": "root",
+					"action_type": "Entry Action",
+					"action_label": "Start",
+					"next_step_if_true": "set_1",
+				},
+				{
+					"action_id": "set_1",
+					"action_type": "Assignment",
+					"action_label": "Set Description",
+					"config": json.dumps(
+						[
+							{
+								"target": "doc.description",
+								"operator": "set",
+								"value_template_ui": {"mode": "static", "value": "A"},
+							}
+						]
+					),
+				},
+			],
+		)
+		rule.insert(ignore_permissions=True)
+		hash_before = get_rule_version_hash(rule)
+
+		action = next(a for a in rule.actions if a.action_id == "set_1")
+		action.config = json.dumps(
+			[
+				{
+					"target": "doc.description",
+					"operator": "set",
+					"value_template_ui": {"mode": "static", "value": "B"},
+				}
+			]
+		)
+		hash_after = get_rule_version_hash(rule)
+		self.assertNotEqual(hash_before, hash_after)
 
 	def test_compile_action_mappings_from_resource_mapper_ui(self):
 		rule = self._base_rule(

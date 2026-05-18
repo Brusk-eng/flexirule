@@ -435,7 +435,78 @@ def _validate_action_specifics(
 			warnings.append(_("Action '{0}' is a Switch but no cases are defined.").format(action_label))
 
 	elif action_type == "Assignment":
-		_capture_validation(errors, rule_doc._validate_assignment, action)
+		if hasattr(rule_doc, "_validate_assignment"):
+			_capture_validation(errors, rule_doc._validate_assignment, action)
+		else:
+			_validate_assignment_inline(rule_doc, action, action_label, errors)
+
+
+def _validate_assignment_inline(rule_doc, action, action_label: str, errors: list[str]) -> None:
+	"""Inline assignment validation fallback (used when Rule controller method is unavailable).
+
+	Validates assignment config JSON array — checks targets are doc.* or vars.*,
+	that forbidden system paths are not targeted, and that the config is parseable.
+	"""
+	config_str = _safe_get(action, "config")
+	if not config_str:
+		return
+
+	try:
+		assignments = json.loads(config_str) if isinstance(config_str, str) else config_str
+		if not isinstance(assignments, list):
+			errors.append(_("Action '{0}': Assignment config must be a JSON array").format(action_label))
+			return
+	except Exception:
+		errors.append(_("Action '{0}': Invalid JSON in Assignment config").format(action_label))
+		return
+
+	document_type = _safe_get(rule_doc, "document_type")
+	trigger_event = _safe_get(rule_doc, "trigger_event")
+	after_submit_events = {"On Submit", "On Update After Submit"}
+
+	for row in assignments:
+		if not isinstance(row, dict):
+			continue
+		target = row.get("target")
+		if not target:
+			continue
+
+		forbidden_prefixes = ("meta.", "frappe.", "rule.", "caller.")
+		if target.startswith(forbidden_prefixes):
+			errors.append(
+				_("Action '{0}': Cannot assign to protected system path '{1}'").format(action_label, target)
+			)
+			continue
+
+		if not (target.startswith("doc.") or target.startswith("vars.")):
+			errors.append(
+				_("Action '{0}': Assignment target '{1}' must start with 'doc.' or 'vars.'").format(
+					action_label, target
+				)
+			)
+			continue
+
+		if target.startswith("doc.") and document_type:
+			field_path = target[4:]
+			base_field = field_path.split(".")[0]
+			try:
+				meta = frappe.get_meta(document_type)
+				df = meta.get_field(base_field)
+				if not df:
+					errors.append(
+						_("Action '{0}': Field '{1}' does not exist on DocType '{2}'").format(
+							action_label, base_field, document_type
+						)
+					)
+				elif trigger_event in after_submit_events and df and not df.allow_on_submit:
+					errors.append(
+						_(
+							"Action '{0}': Cannot set field '{1}' after submit. "
+							"Field does not have 'Allow on Submit' enabled."
+						).format(action_label, target)
+					)
+			except Exception:
+				pass  # Meta lookup failure is non-fatal during validation
 
 
 def _build_operation_metadata(actions) -> dict:

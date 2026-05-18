@@ -110,11 +110,14 @@ def get_flexirule_map():
 
 def clear_rule_cache(doc=None, method=None, *args, **kwargs):
 	"""Selective runtime-registry invalidation for Rule lifecycle changes."""
+	from flexirule.ruleflow.core.action_plan_cache import clear_rule_action_plan_cache
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 	if not doc:
+		clear_rule_action_plan_cache()
 		RuleCoordinator.clear_cache()
 		return
 
 	if RuleCoordinator.should_rebuild_registry_for_rule_change(doc, method):
+		clear_rule_action_plan_cache(rule_name=doc.name)
 		RuleCoordinator.clear_cache(doctype=doc.get("document_type"))

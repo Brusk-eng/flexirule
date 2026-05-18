@@ -2,11 +2,14 @@
 # For license information, please see license.txt
 
 import json
+from functools import lru_cache
+from typing import Any
 
 import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_plan_cache import get_action_plan
 from flexirule.ruleflow.core.context_manager import ContextManager
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
 from flexirule.ruleflow.core.operators import AssignmentOperatorRegistry
@@ -31,29 +34,23 @@ class AssignmentHandler(ActionHandler):
 		    }
 		]
 		"""
-		config_str = getattr(action, "config", "[]") or "[]"
-		try:
-			assignments = json.loads(config_str)
-			if not isinstance(assignments, list):
-				assignments = []
-		except Exception:
-			engine._log("ERROR", _("Assignment action config is not valid JSON"))
-			raise MethodExecutionError(_("Assignment action config is not valid JSON array"))
+		plan = get_action_plan(engine.rule, action)
+		assignments = plan.get("rows")
+		if not isinstance(assignments, list):
+			config_key = self._to_config_cache_key(getattr(action, "config", "[]") or "[]")
+			try:
+				assignments = list(self._get_compiled_plan(config_key))
+			except Exception:
+				engine._log("ERROR", _("Assignment action config is not valid JSON"))
+				raise MethodExecutionError(_("Assignment action config is not valid JSON array"))
 
 		event_name = context.get("event_name")
-
-		# Build shared Jinja template context for value evaluation
-		template_context = self._build_template_context(context, engine)
+		template_context = None
 
 		for idx, assignment in enumerate(assignments):
 			target_path = assignment.get("target")
 			operator_key = assignment.get("operator", "set")
-
-			# Canonical key: value_template (Jinja string compiled by the frontend).
-			# Fallback: value (legacy key used before FSVC unification).
-			# NOTE: value_template_ui is the raw AST saved by the frontend for
-			# re-editing purposes only — the backend must never read it.
-			value_template = assignment.get("value_template") or assignment.get("value")
+			when_expression = assignment.get("when_expression") or ""
 
 			if not target_path:
 				engine._log("WARNING", _("Assignment index {0} missing target path, skipping").format(idx))
@@ -65,20 +62,19 @@ class AssignmentHandler(ActionHandler):
 			# 2. Event restriction check
 			self._validate_event_restrictions(target_path, event_name)
 
+			# 2.5 Optional row-level execution guard
+			if when_expression and not engine._evaluate_python_condition(when_expression, context):
+				continue
+
 			# 3. Get operator
 			operator = AssignmentOperatorRegistry.get(operator_key)
 
 			# 4. Evaluate value if required
 			operand_value = None
 			if operator.metadata.get("requires_value"):
-				if isinstance(value_template, str):
-					# Render Jinja template
-					# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-					operand_value = frappe.render_template(
-						value_template, template_context
-					)  # nosemgrep: frappe-ssti
-				else:
-					operand_value = value_template
+				if template_context is None:
+					template_context = self._build_template_context(context, engine)
+				operand_value = self._resolve_operand(assignment, context, template_context)
 
 			# 5. Fetch current value for apply
 			current_value = self._get_current_value(target_path, context)
@@ -94,6 +90,178 @@ class AssignmentHandler(ActionHandler):
 			self._set_value(target_path, new_value, context, engine)
 
 		return None, getattr(action, "next_step_if_true", None)
+
+	def _resolve_operand(self, assignment: dict, context: dict, template_context: dict):
+		source = assignment.get("value_source") or "jinja"
+
+		if source == "literal":
+			return assignment.get("value_literal")
+
+		if source == "context_path":
+			return self._resolve_context_path(context, assignment.get("value_path"))
+
+		value_template = assignment.get("value_template")
+		if isinstance(value_template, str):
+			# Render Jinja template
+			# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+			return frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
+		return value_template
+
+	def _resolve_context_path(self, context: dict, path: str | None):
+		if not path:
+			return None
+
+		parts = str(path).split(".")
+		base = parts[0]
+		if base == "doc":
+			current = context.get("doc")
+		elif base == "vars":
+			current = context.get("vars", {})
+		else:
+			return None
+
+		for part in parts[1:]:
+			if current is None:
+				return None
+			if isinstance(current, dict):
+				current = current.get(part)
+			elif hasattr(current, "get"):
+				current = current.get(part)
+			else:
+				return None
+
+		return current
+
+	def _to_config_cache_key(self, config) -> str:
+		if isinstance(config, str):
+			return config
+		try:
+			return json.dumps(config)
+		except Exception:
+			return "[]"
+
+	@classmethod
+	@lru_cache(maxsize=512)
+	def _get_compiled_plan(cls, config_str: str) -> tuple[dict, ...]:
+		assignments = json.loads(config_str)
+		if not isinstance(assignments, list):
+			return tuple()
+
+		compiled_rows: list[dict[str, Any]] = []
+		for row in assignments:
+			if not isinstance(row, dict):
+				continue
+
+			operator_key = row.get("operator", "set")
+			try:
+				operator = AssignmentOperatorRegistry.get(operator_key)
+				requires_value = bool(operator.metadata.get("requires_value"))
+			except Exception:
+				requires_value = True
+
+			compiled = {
+				"target": row.get("target"),
+				"operator": operator_key,
+				"when_expression": cls._compile_when_expression(row),
+			}
+			compiled.update(cls._compile_operand_spec(row, requires_value))
+			compiled_rows.append(compiled)
+
+		return tuple(compiled_rows)
+
+	@classmethod
+	def _compile_operand_spec(cls, row: dict, requires_value: bool) -> dict:
+		if not requires_value:
+			return {
+				"value_source": "none",
+				"value_literal": None,
+				"value_template": None,
+				"value_path": None,
+			}
+
+		explicit_source = row.get("value_source")
+		if explicit_source in {"literal", "context_path", "jinja"}:
+			return {
+				"value_source": explicit_source,
+				"value_literal": row.get("value_literal"),
+				"value_template": row.get("value_template") or row.get("value"),
+				"value_path": cls._normalize_context_path(row.get("value_path")),
+			}
+
+		value_template = row.get("value_template")
+		if value_template is None:
+			value_template = row.get("value")
+
+		ui_val = row.get("value_template_ui")
+		value_ui = ui_val if isinstance(ui_val, dict) else {}
+		mode = value_ui.get("mode")
+
+		if mode in {"static", "link", "dynamic_link"}:
+			return {
+				"value_source": "literal",
+				"value_literal": value_ui.get("value"),
+				"value_template": None,
+				"value_path": None,
+			}
+
+		if mode == "variable":
+			return {
+				"value_source": "context_path",
+				"value_literal": None,
+				"value_template": None,
+				"value_path": cls._normalize_context_path(value_ui.get("path")),
+			}
+
+		if isinstance(value_template, str):
+			contains_jinja = "{{" in value_template or "{%" in value_template
+			if mode in {"formula", "resolver"} or contains_jinja:
+				return {
+					"value_source": "jinja",
+					"value_literal": None,
+					"value_template": value_template,
+					"value_path": None,
+				}
+			return {
+				"value_source": "literal",
+				"value_literal": value_template,
+				"value_template": None,
+				"value_path": None,
+			}
+
+		return {
+			"value_source": "literal",
+			"value_literal": value_template,
+			"value_template": None,
+			"value_path": None,
+		}
+
+	@staticmethod
+	def _compile_when_expression(row: dict) -> str:
+		when_expression = (row.get("when_expression") or row.get("when") or "").strip()
+		if when_expression:
+			return when_expression
+
+		when_condition = row.get("when_condition")
+		if isinstance(when_condition, dict | list):
+			try:
+				from flexirule.ruleflow.core.compiler import ConditionCompiler
+
+				return ConditionCompiler().compile(when_condition) or ""
+			except Exception:
+				return ""
+
+		return ""
+
+	@staticmethod
+	def _normalize_context_path(path: Any) -> str | None:
+		if not path:
+			return None
+		path_str = str(path).strip()
+		if not path_str:
+			return None
+		if path_str.startswith("doc.") or path_str.startswith("vars."):
+			return path_str
+		return f"vars.{path_str}"
 
 	def _validate_target_path(self, target_path: str):
 		"""Prevent mutation of system paths."""

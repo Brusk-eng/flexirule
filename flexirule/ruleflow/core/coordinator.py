@@ -744,6 +744,8 @@ class RuleCoordinator:
 		"""
 		Clear compiled runtime registry caches.
 		"""
+		from flexirule.ruleflow.core.action_plan_cache import clear_rule_action_plan_cache
+
 		# Clear Redis cache
 		frappe.cache.delete_value(RuleCoordinator.CACHE_KEY)
 
@@ -756,6 +758,9 @@ class RuleCoordinator:
 		):
 			if hasattr(frappe.local, attr):
 				delattr(frappe.local, attr)
+
+		# Clear request-local compiled action plans too.
+		clear_rule_action_plan_cache()
 
 		# Notify distributed workers (v16 pattern)
 		frappe.publish_realtime(  # nosemgrep: frappe-realtime-pick-room
