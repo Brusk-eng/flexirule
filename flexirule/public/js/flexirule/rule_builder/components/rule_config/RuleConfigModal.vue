@@ -614,30 +614,27 @@ function onCompactTabKeydown(event) {
 function handleKeydown(e) {
 	if (!props.modelValue) return;
 
-	// Don't trigger if typing in an input
-	if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) || e.target.isContentEditable) {
-		// Exception for Esc to close modal even if focused on input
-		if (e.key === "Escape") {
-			cancel();
-			e.preventDefault();
-		}
-		return;
-	}
-
-	// Esc to close
+	// 1. Capture ESC key to close modal
 	if (e.key === "Escape") {
 		cancel();
 		e.preventDefault();
 		e.stopPropagation();
+		return;
 	}
 
-	// Ctrl+S to save
+	// 2. Capture Ctrl+S to save (takes precedence even when inputs are focused)
 	if ((e.ctrlKey || e.metaKey) && e.key === "s") {
 		if (!ruleStore.is_read_only) {
 			save();
 			e.preventDefault();
 			e.stopPropagation();
+			return;
 		}
+	}
+
+	// Don't trigger other shortcuts if typing in an input
+	if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) || e.target.isContentEditable) {
+		return;
 	}
 
 	// Ctrl+Up/Left to previous node

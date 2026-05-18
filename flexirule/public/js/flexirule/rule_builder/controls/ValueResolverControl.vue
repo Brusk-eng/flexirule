@@ -549,7 +549,7 @@ const localState = ref(getDefaultState());
 
 // ─── Field Options ───
 const dateFieldOptions = computed(() => {
-	const dt = props.doctype;
+	const dt = props.doctype || store.rule_doc?.document_type;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
@@ -567,7 +567,7 @@ const dateFieldOptions = computed(() => {
 });
 
 const numericFieldOptions = computed(() => {
-	const dt = props.doctype;
+	const dt = props.doctype || store.rule_doc?.document_type;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
@@ -585,7 +585,7 @@ const numericFieldOptions = computed(() => {
 });
 
 const stringFieldOptions = computed(() => {
-	const dt = props.doctype;
+	const dt = props.doctype || store.rule_doc?.document_type;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
@@ -603,7 +603,7 @@ const stringFieldOptions = computed(() => {
 });
 
 const tableFieldOptions = computed(() => {
-	const dt = props.doctype;
+	const dt = props.doctype || store.rule_doc?.document_type;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
