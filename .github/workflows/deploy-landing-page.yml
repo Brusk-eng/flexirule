@@ -71,6 +71,14 @@ jobs:
           mkdir -p config/_default/menus
           cp ../docs-config/menus.en.toml config/_default/menus/menus.en.toml
 
+          # Use our custom parameters and languages (for footer and search)
+          cp ../docs-config/params.toml config/_default/params.toml
+          cp ../docs-config/languages.en.toml config/_default/languages.toml
+
+          # Apply custom font
+          mkdir -p assets/scss/common
+          cp ../docs-config/assets/scss/common/_variables-custom.scss assets/scss/common/_variables-custom.scss
+
           # 5. Copy content
           # Remove all default content to ensure our content is used
           rm -rf content/*
