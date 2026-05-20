@@ -14,6 +14,8 @@ combine_source.py
 CLAUDE.md
 plans/
 # Build artifacts
+landing-page/docs/
+server.log
 flexirule/public/js/*.bundle.js
 build_output.txt
 salesforce_flow_to_flexirule/
