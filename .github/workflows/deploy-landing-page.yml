@@ -39,7 +39,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
 
       - name: Build Doks documentation on the fly
         run: |
@@ -50,10 +50,13 @@ jobs:
           git clone --depth 1 https://github.com/gethyas/doks .
           rm -rf .git
 
-          # 2. Install dependencies
+          # 2. Patch package.json to allow Node 22 (avoid EBADENGINE annotations)
+          sed -i 's/"node": ">=24.13.0"/"node": ">=22.0.0"/' package.json
+
+          # 3. Install dependencies
           npm install
 
-          # 3. Apply custom configurations
+          # 4. Apply custom configurations
           # Update baseURL in both default and production configs
           sed -i 's|base[uU][rR][lL] = ".*"|baseURL = "https://sendipad.github.io/flexirule/docs/"|' config/_default/hugo.toml
           [ -f config/production/hugo.toml ] && sed -i 's|base[uU][rR][lL] = ".*"|baseURL = "https://sendipad.github.io/flexirule/docs/"|' config/production/hugo.toml
@@ -68,15 +71,17 @@ jobs:
           mkdir -p config/_default/menus
           cp ../docs-config/menus.en.toml config/_default/menus/menus.en.toml
 
-          # 4. Copy content
+          # 5. Copy content
+          # Remove all default content to ensure our content is used
+          rm -rf content/*
           # Doks expects documentation in content/docs/
-          rm -rf content/docs/*
+          mkdir -p content/docs
           cp -r ../docs/* content/docs/
 
-          # 5. Build
+          # 6. Build
           npm run build
 
-          # 6. Move output to landing page
+          # 7. Move output to landing page
           cd ..
           mkdir -p landing-page/docs
           # Copy the entire public folder to landing-page/docs/
