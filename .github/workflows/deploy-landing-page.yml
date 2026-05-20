@@ -39,7 +39,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Build Doks documentation on the fly
         run: |
@@ -57,11 +57,6 @@ jobs:
           # Using case-insensitive sed to match baseURL or baseurl
           sed -i 's|base[uU][rR][lL] = ".*"|baseurl = "https://sendipad.github.io/flexirule/docs/"|' config/_default/hugo.toml
           sed -i 's|title = ".*"|title = "FlexiRule Documentation"|' config/_default/hugo.toml
-
-          # Fix the known getjson/getresource issue in default config if still present
-          # Recent Doks uses getresource, but we want to ensure it works
-          sed -i 's/\[caches\.getjson\]/\[caches\.getremote\]/g' config/_default/hugo.toml
-          sed -i 's/\[caches\.getresource\]/\[caches\.getremote\]/g' config/_default/hugo.toml
 
           # Use our custom menu
           cp ../docs-config/menus.en.toml config/_default/menus/menus.en.toml
