@@ -54,14 +54,22 @@ jobs:
           npm install
 
           # 3. Apply custom configurations
-          # Using case-insensitive sed to match baseURL or baseurl
-          sed -i 's|base[uU][rR][lL] = ".*"|baseurl = "https://sendipad.github.io/flexirule/docs/"|' config/_default/hugo.toml
+          # Update baseURL in both default and production configs
+          sed -i 's|base[uU][rR][lL] = ".*"|baseURL = "https://sendipad.github.io/flexirule/docs/"|' config/_default/hugo.toml
+          [ -f config/production/hugo.toml ] && sed -i 's|base[uU][rR][lL] = ".*"|baseURL = "https://sendipad.github.io/flexirule/docs/"|' config/production/hugo.toml
+
           sed -i 's|title = ".*"|title = "FlexiRule Documentation"|' config/_default/hugo.toml
 
-          # Use our custom menu
+          # Adjust permalinks to serve docs at the root of the /docs/ subfolder
+          # This makes content/docs/_index.md available at the Hugo site root
+          sed -i 's|docs = "/docs/:sections\[1:\]/:slug/"|docs = "/:sections[1:]/:slug/"|' config/_default/hugo.toml
+
+          # Use our custom menu - ensure directory exists
+          mkdir -p config/_default/menus
           cp ../docs-config/menus.en.toml config/_default/menus/menus.en.toml
 
           # 4. Copy content
+          # Doks expects documentation in content/docs/
           rm -rf content/docs/*
           cp -r ../docs/* content/docs/
 
@@ -71,7 +79,8 @@ jobs:
           # 6. Move output to landing page
           cd ..
           mkdir -p landing-page/docs
-          # Copy the entire public folder so assets (CSS/JS) are included.
+          # Copy the entire public folder to landing-page/docs/
+          # This ensures that assets are served from /flexirule/docs/
           cp -r temp-docs/public/* landing-page/docs/
 
       - name: Upload artifact
