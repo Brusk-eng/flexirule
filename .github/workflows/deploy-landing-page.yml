@@ -30,6 +30,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: 'latest'
+          extended: true
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -37,30 +43,40 @@ jobs:
 
       - name: Build Doks documentation on the fly
         run: |
-          # 1. Initialize a temporary Doks project
-          npx create-hyas@latest temp-docs --template doks --yes
+          # 1. Scaffold a temporary Doks project non-interactively
+          mkdir temp-docs
           cd temp-docs
+          # Pin to a specific stable-ish state
+          git clone --depth 1 https://github.com/gethyas/doks .
+          rm -rf .git
 
           # 2. Install dependencies
           npm install
 
           # 3. Apply custom configurations
-          cp ../docs-config/hugo.toml config/_default/hugo.toml
+          # Using case-insensitive sed to match baseURL or baseurl
+          sed -i 's|base[uU][rR][lL] = ".*"|baseurl = "https://sendipad.github.io/flexirule/docs/"|' config/_default/hugo.toml
+          sed -i 's|title = ".*"|title = "FlexiRule Documentation"|' config/_default/hugo.toml
+
+          # Fix the known getjson/getresource issue in default config if still present
+          # Recent Doks uses getresource, but we want to ensure it works
+          sed -i 's/\[caches\.getjson\]/\[caches\.getremote\]/g' config/_default/hugo.toml
+          sed -i 's/\[caches\.getresource\]/\[caches\.getremote\]/g' config/_default/hugo.toml
+
+          # Use our custom menu
           cp ../docs-config/menus.en.toml config/_default/menus/menus.en.toml
 
-          # 4. Fix the known getjson vs getremote issue in default config if still present
-          sed -i 's/\[caches\.getjson\]/\[caches\.getremote\]/g' config/_default/hugo.toml
-
-          # 5. Copy content
+          # 4. Copy content
           rm -rf content/docs/*
           cp -r ../docs/* content/docs/
 
-          # 6. Build
+          # 5. Build
           npm run build
 
-          # 7. Move output to landing page
+          # 6. Move output to landing page
           cd ..
           mkdir -p landing-page/docs
+          # Copy the entire public folder so assets (CSS/JS) are included.
           cp -r temp-docs/public/* landing-page/docs/
 
       - name: Upload artifact
