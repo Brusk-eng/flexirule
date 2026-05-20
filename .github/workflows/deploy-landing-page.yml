@@ -7,7 +7,8 @@ on:
       - 'feature/**'
     paths:
       - 'landing-page/**'
-      - 'docs-hugo/**'
+      - 'docs/**'
+      - 'docs-config/**'
       - '.github/workflows/deploy-landing-page.yml'
   workflow_dispatch:
 
@@ -29,31 +30,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v3
-        with:
-          hugo-version: 'latest'
-          extended: true
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: docs-hugo/package-lock.json
 
-      - name: Install dependencies
-        working-directory: docs-hugo
-        run: npm install
-
-      - name: Build documentation
-        working-directory: docs-hugo
-        run: npm run build
-
-      - name: Move built docs to landing page
+      - name: Build Doks documentation on the fly
         run: |
+          # 1. Initialize a temporary Doks project
+          npx create-hyas@latest temp-docs --template doks --yes
+          cd temp-docs
+
+          # 2. Install dependencies
+          npm install
+
+          # 3. Apply custom configurations
+          cp ../docs-config/hugo.toml config/_default/hugo.toml
+          cp ../docs-config/menus.en.toml config/_default/menus/menus.en.toml
+
+          # 4. Fix the known getjson vs getremote issue in default config if still present
+          sed -i 's/\[caches\.getjson\]/\[caches\.getremote\]/g' config/_default/hugo.toml
+
+          # 5. Copy content
+          rm -rf content/docs/*
+          cp -r ../docs/* content/docs/
+
+          # 6. Build
+          npm run build
+
+          # 7. Move output to landing page
+          cd ..
           mkdir -p landing-page/docs
-          cp -r docs-hugo/public/* landing-page/docs/
+          cp -r temp-docs/public/* landing-page/docs/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
