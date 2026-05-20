@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - 'feature/**'
     paths:
       - 'landing-page/**'
       - 'docs/**'
@@ -21,10 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -44,17 +42,21 @@ jobs:
 
       - name: Build documentation
         run: |
-          cp README.md docs/index.md
           mkdocs build --site-dir landing-page/docs
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: './landing-page'
 
+  deploy:
+    if: github.ref == 'refs/heads/develop'
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
