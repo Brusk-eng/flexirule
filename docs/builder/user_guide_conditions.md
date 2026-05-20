@@ -1,3 +1,7 @@
+---
+title: "User Guide (Conditions)"
+weight: 30
+---
 # User Guide: Building Logic with the Condition Builder
 
 The Condition Builder is your primary tool for defining "When" logic in FlexiRule. Whether you are deciding if a rule should run at all or branching a workflow based on a field value, the interface remains consistent and powerful.

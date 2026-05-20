@@ -1,3 +1,7 @@
+---
+title: "Notify"
+weight: 60
+---
 # Notify Action
 
 The **Notify** action sends alerts and communications to users or external systems.

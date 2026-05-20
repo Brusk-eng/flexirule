@@ -1,3 +1,7 @@
+---
+title: "System Overview (AR)"
+weight: 30
+---
 # نظرة عامة على نظام FlexiRule
 
 ## التعريف بالنظام وبنيته الحالية

@@ -1,3 +1,7 @@
+---
+title: "API"
+weight: 10
+---
 # API Reference
 
 FlexiRule provides a comprehensive set of whitelisted backend methods for programmatic interaction, rule execution, and builder integration.

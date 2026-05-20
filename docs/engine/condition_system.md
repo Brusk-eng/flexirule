@@ -1,3 +1,7 @@
+---
+title: "Condition System"
+weight: 20
+---
 # Condition System Architecture
 
 FlexiRule employs a sophisticated, high-performance condition system that allows users to build complex logic visually while executing it with the speed and safety of native Python.

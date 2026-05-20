@@ -1,3 +1,7 @@
+---
+title: "Overview"
+weight: 10
+---
 # Action Types Reference
 
 FlexiRule provides a variety of action types, each represented as a node in the visual builder. These actions define the building blocks of your business logic.

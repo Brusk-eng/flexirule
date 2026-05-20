@@ -8,7 +8,7 @@ on:
     paths:
       - 'landing-page/**'
       - 'docs/**'
-      - 'mkdocs.yml'
+      - 'docs-config/**'
       - '.github/workflows/deploy-landing-page.yml'
   workflow_dispatch:
 
@@ -30,19 +30,49 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
         with:
-          python-version: '3.x'
+          hugo-version: 'latest'
+          extended: true
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install mkdocs-material
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
-      - name: Build documentation
+      - name: Build Doks documentation on the fly
         run: |
-          mkdocs build --site-dir landing-page/docs
+          # 1. Scaffold a temporary Doks project non-interactively
+          mkdir temp-docs
+          cd temp-docs
+          # Pin to a specific stable-ish state
+          git clone --depth 1 https://github.com/gethyas/doks .
+          rm -rf .git
+
+          # 2. Install dependencies
+          npm install
+
+          # 3. Apply custom configurations
+          # Using case-insensitive sed to match baseURL or baseurl
+          sed -i 's|base[uU][rR][lL] = ".*"|baseurl = "https://sendipad.github.io/flexirule/docs/"|' config/_default/hugo.toml
+          sed -i 's|title = ".*"|title = "FlexiRule Documentation"|' config/_default/hugo.toml
+
+          # Use our custom menu
+          cp ../docs-config/menus.en.toml config/_default/menus/menus.en.toml
+
+          # 4. Copy content
+          rm -rf content/docs/*
+          cp -r ../docs/* content/docs/
+
+          # 5. Build
+          npm run build
+
+          # 6. Move output to landing page
+          cd ..
+          mkdir -p landing-page/docs
+          # Copy the entire public folder so assets (CSS/JS) are included.
+          cp -r temp-docs/public/* landing-page/docs/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
