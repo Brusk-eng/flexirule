@@ -110,15 +110,8 @@ jobs:
           # Use our custom parameters
           cp ../docs-config/params.toml config/_default/params.toml
 
-          # Patch existing languages.toml to preserve structure but update our values
-          # We use a more specific regex to avoid matching other languages if they were enabled
-          sed -i 's|footer = .*|footer = "FlexiRule Documentation"|' config/_default/languages.toml
-          # Check if titleHome exists, if not add it under [en.params]
-          if ! grep -q "titleHome =" config/_default/languages.toml; then
-            sed -i '/\[en.params\]/a \    titleHome = "FlexiRule Documentation"' config/_default/languages.toml
-          else
-            sed -i 's|titleHome = .*|titleHome = "FlexiRule Documentation"|' config/_default/languages.toml
-          fi
+          # Use our custom languages configuration
+          cp ../docs-config/languages.en.toml config/_default/languages.en.toml
 
           # Apply custom font
           mkdir -p assets/scss/common
@@ -127,8 +120,14 @@ jobs:
           # Copy content
           # Doks expects content in content/en/
           rm -rf content/*
+          mkdir -p content/en
+          # Copy _index.md to content/en/ to replace the default Doks homepage
+          cp ../docs/_index.md content/en/_index.md
+          # Copy everything else to content/en/docs/
           mkdir -p content/en/docs
           cp -r ../docs/* content/en/docs/
+          # Remove the redundant _index.md from docs subfolder to avoid confusion if needed
+          # but usually it's fine as it will be under /docs/
 
           # Build
           npm run build
