@@ -5,5 +5,5 @@
   [en.params]
     languageISO = "EN"
     languageTag = "en-US"
-    footer = "FlexiRule Documentation"
+    footer = "© 2024 FlexiRule. Built for the Frappe Ecosystem."
     titleHome = "FlexiRule Documentation"
