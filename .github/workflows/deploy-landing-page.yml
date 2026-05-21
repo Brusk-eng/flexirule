@@ -90,6 +90,10 @@ jobs:
 
           sed -i 's|title = ".*"|title = "FlexiRule Documentation"|' config/_default/hugo.toml
 
+          # Ensure only 'en' is enabled and it is the default
+          sed -i 's|defaultContentLanguage = ".*"|defaultContentLanguage = "en"|' config/_default/hugo.toml
+          sed -i 's|disableLanguages = .*|disableLanguages = ["de", "nl"]|' config/_default/hugo.toml
+
           # Adjust permalinks
           sed -i 's|docs = "/docs/:sections\[1:\]/:slug/"|docs = "/:sections[1:]/:slug/"|' config/_default/hugo.toml
 
@@ -111,6 +115,8 @@ jobs:
           cp ../docs-config/params.toml config/_default/params.toml
 
           # Use our custom languages configuration
+          # Remove default languages.toml to avoid conflicts
+          rm -f config/_default/languages.toml
           cp ../docs-config/languages.en.toml config/_default/languages.en.toml
 
           # Apply custom font
@@ -121,13 +127,11 @@ jobs:
           # Doks expects content in content/en/
           rm -rf content/*
           mkdir -p content/en
-          # Copy _index.md to content/en/ to replace the default Doks homepage
-          cp ../docs/_index.md content/en/_index.md
-          # Copy everything else to content/en/docs/
+          # Copy everything to content/en/docs/ first
           mkdir -p content/en/docs
           cp -r ../docs/* content/en/docs/
-          # Remove the redundant _index.md from docs subfolder to avoid confusion if needed
-          # but usually it's fine as it will be under /docs/
+          # Specifically copy _index.md to content/en/ to replace the default Doks homepage
+          cp ../docs/_index.md content/en/_index.md
 
           # Build
           npm run build
