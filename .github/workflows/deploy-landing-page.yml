@@ -90,6 +90,13 @@ jobs:
 
           sed -i 's|title = ".*"|title = "FlexiRule Documentation"|' config/_default/hugo.toml
 
+          # Ensure only 'en' is enabled and it is the default
+          sed -i 's|defaultContentLanguage = ".*"|defaultContentLanguage = "en"|' config/_default/hugo.toml
+          sed -i 's|disableLanguages = .*|disableLanguages = ["de", "nl"]|' config/_default/hugo.toml
+
+          # Disable taxonomies to clear old data like categories/tags
+          echo 'disableKinds = ["taxonomy", "term"]' >> config/_default/hugo.toml
+
           # Adjust permalinks
           sed -i 's|docs = "/docs/:sections\[1:\]/:slug/"|docs = "/:sections[1:]/:slug/"|' config/_default/hugo.toml
 
@@ -111,23 +118,30 @@ jobs:
           cp ../docs-config/params.toml config/_default/params.toml
 
           # Use our custom languages configuration
-          cp ../docs-config/languages.en.toml config/_default/languages.en.toml
+          # Remove default languages.toml and replace it with ours
+          rm -f config/_default/languages.toml
+          cp ../docs-config/languages.en.toml config/_default/languages.toml
 
           # Apply custom font
           mkdir -p assets/scss/common
           cp ../docs-config/assets/scss/common/_variables-custom.scss assets/scss/common/_variables-custom.scss
 
           # Copy content
-          # Doks expects content in content/en/
+          # Clear all default content
           rm -rf content/*
+
+          # Doks v1.9.1 default config uses contentDir = "content/en" for English
           mkdir -p content/en
-          # Copy _index.md to content/en/ to replace the default Doks homepage
-          cp ../docs/_index.md content/en/_index.md
-          # Copy everything else to content/en/docs/
+
+          # Copy everything to content/en/docs/
           mkdir -p content/en/docs
           cp -r ../docs/* content/en/docs/
-          # Remove the redundant _index.md from docs subfolder to avoid confusion if needed
-          # but usually it's fine as it will be under /docs/
+
+          # Specifically copy _index.md to content/en/ to replace the default Doks homepage
+          cp ../docs/_index.md content/en/_index.md
+
+          # Also copy to root content/ just in case Hugo is looking there
+          cp ../docs/_index.md content/_index.md
 
           # Build
           npm run build
@@ -143,6 +157,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./landing-page
           destination_dir: ${{ env.DESTINATION_DIR }}
-          keep_files: true
+          keep_files: false
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
