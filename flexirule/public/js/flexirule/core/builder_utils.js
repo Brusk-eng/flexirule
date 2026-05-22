@@ -122,7 +122,9 @@ export function compileToCode(item, fallbackField = "") {
 		item.base_type === "today"
 			? "frappe.utils.nowdate()"
 			: toDocExpression(item.base_field || fallbackField);
-	const offset = parseInt(item.offset_value || 0, 10);
+	let offset = parseInt(item.offset_value || 0, 10);
+	// Handle separate offset_sign field from ValueResolverControl
+	if (item.offset_sign === "-" && offset > 0) offset = -offset;
 
 	if (offset === 0 || !item.offset_unit) {
 		return `{${baseExpr}}`;
@@ -146,7 +148,9 @@ export function compileToLabel(item) {
 
 	if (item.kind === "date_formula") {
 		const base = item.base_type === "today" ? __("Today") : item.base_field || __("Doc Field");
-		const offset = parseInt(item.offset_value || 0, 10);
+		let offset = parseInt(item.offset_value || 0, 10);
+		// Handle separate offset_sign field from ValueResolverControl
+		if (item.offset_sign === "-" && offset > 0) offset = -offset;
 		if (offset === 0) return base;
 		const sign = offset > 0 ? "+" : "";
 		return `${base} ${sign}${offset} ${item.offset_unit}`;

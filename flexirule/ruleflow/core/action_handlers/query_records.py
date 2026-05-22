@@ -291,9 +291,21 @@ class QueryRecordsHandler(ActionHandler):
 				exc=type(e),
 			)
 
-	def _resolve_value_expression_with_context(self, value, context, ref_label: str):
+	def _resolve_value_expression_with_context(self, value, context, ref_label: str, action=None):
+		if isinstance(value, dict):
+			if "mode" in value:
+				from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
+
+				resolver = get_compiled_resolver(
+					action, ref_label.replace(".", "_").replace("[", "_").replace("]", "_"), value
+				)
+				return resolver.resolve(context)
+			return {
+				key: self._resolve_value_expression_with_context(val, context, f"{ref_label}.{key}", action)
+				for key, val in value.items()
+			}
 		if isinstance(value, list):
-			return [self._resolve_value_expression_with_context(v, context, ref_label) for v in value]
+			return [self._resolve_value_expression_with_context(v, context, ref_label, action) for v in value]
 		if isinstance(value, str) and "{" in value:
 			if value.startswith("{") and value.endswith("}") and value.count("{") == 1:
 				inner_expr = value[1 : len(value) - 1]
@@ -308,7 +320,7 @@ class QueryRecordsHandler(ActionHandler):
 			return re.sub(r"{(.*?)}", replace, value)
 		return value
 
-	def _resolve_filters_with_context(self, filters, context, ref_label: str):
+	def _resolve_filters_with_context(self, filters, context, ref_label: str, action=None):
 		if not filters:
 			return filters
 		if isinstance(filters, list):
@@ -318,34 +330,38 @@ class QueryRecordsHandler(ActionHandler):
 				if isinstance(item, dict) and ("field" in item or "fieldname" in item):
 					resolved_list.append(
 						{
-							k: self._resolve_value_expression_with_context(v, context, f"{child_ref}.{k}")
+							k: self._resolve_value_expression_with_context(
+								v, context, f"{child_ref}.{k}", action
+							)
 							for k, v in item.items()
 						}
 					)
 				elif isinstance(item, list | dict):
-					resolved_list.append(self._resolve_filters_with_context(item, context, child_ref))
+					resolved_list.append(self._resolve_filters_with_context(item, context, child_ref, action))
 				else:
 					resolved_list.append(
-						self._resolve_value_expression_with_context(item, context, child_ref)
+						self._resolve_value_expression_with_context(item, context, child_ref, action)
 					)
 			return resolved_list
 		if isinstance(filters, dict):
 			return {
-				key: self._resolve_value_expression_with_context(value, context, f"{ref_label}.{key}")
+				key: self._resolve_value_expression_with_context(value, context, f"{ref_label}.{key}", action)
 				for key, value in filters.items()
 			}
-		return self._resolve_value_expression_with_context(filters, context, ref_label)
+		return self._resolve_value_expression_with_context(filters, context, ref_label, action)
 
 	def _resolve_query_filters(self, config, context, action=None):
 		"""Resolve and normalize both filters and or_filters with one shared path."""
 		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
 		filters = self._resolve_filters_with_context(
-			config.get("filters", {}), context, f"{action_label}.filters"
+			config.get("filters", {}), context, f"{action_label}.filters", action
 		)
 		filters = self._normalize_filters_for_backend(filters)
 		or_filters = config.get("or_filters", {})
 		if or_filters:
-			or_filters = self._resolve_filters_with_context(or_filters, context, f"{action_label}.or_filters")
+			or_filters = self._resolve_filters_with_context(
+				or_filters, context, f"{action_label}.or_filters", action
+			)
 			or_filters = self._normalize_filters_for_backend(or_filters)
 		else:
 			or_filters = None

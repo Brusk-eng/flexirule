@@ -338,6 +338,7 @@ import ValueResolverControl from "../../controls/ValueResolverControl.vue";
 import { useStore } from "../../stores";
 import { compileToCode } from "../../../core/builder_utils.js";
 import { getContract } from "../../../core/contracts.js";
+import { getAllowedBuilderKinds as getAllowedBuilderKindsRegistry } from "../../../core/formula_registry.js";
 
 const props = defineProps({
 	modelValue: {
@@ -719,12 +720,20 @@ const emitUpdate = () => {
 		.filter((r) => r.field)
 		.map((r) => {
 			const n = normalizeRowForEmit(r);
-			const payload = {
-				value: n.value,
-				value_type: n.value_type || "Value",
-			};
+			let payload;
 			if (n.value_type === BUILDER_VALUE_TYPE && n.builder) {
-				payload.builder = n.builder;
+				payload = {
+					mode: "resolver",
+					config: n.builder,
+					value_type: BUILDER_VALUE_TYPE,
+					builder: n.builder,
+					value: n.value,
+				};
+			} else {
+				payload = {
+					value: n.value,
+					value_type: n.value_type || "Value",
+				};
 			}
 			return [n.doctype || props.doctype, n.field, n.operator || "=", payload];
 		});
@@ -732,6 +741,11 @@ const emitUpdate = () => {
 };
 
 const guessValueType = (val) => {
+	if (val && typeof val === "object") {
+		if (val.value_type) return val.value_type;
+		if (val.mode === "resolver") return "Builder";
+		return "Value";
+	}
 	if (typeof val === "number") return "Number";
 	if (typeof val === "boolean") return "Boolean";
 	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
@@ -1085,17 +1099,7 @@ const STRING_FIELDTYPES = new Set(["Data", "Small Text", "Text", "Long Text", "S
 
 const getAllowedBuilderKinds = (row) => {
 	const field = getFieldDef(row.field, row.doctype || props.doctype);
-	if (!field || !field.fieldtype) return null; // all kinds
-	if (DATE_FIELDTYPES.has(field.fieldtype)) {
-		return ["date_formula", "date_diff", "format"];
-	}
-	if (NUMERIC_FIELDTYPES.has(field.fieldtype)) {
-		return ["math_formula", "format"];
-	}
-	if (STRING_FIELDTYPES.has(field.fieldtype)) {
-		return ["normalization", "format", "string_formula"];
-	}
-	return null; // all kinds
+	return getAllowedBuilderKindsRegistry(field?.fieldtype);
 };
 
 const normalizeBuilderItem = (item, fallbackField = "") => {
