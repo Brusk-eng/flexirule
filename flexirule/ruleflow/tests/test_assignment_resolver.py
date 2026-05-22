@@ -4,6 +4,7 @@ import unittest
 import frappe
 
 from flexirule.ruleflow.core.action_handlers.assignment import AssignmentHandler
+from flexirule.ruleflow.core.value_resolver import ValueResolver
 
 
 class TestAssignmentResolver(unittest.TestCase):
@@ -15,6 +16,7 @@ class TestAssignmentResolver(unittest.TestCase):
 				"first_name": "John",
 				"last_name": "Doe",
 				"amount": 100,
+				"creation": "2026-05-22 12:00:00",
 				"items": [{"item_name": "A", "rate": 10}, {"item_name": "B", "rate": 20}],
 			}
 		)
@@ -32,16 +34,16 @@ class TestAssignmentResolver(unittest.TestCase):
 			"mode": "resolver",
 			"config": {
 				"kind": "math_formula",
-				"field_a": "amount",
+				"field_a": "doc.amount",
 				"math_op": "+",
 				"field_b_type": "constant",
 				"constant_b": 50,
 				"precision": 2,
 			},
-			"expression": "{frappe.utils.flt(doc.amount) + 50, 2}",
 		}
-		jinja = self.handler._compile_structured_value_to_jinja(val)
-		self.assertEqual(jinja, "{{ frappe.utils.flt(doc.amount) + 50, 2 }}")
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		self.assertEqual(result, 150.00)
 
 	def test_compile_format_resolver(self):
 		val = {
@@ -49,21 +51,19 @@ class TestAssignmentResolver(unittest.TestCase):
 			"config": {
 				"kind": "format",
 				"fmt_op": "format_date",
-				"fmt_field": "creation",
-				"fmt_config": "YYYY-MM-DD",
+				"fmt_field": "doc.creation",
+				"fmt_config": "yyyy-MM-dd",
 			},
 		}
-		jinja = self.handler._compile_structured_value_to_jinja(val)
-		# Should use format helper
-		self.assertIn('format("format_date"', jinja)
-		self.assertIn('"fmt_op": "format_date"', jinja)
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		self.assertEqual(result, "2026-05-22")
 
 	def test_compile_normalize_resolver(self):
 		val = {
 			"mode": "resolver",
-			"config": {"kind": "normalization", "norm_op": "upper", "norm_field": "first_name"},
+			"config": {"kind": "normalization", "norm_op": "upper", "norm_field": "doc.first_name"},
 		}
-		jinja = self.handler._compile_structured_value_to_jinja(val)
-		# Should use normalize helper
-		self.assertIn("normalize(value", jinja)
-		self.assertIn('["upper"]', jinja)
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		self.assertEqual(result, "JOHN")

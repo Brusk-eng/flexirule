@@ -775,7 +775,10 @@ const aggFieldOptions = computed(() => {
 
 // ─── Sync from Props (Hydration) ───
 const syncFromProps = () => {
-	const val = props.modelValue || {};
+	let val = props.modelValue || {};
+	if (val.mode && val.config) {
+		val = val.config;
+	}
 	const kind = val.kind || "date_formula";
 	const next = { ...getDefaultState(kind) };
 

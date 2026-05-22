@@ -210,3 +210,26 @@ export function getFormulasForFieldtype(ft) {
 	const group = getGroupForFieldtype(ft);
 	return FORMULA_REGISTRY[group] || [];
 }
+
+/**
+ * Retrieve allowed builder resolver kinds for a given field type.
+ * Centralizes the metadata mapping instead of hardcoding resolver types locally.
+ * @param {string} fieldtype - The field type (e.g. 'Date', 'Int', 'Data')
+ * @returns {string[]|null} - Array of allowed kinds, or null if all are allowed
+ */
+export function getAllowedBuilderKinds(fieldtype) {
+	if (!fieldtype) return null;
+	if (["Date", "Datetime"].includes(fieldtype)) {
+		return ["date_formula", "date_diff", "format", "system_context"];
+	}
+	if (["Int", "Float", "Currency", "Percent"].includes(fieldtype)) {
+		return ["math_formula", "child_aggregation", "date_diff", "format", "system_context"];
+	}
+	if (["Data", "Small Text", "Text", "Long Text", "Select"].includes(fieldtype)) {
+		return ["normalization", "format", "string_formula", "system_context"];
+	}
+	if (["Check"].includes(fieldtype)) {
+		return ["system_context"];
+	}
+	return null;
+}

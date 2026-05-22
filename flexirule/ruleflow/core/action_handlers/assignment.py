@@ -45,7 +45,6 @@ class AssignmentHandler(ActionHandler):
 				raise MethodExecutionError(_("Assignment action config is not valid JSON array"))
 
 		event_name = context.get("event_name")
-		template_context = None
 
 		for idx, assignment in enumerate(assignments):
 			target_path = assignment.get("target")
@@ -75,11 +74,15 @@ class AssignmentHandler(ActionHandler):
 			# 4. Evaluate value if required
 			operand_value = None
 			if operator.metadata.get("requires_value"):
-				if template_context is None:
-					template_context = self._build_template_context(context, engine)
-				# Inject current value so the format helper can access it
-				template_context["value"] = current_value
-				operand_value = self._resolve_operand(assignment, context, template_context)
+				# Inject current value so the format/normalization helper can access it
+				context_copy = dict(context)
+				context_copy["value"] = current_value
+
+				# Compile and resolve using the unified ValueResolver!
+				from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
+
+				resolver = get_compiled_resolver(action, f"assign_{idx}", assignment.get("value"))
+				operand_value = resolver.resolve(context_copy)
 
 			# 6. Optional: Validate Target Type (deferred for runtime, but operator can check if needed)
 			# (In a real implementation, we'd fetch the Frappe metadata for doc.* fields here)
@@ -93,47 +96,6 @@ class AssignmentHandler(ActionHandler):
 
 		return None, getattr(action, "next_step_if_true", None)
 
-	def _resolve_operand(self, assignment: dict, context: dict, template_context: dict):
-		source = assignment.get("value_source") or "jinja"
-
-		if source == "literal":
-			return assignment.get("value_literal")
-
-		if source == "context_path":
-			return self._resolve_context_path(context, assignment.get("value_path"))
-
-		value_template = assignment.get("value_template")
-		if isinstance(value_template, str):
-			# Render Jinja template
-			# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-			return frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
-		return value_template
-
-	def _resolve_context_path(self, context: dict, path: str | None):
-		if not path:
-			return None
-
-		parts = str(path).split(".")
-		base = parts[0]
-		if base == "doc":
-			current = context.get("doc")
-		elif base == "vars":
-			current = context.get("vars", {})
-		else:
-			return None
-
-		for part in parts[1:]:
-			if current is None:
-				return None
-			if isinstance(current, dict):
-				current = current.get(part)
-			elif hasattr(current, "get"):
-				current = current.get(part)
-			else:
-				return None
-
-		return current
-
 	def _to_config_cache_key(self, config) -> str:
 		if isinstance(config, str):
 			return config
@@ -143,177 +105,7 @@ class AssignmentHandler(ActionHandler):
 			return "[]"
 
 	@classmethod
-	@lru_cache(maxsize=512)
-	def _get_compiled_plan(cls, config_str: str) -> tuple[dict, ...]:
-		assignments = json.loads(config_str)
-		if not isinstance(assignments, list):
-			return tuple()
-
-		compiled_rows: list[dict[str, Any]] = []
-		for row in assignments:
-			if not isinstance(row, dict):
-				continue
-
-			operator_key = row.get("operator", "set")
-			try:
-				operator = AssignmentOperatorRegistry.get(operator_key)
-				requires_value = bool(operator.metadata.get("requires_value"))
-			except Exception:
-				requires_value = True
-
-			compiled = {
-				"target": row.get("target"),
-				"operator": operator_key,
-				"when_expression": cls._compile_when_expression(row),
-			}
-			compiled.update(cls._compile_operand_spec(row, requires_value))
-			compiled_rows.append(compiled)
-
-		return tuple(compiled_rows)
-
-	@classmethod
-	def _compile_structured_value_to_jinja(cls, val: dict) -> str:
-		if not val:
-			return ""
-		mode = val.get("mode")
-		if mode in {"static", "link", "dynamic_link"}:
-			return str(val.get("value") if val.get("value") is not None else "")
-		if mode == "variable":
-			path = val.get("path")
-			if path:
-				if not (path.startswith("doc.") or path.startswith("vars.")):
-					path = f"vars.{path}"
-				return f"{{{{ {path} }}}}"
-			return ""
-		if mode == "formula":
-			expr = val.get("expression") or ""
-			return f"{{{{ {expr} }}}}"
-		if mode == "formatter" or (mode == "resolver" and val.get("config", {}).get("kind") == "format"):
-			config = val.get("config") or {}
-			formatter = val.get("formatter") or config.get("fmt_op") or ""
-			options = val.get("options") or config or {}
-			return f'{{{{ format("{formatter}", {json.dumps(options)}) }}}}'
-
-		if mode == "normalize" or (
-			mode == "resolver" and val.get("config", {}).get("kind") == "normalization"
-		):
-			config = val.get("config") or {}
-			steps = val.get("steps") or ([config.get("norm_op")] if config.get("norm_op") else [])
-			return f"{{{{ normalize(value, {json.dumps(steps)}) }}}}"
-
-		if mode == "resolver":
-			config = val.get("config") or {}
-			kind = config.get("kind")
-			if kind:
-				expr = val.get("expression") or val.get("value")
-				if expr:
-					if expr.startswith("{") and expr.endswith("}"):
-						return f"{{{{ {expr[1:-1]} }}}}"
-					return f"{{{{ {expr} }}}}"
-
-			resolver = val.get("resolver") or val.get("value") or ""
-			args = ", ".join(f"{k}={json.dumps(v)}" for k, v in config.items())
-			return f'{{{{ resolve("{resolver}", {args}) }}}}'
-		if mode == "condition":
-			condition = val.get("condition") or {}
-			return f"{{{{ condition({json.dumps(condition)}) }}}}"
-		return ""
-
-	@classmethod
-	def _compile_operand_spec(cls, row: dict, requires_value: bool) -> dict:
-		if not requires_value:
-			return {
-				"value_source": "none",
-				"value_literal": None,
-				"value_template": None,
-				"value_path": None,
-			}
-
-		# Check if the new unified 'value' key holds a structured object
-		val_obj = row.get("value")
-		if isinstance(val_obj, dict) and "mode" in val_obj:
-			mode = val_obj.get("mode")
-			if mode in {"static", "link", "dynamic_link"}:
-				return {
-					"value_source": "literal",
-					"value_literal": val_obj.get("value"),
-					"value_template": None,
-					"value_path": None,
-				}
-			if mode == "variable":
-				return {
-					"value_source": "context_path",
-					"value_literal": None,
-					"value_template": None,
-					"value_path": cls._normalize_context_path(val_obj.get("path")),
-				}
-			# Formula/Resolver/Formatter etc compile to Jinja
-			compiled_jinja = cls._compile_structured_value_to_jinja(val_obj)
-			return {
-				"value_source": "jinja",
-				"value_literal": None,
-				"value_template": compiled_jinja,
-				"value_path": None,
-			}
-
-		explicit_source = row.get("value_source")
-		if explicit_source in {"literal", "context_path", "jinja"}:
-			return {
-				"value_source": explicit_source,
-				"value_literal": row.get("value_literal"),
-				"value_template": row.get("value_template") or row.get("value"),
-				"value_path": cls._normalize_context_path(row.get("value_path")),
-			}
-
-		value_template = row.get("value_template")
-		if value_template is None:
-			value_template = row.get("value")
-
-		ui_val = row.get("value_template_ui")
-		value_ui = ui_val if isinstance(ui_val, dict) else {}
-		mode = value_ui.get("mode")
-
-		if mode in {"static", "link", "dynamic_link"}:
-			return {
-				"value_source": "literal",
-				"value_literal": value_ui.get("value"),
-				"value_template": None,
-				"value_path": None,
-			}
-
-		if mode == "variable":
-			return {
-				"value_source": "context_path",
-				"value_literal": None,
-				"value_template": None,
-				"value_path": cls._normalize_context_path(value_ui.get("path")),
-			}
-
-		if isinstance(value_template, str):
-			contains_jinja = "{{" in value_template or "{%" in value_template
-			if mode in {"formula", "resolver"} or contains_jinja:
-				return {
-					"value_source": "jinja",
-					"value_literal": None,
-					"value_template": value_template,
-					"value_path": None,
-				}
-			return {
-				"value_source": "literal",
-				"value_literal": value_template,
-				"value_template": None,
-				"value_path": None,
-			}
-
-		return {
-			"value_source": "literal",
-			"value_literal": value_template,
-			"value_template": None,
-			"value_path": None,
-		}
-
-	@staticmethod
-	def _compile_when_expression(row: dict) -> str:
+	def _compile_when_expression(cls, row: dict) -> str:
 		python_expr = row.get("pythonExpression")
 		if python_expr:
 			return python_expr
@@ -334,15 +126,68 @@ class AssignmentHandler(ActionHandler):
 		return ""
 
 	@staticmethod
-	def _normalize_context_path(path: Any) -> str | None:
-		if not path:
-			return None
-		path_str = str(path).strip()
-		if not path_str:
-			return None
-		if path_str.startswith("doc.") or path_str.startswith("vars."):
-			return path_str
-		return f"vars.{path_str}"
+	def _compile_structured_value_to_jinja(val: dict) -> str:
+		"""
+		Backward-compatible helper for rule.py metadata compilation (save path).
+		Converts a structured value object into an equivalent Jinja template string
+		for legacy persistence in the AssignmentOperandSpec fields.
+		"""
+		if not val:
+			return ""
+
+		mode = val.get("mode")
+
+		if mode in {"static", "link", "dynamic_link"}:
+			return str(val.get("value") if val.get("value") is not None else "")
+
+		if mode == "variable":
+			path = val.get("path")
+			if path:
+				if not (path.startswith("doc.") or path.startswith("vars.")):
+					path = f"vars.{path}"
+				return f"{{{{ {path} }}}}"
+			return ""
+
+		if mode == "formula":
+			expr = val.get("expression") or ""
+			return f"{{{{ {expr} }}}}"
+
+		if mode == "formatter" or (mode == "resolver" and val.get("config", {}).get("kind") == "format"):
+			config = val.get("config") or {}
+			formatter = val.get("formatter") or config.get("fmt_op") or ""
+			options = val.get("options") or config or {}
+			return f'{{{{ format("{formatter}", {json.dumps(options)}) }}}}'
+
+		if mode == "normalize" or (
+			mode == "resolver" and val.get("config", {}).get("kind") == "normalization"
+		):
+			config = val.get("config") or {}
+			steps = val.get("steps") or ([config.get("norm_op")] if config.get("norm_op") else [])
+			return f"{{{{ normalize(value, {json.dumps(steps)}) }}}}"
+
+		if mode == "resolver":
+			config = val.get("config") or {}
+			kind = config.get("kind")
+
+			# Known built-in resolvers → direct Jinja helper call
+			if kind:
+				expr = val.get("expression") or val.get("value")
+				if expr:
+					if expr.startswith("{") and expr.endswith("}"):
+						return f"{{{{ {expr[1:-1]} }}}}"
+					return f"{{{{ {expr} }}}}"
+
+				resolver = val.get("resolver") or val.get("value") or ""
+				args = ", ".join(f"{k}={json.dumps(v)}" for k, v in config.items())
+				return f'{{{{ resolve("{resolver}", {args}) }}}}'
+
+		if mode == "condition":
+			condition = val.get("condition") or {}
+			return f"{{{{ condition({json.dumps(condition)}) }}}}"
+
+		return ""
+
+		return ""
 
 	def _validate_target_path(self, target_path: str):
 		"""Prevent mutation of system paths."""

@@ -84,6 +84,207 @@
 				</button>
 			</div>
 		</div>
+
+		<!-- ── Token Editor Modal ── -->
+		<Teleport to="body">
+			<div
+				v-if="activeTokenType"
+				class="fxr-token-modal-overlay"
+				@click.self="closeTokenEditor"
+			>
+				<div class="fxr-token-modal-container">
+					<!-- Header -->
+					<div class="fxr-token-modal-header">
+						<div class="d-flex align-items-center" style="gap: 8px">
+							<i
+								:class="activeTokenPresentation.icon"
+								style="font-size: 14px; color: #64748b"
+							></i>
+							<span style="font-weight: 600; font-size: 14px">{{
+								activeTokenPresentation.title
+							}}</span>
+						</div>
+						<button
+							type="button"
+							class="fvc-action-btn"
+							@click="closeTokenEditor"
+							:title="__('Close')"
+						>
+							<i class="fa fa-times"></i>
+						</button>
+					</div>
+
+					<!-- Body -->
+					<div class="fxr-token-modal-body">
+						<!-- JSON Editor Mode -->
+						<template v-if="activeTokenType === 'json'">
+							<textarea
+								class="json-textarea"
+								v-model="tokenDraftAttrs.value"
+								:placeholder="__('Paste or edit JSON/Expression here...')"
+							></textarea>
+							<div
+								v-if="jsonParseError"
+								class="text-danger mt-1"
+								style="font-size: 12px"
+							>
+								{{ jsonParseError }}
+							</div>
+						</template>
+
+						<!-- Visual Builder / Manual Editor -->
+						<template v-else>
+							<!-- Mode Toggle: Builder vs Manual -->
+							<div class="d-flex align-items-center justify-content-between mb-3">
+								<span class="fxr-label-sm mb-0">{{ __("Edit Mode") }}</span>
+								<div class="d-flex align-items-center" style="gap: 6px">
+									<button
+										type="button"
+										class="fvc-action-btn"
+										:style="
+											!isManualMode
+												? 'color: var(--fxr-accent); font-weight: 700'
+												: ''
+										"
+										@click="isManualMode = false"
+									>
+										<i class="fa fa-th-large mr-1"></i> {{ __("Visual") }}
+									</button>
+									<span style="color: #cbd5e1">|</span>
+									<button
+										type="button"
+										class="fvc-action-btn"
+										:style="
+											isManualMode
+												? 'color: var(--fxr-accent); font-weight: 700'
+												: ''
+										"
+										@click="isManualMode = true"
+									>
+										<i class="fa fa-code mr-1"></i> {{ __("Manual") }}
+									</button>
+								</div>
+							</div>
+
+							<!-- Visual Builder -->
+							<div v-if="!isManualMode">
+								<ValueResolverControl
+									viewMode="inline"
+									:modelValue="tokenDraftAttrs.config"
+									:doctype="referenceDoctype"
+									:context="context"
+									:allowedKinds="allowedBuilderKinds"
+									@update:modelValue="handleBuilderUpdate"
+								/>
+							</div>
+
+							<!-- Manual Formula Editor -->
+							<div v-else>
+								<div class="d-flex flex-column" style="gap: 8px">
+									<label class="fxr-label-sm">{{ __("Expression") }}</label>
+									<textarea
+										ref="formulaTextareaRef"
+										class="formula-textarea"
+										v-model="tokenDraftAttrs.expression"
+										:placeholder="
+											__('e.g. frappe.utils.add_days(doc.posting_date, 7)')
+										"
+									></textarea>
+								</div>
+
+								<!-- Variable pills -->
+								<div v-if="variableOptions && variableOptions.length" class="mt-2">
+									<label class="fxr-label-sm">{{ __("Insert Variable") }}</label>
+									<div class="variables-pill-grid">
+										<button
+											v-for="v in variableOptions"
+											:key="v.value || v"
+											type="button"
+											class="var-pill-btn"
+											@click="insertVarInFormula(v)"
+										>
+											{{ v.label || v }}
+										</button>
+									</div>
+								</div>
+
+								<!-- Config params for resolver -->
+								<div class="mt-3" v-if="activeTokenType === 'resolver'">
+									<div
+										class="d-flex align-items-center justify-content-between mb-2"
+									>
+										<label class="fxr-label-sm mb-0">{{ __("Config") }}</label>
+										<button
+											type="button"
+											class="fvc-action-btn"
+											@click="addConfigParam"
+										>
+											<i class="fa fa-plus mr-1"></i> {{ __("Add Param") }}
+										</button>
+									</div>
+									<div
+										v-if="
+											tokenDraftAttrs.config &&
+											typeof tokenDraftAttrs.config === 'object'
+										"
+										class="d-flex flex-column"
+										style="gap: 6px"
+									>
+										<div
+											v-for="(val, key) in tokenDraftAttrs.config"
+											:key="key"
+											class="d-flex align-items-center"
+											style="gap: 6px"
+										>
+											<input
+												type="text"
+												class="fxr-input"
+												style="width: 120px; font-size: 12px"
+												:value="key"
+												@change="renameConfigKey(key, $event.target.value)"
+												:placeholder="__('key')"
+											/>
+											<input
+												type="text"
+												class="fxr-input flex-1"
+												style="font-size: 12px"
+												v-model="tokenDraftAttrs.config[key]"
+												:placeholder="__('value')"
+											/>
+											<button
+												type="button"
+												class="fvc-action-btn"
+												@click="removeConfigKey(key)"
+											>
+												<i class="fa fa-trash"></i>
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</template>
+					</div>
+
+					<!-- Footer -->
+					<div class="fxr-token-modal-footer">
+						<button
+							type="button"
+							class="fxr-btn fxr-btn--secondary"
+							@click="closeTokenEditor"
+						>
+							{{ __("Cancel") }}
+						</button>
+						<button
+							type="button"
+							class="fxr-btn fxr-btn--primary"
+							@click="saveTokenEditor"
+						>
+							{{ __("Save") }}
+						</button>
+					</div>
+				</div>
+			</div>
+		</Teleport>
 	</div>
 </template>
 
@@ -96,7 +297,11 @@ import Mention from "@tiptap/extension-mention";
 import { PluginKey } from "@tiptap/pm/state";
 import tippy from "tippy.js";
 
-import { getCommandsForFieldtype, getFormulasForFieldtype } from "../../core/formula_registry";
+import {
+	getCommandsForFieldtype,
+	getFormulasForFieldtype,
+	getAllowedBuilderKinds,
+} from "../../core/formula_registry";
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
@@ -166,6 +371,8 @@ const PURE_TEXT_FIELDTYPES = new Set([
 const isStaticSupported = computed(() => {
 	return !PURE_TEXT_FIELDTYPES.has(fieldType.value);
 });
+
+const allowedBuilderKinds = computed(() => getAllowedBuilderKinds(fieldType.value));
 
 const staticDf = computed(() => {
 	let ft = fieldType.value;
