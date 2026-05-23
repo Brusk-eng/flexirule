@@ -5,14 +5,14 @@ on:
         branches:
             - develop
         paths-ignore:
-            - 'docs/**'
-            - 'docs-config/**'
-            - 'landing-page/**'
+            - "docs/**"
+            - "docs-config/**"
+            - "landing-page/**"
     pull_request:
         paths-ignore:
-            - 'docs/**'
-            - 'docs-config/**'
-            - 'landing-page/**'
+            - "docs/**"
+            - "docs-config/**"
+            - "landing-page/**"
 
 concurrency:
     group: develop-flexirule-${{ github.event.number }}
