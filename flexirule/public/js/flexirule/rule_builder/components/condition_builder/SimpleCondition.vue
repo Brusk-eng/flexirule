@@ -4,13 +4,10 @@
  * Uses backend-driven operator configuration
  */
 import ControlFactory from "../../controls/ControlFactory.vue";
-import SelectControl from "../../controls/SelectControl.vue";
+import FlexValueControl from "../../controls/FlexValueControl.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
-import ContextPicker from "../ContextPicker.vue";
-import ValueResolverControl from "../../controls/ValueResolverControl.vue";
 import { useMetaStore } from "../../stores/useMetaStore";
-import { inject, ref, computed, watch, nextTick } from "vue";
-import { getAllowedBuilderKinds } from "../../../core/formula_registry";
+import { inject, ref, computed, watch } from "vue";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -27,7 +24,6 @@ const operatorConfig = inject(
 	ref({ fieldtype_operators: {}, operator_labels: {} })
 );
 
-const context = inject("conditionContext", { alias: "doc" });
 const store = inject("store");
 
 // Dynamic Link State
@@ -195,37 +191,67 @@ const valueFieldSchema = computed(() => {
 	return schema;
 });
 
+function isStructuredValue(val) {
+	return Boolean(val && typeof val === "object" && !Array.isArray(val) && val.mode);
+}
+
+function ensureStructuredValue(rawValue) {
+	if (isStructuredValue(rawValue)) return rawValue;
+	return { mode: "static", value: rawValue };
+}
+
+function getStaticDefaultForOperator() {
+	return ["in", "not in", "in list", "not in list"].includes(props.node.op) ? [] : "";
+}
+
 // Wrapped Value for Link/Dynamic Link Tuple handling
 const wrappedValue = computed({
 	get() {
 		const val = props.node.right?.value;
 		const ft = selectedField.value?.fieldtype;
-		const op = props.node.op;
 
-		// If not a Link/Dynamic Link, return raw value
-		if ((ft !== "Link" && ft !== "Dynamic Link") || isDoctypeContextField.value) return val;
-
-		// If value is empty, return empty
-		if (val === undefined || val === null || val === "")
-			return op === "in" || op === "not in" ? [] : "";
-
-		// If it's a tuple [DocType, Value], return Value
-		if (Array.isArray(val) && val.length === 2 && typeof val[0] === "string") {
-			return val[1];
+		// Non-link field or context-doctype: always use structured object.
+		if ((ft !== "Link" && ft !== "Dynamic Link") || isDoctypeContextField.value) {
+			if (val === undefined || val === null || val === "") {
+				return { mode: "static", value: getStaticDefaultForOperator() };
+			}
+			return ensureStructuredValue(val);
 		}
 
-		// Legacy/Fallback: return raw value
-		return val;
+		// Link tuple [DocType, ValuePayload]
+		if (Array.isArray(val) && val.length === 2 && typeof val[0] === "string") {
+			const tupleValue = val[1];
+			if (tupleValue === undefined || tupleValue === null || tupleValue === "") {
+				return { mode: "static", value: getStaticDefaultForOperator() };
+			}
+			return ensureStructuredValue(tupleValue);
+		}
+
+		if (val === undefined || val === null || val === "") {
+			return { mode: "static", value: getStaticDefaultForOperator() };
+		}
+
+		return ensureStructuredValue(val);
 	},
 	set(newVal) {
 		const ft = selectedField.value?.fieldtype;
+		const normalized = ensureStructuredValue(newVal);
+
+		if (!props.node.right || typeof props.node.right !== "object") {
+			props.node.right = {};
+		}
 
 		if ((ft !== "Link" && ft !== "Dynamic Link") || isDoctypeContextField.value) {
-			props.node.right.value = newVal;
+			props.node.right.value = normalized;
 			return;
 		}
 
-		// Determine DocType
+		// Structured non-static values should not be wrapped inside link tuples.
+		if (normalized.mode !== "static") {
+			props.node.right.value = normalized;
+			return;
+		}
+
 		let docType = "";
 		if (ft === "Link") {
 			docType = selectedField.value.options;
@@ -234,52 +260,28 @@ const wrappedValue = computed({
 		}
 
 		if (!docType) {
-			// Should not happen if UI is correct, but falback
-			props.node.right.value = newVal;
+			props.node.right.value = normalized;
 			return;
 		}
 
-		// Wrap it: [DocType, Value]
-		props.node.right.value = [docType, newVal];
+		// Static link values keep tuple semantics for evaluator/compiler compatibility.
+		props.node.right.value = [docType, normalized.value];
 	},
 });
 
-// Watch for changes in existing node value to init dynamicLinkDocType if needed
 watch(
-	() => props.node,
-	(newNode) => {
-		// Attempt to extract existing Dynamic Link DocType from saved tuple
-		if (selectedField.value?.fieldtype === "Dynamic Link" && !dynamicLinkDocType.value) {
-			const val = newNode.right?.value;
-			if (Array.isArray(val) && val.length === 2 && typeof val[0] === "string") {
-				dynamicLinkDocType.value = val[0];
-			}
+	() => [selectedField.value?.fieldtype, props.node.op],
+	() => {
+		if (!props.node.right || typeof props.node.right !== "object") {
+			props.node.right = { value: { mode: "static", value: getStaticDefaultForOperator() } };
+			return;
+		}
+		if (props.node.right.value === undefined) {
+			props.node.right.value = { mode: "static", value: getStaticDefaultForOperator() };
 		}
 	},
-	{ immediate: true, deep: true }
+	{ immediate: true }
 );
-
-// Value Type State (Static vs Field)
-const valueType = computed({
-	get: () => {
-		if (props.node.right?.value?.mode === "resolver") return "builder";
-		return props.node.right?.ref ? "field" : "static";
-	},
-	set: (type) => {
-		if (type === "field") {
-			props.node.right.value = "";
-			if (!props.node.right.ref) props.node.right.ref = context.alias + ".";
-		} else if (type === "builder") {
-			props.node.right.ref = "";
-			props.node.right.value = { mode: "resolver", config: { kind: "system_context" } };
-		} else {
-			props.node.right.ref = "";
-			if (props.node.right?.value?.mode === "resolver") props.node.right.value = "";
-		}
-	},
-});
-
-const allowedBuilderKinds = computed(() => getAllowedBuilderKinds(selectedField.value?.fieldtype));
 </script>
 
 <template>
@@ -309,7 +311,7 @@ const allowedBuilderKinds = computed(() => getAllowedBuilderKinds(selectedField.
 				</select>
 			</div>
 
-			<!-- Value Group (Type + Value) -->
+			<!-- Value Group -->
 			<div
 				class="condition-col value-group-col"
 				v-if="
@@ -322,19 +324,9 @@ const allowedBuilderKinds = computed(() => getAllowedBuilderKinds(selectedField.
 					].includes(node.op)
 				"
 			>
-				<select
-					v-model="valueType"
-					class="fxr-select value-type-select"
-					:disabled="readOnly"
-				>
-					<option value="static">{{ __("Static") }}</option>
-					<option value="field">{{ __("Field") }}</option>
-					<option value="builder">{{ __("Builder") }}</option>
-				</select>
-
 				<div class="value-input-wrapper">
 					<div
-						v-if="selectedField?.fieldtype === 'Dynamic Link' && valueType === 'static'"
+						v-if="selectedField?.fieldtype === 'Dynamic Link'"
 						class="dynamic-dt-picker"
 					>
 						<ControlFactory
@@ -349,33 +341,19 @@ const allowedBuilderKinds = computed(() => getAllowedBuilderKinds(selectedField.
 						/>
 					</div>
 
-					<template v-if="valueType === 'field'">
-						<ContextPicker
-							v-model="node.right.ref"
-							:docFields="docFields"
-							:disabled="readOnly"
-						/>
-					</template>
-					<template v-else-if="valueType === 'builder'">
-						<ValueResolverControl
-							:modelValue="node.right.value"
-							:doctype="store?.rule_doc?.document_type"
-							:context="{ fieldname: selectedField?.value, operator: node.op }"
-							:readOnly="readOnly"
-							:allowedKinds="allowedBuilderKinds"
-							@update:modelValue="(val) => (node.right.value = val)"
-						/>
-					</template>
-					<template v-else>
-						<ControlFactory
-							:df="{ ...valueFieldSchema, label: '' }"
-							v-model="wrappedValue"
-							:read_only="readOnly"
-							:hideLabel="true"
-							:engine="store"
-							:doc="store?.rule_doc"
-						/>
-					</template>
+					<FlexValueControl
+						v-model="wrappedValue"
+						:context="{
+							df: valueFieldSchema,
+							operator: node.op,
+							referenceDoctype: store?.rule_doc?.document_type,
+						}"
+						:engine="store"
+						:doc="store?.rule_doc"
+						:readOnly="readOnly"
+						:disabled="readOnly"
+						class="w-100 min-w-0"
+					/>
 				</div>
 			</div>
 			<div v-else class="condition-col empty-value-col"></div>
@@ -434,27 +412,7 @@ const allowedBuilderKinds = computed(() => getAllowedBuilderKinds(selectedField.
 	background: var(--fxr-bg-card);
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
-	padding: var(--fxr-space-1);
-}
-
-.value-type-select {
-	width: auto;
-	min-width: 70px;
-	border: none;
-	background-color: var(--fxr-bg-hover);
-	color: var(--fxr-text-muted);
-	font-weight: var(--fxr-weight-bold);
-	font-size: var(--fxr-text-xs);
-	text-transform: uppercase;
-	height: var(--fxr-input-height-sm);
-	border-inline-end: 1px solid var(--fxr-border);
-	border-radius: var(--fxr-radius-sm) 0 0 var(--fxr-radius-sm);
-	cursor: pointer;
-	padding-inline-end: 20px;
-}
-
-[dir="rtl"] .value-type-select {
-	border-radius: 0 var(--fxr-radius-sm) var(--fxr-radius-sm) 0;
+	padding: 2px;
 }
 
 .value-input-wrapper {

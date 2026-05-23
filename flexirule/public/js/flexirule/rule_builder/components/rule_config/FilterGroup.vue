@@ -74,73 +74,60 @@
 								<div class="dual-value-wrapper">
 									<div class="value-input-item">
 										<FlexValueControl
-											:modelValue="getBuilderValue(row, 0)"
-											:context="{ df: getControlFactorySchema(row) }"
+											:modelValue="
+												Array.isArray(row.value)
+													? row.value[0]
+													: { mode: 'static', value: '' }
+											"
+											:context="{
+												df: getControlFactorySchema(row),
+												operator: row.operator,
+												referenceDoctype: row.doctype || doctype,
+											}"
 											:disabled="readOnly"
+											:engine="store"
+											:doc="store?.rule_doc"
 											@update:modelValue="
-												(val) => updateBuilderValue(idx, 0, val)
+												(val) => updateBetweenValue(idx, 0, val)
 											"
 										/>
 									</div>
 									<span class="between-sep">{{ __("and") }}</span>
 									<div class="value-input-item">
 										<FlexValueControl
-											:modelValue="getBuilderValue(row, 1)"
-											:context="{ df: getControlFactorySchema(row) }"
+											:modelValue="
+												Array.isArray(row.value)
+													? row.value[1]
+													: { mode: 'static', value: '' }
+											"
+											:context="{
+												df: getControlFactorySchema(row),
+												operator: row.operator,
+												referenceDoctype: row.doctype || doctype,
+											}"
 											:disabled="readOnly"
+											:engine="store"
+											:doc="store?.rule_doc"
 											@update:modelValue="
-												(val) => updateBuilderValue(idx, 1, val)
+												(val) => updateBetweenValue(idx, 1, val)
 											"
 										/>
 									</div>
 								</div>
 							</template>
 							<template v-else>
-								<select
-									v-if="row.operator === 'is'"
-									class="form-control input-xs"
-									:value="row.value"
-									:disabled="readOnly"
-									@change="
-										(e) =>
-											updateRow(idx, {
-												value: e.target.value,
-												value_type: 'Value',
-											})
-									"
-								>
-									<option value="set">{{ __("Set") }}</option>
-									<option value="not set">{{ __("Not Set") }}</option>
-								</select>
-								<select
-									v-else-if="row.operator === 'Timespan'"
-									class="form-control input-xs"
-									:value="row.value"
-									:disabled="readOnly"
-									@change="
-										(e) =>
-											updateRow(idx, {
-												value: e.target.value,
-												value_type: 'Value',
-											})
-									"
-								>
-									<option
-										v-for="opt in timespanOptions"
-										:key="opt.value"
-										:value="opt.value"
-									>
-										{{ opt.label }}
-									</option>
-								</select>
-								<div v-else class="control-slot">
+								<div class="control-slot w-100 min-w-0">
 									<FlexValueControl
-										:modelValue="getBuilderValue(row)"
-										:context="{ df: getControlFactorySchema(row) }"
+										v-model="row.value"
+										:context="{
+											df: getControlFactorySchema(row),
+											operator: row.operator,
+											referenceDoctype: row.doctype || doctype,
+										}"
+										:engine="store"
+										:doc="store?.rule_doc"
 										:disabled="readOnly"
-										@update:modelValue="
-											(val) => updateBuilderValue(idx, null, val)
-										"
+										:readOnly="readOnly"
 									/>
 								</div>
 							</template>
@@ -175,7 +162,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
-import ControlFactory from "../../controls/ControlFactory.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts.js";
@@ -217,16 +203,6 @@ const panelStyleVars = computed(() => {
 });
 
 const filters = ref([]);
-const BASE_VALUE_TYPES = ["Value", "Number", "Boolean", "Variable", "Expression"];
-const BUILDER_VALUE_TYPE = "Builder";
-const VALUE_TYPE_LABELS = {
-	Value: __("Literal"),
-	Number: __("Number"),
-	Boolean: __("Yes / No"),
-	Variable: __("Variable"),
-	Expression: __("Formula (Advanced)"),
-	Builder: __("Formula Builder"),
-};
 
 const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
 	? frappe.ui.filter_utils.get_timespan_options([
@@ -337,28 +313,7 @@ const FRAPPE_INVALID_CONDITION_MAP = {
 	Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
 	Float: ["like", "not like", "Between", "in", "not in", "Timespan"],
 };
-const DATE_FIELDTYPES = new Set(["Date", "Datetime"]);
-const BUILDER_SUPPORTED_FIELDTYPES = new Set([
-	"Date",
-	"Datetime",
-	"Int",
-	"Float",
-	"Currency",
-	"Percent",
-	"Data",
-	"Small Text",
-	"Text",
-	"Long Text",
-	"Select",
-]);
-const CHECK_VALUE_TYPES = ["Boolean", "Variable", "Expression"];
 const isCheckField = (field) => field?.original_type === "Check" || field?.fieldtype === "Check";
-const getDefaultValueTypeForField = (field) => (isCheckField(field) ? "Boolean" : "Value");
-const formatBooleanValueForDisplay = (value) => {
-	if (value === true || value === 1 || value === "1" || value === "Yes") return "Yes";
-	if (value === false || value === 0 || value === "0" || value === "No") return "No";
-	return value;
-};
 
 const getExtraOperatorsForField = (field) => {
 	if (!field?.fieldtype) return [];
@@ -371,6 +326,60 @@ const getNestedSetOperatorsForField = (field) => {
 	return nestedSetDoctypes.includes(field.options) ? NESTED_SET_OPERATORS : [];
 };
 
+const coerceStructuredFilterValue = (rawValue) => {
+	if (rawValue && typeof rawValue === "object" && !Array.isArray(rawValue) && rawValue.mode) {
+		if (["formula", "format", "normalize", "normalization"].includes(rawValue.mode)) {
+			const config = { ...(rawValue.config || {}) };
+			if (!config.kind) {
+				if (rawValue.mode === "formula") config.kind = "math_formula";
+				if (rawValue.mode === "format") config.kind = "format";
+				if (rawValue.mode === "normalize" || rawValue.mode === "normalization") {
+					config.kind = "normalization";
+				}
+			}
+			return {
+				mode: "resolver",
+				value: rawValue.value || rawValue.expression || "",
+				config,
+			};
+		}
+		if (rawValue.mode === "variable") {
+			return { mode: "variable", value: rawValue.value || rawValue.path || "" };
+		}
+		return rawValue;
+	}
+
+	// Legacy tuple payload object: { value, value_type, builder }
+	if (
+		rawValue &&
+		typeof rawValue === "object" &&
+		!Array.isArray(rawValue) &&
+		"value" in rawValue
+	) {
+		const rawType = String(rawValue.value_type || "Value").toLowerCase();
+		if (rawValue.builder && typeof rawValue.builder === "object") {
+			return {
+				mode: "resolver",
+				value: rawValue.value || "",
+				config: rawValue.builder,
+			};
+		}
+		if (rawType === "variable") {
+			const path = String(rawValue.value || "")
+				.trim()
+				.replace(/^\{/, "")
+				.replace(/\}$/, "");
+			return { mode: "variable", value: path };
+		}
+		if (rawType === "expression") {
+			return { mode: "resolver", value: rawValue.value || "" };
+		}
+		return { mode: "static", value: rawValue.value };
+	}
+
+	return { mode: "static", value: rawValue };
+};
+
 // Initialize local state from modelValue
 const syncFromProps = () => {
 	if (!props.modelValue || !Array.isArray(props.modelValue)) {
@@ -380,14 +389,22 @@ const syncFromProps = () => {
 
 	// Consistency mapping for comparison
 	const format = (list) =>
-		(list || []).map((f) => ({
-			doctype: f.doctype || props.doctype,
-			field: f.field || f.fieldname,
-			operator: f.operator || f.op || "=",
-			value: f.value,
-			value_type: f.value_type || "Value",
-			builder: f.builder || null,
-		}));
+		(list || []).map((f) => {
+			if (Array.isArray(f)) {
+				return {
+					doctype: f[0] || props.doctype,
+					field: f[1],
+					operator: f[2] || "=",
+					value: coerceStructuredFilterValue(f[3]),
+				};
+			}
+			return {
+				doctype: f.doctype || props.doctype,
+				field: f.field || f.fieldname,
+				operator: f.operator || f.op || "=",
+				value: coerceStructuredFilterValue(f.value),
+			};
+		});
 
 	const current_cleaned = format(filters.value.filter((f) => f.field || f.fieldname));
 	const incoming_cleaned = format(
@@ -405,35 +422,25 @@ const syncFromProps = () => {
 		let row = {};
 		if (Array.isArray(f)) {
 			const payload = f[3];
-			const payloadValue =
-				payload && typeof payload === "object" && !Array.isArray(payload)
-					? payload.value
-					: payload;
+			const structuredValue = coerceStructuredFilterValue(payload);
+
 			row = {
 				doctype: f[0],
 				field: f[1],
 				operator: f[2],
-				value: payloadValue,
-				value_type:
-					payload && typeof payload === "object" && !Array.isArray(payload)
-						? payload.value_type || guessValueType(payloadValue)
-						: guessValueType(payloadValue),
-				builder:
-					payload && typeof payload === "object" && !Array.isArray(payload)
-						? payload.builder || null
-						: null,
+				value: structuredValue,
 			};
 		} else {
+			const structuredValue = coerceStructuredFilterValue(f.value);
+
 			row = {
 				doctype: f.doctype || props.doctype,
 				field: f.field || f.fieldname,
 				operator: f.operator || f.op || "=",
-				value: f.value,
-				value_type: f.value_type || guessValueType(f.value),
-				builder: f.builder || null,
+				value: structuredValue,
 			};
 		}
-		row = normalizeBuilderState(row);
+
 		// Ensure operator is valid for field
 		const field = getFieldDef(row.field, row.doctype);
 		const allowed = getOperatorsForField(field);
@@ -443,23 +450,7 @@ const syncFromProps = () => {
 				? defaultCondition
 				: allowed[0] || "=";
 		}
-		const allowedValueTypes = getValueTypeOptions(row);
-		if (!allowedValueTypes.includes(row.value_type)) {
-			row.value_type = getDefaultValueTypeForField(field);
-			row.builder = null;
-		}
-		if (isCheckField(field)) {
-			row.operator = "=";
-			if (!CHECK_VALUE_TYPES.includes(row.value_type)) {
-				row.value_type = "Boolean";
-			}
-			if (row.value_type === "Boolean") {
-				row.value = formatBooleanValueForDisplay(row.value);
-				if (row.value !== "Yes" && row.value !== "No") {
-					row.value = "No";
-				}
-			}
-		}
+
 		return row;
 	});
 };
@@ -504,94 +495,48 @@ const normalizeBooleanValue = (value) => {
 	return value;
 };
 
-const normalizeFilterValueForOperator = (row, value) => {
-	if (row.value_type === BUILDER_VALUE_TYPE) return value;
+const normalizeStructuredForOperator = (row, value) => {
+	if (!value || typeof value !== "object" || value.mode !== "static") return value;
+	let normalized = value.value;
+
 	if (row.operator === "like" || row.operator === "not like") {
-		return normalizeLikePattern(value);
+		normalized = normalizeLikePattern(normalized);
+	} else if (row.operator === "in" || row.operator === "not in") {
+		normalized = normalizeInValues(normalized);
+	} else if (row.operator === "is") {
+		normalized = normalizeIsValue(normalized);
+	} else if (normalized === "%") {
+		normalized = "";
 	}
-	if (row.operator === "in" || row.operator === "not in") {
-		return normalizeInValues(value);
-	}
-	if (row.operator === "is") {
-		return normalizeIsValue(value);
-	}
-	return value === "%" ? "" : value;
-};
 
-const getDisplayValue = (row) => {
-	if (
-		["=", "!="].includes(row.operator) &&
-		Array.isArray(row.value) &&
-		row.value.length === 2 &&
-		typeof row.value[0] === "string"
-	) {
-		return row.value[1];
+	const field = getFieldDef(row.field, row.doctype || props.doctype);
+	if (isCheckField(field)) {
+		normalized = normalizeBooleanValue(normalized);
 	}
-	return row.value;
-};
 
-const normalizeRowForEmit = (row) => {
-	const normalized = { ...row };
-	const field = getFieldDef(normalized.field, normalized.doctype || props.doctype);
-	if (field?.original_type === "Check" || field?.fieldtype === "Check") {
-		normalized.value = normalizeBooleanValue(normalized.value);
-	}
-	if (
-		normalized.operator === "Between" &&
-		Array.isArray(normalized.value) &&
-		normalized.value.length >= 2
-	) {
-		normalized.value = [normalized.value[0], normalized.value[1]];
-	} else {
-		normalized.value = normalizeFilterValueForOperator(normalized, normalized.value);
-	}
-	return normalized;
+	return { ...value, value: normalized };
 };
 
 const emitUpdate = () => {
 	const serialized = filters.value
 		.filter((r) => r.field)
 		.map((r) => {
-			const n = normalizeRowForEmit(r);
-			let payload;
-			if (n.value_type === BUILDER_VALUE_TYPE && n.builder) {
-				payload = {
-					mode: "resolver",
-					config: n.builder,
-					value_type: BUILDER_VALUE_TYPE,
-					builder: n.builder,
-					value: n.value,
-				};
-			} else {
-				payload = {
-					value: n.value,
-					value_type: n.value_type || "Value",
-				};
+			if (r.operator === "Between" && Array.isArray(r.value)) {
+				return [
+					r.doctype || props.doctype,
+					r.field,
+					r.operator || "=",
+					r.value.slice(0, 2).map((val) => normalizeStructuredForOperator(r, val)),
+				];
 			}
-			return [n.doctype || props.doctype, n.field, n.operator || "=", payload];
+			return [
+				r.doctype || props.doctype,
+				r.field,
+				r.operator || "=",
+				normalizeStructuredForOperator(r, r.value),
+			];
 		});
 	emit("update:modelValue", serialized);
-};
-
-const guessValueType = (val) => {
-	if (val && typeof val === "object") {
-		if (val.value_type) return val.value_type;
-		if (val.mode === "resolver") return "Builder";
-		return "Value";
-	}
-	if (typeof val === "number") return "Number";
-	if (typeof val === "boolean") return "Boolean";
-	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
-		return "Expression";
-	}
-	return "Value";
-};
-
-const stripBracket = (val) => {
-	if (typeof val === "string" && val.startsWith("{") && val.endsWith("}")) {
-		return val.slice(1, -1);
-	}
-	return val;
 };
 
 const doctypeFieldsCache = new Map();
@@ -788,47 +733,6 @@ const getOperatorLabel = (operator, row) => {
 	return operatorLabelMap[operator] || operator;
 };
 
-const getValueTypeLabel = (valueType, row) => {
-	if (valueType === BUILDER_VALUE_TYPE) {
-		const field = getFieldDef(row?.field, row?.doctype || props.doctype);
-		if (field && DATE_FIELDTYPES.has(field.fieldtype)) return __("Date Formula");
-		if (
-			field &&
-			BUILDER_SUPPORTED_FIELDTYPES.has(field.fieldtype) &&
-			!DATE_FIELDTYPES.has(field.fieldtype)
-		)
-			return __("Math Formula");
-		return __("Formula Builder");
-	}
-	return VALUE_TYPE_LABELS[valueType] || __(valueType);
-};
-
-const getValueTypeOptions = (row) => {
-	const field = getFieldDef(row.field, row.doctype || props.doctype);
-	if (!field || !field.fieldtype) {
-		return [...BASE_VALUE_TYPES];
-	}
-	if (isCheckField(field)) {
-		return [...CHECK_VALUE_TYPES];
-	}
-	const options = [...BASE_VALUE_TYPES];
-	if (BUILDER_SUPPORTED_FIELDTYPES.has(field.fieldtype)) {
-		options.push(BUILDER_VALUE_TYPE);
-	}
-	return options;
-};
-
-const isBooleanValue = (row) => {
-	if (row.value_type === "Boolean") return true;
-	const field = getFieldDef(row.field, row.doctype || props.doctype);
-	return field && field.fieldtype === "Check";
-};
-
-const getVariableOptions = async () => {
-	if (!props.nodeId) return [];
-	return await store.getAvailableVariables(props.nodeId);
-};
-
 const getControlFactorySchema = (row) => {
 	const field = getFieldDef(row.field, row.doctype || props.doctype);
 	let schema = field ? frappe.utils.deep_clone(field) : { fieldtype: "Data", fieldname: "value" };
@@ -915,60 +819,10 @@ const addFilter = () => {
 		doctype: props.doctype,
 		field: defaultField,
 		operator: defaultOperator,
-		value: "",
-		value_type: "Value",
+		value: { mode: "static", value: "" },
 	});
 	emitUpdate();
 };
-
-const STRING_FIELDTYPES = new Set(["Data", "Small Text", "Text", "Long Text", "Select"]);
-
-const getDefaultBuilderValue = () => ({ mode: "resolver", config: { kind: "system_context" } });
-
-const normalizeBuilderState = (row) => {
-	if (row.value_type !== "Builder") return row;
-
-	if (row.operator === "Between") {
-		const current = Array.isArray(row.value) ? row.value : [null, null];
-		row.value = [
-			current[0] || getDefaultBuilderValue(),
-			current[1] || getDefaultBuilderValue(),
-		];
-	} else {
-		row.value = row.value || getDefaultBuilderValue();
-	}
-	return row;
-};
-
-const getDateFieldOptions = (dt) => {
-	return getFieldsForDoctype(dt).filter((f) => DATE_FIELDTYPES.has(f.fieldtype));
-};
-
-const getBuilderValue = (row, idx = null) => {
-	const value = row.value;
-	if (!value) return getDefaultBuilderValue();
-	if (idx === null || idx === undefined) {
-		return Array.isArray(value) ? value[0] || getDefaultBuilderValue() : value;
-	}
-	return Array.isArray(value) ? value[idx] || getDefaultBuilderValue() : value;
-};
-
-const updateBuilderValue = (idx, builderIndex, value) => {
-	const row = filters.value[idx];
-	const merged = { ...row };
-	if (merged.operator === "Between" && builderIndex !== null && builderIndex !== undefined) {
-		const list = Array.isArray(merged.value)
-			? [...merged.value]
-			: [getDefaultBuilderValue(), getDefaultBuilderValue()];
-		list[builderIndex] = value || getDefaultBuilderValue();
-		merged.value = list;
-	} else {
-		merged.value = value || getDefaultBuilderValue();
-	}
-	filters.value[idx] = merged;
-	emitUpdate();
-};
-
 const removeFilter = (idx) => {
 	filters.value.splice(idx, 1);
 	emitUpdate();
@@ -998,92 +852,31 @@ const updateRow = (idx, data) => {
 	// Handle operator change to/from Between
 	if (data.operator && data.operator !== row.operator) {
 		if (data.operator === "Between" && !Array.isArray(merged.value)) {
-			merged.value = [merged.value || "", ""];
+			merged.value = [
+				{ mode: "static", value: "" },
+				{ mode: "static", value: "" },
+			];
 		} else if (row.operator === "Between" && Array.isArray(merged.value)) {
-			merged.value = merged.value[0] || "";
+			merged.value = merged.value[0] || { mode: "static", value: "" };
 		}
-	}
-
-	if (merged.value_type === "Builder") {
-		normalizeBuilderState(merged);
-	}
-
-	if (isCheckField(field)) {
-		merged.operator = "=";
-		if (!CHECK_VALUE_TYPES.includes(merged.value_type)) {
-			merged.value_type = "Boolean";
-			merged.builder = null;
-		}
-		if (merged.value_type === "Boolean") {
-			merged.value = formatBooleanValueForDisplay(merged.value);
-			if (merged.value !== "Yes" && merged.value !== "No") {
-				merged.value = formatBooleanValueForDisplay(row.value);
-			}
-			if (merged.value !== "Yes" && merged.value !== "No") {
-				merged.value = "No";
-			}
-		}
-	}
-	const allowedValueTypes = getValueTypeOptions(merged);
-	if (!allowedValueTypes.includes(merged.value_type)) {
-		merged.value_type = getDefaultValueTypeForField(field);
-		merged.builder = null;
 	}
 
 	filters.value[idx] = merged;
 	emitUpdate();
 };
 
-const getBetweenValue = (value, idx) => {
-	if (Array.isArray(value)) return value[idx] || "";
-	if (typeof value === "string" && value.includes(",")) {
-		return value.split(",")[idx]?.trim() || "";
-	}
-	return idx === 0 ? value : "";
-};
-
-const setBetweenValue = (idx, valIdx, newVal) => {
+const updateBetweenValue = (idx, arrayIndex, val) => {
 	const row = filters.value[idx];
-	let currentVal = row.value;
-	if (!Array.isArray(currentVal)) {
-		currentVal = [getBetweenValue(currentVal, 0), getBetweenValue(currentVal, 1)];
-	}
-	currentVal[valIdx] = newVal;
-	updateRow(idx, { value: [...currentVal] });
-};
-
-const toggleValueType = (idx, type) => {
-	const row = filters.value[idx];
-	row.value_type = type;
-	const field = getFieldDef(row.field, row.doctype || props.doctype);
-
-	if (type === BUILDER_VALUE_TYPE) {
-		row.builder =
-			row.operator === "Between"
-				? [getDefaultBuilderItem(row), getDefaultBuilderItem(row)]
-				: getDefaultBuilderItem(row);
-		syncBuilderToValue(row);
-	} else if (type === "Boolean") {
-		row.builder = null;
-		row.value = formatBooleanValueForDisplay(row.value);
-		if (row.value !== "Yes" && row.value !== "No") {
-			row.value = "No";
-		}
-	} else if (type === "Expression" || type === "Variable") {
-		row.builder = null;
-		if (!row.value || typeof row.value !== "string" || !row.value.startsWith("{")) {
-			row.value = `{${row.value || ""}}`;
-		}
-	} else if (row.value && typeof row.value === "string" && row.value.startsWith("{")) {
-		row.builder = null;
-		row.value = stripBracket(row.value);
-	} else {
-		row.builder = null;
-	}
-	if (isCheckField(field) && !CHECK_VALUE_TYPES.includes(row.value_type)) {
-		row.value_type = "Boolean";
-	}
-
+	const merged = { ...row };
+	const list = Array.isArray(merged.value)
+		? [...merged.value]
+		: [
+				{ mode: "static", value: "" },
+				{ mode: "static", value: "" },
+		  ];
+	list[arrayIndex] = val;
+	merged.value = list;
+	filters.value[idx] = merged;
 	emitUpdate();
 };
 

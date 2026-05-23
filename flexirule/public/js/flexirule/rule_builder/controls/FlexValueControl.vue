@@ -21,7 +21,7 @@
 					:modelValue="staticValue"
 					:doc="doc"
 					:engine="engine"
-					:options="isLinkType ? undefined : options"
+					:options="isLinkType ? undefined : fieldOptions"
 					:hideLabel="true"
 					class="flex-1 min-w-0 w-100 static-control-factory"
 					@update:modelValue="updateStaticValue"
@@ -172,7 +172,7 @@
 									viewMode="inline"
 									:modelValue="tokenDraftAttrs.config"
 									:doctype="referenceDoctype"
-									:context="context"
+									:context="resolverContext"
 									:allowedKinds="allowedBuilderKinds"
 									@update:modelValue="handleBuilderUpdate"
 								/>
@@ -193,11 +193,16 @@
 								</div>
 
 								<!-- Variable pills -->
-								<div v-if="variableOptions && variableOptions.length" class="mt-2">
+								<div
+									v-if="
+										availableVariableOptions && availableVariableOptions.length
+									"
+									class="mt-2"
+								>
 									<label class="fxr-label-sm">{{ __("Insert Variable") }}</label>
 									<div class="variables-pill-grid">
 										<button
-											v-for="v in variableOptions"
+											v-for="v in availableVariableOptions"
 											:key="v.value || v"
 											type="button"
 											class="var-pill-btn"
@@ -355,6 +360,17 @@ const fieldOptions = computed(() => props.context?.df?.options || []);
 const referenceDoctype = computed(
 	() => props.context?.referenceDoctype || props.context?.df?.options || ""
 );
+const resolverContext = computed(() => {
+	const df = props.context?.df || {};
+	const fieldname = props.context?.fieldname || df.fieldname || df.value || "";
+	return {
+		...props.context,
+		df,
+		fieldname,
+		target: props.context?.target || fieldname,
+		referenceDoctype: referenceDoctype.value,
+	};
+});
 
 const isLinkType = computed(() => fieldType.value === "Link" || fieldType.value === "Dynamic Link");
 
@@ -372,7 +388,87 @@ const isStaticSupported = computed(() => {
 	return !PURE_TEXT_FIELDTYPES.has(fieldType.value);
 });
 
-const allowedBuilderKinds = computed(() => getAllowedBuilderKinds(fieldType.value));
+const RESOLVER_LEVEL_KIND_MAP = {
+	basic: ["system_context", "string_formula", "normalization", "format"],
+	standard: [
+		"date_formula",
+		"date_diff",
+		"system_context",
+		"string_formula",
+		"normalization",
+		"format",
+	],
+	advanced: [
+		"date_formula",
+		"date_diff",
+		"math_formula",
+		"child_aggregation",
+		"system_context",
+		"string_formula",
+		"normalization",
+		"format",
+	],
+	full: null,
+};
+
+const configuredResolverLevel = computed(() => {
+	return String(
+		props.context?.resolverLevel ||
+			props.context?.allowedResolverLevel ||
+			props.engine?.settings?.value_resolver_level ||
+			props.engine?.settings?.resolver_level ||
+			"full"
+	)
+		.toLowerCase()
+		.trim();
+});
+
+const availableVariableOptions = computed(() => {
+	let options = Array.isArray(props.variableOptions) ? [...props.variableOptions] : [];
+
+	if (typeof props.context?.getVariableOptions === "function") {
+		options = props.context.getVariableOptions(options, {
+			fieldType: fieldType.value,
+			context: props.context,
+		});
+	}
+
+	if (typeof props.context?.filterVariableOptions === "function") {
+		options = options.filter((item) =>
+			props.context.filterVariableOptions(item, {
+				fieldType: fieldType.value,
+				context: props.context,
+			})
+		);
+	}
+
+	return Array.isArray(options) ? options : [];
+});
+
+const allowedBuilderKinds = computed(() => {
+	let kinds =
+		Array.isArray(props.context?.allowedKinds) && props.context.allowedKinds.length
+			? [...props.context.allowedKinds]
+			: getAllowedBuilderKinds(fieldType.value);
+
+	if (typeof props.context?.getAllowedKinds === "function") {
+		kinds = props.context.getAllowedKinds(kinds, {
+			fieldType: fieldType.value,
+			context: props.context,
+		});
+	}
+
+	const levelKinds = RESOLVER_LEVEL_KIND_MAP[configuredResolverLevel.value];
+	if (Array.isArray(levelKinds)) {
+		if (Array.isArray(kinds)) {
+			kinds = kinds.filter((kind) => levelKinds.includes(kind));
+		} else {
+			kinds = [...levelKinds];
+		}
+	}
+
+	return Array.isArray(kinds) && kinds.length ? kinds : null;
+});
 
 const staticDf = computed(() => {
 	let ft = fieldType.value;
@@ -401,7 +497,20 @@ const VariableToken = Node.create({
 	selectable: true,
 	atom: true,
 	addAttributes() {
-		return { path: { default: "" }, label: { default: "" } };
+		return {
+			path: {
+				default: "",
+				parseHTML: (element) =>
+					element.getAttribute("data-path") || element.getAttribute("path") || "",
+				renderHTML: (attrs) => ({ "data-path": attrs.path || "" }),
+			},
+			label: {
+				default: "",
+				parseHTML: (element) =>
+					element.getAttribute("data-label") || element.getAttribute("label") || "",
+				renderHTML: (attrs) => ({ "data-label": attrs.label || "" }),
+			},
+		};
 	},
 	parseHTML() {
 		return [{ tag: 'span[data-token-type="variable"]' }];
@@ -543,7 +652,7 @@ const editor = new Editor({
 		ResolverToken.configure({
 			doctype: referenceDoctype.value,
 			readOnly: isReadOnly.value,
-			context: props.context,
+			context: resolverContext.value,
 		}),
 		VariableTrigger.configure({
 			suggestion: {
@@ -558,7 +667,7 @@ const editor = new Editor({
 					];
 					const options = [
 						...base,
-						...(props.variableOptions || []).map((v) => ({
+						...availableVariableOptions.value.map((v) => ({
 							id: v.value || v,
 							label: v.label || v,
 							type: "variable",
@@ -593,8 +702,25 @@ const editor = new Editor({
 				render: () => createSuggestionRenderer(),
 				items: ({ query }) => {
 					const q = query.toLowerCase();
-					const commands = getCommandsForFieldtype(fieldType.value);
-					const formulas = getFormulasForFieldtype(fieldType.value);
+					let commands = getCommandsForFieldtype(fieldType.value);
+					let formulas = getFormulasForFieldtype(fieldType.value);
+
+					if (typeof props.context?.filterCommands === "function") {
+						commands = commands.filter((cmd) =>
+							props.context.filterCommands(cmd, {
+								fieldType: fieldType.value,
+								context: props.context,
+							})
+						);
+					}
+					if (typeof props.context?.filterFormulas === "function") {
+						formulas = formulas.filter((formula) =>
+							props.context.filterFormulas(formula, {
+								fieldType: fieldType.value,
+								context: props.context,
+							})
+						);
+					}
 
 					const mappedFormulas = formulas.map((f) => ({
 						id: f.id,
@@ -618,12 +744,19 @@ const editor = new Editor({
 					const isCommand = commands.find((c) => c.id === props.id);
 
 					if (isCommand) {
-						const kindMap = {
+						const preferredKindMap = {
 							formula: "math_formula",
 							normalize: "normalization",
 							formatter: "format",
+							resolver: "string_formula",
 						};
-						const initialKind = kindMap[props.id] || "resolver";
+						const allowedKinds = Array.isArray(allowedBuilderKinds.value)
+							? allowedBuilderKinds.value
+							: [];
+						let initialKind = preferredKindMap[props.id] || "string_formula";
+						if (allowedKinds.length && !allowedKinds.includes(initialKind)) {
+							initialKind = allowedKinds[0];
+						}
 
 						editor
 							.chain()
@@ -672,15 +805,55 @@ const isEditorEmpty = computed(() => editor.isEmpty);
 
 // ── Serialization ──
 
+function coerceStructuredValue(val) {
+	if (val && typeof val === "object" && val.mode) {
+		// Legacy specialized modes are collapsed to resolver mode.
+		if (["formula", "format", "normalize", "normalization"].includes(val.mode)) {
+			const config = { ...(val.config || {}) };
+			if (!config.kind) {
+				if (val.mode === "formula") config.kind = "math_formula";
+				if (val.mode === "format") config.kind = "format";
+				if (val.mode === "normalize" || val.mode === "normalization") {
+					config.kind = "normalization";
+				}
+			}
+			return {
+				mode: "resolver",
+				value: val.value || val.expression || val.resolver || compileToCode(config) || "",
+				config,
+			};
+		}
+		if (val.mode === "variable") {
+			return { mode: "variable", value: val.value || val.path || "" };
+		}
+		if (val.mode === "resolver") {
+			const config = val.config || null;
+			const expr = val.value || val.expression || val.resolver || "";
+			return config
+				? { mode: "resolver", value: expr, config }
+				: { mode: "resolver", value: expr };
+		}
+		if (val.mode === "expression") {
+			return { mode: "expression", value: Array.isArray(val.value) ? val.value : [] };
+		}
+		return { mode: "static", value: val.value };
+	}
+
+	if (val === null || val === undefined) {
+		return { mode: "static", value: "" };
+	}
+	return { mode: "static", value: val };
+}
+
 function serialize() {
 	if (editor.isEmpty && !isDynamicMode.value) {
-		return { mode: "static", value: staticValue.value, fieldtype: fieldType.value };
+		return { mode: "static", value: staticValue.value };
 	}
 
 	const doc = editor.getJSON();
 	const content = doc.content?.[0]?.content || [];
 
-	if (content.length === 0) return { mode: "static", value: "", fieldtype: fieldType.value };
+	if (content.length === 0) return { mode: "static", value: "" };
 
 	// If there's exactly one token and nothing else, use its mode
 	if (content.length === 1 && content[0].type !== "text") {
@@ -690,17 +863,16 @@ function serialize() {
 			return {
 				mode: "variable",
 				value: node.attrs.path,
-				label: node.attrs.label,
-				fieldtype: fieldType.value,
 			};
 		}
 		if (typeName === "resolverToken") {
+			const config = node.attrs.config || null;
+			const expression =
+				node.attrs.expression || node.attrs.resolver || compileToCode(config || {}) || "";
 			return {
 				mode: "resolver",
-				value: node.attrs.expression || node.attrs.resolver,
-				label: node.attrs.label,
-				config: node.attrs.config,
-				fieldtype: fieldType.value,
+				value: expression,
+				...(config ? { config } : {}),
 			};
 		}
 	}
@@ -718,27 +890,26 @@ function serialize() {
 		return { type: item.type, attrs: { ...item.attrs, expression: expr } };
 	});
 
-	return { mode: "expression", value: tokens, fieldtype: fieldType.value };
+	return { mode: "expression", value: tokens };
 }
 
 function deserialize(val) {
 	if (!val) return "";
-	if (typeof val !== "object") return String(val);
+	const structured = coerceStructuredValue(val);
 
-	if (val.mode === "variable")
-		return `<span data-token-type="variable" data-path="${val.value}" data-label="${
-			val.label || ""
-		}"></span>`;
+	if (structured.mode === "variable")
+		return `<span data-token-type="variable" data-path="${
+			structured.value || ""
+		}" data-label=""></span>`;
 
-	if (["resolver", "formula", "normalize", "format"].includes(val.mode)) {
-		const attr = val.mode === "resolver" ? "data-resolver" : "data-expression";
-		return `<span data-token-type="resolver" ${attr}="${val.value || ""}" data-label="${
-			val.label || ""
-		}" data-config='${JSON.stringify(val.config || null)}'></span>`;
+	if (structured.mode === "resolver") {
+		return `<span data-token-type="resolver" data-expression="${
+			structured.value || ""
+		}" data-label="" data-config='${JSON.stringify(structured.config || null)}'></span>`;
 	}
 
-	if (val.mode === "expression" && Array.isArray(val.value)) {
-		return val.value
+	if (structured.mode === "expression" && Array.isArray(structured.value)) {
+		return structured.value
 			.map((item) => {
 				const typeName = item.type?.name || item.type;
 				if (typeName === "text") return item.value;
@@ -760,14 +931,24 @@ function deserialize(val) {
 			.join("");
 	}
 
-	return val.value || "";
+	return structured.value ?? "";
 }
 
 function emitChanges() {
 	emitting = true;
-	const output = serialize();
+	const output = coerceStructuredValue(serialize());
 	emit("update:modelValue", output);
 	emit("update", output);
+	try {
+		if (typeof props.context?.onUpdate === "function") {
+			props.context.onUpdate(output);
+		}
+		if (typeof props.context?.onChange === "function") {
+			props.context.onChange(output);
+		}
+	} catch (error) {
+		console.warn("FlexValueControl context callback failed:", error);
+	}
 	nextTick(() => {
 		emitting = false;
 	});
@@ -872,9 +1053,19 @@ function closeTokenEditor() {
 }
 
 function handleBuilderUpdate(config) {
-	tokenDraftAttrs.value.config = config;
-	tokenDraftAttrs.value.expression = compileToCode(config);
-	tokenDraftAttrs.value.label = compileToLabel(config);
+	const defaults =
+		typeof props.context?.resolverDefaults === "function"
+			? props.context.resolverDefaults({
+					fieldType: fieldType.value,
+					referenceDoctype: referenceDoctype.value,
+					context: props.context,
+			  })
+			: props.context?.resolverDefaults;
+	const mergedConfig =
+		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;
+	tokenDraftAttrs.value.config = mergedConfig;
+	tokenDraftAttrs.value.expression = compileToCode(mergedConfig);
+	tokenDraftAttrs.value.label = compileToLabel(mergedConfig);
 }
 
 function saveTokenEditor() {
@@ -930,14 +1121,15 @@ watch(
 	() => props.modelValue,
 	(val) => {
 		if (emitting) return;
-		if (val && typeof val === "object" && val.mode && val.mode !== "static") {
+		const normalized = coerceStructuredValue(val);
+		if (normalized.mode !== "static") {
 			isDynamicMode.value = true;
 			emitting = true;
-			editor.commands.setContent(deserialize(val));
+			editor.commands.setContent(deserialize(normalized));
 			emitting = false;
 		} else {
 			isDynamicMode.value = false;
-			staticValue.value = val?.value ?? val ?? "";
+			staticValue.value = normalized.value ?? "";
 		}
 	},
 	{ immediate: true }
