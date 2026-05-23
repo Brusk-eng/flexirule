@@ -45,6 +45,7 @@
 						:modelValue="config.filters"
 						:readOnly="readOnly"
 						:nodeId="node?.id"
+						:variableOptions="variable_options"
 						@update:modelValue="(val) => update_config_key('filters', val)"
 					/>
 				</div>
@@ -158,6 +159,7 @@
 						:modelValue="config.filters"
 						:readOnly="readOnly"
 						:nodeId="node?.id"
+						:variableOptions="variable_options"
 						@update:modelValue="(val) => update_config_key('filters', val)"
 					/>
 				</div>
@@ -253,6 +255,7 @@
 						:modelValue="config.filters"
 						:readOnly="readOnly"
 						:nodeId="node?.id"
+						:variableOptions="variable_options"
 						@update:modelValue="(val) => update_config_key('filters', val)"
 					/>
 				</div>

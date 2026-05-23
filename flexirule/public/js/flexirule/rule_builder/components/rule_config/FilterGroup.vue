@@ -87,6 +87,7 @@
 											:disabled="readOnly"
 											:engine="store"
 											:doc="store?.rule_doc"
+											:variableOptions="variableOptions"
 											@update:modelValue="
 												(val) => updateBetweenValue(idx, 0, val)
 											"
@@ -108,6 +109,7 @@
 											:disabled="readOnly"
 											:engine="store"
 											:doc="store?.rule_doc"
+											:variableOptions="variableOptions"
 											@update:modelValue="
 												(val) => updateBetweenValue(idx, 1, val)
 											"
@@ -126,6 +128,7 @@
 										}"
 										:engine="store"
 										:doc="store?.rule_doc"
+										:variableOptions="variableOptions"
 										:disabled="readOnly"
 										:readOnly="readOnly"
 									/>
@@ -186,6 +189,10 @@ const props = defineProps({
 	allowAnyDoctype: {
 		type: Boolean,
 		default: false,
+	},
+	variableOptions: {
+		type: Array,
+		default: () => [],
 	},
 });
 
@@ -932,35 +939,33 @@ onMounted(async () => {
 }
 
 .filter-row-main {
-	display: grid;
-	grid-template-columns: 1.6fr 0.9fr 0.85fr 2.2fr auto;
+	display: flex;
 	gap: var(--fxr-space-4);
 	align-items: center;
+	width: 100%;
 }
 
 /* ─── Column Sizing ─── */
 .doctype-col {
-	grid-column: span 1;
+	flex: 0 0 160px;
 }
 
 .field-col {
+	flex: 0 0 220px;
 	min-width: 110px;
 }
 
 .operator-col {
-	min-width: 80px;
+	flex: 0 0 110px;
 }
 
 .value-col {
-	min-width: 180px;
-}
-
-.type-col {
-	min-width: 120px;
+	flex: 1;
+	min-width: 0;
 }
 
 .action-col {
-	width: 28px;
+	flex: 0 0 28px;
 	display: flex;
 	justify-content: center;
 }
@@ -1200,12 +1205,23 @@ onMounted(async () => {
 
 @media (max-width: 920px) {
 	.filter-row-main {
-		grid-template-columns: 1fr;
+		flex-wrap: wrap;
 		gap: var(--fxr-space-3);
+	}
+
+	.doctype-col,
+	.field-col,
+	.operator-col {
+		flex: 1 1 200px;
+	}
+
+	.value-col {
+		flex: 1 1 100%;
 	}
 
 	.action-col {
 		width: 100%;
+		flex: 1 1 100%;
 		justify-content: flex-end;
 	}
 }
