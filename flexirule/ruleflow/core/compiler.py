@@ -251,16 +251,17 @@ class ConditionCompiler:
 
 		rhs_code = self._compile_operand(right, scopes)
 		py_op = self.OPERATOR_MAP.get(op, "==")
+		right_value = right.get("value") if isinstance(right, dict) else None
 
 		# Link/Dynamic Link Tuple Handling
 		# _compile_operand returns repr(list) for our tuples, so it looks like "['DocType', 'Value']"
 		# We need to distinguish between ['DocType', 'Value'] and ['Val1', 'Val2']
 		if (
-			isinstance(right.get("value"), list | tuple)
-			and len(right.get("value")) == 2
-			and isinstance(right.get("value")[0], str)
+			isinstance(right_value, list | tuple)
+			and len(right_value) == 2
+			and isinstance(right_value[0], str)
 		):
-			val = right.get("value")
+			val = right_value
 			is_link_tuple = False
 			if op in ["==", "!="]:
 				is_link_tuple = True
@@ -371,25 +372,108 @@ class ConditionCompiler:
 			return self._resolve_ref(operand["ref"], scopes)
 
 		if "value" in operand:
-			val = operand["value"]
-			# Frappe-compatible output: None -> '', False -> 0, True -> 1
-			if val is None:
-				return "''"
-			if val is True:
-				return "1"
-			if val is False:
-				return "0"
-
-			# Handle Link Tuples (List/Tuple)
-			if isinstance(val, list | tuple):
-				return repr(val)
-
-			# For strings use repr, for numbers use direct
-			if isinstance(val, str):
-				return repr(val)
-			return repr(val)
+			return self._compile_operand_value(operand["value"], scopes)
 
 		return "''"
+
+	def _compile_operand_value(self, value, scopes):
+		"""Compile a literal/structured operand payload into Python code."""
+		# Structured payload from unified FlexValueControl.
+		if isinstance(value, dict) and "mode" in value:
+			mode = (value.get("mode") or "static").strip().lower()
+
+			if mode in {"static", "link", "dynamic_link"}:
+				return self._compile_operand_value(value.get("value"), scopes)
+
+			if mode == "variable":
+				path = value.get("path") or value.get("value") or ""
+				return self._resolve_ref(path, scopes)
+
+			if mode in {"resolver", "formula", "format", "formatter", "normalize", "normalization"}:
+				expr = value.get("value") or value.get("expression") or value.get("resolver") or ""
+				return self._compile_dynamic_expression(expr, scopes)
+
+			if mode == "expression":
+				return self._compile_mixed_expression(value.get("value"), scopes)
+
+			return self._compile_operand_value(value.get("value"), scopes)
+
+		# Frappe-compatible output: None -> '', False -> 0, True -> 1
+		if value is None:
+			return "''"
+		if value is True:
+			return "1"
+		if value is False:
+			return "0"
+
+		# Preserve tuples/lists for link semantics and IN operators.
+		if isinstance(value, list | tuple):
+			return repr(value)
+
+		return repr(value)
+
+	def _compile_dynamic_expression(self, expression: Any, scopes) -> str:
+		"""Compile dynamic resolver/formula expression payload."""
+		if expression is None:
+			return "''"
+
+		if isinstance(expression, bool):
+			return "1" if expression else "0"
+
+		if isinstance(expression, int | float):
+			return repr(expression)
+
+		if not isinstance(expression, str):
+			return repr(expression)
+
+		expr = expression.strip()
+		if not expr:
+			return "''"
+
+		# "{...}" safe-eval style expression.
+		if expr.startswith("{") and expr.endswith("}") and expr.count("{") == 1:
+			inner = expr[1:-1].strip()
+			return inner or "''"
+
+		# Bare context reference (doc.x / vars.y / alias.z).
+		if "." in expr and expr.split(".", 1)[0] in scopes:
+			return self._resolve_ref(expr, scopes)
+
+		return repr(expr)
+
+	def _compile_mixed_expression(self, segments: Any, scopes) -> str:
+		"""Compile mixed text/tokens expression payload."""
+		if not isinstance(segments, list) or not segments:
+			return "''"
+
+		parts: list[str] = []
+		for seg in segments:
+			if not isinstance(seg, dict):
+				continue
+
+			seg_type = seg.get("type")
+			if seg_type == "text":
+				parts.append(repr(seg.get("value", "")))
+				continue
+
+			attrs = seg.get("attrs") or {}
+			if seg_type == "variableToken":
+				ref_code = self._resolve_ref(attrs.get("path") or "", scopes)
+				parts.append(f"str({ref_code} or '')")
+				continue
+
+			if seg_type in {"resolverToken", "formulaToken", "normalizeToken", "formatToken"}:
+				expr_code = self._compile_dynamic_expression(
+					attrs.get("expression") or attrs.get("resolver") or "", scopes
+				)
+				parts.append(f"str({expr_code} or '')")
+				continue
+
+		if not parts:
+			return "''"
+		if len(parts) == 1:
+			return parts[0]
+		return "(" + " + ".join(parts) + ")"
 
 	def _resolve_ref(self, path, scopes):
 		"""

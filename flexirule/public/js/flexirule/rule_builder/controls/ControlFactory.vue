@@ -67,14 +67,9 @@
 				:value="modelValue"
 				:disabled="df.read_only"
 				:aria-label="__(df.label)"
-				@input="
-					$emit(
-						'update:modelValue',
-						df.fieldtype === 'Int'
-							? parseInt($event.target.value)
-							: parseFloat($event.target.value)
-					)
-				"
+				@input="$emit('update:modelValue', $event.target.value)"
+				@blur="evaluateMath($event, df.fieldtype)"
+				@keydown.enter="evaluateMath($event, df.fieldtype)"
 			/>
 			<div v-if="df.description" class="description text-muted mt-1">
 				{{ __(df.description) }}
@@ -212,16 +207,26 @@
 
 		<FlexValueControl
 			v-else-if="df?.fieldtype === 'Structured Value'"
-			:df="df"
 			:modelValue="modelValue"
 			:read_only="df?.read_only"
 			:variableOptions="df?.variable_options || []"
-			:fieldType="df?.target_fieldtype || 'Data'"
 			:compact="df?.compact || false"
 			:placeholder="df?.placeholder || ''"
-			:options="df?.options"
-			:hideLabel="hideLabel"
-			:hideDescription="hideDescription"
+			:disabled="df?.read_only"
+			:engine="engine"
+			:doc="doc"
+			:context="{
+				...(df?.context || {}),
+				df: {
+					...(df || {}),
+					fieldtype: df?.target_fieldtype || df?.context?.df?.fieldtype || 'Data',
+					options: df?.target_options || df?.options,
+				},
+				referenceDoctype:
+					df?.context?.referenceDoctype ||
+					df?.target_doctype ||
+					engine?.rule_doc?.document_type,
+			}"
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
@@ -402,6 +407,35 @@ function onDrop(event) {
 			input.focus();
 			input.setSelectionRange(start + text.length, start + text.length);
 		});
+	}
+}
+
+function evaluateMath(event, fieldtype) {
+	let val = event.target.value;
+	if (!val) return;
+
+	// Basic math evaluation for inline expressions like 1500*7
+	try {
+		// Only allow numbers and basic math operators
+		if (/^[0-9+\-*/().\s]+$/.test(val)) {
+			// eslint-disable-next-line no-new-func
+			const evaluated = new Function(`return ${val}`)();
+			if (!isNaN(evaluated)) {
+				const finalVal = fieldtype === "Int" ? parseInt(evaluated) : parseFloat(evaluated);
+				emit("update:modelValue", finalVal);
+				event.target.value = finalVal;
+			}
+		} else {
+			const finalVal = fieldtype === "Int" ? parseInt(val) : parseFloat(val);
+			if (!isNaN(finalVal)) {
+				emit("update:modelValue", finalVal);
+			}
+		}
+	} catch (e) {
+		const finalVal = fieldtype === "Int" ? parseInt(val) : parseFloat(val);
+		if (!isNaN(finalVal)) {
+			emit("update:modelValue", finalVal);
+		}
 	}
 }
 </script>

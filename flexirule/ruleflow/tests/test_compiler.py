@@ -28,6 +28,39 @@ class TestConditionCompiler(FrappeTestCase):
 		expected = "(doc.get('status') == 'Open')"
 		self.assertEqual(result, expected)
 
+	def test_compile_static_mode_condition(self):
+		"""Structured static payload should compile as literal value."""
+		condition = {
+			"left": {"ref": "doc.status"},
+			"op": "==",
+			"right": {"value": {"mode": "static", "value": "Open"}},
+		}
+
+		result = self.compiler.compile([condition])
+		self.assertEqual(result, "(doc.get('status') == 'Open')")
+
+	def test_compile_variable_mode_condition(self):
+		"""Structured variable payload should compile to scoped context reference."""
+		condition = {
+			"left": {"ref": "doc.grand_total"},
+			"op": ">",
+			"right": {"value": {"mode": "variable", "value": "vars.threshold"}},
+		}
+
+		result = self.compiler.compile([condition])
+		self.assertEqual(result, "(doc.get('grand_total') > vars.get('threshold'))")
+
+	def test_compile_resolver_mode_condition(self):
+		"""Structured resolver payload should compile embedded expression safely."""
+		condition = {
+			"left": {"ref": "doc.qty"},
+			"op": ">=",
+			"right": {"value": {"mode": "resolver", "value": "{5 + 2}"}},
+		}
+
+		result = self.compiler.compile([condition])
+		self.assertEqual(result, "(doc.get('qty') >= 5 + 2)")
+
 	def test_compile_and_group(self):
 		"""Test compiling an AND group"""
 		condition = {

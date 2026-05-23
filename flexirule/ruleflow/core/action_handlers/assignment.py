@@ -170,7 +170,7 @@ class AssignmentHandler(ActionHandler):
 			return str(val.get("value") if val.get("value") is not None else "")
 
 		if mode == "variable":
-			path = val.get("path")
+			path = val.get("path") or val.get("value")
 			if path:
 				if not (path.startswith("doc.") or path.startswith("vars.")):
 					path = f"vars.{path}"

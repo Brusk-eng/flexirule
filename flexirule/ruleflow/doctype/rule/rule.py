@@ -678,7 +678,9 @@ class Rule(Document):
 				}
 			if mode == "variable":
 				normalized_path = self._normalize_context_ref(
-					val_obj.get("path") or "", known_var_roots, extra_allowed_roots=None
+					val_obj.get("path") or val_obj.get("value") or "",
+					known_var_roots,
+					extra_allowed_roots=None,
 				)
 				return {
 					"value_source": "context_path",
