@@ -87,7 +87,7 @@
 											:disabled="readOnly"
 											:engine="store"
 											:doc="store?.rule_doc"
-											:variableOptions="variableOptions"
+											:variableOptions="effectiveVariableOptions"
 											@update:modelValue="
 												(val) => updateBetweenValue(idx, 0, val)
 											"
@@ -109,7 +109,7 @@
 											:disabled="readOnly"
 											:engine="store"
 											:doc="store?.rule_doc"
-											:variableOptions="variableOptions"
+											:variableOptions="effectiveVariableOptions"
 											@update:modelValue="
 												(val) => updateBetweenValue(idx, 1, val)
 											"
@@ -128,7 +128,7 @@
 										}"
 										:engine="store"
 										:doc="store?.rule_doc"
-										:variableOptions="variableOptions"
+										:variableOptions="effectiveVariableOptions"
 										:disabled="readOnly"
 										:readOnly="readOnly"
 									/>
@@ -163,7 +163,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, inject } from "vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import { useStore } from "../../stores";
@@ -192,12 +192,18 @@ const props = defineProps({
 	},
 	variableOptions: {
 		type: Array,
-		default: () => [],
+		default: null,
 	},
 });
 
 const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
+
+// Align with the new architecture: prefer injected variableOptions if prop is not explicitly provided.
+const injectedVariableOptions = inject("variableOptions", ref([]));
+const effectiveVariableOptions = computed(
+	() => props.variableOptions ?? injectedVariableOptions.value
+);
 
 const panelStyleVars = computed(() => {
 	const node = (store.nodes || []).find((n) => n.id === props.nodeId);
@@ -219,7 +225,7 @@ const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
 			"Tomorrow",
 			"This",
 			"Next",
-	  ])
+		])
 	: [
 			{ label: __("Last 7 Days"), value: "last 7 days" },
 			{ label: __("Last 14 Days"), value: "last 14 days" },
@@ -245,7 +251,7 @@ const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
 			{ label: __("Next Quarter"), value: "next quarter" },
 			{ label: __("Next 6 Months"), value: "next 6 months" },
 			{ label: __("Next Year"), value: "next year" },
-	  ];
+		];
 
 const BASE_QUERY_OPERATORS = [
 	"=",
@@ -880,7 +886,7 @@ const updateBetweenValue = (idx, arrayIndex, val) => {
 		: [
 				{ mode: "static", value: "" },
 				{ mode: "static", value: "" },
-		  ];
+			];
 	list[arrayIndex] = val;
 	merged.value = list;
 	filters.value[idx] = merged;
@@ -930,7 +936,9 @@ onMounted(async () => {
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-lg);
 	padding: var(--fxr-space-4) var(--fxr-space-5);
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast);
 }
 
 .filter-row:hover {
@@ -1165,7 +1173,9 @@ onMounted(async () => {
 	font-size: var(--fxr-input-font-size) !important;
 	border: 1px solid var(--fxr-border) !important;
 	border-radius: var(--fxr-radius-md) !important;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast) !important;
 }
 
 .filter-row-main :deep(.fxr-control),

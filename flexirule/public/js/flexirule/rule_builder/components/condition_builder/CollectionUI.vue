@@ -15,6 +15,7 @@ const props = defineProps({
 const emit = defineEmits(["remove"]);
 
 const { addCondition, addGroup, onDrop } = inject("conditionActions");
+const parentVariableOptions = inject("variableOptions", ref([]));
 const store = useStore();
 
 const isDragOver = ref(false);
@@ -30,13 +31,76 @@ const aliasValue = computed(() => {
 	return rawAlias.replace(/[^\w]/g, "_");
 });
 
-// Provide overridden alias to children
+const scopedVariableOptions = computed(() => {
+	const alias = aliasValue.value;
+	const base = Array.isArray(parentVariableOptions.value) ? parentVariableOptions.value : [];
+	const augmented = [...base];
+
+	// Find the schema for the collection itself to see what sub-fields it has
+	const collectionPath = props.node.collection;
+	if (collectionPath) {
+		const fieldMeta = props.docFields.find((f) => f.value === collectionPath);
+		const isVariable = collectionPath.startsWith("vars.") || fieldMeta?.is_variable;
+
+		if (isVariable) {
+			const cleanPath = collectionPath.replace(/^vars\./, "");
+			const possibleRoots = [collectionPath, `vars.${cleanPath}`, cleanPath];
+			let matchedRoot = "";
+			for (const root of possibleRoots) {
+				const prefix = root + ".";
+				if (props.docFields.some((f) => f.value.startsWith(prefix))) {
+					matchedRoot = root;
+					break;
+				}
+			}
+
+			if (matchedRoot) {
+				const prefix = matchedRoot + ".";
+				props.docFields
+					.filter((f) => f.value.startsWith(prefix))
+					.forEach((f) => {
+						const subPath = f.value.slice(prefix.length);
+						augmented.unshift({
+							...f,
+							label: `${alias}.${subPath}`,
+							value: `${alias}.${subPath}`,
+							is_loop_scoped: true,
+						});
+					});
+			}
+		} else if (fieldMeta && fieldMeta.options) {
+			// For standard child tables, we fetch fields for that doctype
+			const childDoctype = fieldMeta.options;
+			const childFields =
+				typeof store.get_fields_for_doctype === "function"
+					? store.get_fields_for_doctype(childDoctype, alias)
+					: [];
+
+			childFields.forEach((f) => {
+				augmented.unshift({
+					...f,
+					is_loop_scoped: true,
+				});
+			});
+		}
+	}
+
+	// Always add the root alias itself if it represents an object/row
+	if (!augmented.find((v) => (v.value || v) === alias)) {
+		augmented.unshift({ label: alias, value: alias, is_loop_scoped: true });
+	}
+
+	return augmented;
+});
+
+// Provide overridden alias and variable options to children
 provide(
 	"conditionContext",
 	reactive({
 		alias: computed(() => aliasValue.value),
 	})
 );
+provide("variableOptions", scopedVariableOptions);
 
 const tableFields = computed(() => {
 	const fields = props.docFields || [];

@@ -17,6 +17,7 @@
 			<ConditionBuilder
 				:modelValue="localConditions"
 				:docFields="docFields"
+				:variableOptions="variableFields"
 				@update:modelValue="updateConditions"
 			/>
 		</div>
