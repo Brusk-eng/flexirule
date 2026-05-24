@@ -614,6 +614,7 @@ function createSuggestionRenderer() {
 				interactive: true,
 				trigger: "manual",
 				placement: "bottom-start",
+				zIndex: 14000,
 			});
 		},
 		onUpdate(props) {

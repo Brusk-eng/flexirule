@@ -87,7 +87,7 @@
 											:disabled="readOnly"
 											:engine="store"
 											:doc="store?.rule_doc"
-											:variableOptions="variableOptions"
+											:variableOptions="effectiveVariableOptions"
 											@update:modelValue="
 												(val) => updateBetweenValue(idx, 0, val)
 											"
@@ -109,7 +109,7 @@
 											:disabled="readOnly"
 											:engine="store"
 											:doc="store?.rule_doc"
-											:variableOptions="variableOptions"
+											:variableOptions="effectiveVariableOptions"
 											@update:modelValue="
 												(val) => updateBetweenValue(idx, 1, val)
 											"
@@ -128,7 +128,7 @@
 										}"
 										:engine="store"
 										:doc="store?.rule_doc"
-										:variableOptions="variableOptions"
+										:variableOptions="effectiveVariableOptions"
 										:disabled="readOnly"
 										:readOnly="readOnly"
 									/>
@@ -163,7 +163,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, inject } from "vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import { useStore } from "../../stores";
@@ -192,12 +192,18 @@ const props = defineProps({
 	},
 	variableOptions: {
 		type: Array,
-		default: () => [],
+		default: null,
 	},
 });
 
 const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
+
+// Align with the new architecture: prefer injected variableOptions if prop is not explicitly provided.
+const injectedVariableOptions = inject("variableOptions", ref([]));
+const effectiveVariableOptions = computed(
+	() => props.variableOptions ?? injectedVariableOptions.value
+);
 
 const panelStyleVars = computed(() => {
 	const node = (store.nodes || []).find((n) => n.id === props.nodeId);

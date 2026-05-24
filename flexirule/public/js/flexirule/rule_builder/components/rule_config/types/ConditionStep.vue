@@ -17,6 +17,7 @@
 			<ConditionBuilder
 				:modelValue="localConditions"
 				:docFields="docFields"
+				:variableOptions="combinedVariableOptions"
 				@update:modelValue="updateConditions"
 			/>
 		</div>
@@ -262,6 +263,23 @@ const docFields = computed(() => {
 	return fields.sort((a, b) => a.label.localeCompare(b.label));
 });
 
+const combinedVariableOptions = computed(() => {
+	const dedupe = new Map();
+	const pushOption = (v) => {
+		const key = v.value || v;
+		if (!key) return;
+		dedupe.set(key, v);
+	};
+
+	// 1. Context fields (doc.*, caller.*, rule.*)
+	docFields.value.forEach(pushOption);
+
+	// 2. Runtime variables (vars.*)
+	variableFields.value.forEach(pushOption);
+
+	return Array.from(dedupe.values());
+});
+
 async function refreshVariableFields() {
 	const nodeId = props.node?.id;
 	if (!nodeId || props.node?.type === "start") {
@@ -271,9 +289,7 @@ async function refreshVariableFields() {
 
 	try {
 		const available = await store.getAvailableVariables(nodeId);
-		variableFields.value = (available || []).filter((field) =>
-			field?.value?.startsWith("vars.")
-		);
+		variableFields.value = available || [];
 	} catch (e) {
 		variableFields.value = [];
 	}

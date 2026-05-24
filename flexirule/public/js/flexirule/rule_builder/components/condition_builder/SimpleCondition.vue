@@ -25,6 +25,7 @@ const operatorConfig = inject(
 );
 
 const store = inject("store");
+const variableOptions = inject("variableOptions", ref([]));
 
 // Dynamic Link State
 const dynamicLinkDocType = ref("");
@@ -350,6 +351,7 @@ watch(
 						}"
 						:engine="store"
 						:doc="store?.rule_doc"
+						:variableOptions="variableOptions"
 						:readOnly="readOnly"
 						:disabled="readOnly"
 						class="w-100 min-w-0"

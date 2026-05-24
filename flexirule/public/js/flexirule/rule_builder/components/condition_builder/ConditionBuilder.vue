@@ -93,6 +93,7 @@ import ConditionNode from "./ConditionNode.vue";
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({ op: "and", conditions: [] }) },
 	docFields: { type: Array, default: () => [] },
+	variableOptions: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
 });
 
@@ -276,6 +277,10 @@ provide("conditionActions", {
 provide(
 	"docFields",
 	computed(() => props.docFields)
+);
+provide(
+	"variableOptions",
+	computed(() => props.variableOptions)
 );
 provide("conditionContext", reactive({ alias: "doc" }));
 provide("operatorConfig", operatorConfig);
