@@ -149,7 +149,7 @@
 
 		<!-- Table -->
 		<FlexiGrid
-			v-else-if="df?.fieldtype === 'Table'"
+			v-else-if="['Table', 'FlexiGrid', 'flexigrid'].includes(df?.fieldtype)"
 			:df="df"
 			:modelValue="modelValue"
 			:engine="engine"

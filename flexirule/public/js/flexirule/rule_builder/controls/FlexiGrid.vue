@@ -6,6 +6,10 @@
 			<span v-if="df.reqd" class="text-danger">*</span>
 		</div>
 
+		<div v-if="df.reqd && !localRows.length" class="text-danger small mb-2">
+			<i class="fa fa-exclamation-circle"></i> {{ __("{0} is mandatory", [df.label]) }}
+		</div>
+
 		<div class="grid-container">
 			<div class="grid-table" :style="{ '--grid-cols': gridTemplateColumns }">
 				<!-- HEADER -->
@@ -37,6 +41,10 @@
 								@mousedown="startResize($event, col.fieldname)"
 							></div>
 						</div>
+
+						<div v-if="!read_only" class="header-cell static-col">
+							<i class="fa fa-cog text-muted"></i>
+						</div>
 					</div>
 				</div>
 
@@ -51,7 +59,11 @@
 							/>
 						</div>
 
-						<div class="grid-cell static-col text-muted">
+						<div
+							class="grid-cell static-col text-muted"
+							:class="{ 'row-has-error': isRowInvalid(row) }"
+						>
+							<i v-if="isRowInvalid(row)" class="fa fa-exclamation-circle text-danger mr-1"></i>
 							{{ rowIndex + 1 }}
 						</div>
 
@@ -62,6 +74,8 @@
 							:class="{
 								'sticky-col': col.sticky,
 								'is-required': getCellState(row, col.fieldname).reqd,
+								'has-error':
+									getCellState(row, col.fieldname).reqd && !row[col.fieldname],
 							}"
 							:style="stickyStyle(col)"
 						>
@@ -76,6 +90,32 @@
 								@update:modelValue="updateCell(rowIndex, col.fieldname, $event)"
 							/>
 						</div>
+
+						<div v-if="!read_only" class="grid-cell static-col actions-col">
+							<button
+								class="btn btn-xs btn-link text-muted p-0"
+								:title="__('Move Up')"
+								:disabled="rowIndex === 0"
+								@click="moveRow(rowIndex, -1)"
+							>
+								<i class="fa fa-chevron-up"></i>
+							</button>
+							<button
+								class="btn btn-xs btn-link text-muted p-0 ml-1"
+								:title="__('Move Down')"
+								:disabled="rowIndex === localRows.length - 1"
+								@click="moveRow(rowIndex, 1)"
+							>
+								<i class="fa fa-chevron-down"></i>
+							</button>
+							<button
+								class="btn btn-xs btn-link text-danger p-0 ml-2"
+								:title="__('Remove Row')"
+								@click="removeRow(rowIndex)"
+							>
+								<i class="fa fa-trash"></i>
+							</button>
+						</div>
 					</div>
 
 					<div v-if="!localRows.length" class="empty-state">
@@ -87,9 +127,20 @@
 
 		<!-- Footer -->
 		<div v-if="!read_only" class="grid-footer">
-			<button class="btn btn-xs btn-default" @click="addRow">
-				<i class="fa fa-plus"></i> {{ __("Add Row") }}
-			</button>
+			<div class="footer-actions">
+				<button class="btn btn-xs btn-default" @click="addRow">
+					<i class="fa fa-plus"></i> {{ __("Add Row") }}
+				</button>
+				<button
+					v-if="isAnySelected"
+					class="btn btn-xs btn-danger-light ml-2"
+					@click="removeSelectedRows"
+				>
+					<i class="fa fa-trash"></i> {{ __("Delete Selected") }} ({{
+						selectedRows.size
+					}})
+				</button>
+			</div>
 		</div>
 	</div>
 </template>
@@ -116,12 +167,18 @@ const columnWidths = reactive({});
 const columns = computed(() => props.df.fields || []);
 
 const visibleColumns = computed(() =>
-	columns.value.filter(
-		(c) =>
-			!c.hidden &&
-			c.in_list_view !== 0 &&
-			!["Section Break", "Column Break", "HTML"].includes(c.fieldtype)
-	)
+	columns.value.filter((c) => {
+		if (c.hidden || c.in_list_view === 0) return false;
+		if (["Section Break", "Column Break", "HTML"].includes(c.fieldtype)) return false;
+
+		// Check engine-level column visibility (shared for the table)
+		if (props.engine) {
+			const colState = props.engine.dependency_states?.[props.df.fieldname]?.[c.fieldname];
+			if (colState && colState.hidden) return false;
+		}
+
+		return true;
+	})
 );
 
 /* ---------------- Grid Template ---------------- */
@@ -131,6 +188,9 @@ const gridTemplateColumns = computed(() => {
 	visibleColumns.value.forEach((c) => {
 		cols.push(getColumnWidth(c.fieldname));
 	});
+	if (!props.read_only) {
+		cols.push("80px"); // Wider for action buttons
+	}
 	return cols.join(" ");
 });
 
@@ -244,6 +304,25 @@ function toggleAll() {
 		: localRows.value.forEach((r) => selectedRows.value.add(r.name));
 }
 
+function removeRow(idx) {
+	localRows.value.splice(idx, 1);
+	emit("update:modelValue", [...localRows.value]);
+}
+
+function removeSelectedRows() {
+	localRows.value = localRows.value.filter((r) => !selectedRows.value.has(r.name));
+	selectedRows.value.clear();
+	emit("update:modelValue", [...localRows.value]);
+}
+
+function moveRow(idx, direction) {
+	const newIdx = idx + direction;
+	if (newIdx < 0 || newIdx >= localRows.value.length) return;
+	const row = localRows.value.splice(idx, 1)[0];
+	localRows.value.splice(newIdx, 0, row);
+	emit("update:modelValue", [...localRows.value]);
+}
+
 const { getNormalizedDf, getFieldState } = useFieldNormalization(props.engine);
 
 function getCellState(row, field) {
@@ -256,6 +335,13 @@ function isCellHidden(row, field) {
 
 function getEffectiveDf(row, col) {
 	return getNormalizedDf(col, row.name, props.read_only);
+}
+
+function isRowInvalid(row) {
+	return visibleColumns.value.some((col) => {
+		const state = getCellState(row, col.fieldname);
+		return state.reqd && !row[col.fieldname];
+	});
 }
 </script>
 
@@ -493,12 +579,63 @@ function getEffectiveDf(row, col) {
 	z-index: 90;
 }
 
+.flexi-grid .grid-cell.has-error {
+	background-color: #fff8f8;
+}
+
+.flexi-grid .grid-cell.has-error .form-control {
+	border-color: var(--red-500, #ef4444) !important;
+}
+
+.flexi-grid .actions-col {
+	justify-content: flex-end;
+	padding-right: 12px;
+	gap: 4px;
+}
+
+.flexi-grid .actions-col .btn-link {
+	text-decoration: none;
+	opacity: 0.6;
+	transition: opacity 0.2s;
+}
+
+.flexi-grid .actions-col .btn-link:hover:not(:disabled) {
+	opacity: 1;
+}
+
+.flexi-grid .actions-col .btn-link:disabled {
+	opacity: 0.2;
+	cursor: not-allowed;
+}
+
+.flexi-grid .row-has-error {
+	color: var(--red-500, #ef4444) !important;
+	font-weight: bold;
+}
+
 /* ---------- Footer ---------- */
 
 .flexi-grid .grid-footer {
 	padding: 12px 0;
 	display: flex;
 	align-items: center;
+}
+
+.flexi-grid .footer-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.flexi-grid .btn-danger-light {
+	background: #fff5f5;
+	color: #e53e3e;
+	border: 1px solid #feb2b2;
+}
+
+.flexi-grid .btn-danger-light:hover {
+	background: #fed7d7;
+	border-color: #fc8181;
 }
 
 /* ---------- Empty State ---------- */
