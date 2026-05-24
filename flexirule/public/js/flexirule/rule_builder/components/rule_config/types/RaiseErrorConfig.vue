@@ -26,11 +26,9 @@
 			</div>
 
 			<div class="form-group mb-3">
-				<TextGeneratorControl
+				<ControlFactory
 					:df="with_read_only(textGeneratorField)"
 					:modelValue="config.text_generator_ui"
-					:read_only="readOnly"
-					:variableOptions="variable_options"
 					@update:modelValue="update_template_ui"
 				/>
 			</div>

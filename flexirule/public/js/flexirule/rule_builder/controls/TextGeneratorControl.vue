@@ -448,7 +448,18 @@ const editor = new Editor({
 					const type = props.id === "if" ? "conditional" : "loop";
 					const key = Math.random().toString(36).slice(2, 9);
 					const content = [
-						{ type: "logic", attrs: { type, isStart: true, _key: key } },
+						{
+							type: "logic",
+							attrs: {
+								type,
+								isStart: true,
+								_key: key,
+								condition:
+									type === "conditional" ? { op: "and", conditions: [] } : null,
+								iterator: type === "loop" ? "item" : "",
+								iterable: "",
+							},
+						},
 						{ type: "text", text: " " },
 					];
 					if (type === "conditional") {

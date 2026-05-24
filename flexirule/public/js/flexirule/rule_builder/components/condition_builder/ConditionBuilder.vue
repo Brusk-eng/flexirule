@@ -101,8 +101,22 @@ const emit = defineEmits(["update:modelValue"]);
 
 const store = useStore();
 
+/**
+ * Ensure we have a valid root group structure.
+ */
+function normalizeModel(val) {
+	if (!val || typeof val !== "object") {
+		return { op: "and", conditions: [] };
+	}
+	return {
+		op: val.op || "and",
+		conditions: Array.isArray(val.conditions) ? val.conditions : [],
+		id: val.id,
+	};
+}
+
 // Create a reactive copy of the model
-const rootGroup = reactive(JSON.parse(JSON.stringify(props.modelValue)));
+const rootGroup = reactive(normalizeModel(props.modelValue));
 
 let isUpdating = false;
 
@@ -120,14 +134,15 @@ watch(
 watch(
 	() => props.modelValue,
 	(newVal) => {
-		if (!newVal || isUpdating) return;
+		if (isUpdating) return;
 
+		const normalized = normalizeModel(newVal);
 		const currentJSON = JSON.stringify(rootGroup);
-		const newJSON = JSON.stringify(newVal);
+		const newJSON = JSON.stringify(normalized);
 
 		if (newJSON !== currentJSON) {
 			isUpdating = true;
-			Object.assign(rootGroup, JSON.parse(newJSON));
+			Object.assign(rootGroup, normalized);
 			nextTick(() => {
 				isUpdating = false;
 			});

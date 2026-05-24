@@ -199,7 +199,8 @@
 			:df="df"
 			:modelValue="modelValue"
 			:read_only="df?.read_only"
-			:variableOptions="df?.variable_options || []"
+			:variableOptions="df?.variable_options || injectedVariableOptions"
+			:docFieldOptions="df?.doc_field_options || injectedDocFields"
 			:hideLabel="hideLabel"
 			:hideDescription="hideDescription"
 			@update:modelValue="$emit('update:modelValue', $event)"
@@ -209,7 +210,7 @@
 			v-else-if="df?.fieldtype === 'Structured Value'"
 			:modelValue="modelValue"
 			:read_only="df?.read_only"
-			:variableOptions="df?.variable_options || []"
+			:variableOptions="df?.variable_options || injectedVariableOptions"
 			:compact="df?.compact || false"
 			:placeholder="df?.placeholder || ''"
 			:disabled="df?.read_only"
@@ -258,7 +259,7 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, watch, computed, defineAsyncComponent } from "vue";
+import { nextTick, onMounted, watch, computed, defineAsyncComponent, inject } from "vue";
 import ComboBoxControl from "./ComboBoxControl.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import TimePickerControl from "./TimePickerControl.vue";
@@ -271,6 +272,9 @@ import TextGeneratorControl from "./TextGeneratorControl.vue";
 // Use async components for potential circular dependencies
 const FlexiGrid = defineAsyncComponent(() => import("./FlexiGrid.vue"));
 const FlexValueControl = defineAsyncComponent(() => import("./FlexValueControl.vue"));
+
+const injectedVariableOptions = inject("variableOptions", null);
+const injectedDocFields = inject("docFields", null);
 
 const props = defineProps({
 	df: Object,
