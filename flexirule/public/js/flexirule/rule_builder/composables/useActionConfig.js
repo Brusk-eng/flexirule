@@ -1,4 +1,4 @@
-import { reactive, ref, computed, watch, onMounted } from "vue";
+import { reactive, ref, computed, watch, onMounted, provide } from "vue";
 import { useStore } from "../stores";
 
 export function useActionConfig(props) {
@@ -168,6 +168,15 @@ export function useActionConfig(props) {
 		() => store.nodes,
 		() => refresh_variables(),
 		{ deep: true }
+	);
+
+	provide(
+		"variableOptions",
+		computed(() => variable_options.value)
+	);
+	provide(
+		"docFields",
+		computed(() => doctype_fields.value)
 	);
 
 	function is_field_valid(fieldname, dt_fields) {
