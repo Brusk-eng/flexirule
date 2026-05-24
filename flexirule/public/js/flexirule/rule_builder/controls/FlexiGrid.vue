@@ -63,7 +63,10 @@
 							class="grid-cell static-col text-muted"
 							:class="{ 'row-has-error': isRowInvalid(row) }"
 						>
-							<i v-if="isRowInvalid(row)" class="fa fa-exclamation-circle text-danger mr-1"></i>
+							<i
+								v-if="isRowInvalid(row)"
+								class="fa fa-exclamation-circle text-danger mr-1"
+							></i>
 							{{ rowIndex + 1 }}
 						</div>
 
