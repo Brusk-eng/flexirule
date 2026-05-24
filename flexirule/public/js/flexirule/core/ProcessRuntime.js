@@ -40,7 +40,12 @@ export default class ProcessRuntime extends BaseEngine {
 		// 4. Evaluate Child Rows (Recursively)
 		const traverse_evaluate = async (fields, data) => {
 			for (const field of fields) {
-				if (field.fieldtype === "Table" && Array.isArray(data[field.fieldname])) {
+				if (
+					(field.fieldtype === "Table" ||
+						field._source_fieldtype === "FlexiGrid" ||
+						field._source_fieldtype === "flexigrid") &&
+					Array.isArray(data[field.fieldname])
+				) {
 					for (const row of data[field.fieldname]) {
 						const table_name = row.__table_fieldname || field.fieldname;
 						await this.evaluate_dependencies(

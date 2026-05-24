@@ -78,7 +78,8 @@
 								'sticky-col': col.sticky,
 								'is-required': getCellState(row, col.fieldname).reqd,
 								'has-error':
-									getCellState(row, col.fieldname).reqd && !row[col.fieldname],
+									getCellState(row, col.fieldname).reqd &&
+									isValueEmpty(row[col.fieldname]),
 							}"
 							:style="stickyStyle(col)"
 						>
@@ -173,13 +174,6 @@ const visibleColumns = computed(() =>
 	columns.value.filter((c) => {
 		if (c.hidden || c.in_list_view === 0) return false;
 		if (["Section Break", "Column Break", "HTML"].includes(c.fieldtype)) return false;
-
-		// Check engine-level column visibility (shared for the table)
-		if (props.engine) {
-			const colState = props.engine.dependency_states?.[props.df.fieldname]?.[c.fieldname];
-			if (colState && colState.hidden) return false;
-		}
-
 		return true;
 	})
 );
@@ -343,8 +337,12 @@ function getEffectiveDf(row, col) {
 function isRowInvalid(row) {
 	return visibleColumns.value.some((col) => {
 		const state = getCellState(row, col.fieldname);
-		return state.reqd && !row[col.fieldname];
+		return state.reqd && isValueEmpty(row[col.fieldname]);
 	});
+}
+
+function isValueEmpty(val) {
+	return val === undefined || val === null || val === "";
 }
 </script>
 
