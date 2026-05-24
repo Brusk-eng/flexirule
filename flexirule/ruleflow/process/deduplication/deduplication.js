@@ -101,7 +101,7 @@ flexirule.processes["Deduplication"] = {
 				},
 				{
 					fieldname: "fields_config",
-					fieldtype: "Table",
+					fieldtype: "FlexiGrid",
 					label: __("Field Comparison Rules"),
 					reqd: 1,
 					fields: get_dedupe_table_fields(),
