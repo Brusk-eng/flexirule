@@ -25,6 +25,8 @@ export default {
 		const mapping = {
 			DocField: "Autocomplete",
 			MultiDocField: "MultiSelectList",
+			FlexiGrid: "Table",
+			flexigrid: "Table",
 		};
 		return mapping[fieldtype] || fieldtype;
 	},
@@ -60,7 +62,11 @@ export default {
 			if (["Section Break", "Column Break", "HTML", "Button"].includes(field.fieldtype))
 				continue;
 
-			if (field.fieldtype === "Table") {
+			if (
+				field.fieldtype === "Table" ||
+				field._source_fieldtype === "FlexiGrid" ||
+				field._source_fieldtype === "flexigrid"
+			) {
 				const tableState = rootState[field.fieldname] || field;
 				if (tableState.hidden) continue;
 

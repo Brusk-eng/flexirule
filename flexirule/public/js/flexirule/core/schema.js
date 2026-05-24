@@ -29,7 +29,11 @@ const SchemaUtils = {
 		f.options = await this.resolveOptions(f, config, context, optionsResolver);
 
 		// 4. Handle Child Tables
-		if (f.fieldtype === "Table") {
+		if (
+			f.fieldtype === "Table" ||
+			sourceFieldtype === "FlexiGrid" ||
+			sourceFieldtype === "flexigrid"
+		) {
 			const children = f.fields || f.table_fields || [];
 			if (!f._is_normalized) {
 				const normalizedChildren = [];
@@ -132,7 +136,12 @@ const SchemaUtils = {
 
 		for (const field of target_fields) {
 			// Tables themselves are evaluated for visibility/mandatory, but not their columns here
-			if (!row && field.fieldtype === "Table") {
+			if (
+				!row &&
+				(field.fieldtype === "Table" ||
+					field._source_fieldtype === "FlexiGrid" ||
+					field._source_fieldtype === "flexigrid")
+			) {
 				// Evaluate table itself
 				await this._evaluate_single_field(
 					field,

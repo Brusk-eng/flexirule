@@ -15,10 +15,12 @@ import CodeControl from "./controls/CodeControl.vue";
 import MultiSelectList from "./controls/MultiSelectList.vue";
 import ComboBoxControl from "./controls/ComboBoxControl.vue";
 import InlineTableControl from "./controls/InlineTableControl.vue";
+import FlexiGrid from "./controls/FlexiGrid.vue";
 import PercentSliderControl from "./controls/PercentSliderControl.vue";
 
 export function registerGlobalComponents(app) {
 	app.component("ComboBoxControl", ComboBoxControl)
+		.component("FlexiGrid", FlexiGrid)
 		.component("DataControl", DataControl)
 		.component("SelectControl", SelectControl)
 		.component("CheckControl", CheckControl)
