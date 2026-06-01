@@ -21,8 +21,41 @@
 						<span class="shortcut-desc">{{ __("Undo") }}</span>
 					</div>
 					<div class="shortcut-item">
+						<span class="shortcut-keys">
+							<kbd>Ctrl</kbd> + <kbd>Y</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> +
+							<kbd>Z</kbd>
+						</span>
+						<span class="shortcut-desc">{{ __("Redo") }}</span>
+					</div>
+					<div class="shortcut-item">
+						<span class="shortcut-keys"
+							><kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>Ctrl</kbd> + <kbd>V</kbd></span
+						>
+						<span class="shortcut-desc">{{ __("Copy / Paste Nodes") }}</span>
+					</div>
+					<div class="shortcut-item">
 						<span class="shortcut-keys"><kbd>Shift</kbd> + <kbd>?</kbd></span>
 						<span class="shortcut-desc">{{ __("Toggle this help") }}</span>
+					</div>
+				</div>
+
+				<div class="shortcut-section">
+					<h6>{{ __("Canvas") }}</h6>
+					<div class="shortcut-item">
+						<span class="shortcut-keys"><kbd>Space</kbd> ({{ __("hold") }})</span>
+						<span class="shortcut-desc">{{ __("Pan canvas") }}</span>
+					</div>
+					<div class="shortcut-item">
+						<span class="shortcut-keys"><kbd>P</kbd></span>
+						<span class="shortcut-desc">{{ __("Toggle pan mode") }}</span>
+					</div>
+					<div class="shortcut-item">
+						<span class="shortcut-keys"><kbd>Alt</kbd> ({{ __("hold") }})</span>
+						<span class="shortcut-desc">{{ __("Show control/field name") }}</span>
+					</div>
+					<div class="shortcut-item">
+						<span class="shortcut-keys"><kbd>Alt</kbd> + <kbd>Click</kbd></span>
+						<span class="shortcut-desc">{{ __("Copy control/field name") }}</span>
 					</div>
 				</div>
 
@@ -30,11 +63,11 @@
 					<h6>{{ __("Navigation") }}</h6>
 					<div class="shortcut-item">
 						<span class="shortcut-keys"><kbd>Alt</kbd> + <kbd>1</kbd></span>
-						<span class="shortcut-desc">{{ __("Jump to Variables") }}</span>
+						<span class="shortcut-desc">{{ __("Focus Variables / Sidebar") }}</span>
 					</div>
 					<div class="shortcut-item">
 						<span class="shortcut-keys"><kbd>Alt</kbd> + <kbd>2</kbd></span>
-						<span class="shortcut-desc">{{ __("Jump to Configuration") }}</span>
+						<span class="shortcut-desc">{{ __("Focus Configuration") }}</span>
 					</div>
 					<div class="shortcut-item">
 						<span class="shortcut-keys"><kbd>Alt</kbd> + <kbd>3</kbd></span>
@@ -44,21 +77,25 @@
 						<span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Arrows</kbd></span>
 						<span class="shortcut-desc">{{ __("Previous / Next Action") }}</span>
 					</div>
+					<div class="shortcut-item">
+						<span class="shortcut-keys"><kbd>Esc</kbd></span>
+						<span class="shortcut-desc">{{ __("Close modal / dialog") }}</span>
+					</div>
 				</div>
 
 				<div class="shortcut-section">
-					<h6>{{ __("Inside Lists") }}</h6>
+					<h6>{{ __("Inside Lists / Tables") }}</h6>
 					<div class="shortcut-item">
 						<span class="shortcut-keys"><kbd>↑ / ↓</kbd></span>
-						<span class="shortcut-desc">{{ __("Navigate variables/fields") }}</span>
+						<span class="shortcut-desc">{{ __("Navigate items") }}</span>
 					</div>
 					<div class="shortcut-item">
 						<span class="shortcut-keys"><kbd>Enter</kbd></span>
-						<span class="shortcut-desc">{{ __("Insert variable/field") }}</span>
+						<span class="shortcut-desc">{{ __("Select / Insert item") }}</span>
 					</div>
 					<div class="shortcut-item">
 						<span class="shortcut-keys"><kbd>C</kbd></span>
-						<span class="shortcut-desc">{{ __("Copy variable to clipboard") }}</span>
+						<span class="shortcut-desc">{{ __("Copy item to clipboard") }}</span>
 					</div>
 				</div>
 			</div>
