@@ -798,9 +798,7 @@ function onEdgeClick({ edge, event }) {
 	background: var(--fg-color, #fff);
 	border: 1px solid var(--border-color, #e2e8f0);
 	border-radius: 10px;
-	box-shadow:
-		0 18px 40px rgba(15, 23, 42, 0.16),
-		0 4px 12px rgba(15, 23, 42, 0.08);
+	box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
 	overflow: hidden;
 	animation: fxr-menu-in 120ms ease-out;
 }
