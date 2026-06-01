@@ -1,0 +1,4 @@
+[submodule "docs"]
+	path = docs
+	url = https://github.com/Sendipad/flexirule-docs.git
+	branch = develop
