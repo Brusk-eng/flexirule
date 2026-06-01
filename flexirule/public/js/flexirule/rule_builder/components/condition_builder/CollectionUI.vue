@@ -73,7 +73,10 @@ const scopedVariableOptions = computed(() => {
 			const childDoctype = fieldMeta.options;
 			const childFields =
 				typeof store.get_fields_for_doctype === "function"
-					? store.get_fields_for_doctype(childDoctype, alias)
+					? store.get_fields_for_doctype(childDoctype, {
+							alias,
+							valueMode: "expression",
+					  })
 					: [];
 
 			childFields.forEach((f) => {
@@ -223,7 +226,10 @@ function fetchChildMeta() {
 		const childDoctype = fieldMeta.options;
 		const getAliasFields = () =>
 			typeof store.get_fields_for_doctype === "function"
-				? store.get_fields_for_doctype(childDoctype, alias)
+				? store.get_fields_for_doctype(childDoctype, {
+						alias,
+						valueMode: "expression",
+				  })
 				: [];
 		const parentFields = props.docFields.filter((f) => f.fieldtype !== "Table");
 		const mergeFields = (aliasFields) => {
@@ -239,7 +245,7 @@ function fetchChildMeta() {
 		};
 
 		const childFields = getAliasFields();
-		if (childFields.length > 0) {
+		if (childFields && childFields.length > 0) {
 			mergeFields(childFields);
 			return;
 		}

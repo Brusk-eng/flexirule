@@ -163,7 +163,10 @@ const docFields = computed(() => {
 		const metaStore = store;
 		const doctype = store.rule_doc?.document_type;
 		if (doctype) {
-			const oldFields = metaStore.get_fields_for_doctype(doctype, "old_doc");
+			const oldFields = metaStore.get_fields_for_doctype(doctype, {
+				alias: "old_doc",
+				valueMode: "expression",
+			});
 			fields = [...fields, ...oldFields];
 		}
 	}

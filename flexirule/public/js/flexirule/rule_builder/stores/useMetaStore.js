@@ -113,23 +113,39 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 	}
 
 	/**
-	 * Get fields for a DocType with an optional alias prefix.
+	 * Get fields for a DocType with configurable value and label formatting.
 	 * Returns standardized objects ready for FieldPicker and ComboBoxControl.
 	 *
 	 * @param {string} doctype
-	 * @param {string} alias - Variable prefix (default "doc")
+	 * @param {string|Object} options - Alias string (legacy) or configuration object
+	 * @param {string} [options.alias="doc"] - Prefix for expression mode
+	 * @param {string} [options.valueMode="expression"] - "expression" (doc.field) or "fieldname" (field)
 	 * @returns {Array}
 	 */
-	function get_fields_for_doctype(doctype, alias = "doc") {
+	function get_fields_for_doctype(doctype, options = "doc") {
 		if (!doctype || !doc_meta[doctype]) return [];
+
+		// Handle legacy string alias or new options object
+		const config = typeof options === "string" ? { alias: options } : options || {};
+		const alias = config.alias !== undefined ? config.alias : "doc";
+		const valueMode = config.valueMode || "expression";
 
 		return doc_meta[doctype].map((f) => {
 			const isSpecial = f.fieldname === "docstatus" || f.fieldname === "name" || f.is_std;
 			const prefix = alias ? `${alias}.` : "";
+
+			let value = f.fieldname;
+			let labelSuffix = f.fieldname;
+
+			if (valueMode === "expression") {
+				value = `${prefix}${f.fieldname}`;
+				labelSuffix = `${prefix}${f.fieldname}`;
+			}
+
 			return {
 				...f,
-				label: `${f.original_label || f.fieldname} (${prefix}${f.fieldname})`,
-				value: `${prefix}${f.fieldname}`,
+				label: `${f.original_label || f.fieldname} (${labelSuffix})`,
+				value: value,
 				icon: isSpecial ? "fa fa-asterisk" : "fa fa-columns",
 			};
 		});
