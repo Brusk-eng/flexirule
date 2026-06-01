@@ -1,7 +1,7 @@
 import { reactive, ref, computed, watch, onMounted, provide } from "vue";
 import { useStore } from "../stores";
 
-export function useActionConfig(props) {
+export function useActionConfig(props, options = {}) {
 	const store = useStore();
 	const config = reactive({});
 	const docMeta = ref(null);
@@ -67,7 +67,14 @@ export function useActionConfig(props) {
 			loading.value = true;
 			const metaStore = store;
 			await metaStore.fetch_metadata(doctype);
-			doctype_fields.value = metaStore.get_fields_for_doctype(doctype, "doc");
+
+			// Merge defaults with caller-provided options
+			const fieldOptions = {
+				alias: options.fieldAlias || "doc",
+				valueMode: options.fieldValueMode || "expression",
+			};
+
+			doctype_fields.value = metaStore.get_fields_for_doctype(doctype, fieldOptions);
 		} catch (e) {
 			console.error("FlexiRule: Failed to load doctype fields", e);
 			doctype_fields.value = [];

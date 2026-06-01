@@ -586,7 +586,7 @@ const getFieldsForDoctype = (dt) => {
 	const mapped = [];
 
 	// Fetch unified fields (including standard ones like modified_by) from the meta store
-	const parentFields = store.get_fields_for_doctype(dt, "");
+	const parentFields = store.get_fields_for_doctype(dt, { valueMode: "fieldname" });
 	for (const df of parentFields) {
 		if (!shouldIncludeFilterField(df, dt)) continue;
 		if (frappe.model.table_fields.includes(df.fieldtype)) continue;

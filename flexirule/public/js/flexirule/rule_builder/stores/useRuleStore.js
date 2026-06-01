@@ -46,7 +46,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const metaStore = useMetaStore();
 		const doctype = rule_doc.value?.document_type;
 		if (!doctype || !metaStore.doc_meta[doctype]) return [];
-		return metaStore.get_fields_for_doctype(doctype, "doc");
+		return metaStore.get_fields_for_doctype(doctype, { alias: "doc", valueMode: "expression" });
 	});
 
 	const raw_meta = computed(() => {

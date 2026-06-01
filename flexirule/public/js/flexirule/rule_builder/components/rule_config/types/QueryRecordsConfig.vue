@@ -396,7 +396,9 @@ const {
 	is_field_valid,
 	refresh_variables,
 	update_action_field,
-} = useActionConfig(props);
+} = useActionConfig(props, {
+	fieldValueMode: "fieldname",
+});
 const { getPolicyField } = useNodeConfigPolicy({
 	actionType: () => props.node?.data?.action_type || "Query Records",
 	operation: mode,
