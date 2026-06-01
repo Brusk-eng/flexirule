@@ -22,12 +22,15 @@
 					</div>
 					<div class="shortcut-item">
 						<span class="shortcut-keys">
-							<kbd>Ctrl</kbd> + <kbd>Y</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd>
+							<kbd>Ctrl</kbd> + <kbd>Y</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> +
+							<kbd>Z</kbd>
 						</span>
 						<span class="shortcut-desc">{{ __("Redo") }}</span>
 					</div>
 					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>Ctrl</kbd> + <kbd>V</kbd></span>
+						<span class="shortcut-keys"
+							><kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>Ctrl</kbd> + <kbd>V</kbd></span
+						>
 						<span class="shortcut-desc">{{ __("Copy / Paste Nodes") }}</span>
 					</div>
 					<div class="shortcut-item">
