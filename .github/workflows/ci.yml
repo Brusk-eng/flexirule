@@ -8,11 +8,15 @@ on:
             - "docs/**"
             - "docs-config/**"
             - "landing-page/**"
+            - "architecture/**"
+            - "*.md"
     pull_request:
         paths-ignore:
             - "docs/**"
             - "docs-config/**"
             - "landing-page/**"
+            - "architecture/**"
+            - "*.md"
 
 concurrency:
     group: develop-flexirule-${{ github.event.number }}
