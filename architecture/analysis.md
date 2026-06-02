@@ -1,12 +1,12 @@
 # Architecture Analysis
 
-This document provides a deep-dive into the FlexiRule architectural components, their relationships, and an audit of the current implementation.
+This document provides a deep-dive into the FlexiRule architectural components, implemented optimizations, and identified concerns.
 
 ## Core Components
 
 ### 1. Rule Engine (`RuleEngine`)
 - **Responsibility**: Orchestrates the execution of a single rule graph.
-- **Key Methods**: `execute()`, `_execute_graph()`.
+- **Action Traversal**: Sequential node processing with support for loops and branches.
 - **Sandbox**: Implements `SafeFrappeAPI` and `ReadOnlyDocument` to ensure safety during condition evaluation.
 
 ### 2. Execution Coordinator (`RuleCoordinator`)
@@ -15,71 +15,52 @@ This document provides a deep-dive into the FlexiRule architectural components, 
 
 ### 3. Process Engine (`ProcessOperationExecutor`)
 - **Responsibility**: Executes "Process" actions using the Declarative Contract v2.
-- **Source**: `flexirule/ruleflow/core/process_runtime_v2.py`.
+- **Adapters**: Uses `OperationAdapterRegistry` to resolve execution logic for different operation types (validate, transform, etc.).
 
-### 4. Trigger Framework
-- **Responsibility**: Decouples document events from the engine.
-- **Contract**: `TRIGGER_TYPE_CONTRACT` defines required fields for different trigger types.
-
-### 5. Registry System
-- **HandlerRegistry**: Strategy pattern for Action Types (Assignment, Loop, etc.).
-- **OperationAdapterRegistry**: Discovery and execution of Process Adapters.
+### 4. Registry System
+- **HandlerRegistry**: Strategy pattern for Action Types. Handlers are stateless singletons.
 - **AssignmentOperatorRegistry**: Custom operators for field assignments (set, add, clear).
 
-### 6. Validation Framework
-- **Central Service**: `validation_service.py` provides multi-mode validation (Full, Draft, Node).
-- **Graph Validator**: `graph_validator.py` ensures graph integrity (connectivity, cycles).
+---
+
+## Implemented Optimizations
+
+### 1. Rule Execution Change Filtering
+- **Feature**: `watched_fields` filtering in `RuleCoordinator`.
+- **Optimization**: Rules are only executed if fields they depend on (detected via `compiled_expression`) have changed in the current transaction. This prevents redundant runs on heavy DocTypes.
+
+### 2. Action Plan Caching
+- **Feature**: Two-layer cache (Local + Redis) for compiled execution plans.
+- **Optimization**: Pre-resolves JSON configurations and template discovery. Reduces CPU overhead by avoiding repetitive `json.loads` calls during runtime, especially within `Loop` actions.
+
+### 3. Bulk Sub-rule Cycle Detection
+- **Feature**: Bulk adjacency building in `Rule.validate_no_sub_rule_cycles`.
+- **Optimization**: Uses a single SQL query to fetch all sub-rule links and runs DFS in-memory. Eliminates the N+1 query problem during rule saving.
 
 ---
 
-## Dependency Map
+## Architectural Concerns & RC Blockers
 
-```mermaid
-graph TD
-    API[api.py] --> Coordinator[coordinator.py]
-    API --> Validation[validation_service.py]
-    Hooks[hooks.py] --> Coordinator
-    Scheduler[scheduler.py] --> SchedulerDoc[rule_scheduler.py]
-    SchedulerDoc --> Coordinator
-    Coordinator --> Engine[engine.py]
-    Engine --> Handlers[action_handlers/]
-    Handlers --> ProcessExecutor[process_runtime_v2.py]
-    Handlers --> Context[context_manager.py]
-    ProcessExecutor --> ProcessDoc[process.py]
-    Validation --> Handlers
-```
+### 1. Low Recursion Limit (RC Blocker)
+- **Severity**: High
+- **Description**: `MAX_SUB_RULE_DEPTH` is hardcoded to `2` in `engine.py`.
+- **Impact**: Blocks valid complex business processes that require deep rule nesting.
+- **Recommendation**: Increase to `5` or make it a configurable setting in `RuleFlow Settings`.
 
----
-
-## Architectural Audit Findings
-
-### 1. Validation Duplication
+### 2. Validation Duplication
 - **Severity**: Medium
-- **Description**: Validation logic is spread between `Rule.validate()`, `validation_service.py`, and individual `ActionHandler.validate()` methods.
-- **Why it matters**: Increases maintenance cost and the risk of inconsistent validation between the frontend builder and backend save.
-- **Source Files**: `rule.py`, `validation_service.py`, `action_handlers/__init__.py`.
-- **Evidence**: `Rule.validate_with_service` calls `validate_rule_definition`, but `Rule` also has its own `validate_assignment` and `validate_set_value_editable` methods which overlap with `validation_service.py`.
+- **Description**: Overlap between `Rule.validate()`, `validation_service.py`, and `ActionHandler.validate()`.
+- **Impact**: Risk of "Partial Save" states where a rule is valid for a Draft but fails Activation due to inconsistent logic.
 
-### 2. Tight Coupling to JSON Serialization
-- **Severity**: Low
-- **Description**: Many configurations are stored as JSON strings in the database and parsed multiple times during execution.
-- **Why it matters**: Minor performance overhead and potential for parsing errors if data becomes malformed.
-- **Source Files**: `rule.py`, `engine.py`.
-- **Evidence**: `_parse_action_config` is used in both the DocType controller and the execution engine, frequently parsing the same strings.
-
-### 3. Circular Dependency Potential
+### 3. Savepoint Management
 - **Severity**: Medium
-- **Description**: The relationship between Rule documents and the Validation Service creates a potential for circular imports if not carefully managed.
-- **Why it matters**: Can lead to fragile code and startup errors in the Frappe environment.
-- **Source Files**: `rule.py`, `validation_service.py`.
-- **Evidence**: `Rule.py` imports `validate_rule_definition`, which in turn operates on `Rule` document instances and utilizes `HandlerRegistry`.
+- **Description**: Use of savepoints for rollback logic (`flexirule_action_`) in `engine.py`.
+- **Impact**: If an exception occurs outside the `try/finally` block or within the rollback call itself, savepoints might leak, potentially leading to database connection exhaustion or transaction issues.
 
-### 4. Runtime Discovery Bottlenecks
+### 4. Safe Eval Depth
 - **Severity**: Low
-- **Description**: While Redis caching is implemented, the initial rebuild of the registry for a DocType with many rules could be optimized.
-- **Why it matters**: Potential latency spike on first save after a cache clear.
-- **Source Files**: `coordinator.py`.
-- **Evidence**: `RuleCoordinator._build_runtime_registry` performs a full scan of active rules.
+- **Description**: `validate_safe_eval` in `permissions.py` only validates syntax.
+- **Impact**: Does not prevent complex logic or slow attribute lookups that could impact performance. Relying solely on `frappe.safe_eval` for runtime security.
 
 ---
 
@@ -89,12 +70,5 @@ graph TD
 1. Create a new handler in `flexirule/ruleflow/core/action_handlers/`.
 2. Inherit from `ActionHandler`.
 3. Implement `execute(self, action, context, engine)`.
-4. Register the handler in `HandlerRegistry`.
-5. Update `ACTION_TYPE_CONTRACT` in `contracts.py` to define its UI and validation behavior.
-
-### How to add a new Process Operation
-1. Create/Edit a `Process` document in the Desk.
-2. Add a row to the `operations` child table.
-3. Define the `config_schema` and `output_schema`.
-4. If using `contract_v2`, define the `adapter_key` (e.g., `validate`, `transform`).
-5. Implement the corresponding Python function in the process module (e.g., `{app}/{module}/process/{process_name}/{process_name}.py`).
+4. Register the handler in `HandlerRegistry.register()`.
+5. Update `ACTION_TYPE_CONTRACT` in `contracts.py` to define its UI behavior.
