@@ -6,6 +6,8 @@ on:
             - "docs/**"
             - "docs-config/**"
             - "landing-page/**"
+            - "architecture/**"
+            - "*.md"
     workflow_dispatch:
 
 permissions:
