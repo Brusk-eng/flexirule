@@ -1,19 +1,20 @@
 <template>
 	<div class="process-config-wrapper">
-		<div v-if="error" class="alert alert-danger m-3">
-			<i class="fa fa-exclamation-triangle"></i> {{ error }}
+		<div v-if="error" class="process-config-state process-config-error">
+			<i class="fa fa-exclamation-triangle"></i>
+			<div>{{ error }}</div>
 		</div>
-		<div v-else-if="!engine && needsSetup" class="p-4 text-center text-muted">
-			<i class="fa fa-info-circle fa-2x mb-3 d-block"></i>
-			<p class="mb-1 fw-bold">{{ __("Process Configuration") }}</p>
-			<p class="small">
+		<div v-else-if="!engine && needsSetup" class="process-config-state process-config-empty">
+			<i class="fa fa-info-circle"></i>
+			<p class="process-config-title">{{ __("Process Configuration") }}</p>
+			<p class="process-config-copy">
 				{{
 					__(
 						"Select a Process and Operation in the Setup panel to configure this action."
 					)
 				}}
 			</p>
-			<div class="small mt-2 p-2 border rounded bg-light">
+			<div class="process-config-pill">
 				<span v-if="!node.data?.process_name">{{ __("Process: Not selected") }}</span>
 				<span v-else>{{ __("Process:") }} {{ node.data.process_name }}</span>
 				<br />
@@ -21,13 +22,13 @@
 				<span v-else>{{ __("Operation:") }} {{ node.data.operation }}</span>
 			</div>
 		</div>
-		<div v-else-if="!engine && !error" class="d-flex justify-content-center p-5">
+		<div v-else-if="!engine && !error" class="process-config-loading">
 			<div class="spinner-border text-primary"></div>
 		</div>
 		<template v-else-if="engine">
-			<div class="d-flex justify-content-between align-items-center mb-2 px-3">
-				<h6 class="mb-0 fw-bold">{{ __("Process Configuration") }}</h6>
-				<div class="btn-group">
+			<div class="process-config-toolbar">
+				<h6>{{ __("Process Configuration") }}</h6>
+				<div class="btn-group process-config-switcher">
 					<button
 						class="btn btn-xs"
 						:class="view === 'form' ? 'btn-primary' : 'btn-default'"
@@ -49,7 +50,7 @@
 				<SchemaRenderer :fields="engine.normalized_fields" :engine="engine" />
 			</div>
 
-			<div v-if="view === 'visual'" class="px-3">
+			<div v-if="view === 'visual'" class="process-config-visual">
 				<TransformControl
 					:modelValue="visualMappings"
 					:sourceSchema="sourceSchema"
@@ -58,9 +59,12 @@
 				/>
 			</div>
 
-			<div v-if="engine.normalized_fields.length === 0" class="p-5 text-center text-muted">
+			<div
+				v-if="engine.normalized_fields.length === 0"
+				class="process-config-state process-config-empty"
+			>
 				<p>{{ __("No configuration fields found for this operation.") }}</p>
-				<div class="small mt-2 p-2 border rounded bg-light text-left">
+				<div class="process-config-pill text-left">
 					<code>Process: {{ node.data?.process_name }}</code
 					><br />
 					<code>Operation: {{ node.data?.operation }}</code>
@@ -225,5 +229,92 @@ defineExpose({
 <style scoped>
 .process-config-wrapper {
 	min-height: 200px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 12px;
+}
+
+.process-config-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 10px 12px;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 14px;
+	background: var(--fxr-surface, #fff);
+}
+
+.process-config-toolbar h6 {
+	margin: 0;
+	font-size: 12px;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--fxr-text-soft, var(--text-muted));
+}
+
+.process-config-switcher :deep(.btn) {
+	border-radius: 8px;
+}
+
+.process-config-state {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 18px;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 14px;
+	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
+}
+
+.process-config-error {
+	color: var(--red-700, #b91c1c);
+	background: var(--fxr-danger-soft, #fef2f2);
+}
+
+.process-config-empty {
+	color: var(--fxr-text-soft, var(--text-muted));
+}
+
+.process-config-empty i,
+.process-config-error i {
+	font-size: 18px;
+}
+
+.process-config-title {
+	margin: 0;
+	font-weight: 800;
+	color: var(--fxr-text-strong, var(--text-color));
+}
+
+.process-config-copy {
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--fxr-text-soft, var(--text-muted));
+}
+
+.process-config-pill {
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: var(--fxr-surface, #fff);
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	color: var(--fxr-text-soft, var(--text-muted));
+	font-size: 12px;
+	line-height: 1.6;
+}
+
+.process-config-loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 220px;
+}
+
+.process-config-visual {
+	padding: 0 4px 4px;
 }
 </style>
