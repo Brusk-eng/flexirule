@@ -525,15 +525,19 @@ defineExpose({ validate });
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--fxr-space-8);
+	padding: var(--fxr-space-6, 20px);
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: 18px;
 }
 
 .panel-section {
 	display: flex;
 	flex-direction: column;
+	padding: 14px;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 14px;
+	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
 }
 
 .section-header {
@@ -545,16 +549,16 @@ defineExpose({ validate });
 
 .section-title {
 	margin: 0;
-	font-size: 11px;
-	font-weight: 700;
+	font-size: 10px;
+	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	color: #64748b;
+	color: var(--fxr-text-soft, var(--text-muted));
 }
 
 .section-divider {
 	height: 1px;
-	background: #f1f5f9;
+	background: var(--fxr-border-subtle, var(--border-color));
 	margin: 0;
 }
 
@@ -575,15 +579,15 @@ defineExpose({ validate });
 	display: flex;
 	align-items: center;
 	padding: 4px 8px;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-	background: #f8fafc;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 12px;
+	background: var(--fxr-surface-2, var(--control-bg));
 	transition: border-color 0.2s;
 }
 
 .mapping-inputs:focus-within {
 	border-color: var(--fxr-node-accent, var(--fxr-accent));
-	background: #fff;
+	background: var(--fxr-surface, #fff);
 	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light));
 }
 
@@ -603,10 +607,10 @@ defineExpose({ validate });
 .empty-state {
 	padding: 16px;
 	text-align: center;
-	color: #94a3b8;
+	color: var(--fxr-text-faint, var(--text-muted));
 	font-size: 11px;
-	background: #f8fafc;
-	border: 1px dashed #e2e8f0;
+	background: var(--fxr-surface-2, var(--control-bg));
+	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
 	border-radius: 8px;
 }
 
@@ -630,10 +634,10 @@ defineExpose({ validate });
 	font-size: 10px;
 	font-weight: 600;
 	padding: 2px 8px;
-	background: #f1f5f9;
-	color: #475569;
+	background: var(--fxr-surface-2, var(--control-bg));
+	color: var(--fxr-text-soft, var(--text-muted));
 	border-radius: 4px;
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
 }
 
 :deep(.form-control:focus),

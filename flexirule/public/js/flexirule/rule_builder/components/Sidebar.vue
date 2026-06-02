@@ -244,33 +244,33 @@ onMounted(async () => {
 	height: 100%;
 	display: flex;
 	flex-direction: column;
-	background: #fff;
+	background: var(--fxr-surface, #fff);
 }
 
 .sidebar-v2-preview {
 	padding: 10px 15px 5px;
-	border-bottom: 1px solid var(--border-color);
-	background: #f8f9ff;
+	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
+	background: var(--fxr-surface-2, var(--control-bg));
 }
 
 .selector-placeholder {
 	padding: 12px;
-	border: 1px dashed var(--border-color);
-	border-radius: 8px;
-	background: var(--bg-light, #f8fafc);
+	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
 }
 
 .btn-primary-light {
-	background: #eef2ff;
-	color: #4f46e5;
-	border: 1px solid #e0e7ff;
+	background: var(--fxr-accent-soft, #eef2ff);
+	color: var(--fxr-accent, #4f46e5);
+	border: 1px solid color-mix(in srgb, var(--fxr-accent, #4f46e5) 22%, white);
 	font-weight: 600;
 	font-size: 11px;
 }
 
 .btn-primary-light:hover {
-	background: #e0e7ff;
-	border-color: #c7d2fe;
+	background: color-mix(in srgb, var(--fxr-accent-soft, #eef2ff) 84%, white);
+	border-color: color-mix(in srgb, var(--fxr-accent, #4f46e5) 32%, white);
 }
 
 .sidebar-header {
@@ -278,13 +278,19 @@ onMounted(async () => {
 	align-items: center;
 	justify-content: space-between;
 	padding: 12px 15px;
-	border-bottom: 1px solid var(--border-color);
+	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
+	background: linear-gradient(
+		180deg,
+		color-mix(in srgb, var(--fxr-surface, #fff) 96%, var(--fxr-surface-2, #f3f5f7)),
+		var(--fxr-surface, #fff)
+	);
 }
 
 .sidebar-header h4 {
 	margin: 0;
 	font-size: 14px;
 	font-weight: 600;
+	color: var(--fxr-text-strong, var(--text-color));
 }
 
 .btn-close {
@@ -292,7 +298,7 @@ onMounted(async () => {
 	border: none;
 	font-size: 18px;
 	cursor: pointer;
-	color: var(--text-muted);
+	color: var(--fxr-text-soft, var(--text-muted));
 	padding: 0;
 }
 
@@ -305,7 +311,7 @@ onMounted(async () => {
 hr {
 	margin: 15px 0;
 	border: none;
-	border-top: 1px solid var(--border-color);
+	border-top: 1px solid var(--fxr-border-subtle, var(--border-color));
 }
 
 .w-100 {

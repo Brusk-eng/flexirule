@@ -135,6 +135,15 @@
 
 						<div class="quick-actions-wrap">
 							<button
+								class="btn btn-sm btn-default icon-action-btn"
+								@click="uiStore.show_shortcuts_help = !uiStore.show_shortcuts_help"
+								:title="__('Keyboard Shortcuts')"
+								aria-haspopup="dialog"
+								:aria-expanded="uiStore.show_shortcuts_help ? 'true' : 'false'"
+							>
+								<i class="fa fa-keyboard-o"></i>
+							</button>
+							<button
 								ref="quickActionsButtonRef"
 								class="btn btn-sm btn-default quick-actions-btn"
 								@click="toggleQuickActions"
@@ -308,6 +317,10 @@ const fieldInspectorStyle = computed(() => ({
 	top: `${Math.min(fieldInspector.value.y + 16, window.innerHeight - 48)}px`,
 }));
 
+function showShortcutsHelp() {
+	uiStore.show_shortcuts_help = true;
+}
+
 function updateMousePos(e) {
 	mousePos.value = { x: e.clientX, y: e.clientY };
 }
@@ -468,6 +481,7 @@ onMounted(async () => {
 	window.addEventListener("mousemove", handleAltFieldInspect, true);
 	window.addEventListener("mousedown", handleGlobalMouseDown, true);
 	window.addEventListener("resize", updateQuickActionsPosition);
+	window.addEventListener("flexirule:show-shortcuts-help", showShortcutsHelp);
 
 	setTimeout(() => {
 		if (graphStore.nodes.length > 0) {
@@ -484,6 +498,7 @@ onUnmounted(() => {
 	window.removeEventListener("mousemove", handleAltFieldInspect, true);
 	window.removeEventListener("mousedown", handleGlobalMouseDown, true);
 	window.removeEventListener("resize", updateQuickActionsPosition);
+	window.removeEventListener("flexirule:show-shortcuts-help", showShortcutsHelp);
 });
 
 async function pasteFromClipboardWrapper() {
@@ -751,6 +766,37 @@ function onEdgeClick({ edge, event }) {
 	display: flex;
 	flex-direction: column;
 	height: calc(100vh - var(--navbar-height) - var(--page-head-height) - 60px);
+	--fxr-bg-page: var(--fg-color, #ffffff);
+	--fxr-surface: var(--fg-color, #ffffff);
+	--fxr-surface-2: var(--control-bg, #f3f5f7);
+	--fxr-surface-soft: color-mix(in srgb, var(--control-bg, #f3f5f7) 68%, white);
+	--fxr-surface-elevated: color-mix(in srgb, var(--fg-color, #ffffff) 94%, transparent);
+	--fxr-border-subtle: color-mix(in srgb, var(--border-color, #d1d8dd) 72%, white);
+	--fxr-border-strong: color-mix(in srgb, var(--border-color, #d1d8dd) 88%, #334155);
+	--fxr-text-strong: var(--text-color, #1f2937);
+	--fxr-text-soft: var(--text-muted, #64748b);
+	--fxr-text-faint: color-mix(in srgb, var(--text-muted, #64748b) 70%, white);
+	--fxr-accent: var(--primary, #2490ef);
+	--fxr-accent-soft: color-mix(in srgb, var(--primary, #2490ef) 12%, white);
+	--fxr-accent-strong: color-mix(in srgb, var(--primary, #2490ef) 84%, black);
+	--fxr-success-soft: color-mix(in srgb, var(--green-500, #22c55e) 14%, white);
+	--fxr-warning-soft: color-mix(in srgb, var(--orange-500, #f59e0b) 14%, white);
+	--fxr-danger-soft: color-mix(in srgb, var(--red-500, #ef4444) 14%, white);
+	--fxr-space-1: 4px;
+	--fxr-space-2: 6px;
+	--fxr-space-3: 8px;
+	--fxr-space-4: 12px;
+	--fxr-space-5: 16px;
+	--fxr-space-6: 20px;
+	--fxr-space-8: 24px;
+	--fxr-space-10: 32px;
+	--fxr-radius-sm: 8px;
+	--fxr-radius-md: 12px;
+	--fxr-radius-lg: 16px;
+	--fxr-radius-xl: 20px;
+	--fxr-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+	--fxr-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
+	--fxr-shadow-lg: 0 22px 48px rgba(15, 23, 42, 0.12);
 }
 /* Removed .builder-toolbar */
 
@@ -759,19 +805,19 @@ function onEdgeClick({ edge, event }) {
 	display: flex;
 	position: relative;
 	overflow: hidden;
-	gap: 10px;
+	gap: var(--fxr-space-3);
 }
 /* ... */
 .controls-panel {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	background: rgba(255, 255, 255, 0.92);
-	padding: 6px;
-	border-radius: 8px;
-	border: 1px solid var(--border-color);
-	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-	backdrop-filter: blur(8px);
+	gap: var(--fxr-space-3);
+	background: var(--fxr-surface-elevated);
+	padding: var(--fxr-space-2);
+	border-radius: var(--fxr-radius-md);
+	border: 1px solid var(--fxr-border-subtle);
+	box-shadow: var(--fxr-shadow-md);
+	backdrop-filter: blur(12px);
 	flex-wrap: wrap;
 	max-width: calc(100vw - 28px);
 }
@@ -783,8 +829,11 @@ function onEdgeClick({ edge, event }) {
 .quick-actions-wrap {
 	position: relative;
 	display: inline-flex;
+	gap: var(--fxr-space-2);
+	align-items: center;
 }
 
+.icon-action-btn,
 .quick-actions-btn {
 	width: 32px;
 	height: 32px;
@@ -795,53 +844,55 @@ function onEdgeClick({ edge, event }) {
 }
 
 .fxr-headless-menu {
-	background: var(--fg-color, #fff);
-	border: 1px solid var(--border-color, #e2e8f0);
-	border-radius: 10px;
-	box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
+	background: var(--fxr-surface);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	box-shadow: var(--fxr-shadow-lg);
 	overflow: hidden;
 	animation: fxr-menu-in 120ms ease-out;
 }
 
 .quick-actions-section {
-	padding: 6px;
+	padding: 4px;
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 1px;
+	max-height: min(320px, calc(100vh - 180px));
+	overflow-y: auto;
 }
 
 .quick-action-item {
 	display: grid;
 	grid-template-columns: 18px 1fr auto;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 	width: 100%;
-	min-height: 34px;
-	padding: 8px 10px;
+	min-height: 30px;
+	padding: 7px 10px;
 	border: 0;
-	border-radius: 7px;
+	border-radius: 8px;
 	background: transparent;
-	color: var(--text-color, #1f2937);
-	font-size: 13px;
+	color: var(--fxr-text-strong);
+	font-size: 12px;
 	font-weight: 500;
 	text-align: left;
 	cursor: pointer;
 }
 
 .quick-action-item i {
-	color: var(--text-muted, #64748b);
+	color: var(--fxr-text-soft);
 	text-align: center;
 }
 
 .quick-action-item small {
-	color: var(--text-muted, #94a3b8);
-	font-size: 10px;
+	color: var(--fxr-text-faint);
+	font-size: 9px;
 	font-weight: 600;
 }
 
 .quick-action-item:hover,
 .quick-action-item:focus {
-	background: var(--control-bg, #f3f5f7);
+	background: var(--fxr-surface-2);
 	outline: none;
 }
 
@@ -860,18 +911,18 @@ function onEdgeClick({ edge, event }) {
 	max-width: 280px;
 	padding: 7px 9px;
 	border-radius: 8px;
-	border: 1px solid #d8e2ef;
-	background: #fff;
-	color: #1f2937;
+	border: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-surface);
+	color: var(--fxr-text-strong);
 	font-size: 12px;
 	font-weight: 600;
-	box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+	box-shadow: var(--fxr-shadow-md);
 	pointer-events: auto;
 	cursor: copy;
 }
 
 .fxr-field-inspector i {
-	color: var(--primary, #2490ef);
+	color: var(--fxr-accent);
 }
 
 .fxr-field-inspector span {
@@ -881,7 +932,7 @@ function onEdgeClick({ edge, event }) {
 }
 
 .fxr-field-inspector small {
-	color: var(--text-muted, #64748b);
+	color: var(--fxr-text-soft);
 	font-size: 10px;
 	font-weight: 500;
 	white-space: nowrap;
@@ -900,7 +951,7 @@ function onEdgeClick({ edge, event }) {
 .divider-vertical {
 	width: 1px;
 	height: 20px;
-	background-color: var(--border-color);
+	background-color: var(--fxr-border-subtle);
 }
 .show-disabled-control {
 	display: flex;
@@ -913,9 +964,9 @@ function onEdgeClick({ edge, event }) {
 	min-width: 320px;
 	max-width: 440px;
 	height: 100%;
-	border-radius: var(--border-radius-lg);
-	border: 1px solid var(--border-color);
-	background-color: var(--fg-color);
+	border-radius: var(--fxr-radius-lg);
+	border: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface);
 	order: 2;
 	overflow: hidden;
 	z-index: 5;
@@ -924,9 +975,9 @@ function onEdgeClick({ edge, event }) {
 	flex: 1;
 	min-width: 0;
 	height: 100%;
-	border-radius: var(--border-radius-lg);
-	border: 1px solid var(--border-color);
-	background-color: var(--fg-color);
+	border-radius: var(--fxr-radius-lg);
+	border: 1px solid var(--fxr-border-subtle);
+	background-color: color-mix(in srgb, var(--fxr-bg-page) 88%, white);
 	position: relative;
 	order: 1;
 }
@@ -944,11 +995,11 @@ function onEdgeClick({ edge, event }) {
 .execution-panel {
 	min-width: 260px;
 	max-width: 360px;
-	background: #fff;
-	border: 1px solid #d1d8dd;
-	border-radius: 8px;
+	background: var(--fxr-surface);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
 	padding: 10px;
-	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 .execution-panel-header {
@@ -960,7 +1011,7 @@ function onEdgeClick({ edge, event }) {
 .execution-final-status {
 	font-size: 12px;
 	font-weight: 600;
-	color: #1f2937;
+	color: var(--fxr-text-strong);
 }
 
 .execution-panel-steps {
@@ -980,18 +1031,18 @@ function onEdgeClick({ edge, event }) {
 }
 
 .execution-step.status-success {
-	background: #ecfdf3;
-	color: #166534;
+	background: var(--fxr-success-soft);
+	color: var(--green-700, #166534);
 }
 
 .execution-step.status-error {
-	background: #fef2f2;
-	color: #b91c1c;
+	background: var(--fxr-danger-soft);
+	color: var(--red-700, #b91c1c);
 }
 
 .execution-step.status-running {
-	background: #eff6ff;
-	color: #1d4ed8;
+	background: var(--fxr-accent-soft);
+	color: var(--fxr-accent-strong);
 }
 
 .step-label {
@@ -1001,15 +1052,15 @@ function onEdgeClick({ edge, event }) {
 }
 
 :deep(.test-error) {
-	box-shadow: 0 0 0 3px #dc2626 !important;
+	box-shadow: 0 0 0 3px var(--red-500, #dc2626) !important;
 }
 
 :deep(.test-error .execution-badge) {
-	background: #dc2626 !important;
+	background: var(--red-500, #dc2626) !important;
 }
 
 :deep(.test-running .execution-badge) {
-	background: #2563eb !important;
+	background: var(--blue-600, #2563eb) !important;
 }
 .toolbar-center {
 	display: flex;
@@ -1052,8 +1103,8 @@ function onEdgeClick({ edge, event }) {
 }
 
 .sub-rule-group-node {
-	background: rgba(246, 248, 250, 0.4) !important;
-	border: 2px dashed #94a3b8 !important;
+	background: color-mix(in srgb, var(--fxr-surface-2, #f6f8fa) 40%, transparent) !important;
+	border: 2px dashed var(--fxr-text-faint, #94a3b8) !important;
 	border-radius: 16px !important;
 	min-width: 450px !important;
 	min-height: 320px !important;
@@ -1075,7 +1126,7 @@ function onEdgeClick({ edge, event }) {
 }
 
 .is-read-only-flow :deep(.vue-flow__edge-path) {
-	stroke: #cbd5e1 !important;
+	stroke: var(--fxr-border-subtle, #cbd5e1) !important;
 	stroke-opacity: 0.6;
 }
 
@@ -1085,11 +1136,11 @@ function onEdgeClick({ edge, event }) {
 }
 
 .read-only-badge {
-	background: #fff7ed;
-	color: #9a3412;
+	background: var(--fxr-warning-soft, #fff7ed);
+	color: var(--orange-800, #9a3412);
 	padding: 4px 10px;
 	border-radius: 6px;
-	border: 1px solid #ffedd5;
+	border: 1px solid color-mix(in srgb, var(--orange-300, #ffedd5) 70%, white);
 	font-size: 11px;
 	font-weight: 700;
 }

@@ -885,13 +885,13 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fxr-bg-page);
+	background: var(--fxr-bg-page, var(--fg-color));
 }
 
 .panel-header {
-	padding: 20px;
-	border-bottom: 1px solid var(--border-color);
-	background: #fff;
+	padding: 18px 18px 14px;
+	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
+	background: var(--fxr-surface, var(--fg-color));
 }
 
 .panel-header h4 {
@@ -902,8 +902,8 @@ function buildFieldPath(field, groupName) {
 
 .panel-tabs {
 	display: flex;
-	border-bottom: 1px solid #e2e8f0;
-	background: #fff;
+	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
+	background: var(--fxr-surface, var(--fg-color));
 	padding: 0 16px;
 }
 .tab-btn {
@@ -912,13 +912,13 @@ function buildFieldPath(field, groupName) {
 	padding: 12px 16px;
 	font-size: 13px;
 	font-weight: 600;
-	color: #64748b;
+	color: var(--fxr-text-soft, var(--text-muted));
 	cursor: pointer;
 	border-bottom: 2px solid transparent;
 	transition: all 0.2s;
 }
 .tab-btn:hover {
-	color: #1e293b;
+	color: var(--fxr-text-strong, var(--text-color));
 }
 .tab-btn.active {
 	color: var(--fxr-node-accent, var(--fxr-accent));
@@ -928,16 +928,20 @@ function buildFieldPath(field, groupName) {
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--fxr-space-8);
+	padding: var(--fxr-space-6, 20px);
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: 18px;
 }
 
 .panel-section {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 10px;
+	padding: 14px;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 14px;
+	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
 }
 
 .section-header {
@@ -954,16 +958,16 @@ function buildFieldPath(field, groupName) {
 
 .section-title {
 	margin: 0;
-	font-size: 11px;
-	font-weight: 700;
+	font-size: 10px;
+	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	color: #64748b;
+	color: var(--fxr-text-soft, var(--text-muted));
 }
 
 .section-divider {
 	height: 1px;
-	background: #e2e8f0;
+	background: var(--fxr-border-subtle, var(--border-color));
 	margin: 4px 0;
 }
 
@@ -980,10 +984,10 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 8px 12px;
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
+	padding: 10px 12px;
+	background: var(--fxr-surface, #fff);
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 12px;
 	font-size: 11px;
 	cursor: grab;
 	transition: all 0.2s;
@@ -991,21 +995,21 @@ function buildFieldPath(field, groupName) {
 
 .variable-item:hover {
 	border-color: var(--fxr-node-accent, var(--fxr-accent));
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-	transform: translateX(2px);
+	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
+	transform: translateX(1px);
 }
 
 .variable-label {
 	font-weight: 600;
-	color: #1e293b;
+	color: var(--fxr-text-strong, var(--text-color));
 }
 
 .variable-type {
 	font-size: 9px;
 	padding: 2px 6px;
-	background: #f1f5f9;
+	background: var(--fxr-surface-2, var(--control-bg));
 	border-radius: 4px;
-	color: #64748b;
+	color: var(--fxr-text-soft, var(--text-muted));
 }
 
 /* Tree Styles */
@@ -1021,23 +1025,23 @@ function buildFieldPath(field, groupName) {
 	padding: 6px 8px;
 	cursor: pointer;
 	border-radius: 6px;
-	color: #334155;
+	color: var(--fxr-text-strong, var(--text-color));
 	font-weight: 600;
 	display: flex;
 	align-items: center;
 	transition: background 0.15s;
 }
 .tree-group-header:hover {
-	background: #f1f5f9;
+	background: var(--fxr-surface-2, var(--control-bg));
 }
 .tree-group-header .fa {
 	font-size: 10px;
 	width: 16px;
-	color: #94a3b8;
+	color: var(--fxr-text-soft, var(--text-muted));
 }
 .tree-group-items {
 	padding-left: 20px;
-	border-left: 1px solid #e2e8f0;
+	border-left: 1px solid var(--fxr-border-subtle, var(--border-color));
 	margin-left: 12px;
 	margin-top: 4px;
 	display: flex;
@@ -1047,7 +1051,7 @@ function buildFieldPath(field, groupName) {
 .tree-iterator-hint {
 	padding: 4px 8px;
 	margin-bottom: 4px;
-	background: #f8fafc;
+	background: var(--fxr-surface-2, var(--control-bg));
 	border-radius: 4px;
 	font-size: 11px;
 }
@@ -1057,32 +1061,32 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	justify-content: space-between;
 	cursor: grab;
-	color: #475569;
+	color: var(--fxr-text-soft, var(--text-muted));
 }
 .tree-item:hover {
-	background: #f1f5f9;
+	background: var(--fxr-surface-2, var(--control-bg));
 }
 .tree-item-label {
 	font-weight: 500;
 }
 .tree-item-type {
 	font-size: 10px;
-	color: #94a3b8;
+	color: var(--fxr-text-soft, var(--text-muted));
 }
 
 .tips-box {
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
+	background: var(--fxr-surface, #fff);
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 12px;
 	padding: 12px;
 	font-size: 12px;
-	color: #475569;
+	color: var(--fxr-text-soft, var(--text-muted));
 }
 .tips-box h6 {
 	margin: 0 0 8px 0;
 	font-size: 12px;
 	font-weight: 600;
-	color: #334155;
+	color: var(--fxr-text-strong, var(--text-color));
 }
 .tips-box ul {
 	margin: 0;
@@ -1093,8 +1097,8 @@ function buildFieldPath(field, groupName) {
 }
 
 .guide-content {
-	background: #fff;
-	border: 1px solid #e2e8f0;
+	background: var(--fxr-surface, #fff);
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
 	border-radius: 12px;
 }
 
@@ -1112,7 +1116,7 @@ function buildFieldPath(field, groupName) {
 .guide-text-small {
 	font-size: 12px;
 	line-height: 1.5;
-	color: #475569;
+	color: var(--fxr-text-soft, var(--text-muted));
 	margin: 0;
 }
 
@@ -1127,8 +1131,8 @@ function buildFieldPath(field, groupName) {
 
 .insight-text {
 	font-size: 11px;
-	color: #64748b;
-	background: #f0f9ff;
+	color: var(--fxr-text-soft, var(--text-muted));
+	background: var(--fxr-accent-soft, #f0f9ff);
 	padding: 8px;
 	border-radius: 8px;
 	border-left: 3px solid var(--fxr-node-accent, var(--fxr-accent));
@@ -1146,18 +1150,18 @@ function buildFieldPath(field, groupName) {
 .empty-state {
 	padding: 20px;
 	text-align: center;
-	color: #94a3b8;
+	color: var(--fxr-text-faint, var(--text-muted));
 	font-size: 11px;
-	background: #f8fafc;
-	border: 1px dashed #e2e8f0;
+	background: var(--fxr-surface-2, var(--control-bg));
+	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
 	border-radius: 8px;
 }
 
 .section-collapsed-note {
 	font-size: 11px;
-	color: #94a3b8;
-	background: #fff;
-	border: 1px dashed #e2e8f0;
+	color: var(--fxr-text-faint, var(--text-muted));
+	background: var(--fxr-surface, #fff);
+	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
 	border-radius: 8px;
 	padding: 10px 12px;
 }

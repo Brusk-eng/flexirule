@@ -1,201 +1,296 @@
 <template>
-	<div
-		v-if="modelValue"
-		class="shortcuts-help-overlay"
-		@click.self="$emit('update:modelValue', false)"
-	>
-		<div class="shortcuts-help-container">
-			<header class="shortcuts-help-header">
-				<h5><i class="fa fa-keyboard-o"></i> {{ __("Keyboard Shortcuts") }}</h5>
-				<button class="btn-close" @click="$emit('update:modelValue', false)">×</button>
-			</header>
-			<div class="shortcuts-help-body">
-				<div class="shortcut-section">
-					<h6>{{ __("General") }}</h6>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></span>
-						<span class="shortcut-desc">{{ __("Save Rule") }}</span>
+	<Teleport to="body">
+		<transition name="shortcuts-popover">
+			<div
+				v-if="modelValue"
+				ref="popoverRef"
+				class="shortcuts-help-popover fxr-headless-popover"
+				:style="popoverStyle"
+				role="dialog"
+				aria-labelledby="shortcuts-help-title"
+				@keydown.esc.prevent="close"
+			>
+				<header class="shortcuts-help-header">
+					<div class="shortcuts-help-title">
+						<i class="fa fa-keyboard-o"></i>
+						<div>
+							<h5 id="shortcuts-help-title">{{ __("Keyboard Shortcuts") }}</h5>
+							<p>{{ __("Quick actions for the builder canvas and panels") }}</p>
+						</div>
 					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Z</kbd></span>
-						<span class="shortcut-desc">{{ __("Undo") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys">
-							<kbd>Ctrl</kbd> + <kbd>Y</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> +
-							<kbd>Z</kbd>
-						</span>
-						<span class="shortcut-desc">{{ __("Redo") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"
-							><kbd>Ctrl</kbd> + <kbd>C</kbd> / <kbd>Ctrl</kbd> + <kbd>V</kbd></span
-						>
-						<span class="shortcut-desc">{{ __("Copy / Paste Nodes") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Shift</kbd> + <kbd>?</kbd></span>
-						<span class="shortcut-desc">{{ __("Toggle this help") }}</span>
-					</div>
-				</div>
+					<button class="popover-close" @click="close" :title="__('Close')">
+						<i class="fa fa-times"></i>
+					</button>
+				</header>
 
-				<div class="shortcut-section">
-					<h6>{{ __("Canvas") }}</h6>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Space</kbd> ({{ __("hold") }})</span>
-						<span class="shortcut-desc">{{ __("Pan canvas") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>P</kbd></span>
-						<span class="shortcut-desc">{{ __("Toggle pan mode") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Alt</kbd> ({{ __("hold") }})</span>
-						<span class="shortcut-desc">{{ __("Show control/field name") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Alt</kbd> + <kbd>Click</kbd></span>
-						<span class="shortcut-desc">{{ __("Copy control/field name") }}</span>
-					</div>
-				</div>
-
-				<div class="shortcut-section">
-					<h6>{{ __("Navigation") }}</h6>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Alt</kbd> + <kbd>1</kbd></span>
-						<span class="shortcut-desc">{{ __("Focus Variables / Sidebar") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Alt</kbd> + <kbd>2</kbd></span>
-						<span class="shortcut-desc">{{ __("Focus Configuration") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Alt</kbd> + <kbd>3</kbd></span>
-						<span class="shortcut-desc">{{ __("Toggle Settings Bar") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Arrows</kbd></span>
-						<span class="shortcut-desc">{{ __("Previous / Next Action") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Esc</kbd></span>
-						<span class="shortcut-desc">{{ __("Close modal / dialog") }}</span>
-					</div>
-				</div>
-
-				<div class="shortcut-section">
-					<h6>{{ __("Inside Lists / Tables") }}</h6>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>↑ / ↓</kbd></span>
-						<span class="shortcut-desc">{{ __("Navigate items") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>Enter</kbd></span>
-						<span class="shortcut-desc">{{ __("Select / Insert item") }}</span>
-					</div>
-					<div class="shortcut-item">
-						<span class="shortcut-keys"><kbd>C</kbd></span>
-						<span class="shortcut-desc">{{ __("Copy item to clipboard") }}</span>
-					</div>
+				<div class="shortcuts-help-body v2-scrollbar">
+					<section
+						v-for="group in shortcutGroups"
+						:key="group.label"
+						class="shortcut-group"
+					>
+						<div class="shortcut-group-heading">{{ group.label }}</div>
+						<div class="shortcut-item" v-for="item in group.items" :key="item.label">
+							<span class="shortcut-keys">
+								<kbd v-for="key in item.keys" :key="key">{{ key }}</kbd>
+							</span>
+							<span class="shortcut-desc">{{ item.label }}</span>
+						</div>
+					</section>
 				</div>
 			</div>
-		</div>
-	</div>
+		</transition>
+	</Teleport>
 </template>
 
 <script setup>
-defineProps({
+import { computed, onBeforeUnmount, watch, ref } from "vue";
+
+const props = defineProps({
 	modelValue: Boolean,
 });
-defineEmits(["update:modelValue"]);
+
+const emit = defineEmits(["update:modelValue"]);
+const popoverRef = ref(null);
+
+const shortcutGroups = [
+	{
+		label: __("General"),
+		items: [
+			{ keys: ["Ctrl", "S"], label: __("Save Rule") },
+			{ keys: ["Ctrl", "Z"], label: __("Undo") },
+			{ keys: ["Ctrl", "Y"], label: __("Redo") },
+			{ keys: ["Ctrl", "Shift", "Z"], label: __("Redo") },
+			{ keys: ["Shift", "?"], label: __("Toggle this help") },
+		],
+	},
+	{
+		label: __("Canvas"),
+		items: [
+			{ keys: ["Space"], label: __("Pan canvas") },
+			{ keys: ["P"], label: __("Toggle pan mode") },
+			{ keys: ["Alt"], label: __("Show field names") },
+			{ keys: ["Alt", "Click"], label: __("Copy field name") },
+		],
+	},
+	{
+		label: __("Navigation"),
+		items: [
+			{ keys: ["Alt", "1"], label: __("Focus Variables / Sidebar") },
+			{ keys: ["Alt", "2"], label: __("Focus Configuration") },
+			{ keys: ["Alt", "3"], label: __("Toggle Settings Bar") },
+			{ keys: ["Ctrl", "Arrows"], label: __("Previous / Next Action") },
+			{ keys: ["Esc"], label: __("Close dialogs") },
+		],
+	},
+];
+
+const popoverStyle = computed(() => ({
+	top: `calc(var(--navbar-height, 44px) + var(--page-head-height, 44px) + 12px)`,
+	right: "16px",
+}));
+
+function close() {
+	emit("update:modelValue", false);
+}
+
+function onWindowMouseDown(event) {
+	if (!props.modelValue) return;
+	if (popoverRef.value && !popoverRef.value.contains(event.target)) {
+		close();
+	}
+}
+
+function onWindowKeydown(event) {
+	if (event.key === "Escape" && props.modelValue) {
+		close();
+	}
+}
+
+watch(
+	() => props.modelValue,
+	(visible) => {
+		if (visible) {
+			window.addEventListener("mousedown", onWindowMouseDown, true);
+			window.addEventListener("keydown", onWindowKeydown, true);
+		} else {
+			window.removeEventListener("mousedown", onWindowMouseDown, true);
+			window.removeEventListener("keydown", onWindowKeydown, true);
+		}
+	},
+	{ immediate: true }
+);
+
+onBeforeUnmount(() => {
+	window.removeEventListener("mousedown", onWindowMouseDown, true);
+	window.removeEventListener("keydown", onWindowKeydown, true);
+});
 </script>
 
 <style scoped>
-.shortcuts-help-overlay {
+.shortcuts-help-popover {
 	position: fixed;
-	top: 0;
-	left: 0;
-	width: 100vw;
-	height: 100vh;
-	background: rgba(0, 0, 0, 0.4);
-	backdrop-filter: blur(4px);
-	z-index: 2000;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-}
-
-.shortcuts-help-container {
-	background: #fff;
-	width: 400px;
-	border-radius: 12px;
-	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+	z-index: 13000;
+	width: min(420px, calc(100vw - 24px));
+	max-height: min(70vh, 620px);
+	border-radius: var(--fxr-radius-lg, 16px);
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	background: var(--fxr-surface, var(--fg-color));
+	box-shadow: var(--fxr-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.12));
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
 }
 
 .shortcuts-help-header {
-	padding: 15px 20px;
-	border-bottom: 1px solid var(--border-color);
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: space-between;
+	gap: 12px;
+	padding: 14px 16px;
+	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
+	background: color-mix(in srgb, var(--fxr-surface, #fff) 96%, var(--fxr-surface-2, #f3f5f7));
 }
 
-.shortcuts-help-header h5 {
+.shortcuts-help-title {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	min-width: 0;
+}
+
+.shortcuts-help-title i {
+	width: 28px;
+	height: 28px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px;
+	background: var(--fxr-accent-soft, #eef6ff);
+	color: var(--fxr-accent, var(--primary));
+	flex: 0 0 auto;
+}
+
+.shortcuts-help-title h5 {
 	margin: 0;
-	font-size: 16px;
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--fxr-text-strong, var(--text-color));
 }
 
-.btn-close {
-	background: none;
+.shortcuts-help-title p {
+	margin: 2px 0 0;
+	font-size: 11px;
+	color: var(--fxr-text-soft, var(--text-muted));
+}
+
+.popover-close {
+	width: 30px;
+	height: 30px;
 	border: none;
-	font-size: 20px;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--fxr-text-soft, var(--text-muted));
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	cursor: pointer;
-	color: var(--text-muted);
+}
+
+.popover-close:hover {
+	background: var(--fxr-surface-2, var(--control-bg));
+	color: var(--fxr-text-strong, var(--text-color));
 }
 
 .shortcuts-help-body {
-	padding: 20px;
-	max-height: 500px;
-	overflow-y: auto;
+	padding: 10px 12px 12px;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 }
 
-.shortcut-section {
-	margin-bottom: 20px;
+.shortcut-group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 10px 10px 8px;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 12px;
+	background: var(--fxr-surface-soft, var(--control-bg));
 }
 
-.shortcut-section h6 {
-	font-size: 11px;
+.shortcut-group-heading {
+	font-size: 10px;
+	font-weight: 800;
 	text-transform: uppercase;
-	color: var(--text-muted);
-	margin-bottom: 10px;
-	letter-spacing: 0.5px;
+	letter-spacing: 0.04em;
+	color: var(--fxr-text-soft, var(--text-muted));
 }
 
 .shortcut-item {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(126px, auto) minmax(0, 1fr);
 	align-items: center;
-	justify-content: space-between;
-	margin-bottom: 8px;
-	font-size: 13px;
+	gap: 10px;
+	padding: 7px 8px;
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--fxr-surface, #fff) 88%, var(--fxr-surface-2, #f3f5f7));
 }
 
 .shortcut-keys {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 4px;
 }
 
 kbd {
-	background: #f1f5f9;
-	border: 1px solid #cbd5e1;
-	border-radius: 4px;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-bottom-color: var(--fxr-border-strong, var(--border-color));
+	border-radius: 6px;
 	padding: 2px 6px;
-	font-size: 11px;
+	font-size: 10px;
+	line-height: 1.3;
 	font-family: inherit;
-	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+	background: var(--fxr-surface, #fff);
+	color: var(--fxr-text-strong, var(--text-color));
+	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
 }
 
 .shortcut-desc {
-	color: #475569;
+	font-size: 12px;
+	color: var(--fxr-text-strong, var(--text-color));
+}
+
+.shortcuts-popover-enter-active,
+.shortcuts-popover-leave-active {
+	transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.shortcuts-popover-enter-from,
+.shortcuts-popover-leave-to {
+	opacity: 0;
+	transform: translateY(-6px) scale(0.98);
+}
+
+.v2-scrollbar::-webkit-scrollbar {
+	width: 4px;
+}
+
+.v2-scrollbar::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--fxr-text-soft, #64748b) 28%, white);
+	border-radius: 999px;
+}
+
+@media (max-width: 640px) {
+	.shortcuts-help-popover {
+		left: 12px;
+		right: 12px;
+		width: auto;
+	}
+
+	.shortcut-item {
+		grid-template-columns: 1fr;
+	}
 }
 </style>

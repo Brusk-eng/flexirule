@@ -68,23 +68,31 @@ function updateValue(field, value) {
 .schema-renderer {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-3, 8px);
-	padding: 0 4px;
+	gap: var(--fxr-space-4, 12px);
+	padding: 0 4px 4px;
 }
 
 .section-break {
-	margin-top: 16px;
+	margin-top: 18px;
 	margin-bottom: 4px;
 }
 
 .section-break h5 {
 	margin: 0 0 8px 0;
-	font-size: 14px;
-	font-weight: 700;
-	color: var(--text-color);
+	font-size: 13px;
+	font-weight: 800;
+	color: var(--fxr-text-strong, var(--text-color));
+}
+
+.schema-field-wrapper {
+	padding: 10px 12px;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
 }
 
 .has-error :deep(.form-control) {
 	border-color: var(--red-500, #ef4444);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--red-500, #ef4444) 14%, white);
 }
 </style>
