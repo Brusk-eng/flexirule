@@ -148,14 +148,16 @@ function onPaste() {
 			</button>
 
 			<Teleport to="body">
-				<ActionPopover
-					v-if="showPopover"
-					:active="showPopover"
-					:position="popoverPosition"
-					@select="onActionSelect"
-					@paste="onPaste"
-					@close="showPopover = false"
-				/>
+				<div class="fxr-builder-active">
+					<ActionPopover
+						v-if="showPopover"
+						:active="showPopover"
+						:position="popoverPosition"
+						@select="onActionSelect"
+						@paste="onPaste"
+						@close="showPopover = false"
+					/>
+				</div>
 			</Teleport>
 		</div>
 	</EdgeLabelRenderer>
