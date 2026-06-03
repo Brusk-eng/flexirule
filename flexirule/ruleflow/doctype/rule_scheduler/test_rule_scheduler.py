@@ -87,6 +87,79 @@ class TestRuleScheduler(FrappeTestCase):
 		scheduler.save()
 		self.assertTrue(scheduler.name)
 
+	def test_scheduler_requires_filter_or_rule_doctype(self):
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": f"Test Scheduler No DocType {frappe.generate_hash(length=6)}",
+				"trigger_type": "Scheduler Event",
+				"is_active": 0,
+				"actions": [
+					{
+						"action_type": "Stop",
+						"operation": "Success",
+						"action_label": "End",
+						"action_id": "node_end",
+						"is_enabled": 1,
+					}
+				],
+			}
+		).insert(ignore_permissions=True)
+
+		scheduler = frappe.get_doc(
+			{
+				"doctype": "Rule Scheduler",
+				"rule": rule.name,
+				"frequency": "Daily",
+			}
+		)
+
+		with self.assertRaisesRegex(
+			frappe.ValidationError,
+			"requires Filter DocType or a Document Type",
+		):
+			scheduler.insert(ignore_permissions=True)
+
+	def test_filter_json_validates_on_save(self):
+		scheduler = frappe.get_doc(
+			{
+				"doctype": "Rule Scheduler",
+				"rule": self.rule.name,
+				"frequency": "Daily",
+				"filter_doctype": "ToDo",
+				"filter_json": '{"description": ["like", "Batch Test%"]',
+			}
+		)
+
+		with self.assertRaisesRegex(frappe.ValidationError, "Filter JSON is invalid"):
+			scheduler.insert(ignore_permissions=True)
+
+		scheduler = frappe.get_doc(
+			{
+				"doctype": "Rule Scheduler",
+				"rule": self.rule.name,
+				"frequency": "Daily",
+				"filter_doctype": "ToDo",
+				"filter_json": json.dumps("not a filter object"),
+			}
+		)
+		with self.assertRaisesRegex(frappe.ValidationError, "must be a JSON object or array"):
+			scheduler.insert(ignore_permissions=True)
+
+	def test_filter_json_is_checked_against_filter_doctype(self):
+		scheduler = frappe.get_doc(
+			{
+				"doctype": "Rule Scheduler",
+				"rule": self.rule.name,
+				"frequency": "Daily",
+				"filter_doctype": "ToDo",
+				"filter_json": json.dumps({"definitely_not_a_todo_field": "Open"}),
+			}
+		)
+
+		with self.assertRaisesRegex(frappe.ValidationError, "Filter JSON is not valid for ToDo"):
+			scheduler.insert(ignore_permissions=True)
+
 	def test_is_event_due(self):
 		scheduler = frappe.get_doc(
 			{

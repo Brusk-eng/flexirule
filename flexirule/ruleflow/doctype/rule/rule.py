@@ -27,6 +27,9 @@ class Rule(Document):
 
 		actions: DF.Table[RuleAction]
 		compiled_expression: DF.Code | None
+		compiled_artifact: DF.Code | None
+		compiled_at: DF.Datetime | None
+		compiled_hash: DF.Data | None
 		debug_mode: DF.Check
 		description: DF.Text | None
 		document_type: DF.Link | None
@@ -86,6 +89,7 @@ class Rule(Document):
 		trigger_type: DF.Literal["DocType Event", "Scheduler Event", "Callable Event"]
 		version: DF.Int
 		visual_data: DF.Code | None
+		watched_fields: DF.SmallText | None
 
 	# end: auto-generated types
 	def _sync_status(self):
@@ -118,8 +122,7 @@ class Rule(Document):
 		self.compile_action_mappings()
 		self.normalize_trigger_type_fields()
 		self.validate_with_service()
-		self.validate_no_sub_rule_cycles()
-		self.validate_variable_availability()
+		self.compile_artifact()
 		self.validate_active_rule_lock()
 		self.validate_priority_callable()
 		self.set_callable_permissions()
@@ -141,6 +144,15 @@ class Rule(Document):
 
 		message = "<br>".join(result.get("errors", []))
 		frappe.throw(_("Rule validation failed:<br>{0}").format(message))
+
+	def compile_artifact(self):
+		"""Store a versioned compiled artifact used by strict activation/runtime."""
+		from flexirule.ruleflow.core.compile_service import compile_rule, serialize_artifact
+
+		artifact = compile_rule(self)
+		self.compiled_artifact = serialize_artifact(artifact)
+		self.compiled_hash = artifact.get("hash")
+		self.compiled_at = artifact.get("compiled_at")
 
 	def before_save(self):
 		"""Initialize version for new rules."""

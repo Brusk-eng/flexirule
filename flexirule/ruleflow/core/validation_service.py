@@ -116,6 +116,8 @@ def validate_rule_definition(rule_doc, mode="full") -> dict:
 
 	if hasattr(rule, "validate_no_sub_rule_cycles"):
 		_capture_validation(errors, rule.validate_no_sub_rule_cycles)
+	if hasattr(rule, "validate_variable_availability"):
+		_capture_validation(errors, rule.validate_variable_availability)
 
 	# Activation-only checks: skip in 'draft' mode
 	is_active = _is_truthy(_safe_get(rule, "is_active"))
