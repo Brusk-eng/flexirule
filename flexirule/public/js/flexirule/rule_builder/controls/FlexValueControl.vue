@@ -1404,6 +1404,7 @@ onBeforeUnmount(() => {
 }
 .fxr-token-modal-container {
 	background: #fff;
+	background-color: var(--fxr-surface, #ffffff);
 	border-radius: 12px;
 	width: 100%;
 	max-width: 580px;

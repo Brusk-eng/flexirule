@@ -782,6 +782,7 @@ defineExpose({ validate });
 	width: min(980px, 92vw);
 	max-height: 86vh;
 	background: var(--fxr-surface, #fff);
+	background-color: var(--fxr-surface, #ffffff);
 	border-radius: 14px;
 	border: 1px solid var(--fxr-border-subtle, #e2e8f0);
 	padding: 14px;

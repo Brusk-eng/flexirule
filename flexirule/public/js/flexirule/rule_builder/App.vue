@@ -472,6 +472,7 @@ function onPaneReady(instance) {
 }
 
 onMounted(async () => {
+	document.body.classList.add("fxr-builder-active");
 	if (props.rule) ruleStore.rule_name = props.rule;
 	await ruleStore.fetch();
 	graphStore.autoConnectStartNode();
@@ -492,6 +493,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+	document.body.classList.remove("fxr-builder-active");
 	window.removeEventListener("keydown", handleKeydown);
 	window.removeEventListener("keyup", handleKeyup);
 	window.removeEventListener("mousemove", updateMousePos);
@@ -762,19 +764,22 @@ function onEdgeClick({ edge, event }) {
 @import "@vue-flow/core/dist/style.css";
 @import "@vue-flow/core/dist/theme-default.css";
 
-.rule-builder-container {
-	display: flex;
-	flex-direction: column;
-	height: calc(100vh - var(--navbar-height) - var(--page-head-height) - 60px);
+.rule-builder-container,
+.fxr-builder-active {
 	--fxr-bg-page: var(--fg-color, #ffffff);
+	--fxr-bg-card: var(--fg-color, #ffffff);
+	--fxr-bg-input: var(--fg-color, #ffffff);
 	--fxr-surface: var(--fg-color, #ffffff);
 	--fxr-surface-2: var(--control-bg, #f3f5f7);
 	--fxr-surface-soft: color-mix(in srgb, var(--control-bg, #f3f5f7) 68%, white);
 	--fxr-surface-elevated: color-mix(in srgb, var(--fg-color, #ffffff) 94%, transparent);
+	--fxr-border: var(--border-color, #d1d8dd);
 	--fxr-border-subtle: color-mix(in srgb, var(--border-color, #d1d8dd) 72%, white);
 	--fxr-border-strong: color-mix(in srgb, var(--border-color, #d1d8dd) 88%, #334155);
+	--fxr-text: var(--text-color, #1f2937);
 	--fxr-text-strong: var(--text-color, #1f2937);
 	--fxr-text-soft: var(--text-muted, #64748b);
+	--fxr-text-muted: var(--text-muted, #64748b);
 	--fxr-text-faint: color-mix(in srgb, var(--text-muted, #64748b) 70%, white);
 	--fxr-accent: var(--primary, #2490ef);
 	--fxr-accent-soft: color-mix(in srgb, var(--primary, #2490ef) 12%, white);
@@ -797,6 +802,12 @@ function onEdgeClick({ edge, event }) {
 	--fxr-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
 	--fxr-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
 	--fxr-shadow-lg: 0 22px 48px rgba(15, 23, 42, 0.12);
+}
+
+.rule-builder-container {
+	display: flex;
+	flex-direction: column;
+	height: calc(100vh - var(--navbar-height) - var(--page-head-height) - 60px);
 }
 /* Removed .builder-toolbar */
 
@@ -844,8 +855,8 @@ function onEdgeClick({ edge, event }) {
 }
 
 .fxr-headless-menu {
-	background: var(--fxr-surface);
-	border: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-surface, #ffffff);
+	border: 1px solid var(--fxr-border-subtle, #d1d8dd);
 	border-radius: var(--fxr-radius-md);
 	box-shadow: var(--fxr-shadow-lg);
 	overflow: hidden;
@@ -911,9 +922,9 @@ function onEdgeClick({ edge, event }) {
 	max-width: 280px;
 	padding: 7px 9px;
 	border-radius: 8px;
-	border: 1px solid var(--fxr-border-subtle);
-	background: var(--fxr-surface);
-	color: var(--fxr-text-strong);
+	border: 1px solid var(--fxr-border-subtle, #d1d8dd);
+	background: var(--fxr-surface, #ffffff);
+	color: var(--fxr-text-strong, #1f2937);
 	font-size: 12px;
 	font-weight: 600;
 	box-shadow: var(--fxr-shadow-md);
