@@ -40,13 +40,35 @@ class RuleScheduler(Document):
 		on_error: DF.Literal["Skip", "Stop"]
 		rule: DF.Link
 		stopped: DF.Check
+		next_execution_at: "DF.Datetime | None"
 
 	# end: auto-generated types
+
 	def validate(self):
 		self._validate_cron_format()
 		rule_doc = self._validate_rule()
 		self._validate_filter_target(rule_doc)
 		self._validate_filter_json()
+		self.set_initial_next_execution()
+
+	def set_initial_next_execution(self):
+		"""Compute and set initial next_execution_at if not set or on frequency change."""
+		is_new = self.is_new()
+		has_changed = False
+		if not is_new:
+			old_doc = self.get_doc_before_save()
+			if old_doc:
+				has_changed = (
+					self.frequency != old_doc.frequency
+					or self.cron_format != old_doc.cron_format
+					or self.stopped != old_doc.stopped
+				)
+
+		if is_new or has_changed or not self.next_execution_at:
+			if self.stopped:
+				self.next_execution_at = None
+			else:
+				self.next_execution_at = self.get_next_execution()
 
 	def _validate_cron_format(self):
 		"""Validate cron expression if frequency is Cron."""
@@ -137,7 +159,7 @@ class RuleScheduler(Document):
 		}
 
 		cron = self.cron_format or CRON_MAP.get(self.frequency, "0 * * * *")
-		last = get_datetime(self.last_execution or self.creation)
+		last = get_datetime(self.last_execution or self.creation or now_datetime())
 		return croniter(cron, last).get_next(datetime)
 
 	def is_event_due(self, current_time=None):
@@ -197,7 +219,9 @@ class RuleScheduler(Document):
 
 			if not documents:
 				frappe.logger("flexirule").info(f"Scheduler {self.name}: No documents to process")
-				self._update_last_execution()
+				self._update_last_execution(
+					success_count=0, error_count=0, status="No Documents", summary="No documents to process"
+				)
 				return
 
 			success_count = 0
@@ -241,7 +265,18 @@ class RuleScheduler(Document):
 
 			if not getattr(frappe.flags, "in_test", False):
 				frappe.db.commit()
-			self._update_last_execution()
+
+			status = "Success"
+			if error_count > 0:
+				if success_count > 0:
+					status = "Partial Success"
+				else:
+					status = "Failed"
+
+			summary = f"Processed {len(documents)} documents: {success_count} success, {error_count} failed."
+			self._update_last_execution(
+				success_count=success_count, error_count=error_count, status=status, summary=summary
+			)
 
 			frappe.logger("flexirule").info(
 				f"Scheduler {self.name}: Completed. Success: {success_count}, Errors: {error_count}"
@@ -250,6 +285,9 @@ class RuleScheduler(Document):
 		except Exception as e:
 			error_msg = str(e)
 			frappe.log_error(f"Scheduler {self.name} failed", error_msg)
+			status = "Failed"
+			summary = f"Error during scheduler execution: {error_msg[:500]}"
+			self._update_last_execution(success_count=0, error_count=0, status=status, summary=summary)
 			self.db_set("last_error", error_msg[:2000], update_modified=False)
 
 	def _get_documents(self):
@@ -268,9 +306,27 @@ class RuleScheduler(Document):
 			limit=self.batch_size or 100,
 		)
 
-	def _update_last_execution(self):
-		"""Update last_execution timestamp."""
-		self.db_set("last_execution", now_datetime(), update_modified=False)
+	def _update_last_execution(self, success_count=None, error_count=None, status=None, summary=None):
+		"""Update last_execution and related metrics."""
+		now = now_datetime()
+		self.last_execution = now
+		next_exec = self.get_next_execution()
+
+		update_dict = {
+			"last_execution": now,
+			"next_execution_at": next_exec,
+		}
+		if status is not None:
+			update_dict["last_run_status"] = status
+		if success_count is not None:
+			update_dict["last_success_count"] = success_count
+		if error_count is not None:
+			update_dict["last_error_count"] = error_count
+		if summary is not None:
+			update_dict["last_run_summary"] = summary
+
+		for field, val in update_dict.items():
+			self.db_set(field, val, update_modified=False)
 
 
 @frappe.whitelist()

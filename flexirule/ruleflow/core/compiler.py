@@ -151,9 +151,10 @@ class ConditionCompiler:
 		if not isinstance(conditions, dict):
 			raise ValueError("Condition must be a dictionary or list")
 
-		return self._compile_node(
+		compiled = self._compile_node(
 			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
 		)
+		return compiled if compiled else "True"
 
 	def _compile_node(self, node, scopes=None):
 		if not isinstance(node, dict):

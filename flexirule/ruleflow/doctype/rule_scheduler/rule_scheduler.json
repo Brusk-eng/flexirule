@@ -41,13 +41,15 @@
 			"in_list_view": 1,
 			"label": "Rule",
 			"options": "Rule",
-			"reqd": 1
+			"reqd": 1,
+			"search_index": 1
 		},
 		{
 			"default": "0",
 			"fieldname": "stopped",
 			"fieldtype": "Check",
-			"label": "Stopped"
+			"label": "Stopped",
+			"search_index": 1
 		},
 		{
 			"default": "Daily",

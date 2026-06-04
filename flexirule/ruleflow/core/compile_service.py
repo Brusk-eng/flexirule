@@ -154,3 +154,50 @@ def _parse_field_list(value) -> list[str]:
 	if isinstance(value, list | tuple | set):
 		return [str(field).strip() for field in value if str(field).strip()]
 	return []
+
+
+COMPILED_ARTIFACT_CACHE_PREFIX = "flexirule_compiled_artifact_v1"
+
+
+def cache_compiled_artifact(rule_doc) -> dict[str, Any]:
+	"""Compile and cache the rule artifact in Redis, returning the compiled artifact."""
+	artifact = compile_rule(rule_doc)
+	key = f"{COMPILED_ARTIFACT_CACHE_PREFIX}:{rule_doc.name}"
+	try:
+		frappe.cache.set_value(key, artifact, expires_in_sec=24 * 60 * 60)
+	except Exception:
+		pass
+	return artifact
+
+
+def get_compiled_artifact(rule_name: str) -> dict[str, Any] | None:
+	"""Retrieve the compiled artifact from Redis. Recompile and cache on miss."""
+	key = f"{COMPILED_ARTIFACT_CACHE_PREFIX}:{rule_name}"
+	try:
+		cached = frappe.cache.get_value(key)
+		if cached and isinstance(cached, dict):
+			return cached
+	except Exception:
+		pass
+
+	# Recompile on miss
+	try:
+		rule_doc = frappe.get_doc("Rule", rule_name)
+		return cache_compiled_artifact(rule_doc)
+	except Exception:
+		return None
+
+
+def clear_compiled_artifact_cache(rule_name: str | None = None) -> None:
+	"""Clear compiled artifact cache from Redis."""
+	try:
+		if rule_name:
+			key = f"{COMPILED_ARTIFACT_CACHE_PREFIX}:{rule_name}"
+			frappe.cache.delete_value(key)
+		else:
+			pattern = f"{COMPILED_ARTIFACT_CACHE_PREFIX}:*"
+			frappe.cache.delete_keys(pattern)
+			if hasattr(frappe.cache, "make_key"):
+				frappe.cache.delete_keys(frappe.cache.make_key(pattern))
+	except Exception:
+		pass

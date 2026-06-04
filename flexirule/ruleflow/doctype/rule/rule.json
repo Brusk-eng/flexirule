@@ -18,9 +18,6 @@
 		"watched_fields",
 		"trigger_condition",
 		"compiled_expression",
-		"compiled_artifact",
-		"compiled_hash",
-		"compiled_at",
 		"column_break_2",
 		"execution_mode",
 		"max_execution_time",
@@ -28,9 +25,6 @@
 		"module",
 		"skip_for_roles",
 		"description",
-		"scheduler_state_section",
-		"scheduler_state",
-		"scheduler_next_execution_at",
 		"section_break_permissions",
 		"permissions",
 		"section_break_flow",
@@ -122,7 +116,8 @@
 			"label": "Document Type",
 			"link_filters": "[[\"DocType\",\"issingle\",\"=\",0],[\"DocType\",\"istable\",\"=\",0]]",
 			"mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
-			"options": "DocType"
+			"options": "DocType",
+			"search_index": 1
 		},
 		{
 			"allow_in_quick_entry": 1,
@@ -134,7 +129,8 @@
 			"in_standard_filter": 1,
 			"label": "Trigger Event",
 			"mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
-			"options": "\nBefore Naming\nBefore Insert\nBefore Save\nValidate\nBefore Submit\nAfter Insert\nAfter Save\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash\nOn Update After Submit\nOn Change\nBefore Rename\nAfter Rename\nBefore Print"
+			"options": "\nBefore Naming\nBefore Insert\nBefore Save\nValidate\nBefore Submit\nAfter Insert\nAfter Save\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash\nOn Update After Submit\nOn Change\nBefore Rename\nAfter Rename\nBefore Print",
+			"search_index": 1
 		},
 		{
 			"depends_on": "eval:doc.trigger_type==='DocType Event'",
@@ -155,31 +151,6 @@
 			"placeholder": "Set Filtering before evaluating Actions",
 			"read_only": 1,
 			"width": "200"
-		},
-		{
-			"fieldname": "compiled_artifact",
-			"fieldtype": "Code",
-			"hidden": 1,
-			"label": "Compiled Artifact",
-			"no_copy": 1,
-			"options": "JSON",
-			"read_only": 1
-		},
-		{
-			"fieldname": "compiled_hash",
-			"fieldtype": "Data",
-			"hidden": 1,
-			"label": "Compiled Hash",
-			"no_copy": 1,
-			"read_only": 1
-		},
-		{
-			"fieldname": "compiled_at",
-			"fieldtype": "Datetime",
-			"hidden": 1,
-			"label": "Compiled At",
-			"no_copy": 1,
-			"read_only": 1
 		},
 		{
 			"depends_on": "eval:doc.trigger_type==='DocType Event'",
@@ -231,25 +202,6 @@
 			"fieldtype": "Table MultiSelect",
 			"label": "Skip for Roles",
 			"options": "Has Role"
-		},
-		{
-			"collapsible": 1,
-			"depends_on": "eval:doc.trigger_type==='Scheduler Event'",
-			"fieldname": "scheduler_state_section",
-			"fieldtype": "Section Break",
-			"label": "Scheduler State"
-		},
-		{
-			"fieldname": "scheduler_state",
-			"fieldtype": "Data",
-			"label": "Scheduler State",
-			"read_only": 1
-		},
-		{
-			"fieldname": "scheduler_next_execution_at",
-			"fieldtype": "Datetime",
-			"label": "Scheduler Next Execution At",
-			"read_only": 1
 		},
 		{
 			"collapsible": 1,
