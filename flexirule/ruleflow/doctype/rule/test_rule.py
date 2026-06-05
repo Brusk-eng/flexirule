@@ -13,6 +13,21 @@ class TestRule(FrappeTestCase):
 		if frappe.db.exists("Rule", self.rule_name):
 			frappe.delete_doc("Rule", self.rule_name)
 
+	def _insert_with_retry(self, doc, retries=3):
+		import time
+
+		last_error = None
+		for _ in range(retries):
+			try:
+				return doc.insert(ignore_permissions=True)
+			except frappe.QueryDeadlockError as e:
+				last_error = e
+				frappe.db.rollback()
+				time.sleep(0.05)
+		if last_error:
+			raise last_error
+		return doc
+
 	def test_set_value_validation_gap(self):
 		"""Verify that non-existent fields in Set Value action are blocked"""
 		rule = frappe.get_doc(
@@ -266,3 +281,38 @@ class TestRule(FrappeTestCase):
 		)
 
 		rule.validate()
+
+	def test_compiled_artifact_redis_cache_only(self):
+		"""Verify that compiled artifacts are cached in Redis and NOT stored on the Rule document."""
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": f"Test Redis Cache Rule {frappe.generate_hash(length=6)}",
+				"document_type": "User",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Before Save",
+				"actions": [
+					{
+						"action_id": "stop_success",
+						"action_label": "Stop Success",
+						"action_type": "Stop",
+						"operation": "Success",
+					}
+				],
+			}
+		)
+		self._insert_with_retry(rule)
+
+		# The document fields should not exist (since they were removed from the doctype)
+		self.assertFalse(hasattr(rule, "compiled_artifact"))
+		self.assertFalse(hasattr(rule, "compiled_hash"))
+		self.assertFalse(hasattr(rule, "compiled_at"))
+
+		# Retrieve from Redis cache via compile_service
+		from flexirule.ruleflow.core.compile_service import get_compiled_artifact
+
+		artifact = get_compiled_artifact(rule.name)
+		self.assertIsNotNone(artifact)
+		assert artifact is not None  # type narrowing for mypy
+		self.assertEqual(artifact.get("rule"), rule.name)
+		self.assertEqual(artifact.get("artifact_version"), 1)

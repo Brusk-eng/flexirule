@@ -5,6 +5,7 @@
 Tests for FlexiRule Rule Engine
 """
 
+import json
 import unittest
 
 import frappe
@@ -32,6 +33,35 @@ class TestRuleEngine(FrappeTestCase):
 					"priority": 10,
 				}
 			).insert(ignore_permissions=True)
+
+	def _create_stop_rule(self, debug_mode=0):
+		return frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": f"Test Log Policy {frappe.generate_hash(length=8)}",
+				"document_type": "ToDo",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Validate",
+				"is_active": 1,
+				"debug_mode": debug_mode,
+				"actions": [
+					{
+						"action_id": "root",
+						"action_type": "Entry Action",
+						"action_label": "Start",
+						"is_enabled": 1,
+						"next_step_if_true": "node_end",
+					},
+					{
+						"action_id": "node_end",
+						"action_type": "Stop",
+						"operation": "Success",
+						"action_label": "End",
+						"is_enabled": 1,
+					},
+				],
+			}
+		).insert(ignore_permissions=True)
 
 	def test_rule_creation(self):
 		"""Test rule is created correctly"""
@@ -97,3 +127,37 @@ class TestRuleEngine(FrappeTestCase):
 		# For validation processes, we now expect an 'is_valid' flag in result
 		last_action_result = engine.path_trace[-1].get("result")
 		self.assertFalse(last_action_result.get("is_valid"))
+
+	def test_execution_log_defaults_to_vars_only_snapshot(self):
+		rule = self._create_stop_rule()
+		doc = frappe.get_doc({"doctype": "ToDo", "description": "Sensitive task"})
+		engine = RuleEngine(
+			rule,
+			execution_context={
+				"skip_log_enqueue": True,
+				"vars": {"safe_value": "kept"},
+			},
+		)
+
+		engine.execute(doc)
+
+		snapshot = json.loads(engine.last_execution_log_payload["context_snapshot"])
+		self.assertEqual(snapshot.get("safe_value"), "kept")
+		self.assertNotIn("doc", snapshot)
+
+	def test_execution_log_includes_doc_snapshot_in_debug_mode(self):
+		rule = self._create_stop_rule(debug_mode=1)
+		doc = frappe.get_doc({"doctype": "ToDo", "description": "Debug task"})
+		engine = RuleEngine(
+			rule,
+			execution_context={
+				"skip_log_enqueue": True,
+				"vars": {"safe_value": "kept"},
+			},
+		)
+
+		engine.execute(doc)
+
+		snapshot = json.loads(engine.last_execution_log_payload["context_snapshot"])
+		self.assertEqual(snapshot.get("safe_value"), "kept")
+		self.assertEqual(snapshot.get("doc", {}).get("description"), "Debug task")

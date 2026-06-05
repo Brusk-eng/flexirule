@@ -24,9 +24,14 @@
 		"on_error",
 		"module",
 		"section_break_status",
+		"next_execution_at",
 		"last_execution",
 		"column_break_status",
 		"next_execution",
+		"last_run_status",
+		"last_success_count",
+		"last_error_count",
+		"last_run_summary",
 		"last_error"
 	],
 	"fields": [
@@ -36,13 +41,15 @@
 			"in_list_view": 1,
 			"label": "Rule",
 			"options": "Rule",
-			"reqd": 1
+			"reqd": 1,
+			"search_index": 1
 		},
 		{
 			"default": "0",
 			"fieldname": "stopped",
 			"fieldtype": "Check",
-			"label": "Stopped"
+			"label": "Stopped",
+			"search_index": 1
 		},
 		{
 			"default": "Daily",
@@ -106,6 +113,14 @@
 			"label": "Execution Status"
 		},
 		{
+			"fieldname": "next_execution_at",
+			"fieldtype": "Datetime",
+			"in_list_view": 1,
+			"in_standard_filter": 1,
+			"label": "Next Execution At",
+			"read_only": 1
+		},
+		{
 			"fieldname": "last_execution",
 			"fieldtype": "Datetime",
 			"label": "Last Execution",
@@ -120,6 +135,31 @@
 			"fieldtype": "Datetime",
 			"is_virtual": 1,
 			"label": "Next Execution",
+			"read_only": 1
+		},
+		{
+			"fieldname": "last_run_status",
+			"fieldtype": "Select",
+			"label": "Last Run Status",
+			"options": "\nSuccess\nPartial Success\nFailed\nNo Documents",
+			"read_only": 1
+		},
+		{
+			"fieldname": "last_success_count",
+			"fieldtype": "Int",
+			"label": "Last Success Count",
+			"read_only": 1
+		},
+		{
+			"fieldname": "last_error_count",
+			"fieldtype": "Int",
+			"label": "Last Error Count",
+			"read_only": 1
+		},
+		{
+			"fieldname": "last_run_summary",
+			"fieldtype": "Small Text",
+			"label": "Last Run Summary",
 			"read_only": 1
 		},
 		{

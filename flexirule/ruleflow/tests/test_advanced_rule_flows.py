@@ -560,7 +560,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		context_snapshot = json.loads(before_save_log.context_snapshot or "{}")
 		self.assertEqual(context_snapshot.get("phone_matches", {}).get("match_count"), 1)
 		self.assertEqual(context_snapshot.get("contact_changed"), True)
-		self.assertEqual(context_snapshot.get("doc", {}).get("status"), "Open")
+		self.assertNotIn("doc", context_snapshot)
 
 		after_insert_log = self._latest_log(scenarios["after_insert"].name, contact.name)
 		self.assertIsNotNone(after_insert_log)

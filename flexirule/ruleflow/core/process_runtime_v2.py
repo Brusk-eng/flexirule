@@ -147,8 +147,31 @@ class ProcessOperationExecutor:
 				).format(invocation.operation_key, writes_to, event_name)
 			)
 
+		def _strip_frappe_metadata(payload):
+			if isinstance(payload, dict):
+				return {
+					k: _strip_frappe_metadata(v)
+					for k, v in payload.items()
+					if k
+					not in (
+						"name",
+						"parent",
+						"parenttype",
+						"parentfield",
+						"idx",
+						"__islocal",
+						"__table_fieldname",
+					)
+				}
+			if isinstance(payload, list):
+				return [_strip_frappe_metadata(item) for item in payload]
+			return payload
+
+		cleaned_config = _strip_frappe_metadata(invocation.config or {})
+
 		try:
-			jsonschema_validate(invocation.config or {}, invocation.config_schema or {})
+			validator = self._get_frappe_validator()
+			validator(invocation.config_schema or {}).validate(cleaned_config)
 		except JsonSchemaValidationError as exc:
 			raise MethodExecutionError(
 				_("Config schema validation failed for {0}: {1}").format(
@@ -193,9 +216,21 @@ class ProcessOperationExecutor:
 
 		return OperationResult(status="success", data=raw_result)
 
+	def _get_frappe_validator(self):
+		from jsonschema import Draft7Validator, validators
+
+		def is_frappe_bool(checker, instance):
+			return isinstance(instance, bool) or (
+				isinstance(instance, int) and instance in (0, 1) and not isinstance(instance, bool)
+			)
+
+		type_checker = Draft7Validator.TYPE_CHECKER.redefine("boolean", is_frappe_bool)
+		return validators.extend(Draft7Validator, type_checker=type_checker)
+
 	def validate_result(self, invocation: OperationInvocation, result: OperationResult) -> None:
 		try:
-			jsonschema_validate(result.data, invocation.result_schema or {})
+			validator = self._get_frappe_validator()
+			validator(invocation.result_schema or {}).validate(result.data)
 		except JsonSchemaValidationError as exc:
 			raise MethodExecutionError(
 				_("Result schema validation failed for {0}: {1}").format(

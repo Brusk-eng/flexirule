@@ -1186,29 +1186,46 @@ class RuleEngine:
 
 		return f"Rule: {self.rule.name}"
 
+	def _should_include_doc_snapshot(self, active_context):
+		"""Return whether execution logs may persist the full document snapshot."""
+		if self.rule.debug_mode:
+			return True
+
+		if active_context and (
+			active_context.get("include_doc_snapshot") or active_context.get("full_context_snapshot")
+		):
+			return True
+
+		try:
+			settings = frappe.get_cached_doc("RuleFlow Settings")
+			return bool(getattr(settings, "enable_debug_logging", 0))
+		except Exception:
+			return False
+
+	def _build_context_snapshot(self, active_context):
+		"""Build the persisted context snapshot according to the log data policy."""
+		if not active_context:
+			return {}
+
+		context_snapshot = {
+			k: v
+			for k, v in active_context.get("vars", {}).items()
+			if isinstance(v, str | int | float | bool | list | dict | type(None))
+		}
+
+		if active_context.get("doc") and self._should_include_doc_snapshot(active_context):
+			try:
+				context_snapshot["doc"] = active_context["doc"].as_dict()
+			except Exception:
+				context_snapshot["doc"] = "<Not Serializable>"
+
+		return context_snapshot
+
 	def _save_execution_log(self, status, duration, error_trace=None, context=None, message=None):
 		"""Save execution details to Rule Execution Log"""
 		try:
-			# Serialize context snapshot (remove complex objects)
-			context_snapshot = {}
 			active_context = context or getattr(self, "context", {})
-
-			if active_context:
-				# Only keep serializable vars
-				context_snapshot = {
-					k: v
-					for k, v in active_context.get("vars", {}).items()
-					if isinstance(v, str | int | float | bool | list | dict | type(None))
-				}
-
-				# Add document snapshot for debugging
-				if active_context.get("doc"):
-					try:
-						# Use as_dict but protect against non-serializable fields if any
-						doc_dict = active_context["doc"].as_dict()
-						context_snapshot["doc"] = doc_dict
-					except Exception:
-						context_snapshot["doc"] = "<Not Serializable>"
+			context_snapshot = self._build_context_snapshot(active_context)
 
 			# Handle Local Documents (New Docs)
 			# If we rollback, the doc might disappear, so the link will be broken.

@@ -16,7 +16,24 @@ def check_scheduled_rules():
 	Called from scheduler_events['all'] - runs every minute.
 	Finds due Rule Schedulers and enqueues them.
 	"""
-	for scheduler_name in frappe.get_all("Rule Scheduler", filters={"stopped": 0}, pluck="name"):
+	from frappe.utils import now_datetime
+
+	now = now_datetime()
+
+	due_schedulers = frappe.get_all(
+		"Rule Scheduler",
+		filters=[
+			["stopped", "=", 0],
+			["next_execution_at", "<=", now],
+		],
+		pluck="name",
+	)
+	null_schedulers = frappe.get_all(
+		"Rule Scheduler", filters=[["stopped", "=", 0], ["next_execution_at", "is", "not set"]], pluck="name"
+	)
+	schedulers = list(set(due_schedulers + null_schedulers))
+
+	for scheduler_name in schedulers:
 		try:
 			scheduler = frappe.get_doc("Rule Scheduler", scheduler_name)
 			scheduler.enqueue()

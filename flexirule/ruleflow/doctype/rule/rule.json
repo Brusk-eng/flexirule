@@ -15,6 +15,7 @@
 		"trigger_type",
 		"document_type",
 		"trigger_event",
+		"watched_fields",
 		"trigger_condition",
 		"compiled_expression",
 		"column_break_2",
@@ -115,7 +116,8 @@
 			"label": "Document Type",
 			"link_filters": "[[\"DocType\",\"issingle\",\"=\",0],[\"DocType\",\"istable\",\"=\",0]]",
 			"mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
-			"options": "DocType"
+			"options": "DocType",
+			"search_index": 1
 		},
 		{
 			"allow_in_quick_entry": 1,
@@ -127,7 +129,15 @@
 			"in_standard_filter": 1,
 			"label": "Trigger Event",
 			"mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
-			"options": "\nBefore Naming\nBefore Insert\nBefore Save\nValidate\nBefore Submit\nAfter Insert\nAfter Save\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash\nOn Update After Submit\nOn Change\nBefore Rename\nAfter Rename\nBefore Print"
+			"options": "\nBefore Naming\nBefore Insert\nBefore Save\nValidate\nBefore Submit\nAfter Insert\nAfter Save\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash\nOn Update After Submit\nOn Change\nBefore Rename\nAfter Rename\nBefore Print",
+			"search_index": 1
+		},
+		{
+			"depends_on": "eval:doc.trigger_type==='DocType Event'",
+			"description": "Comma-separated DocType fields that may trigger this rule. Leave empty to evaluate on every matching event.",
+			"fieldname": "watched_fields",
+			"fieldtype": "Small Text",
+			"label": "Watched Fields"
 		},
 		{
 			"depends_on": "eval:doc.trigger_type==='DocType Event'",

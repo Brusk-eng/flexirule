@@ -40,11 +40,35 @@ class RuleScheduler(Document):
 		on_error: DF.Literal["Skip", "Stop"]
 		rule: DF.Link
 		stopped: DF.Check
+		next_execution_at: "DF.Datetime | None"
 
 	# end: auto-generated types
+
 	def validate(self):
 		self._validate_cron_format()
-		self._validate_rule()
+		rule_doc = self._validate_rule()
+		self._validate_filter_target(rule_doc)
+		self._validate_filter_json()
+		self.set_initial_next_execution()
+
+	def set_initial_next_execution(self):
+		"""Compute and set initial next_execution_at if not set or on frequency change."""
+		is_new = self.is_new()
+		has_changed = False
+		if not is_new:
+			old_doc = self.get_doc_before_save()
+			if old_doc:
+				has_changed = (
+					self.frequency != old_doc.frequency
+					or self.cron_format != old_doc.cron_format
+					or self.stopped != old_doc.stopped
+				)
+
+		if is_new or has_changed or not self.next_execution_at:
+			if self.stopped:
+				self.next_execution_at = None
+			else:
+				self.next_execution_at = self.get_next_execution()
 
 	def _validate_cron_format(self):
 		"""Validate cron expression if frequency is Cron."""
@@ -72,6 +96,47 @@ class RuleScheduler(Document):
 					indicator="orange",
 				)
 				self.stopped = 1
+			return rule_doc
+		return None
+
+	def _get_filter_doctype(self, rule_doc=None):
+		"""Resolve the DocType used for scheduler batch discovery."""
+		return self.filter_doctype or (rule_doc.document_type if rule_doc else None)
+
+	def _validate_filter_target(self, rule_doc=None):
+		"""Require an explicit batch DocType or a linked scheduler rule DocType."""
+		doctype = self._get_filter_doctype(rule_doc)
+		if not doctype:
+			frappe.throw(_("Rule Scheduler requires Filter DocType or a Document Type on the linked Rule."))
+
+		if not frappe.db.exists("DocType", doctype):
+			frappe.throw(_("Filter DocType '{0}' does not exist.").format(doctype))
+
+	def _validate_filter_json(self):
+		"""Validate scheduler filters at save time instead of failing silently at runtime."""
+		if not self.filter_json:
+			return
+
+		filters = self._parse_filter_json(raise_on_error=True)
+		if not isinstance(filters, dict | list):
+			frappe.throw(_("Filter JSON must be a JSON object or array."))
+
+		doctype = self._get_filter_doctype(frappe.get_cached_doc("Rule", self.rule) if self.rule else None)
+		try:
+			frappe.get_all(doctype, filters=filters, pluck="name", limit=1)
+		except Exception as exc:
+			frappe.throw(_("Filter JSON is not valid for {0}: {1}").format(doctype, str(exc)))
+
+	def _parse_filter_json(self, raise_on_error=False):
+		if not self.filter_json:
+			return {}
+
+		try:
+			return json.loads(self.filter_json)
+		except json.JSONDecodeError as exc:
+			if raise_on_error:
+				frappe.throw(_("Filter JSON is invalid: {0}").format(str(exc)))
+			raise
 
 	@property
 	def next_execution(self):
@@ -94,7 +159,7 @@ class RuleScheduler(Document):
 		}
 
 		cron = self.cron_format or CRON_MAP.get(self.frequency, "0 * * * *")
-		last = get_datetime(self.last_execution or self.creation)
+		last = get_datetime(self.last_execution or self.creation or now_datetime())
 		return croniter(cron, last).get_next(datetime)
 
 	def is_event_due(self, current_time=None):
@@ -154,7 +219,9 @@ class RuleScheduler(Document):
 
 			if not documents:
 				frappe.logger("flexirule").info(f"Scheduler {self.name}: No documents to process")
-				self._update_last_execution()
+				self._update_last_execution(
+					success_count=0, error_count=0, status="No Documents", summary="No documents to process"
+				)
 				return
 
 			success_count = 0
@@ -198,7 +265,18 @@ class RuleScheduler(Document):
 
 			if not getattr(frappe.flags, "in_test", False):
 				frappe.db.commit()
-			self._update_last_execution()
+
+			status = "Success"
+			if error_count > 0:
+				if success_count > 0:
+					status = "Partial Success"
+				else:
+					status = "Failed"
+
+			summary = f"Processed {len(documents)} documents: {success_count} success, {error_count} failed."
+			self._update_last_execution(
+				success_count=success_count, error_count=error_count, status=status, summary=summary
+			)
 
 			frappe.logger("flexirule").info(
 				f"Scheduler {self.name}: Completed. Success: {success_count}, Errors: {error_count}"
@@ -207,22 +285,19 @@ class RuleScheduler(Document):
 		except Exception as e:
 			error_msg = str(e)
 			frappe.log_error(f"Scheduler {self.name} failed", error_msg)
+			status = "Failed"
+			summary = f"Error during scheduler execution: {error_msg[:500]}"
+			self._update_last_execution(success_count=0, error_count=0, status=status, summary=summary)
 			self.db_set("last_error", error_msg[:2000], update_modified=False)
 
 	def _get_documents(self):
 		"""Get documents matching filter criteria."""
-		doctype = self.filter_doctype
-		if not doctype:
-			# Fall back to rule's document_type
-			rule_doc = frappe.get_cached_doc("Rule", self.rule)
-			doctype = rule_doc.document_type
+		rule_doc = frappe.get_cached_doc("Rule", self.rule)
+		doctype = self._get_filter_doctype(rule_doc)
 
 		filters = {}
 		if self.filter_json:
-			try:
-				filters = json.loads(self.filter_json)
-			except json.JSONDecodeError:
-				frappe.log_error(f"Invalid filter JSON in {self.name}")
+			filters = self._parse_filter_json(raise_on_error=True)
 
 		return frappe.get_all(
 			doctype,
@@ -231,9 +306,27 @@ class RuleScheduler(Document):
 			limit=self.batch_size or 100,
 		)
 
-	def _update_last_execution(self):
-		"""Update last_execution timestamp."""
-		self.db_set("last_execution", now_datetime(), update_modified=False)
+	def _update_last_execution(self, success_count=None, error_count=None, status=None, summary=None):
+		"""Update last_execution and related metrics."""
+		now = now_datetime()
+		self.last_execution = now
+		next_exec = self.get_next_execution()
+
+		update_dict = {
+			"last_execution": now,
+			"next_execution_at": next_exec,
+		}
+		if status is not None:
+			update_dict["last_run_status"] = status
+		if success_count is not None:
+			update_dict["last_success_count"] = success_count
+		if error_count is not None:
+			update_dict["last_error_count"] = error_count
+		if summary is not None:
+			update_dict["last_run_summary"] = summary
+
+		for field, val in update_dict.items():
+			self.db_set(field, val, update_modified=False)
 
 
 @frappe.whitelist()

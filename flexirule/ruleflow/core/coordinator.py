@@ -584,6 +584,16 @@ class RuleCoordinator:
 
 		# Conditions MUST be pre-compiled - no runtime JSON parsing
 		elif rule_doc.get("trigger_condition"):
+			try:
+				import json
+
+				parsed = json.loads(rule_doc.get("trigger_condition"))
+				if isinstance(parsed, dict) and not parsed.get("conditions"):
+					return True, _("Eligible")
+				if isinstance(parsed, list) and not parsed:
+					return True, _("Eligible")
+			except Exception:
+				pass
 			return False, _("Rule has trigger_condition but no compiled_expression. Please re-save the Rule.")
 
 		return True, _("Eligible")
