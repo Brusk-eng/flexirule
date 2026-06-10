@@ -778,7 +778,7 @@ function onEdgeClick({ edge, event }) {
 	--fxr-border-subtle: var(--border-subtle, #e2e8f0);
 	--fxr-border-strong: var(--dark-border-color, #cbd5e1);
 	--fxr-text: var(--text-color, #1f2937);
-	--fxr-text-strong: var(--text-color, #1f2937);
+	--fxr-text-strong: var(--fxr-text-strong, var(--text-color, #1f2937));
 	--fxr-text-soft: var(--text-muted, #64748b);
 	--fxr-text-muted: var(--text-muted, #64748b);
 	--fxr-text-faint: var(--text-light, #94a3b8);
@@ -859,6 +859,10 @@ function onEdgeClick({ edge, event }) {
 	height: 16px;
 	color: var(--fxr-text-strong);
 	transition: color 0.2s ease;
+}
+
+[data-theme="dark"] .flexirule-icon {
+	color: #ffffff;
 }
 
 .quick-actions-btn:hover .flexirule-icon,
