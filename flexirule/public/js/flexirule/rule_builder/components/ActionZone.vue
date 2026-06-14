@@ -6,6 +6,7 @@ import { useStore } from "../stores";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { useActionSearch } from "../composables/useActionSearch";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
+import { useFocusTrap } from "../composables/useFocusTrap";
 import NodeToolbar from "./nodes/NodeToolbar.vue";
 
 const props = defineProps({
@@ -65,6 +66,7 @@ const selectedIndex = ref(-1);
 const searchInputRef = ref(null);
 const labelInputRef = ref(null);
 const zoneRef = ref(null);
+const { handleTab: trapTab, trapFocus, untrapFocus } = useFocusTrap();
 
 const {
 	triggerRef: popoverTriggerRef,
@@ -162,6 +164,11 @@ function nextSelectableIndex(startIndex, direction) {
 		if (filteredResults.value[index]?.type !== "header") return index;
 	}
 	return -1;
+}
+
+function handleTab(e) {
+	const container = props.mode === "popover" ? popoverDropdownRef.value : zoneRef.value;
+	trapTab(e, container);
 }
 
 function onKeydown(e) {
@@ -390,6 +397,7 @@ onMounted(() => {
 		openPopover();
 		document.addEventListener("mousedown", onClickOutside, true);
 		window.addEventListener("keydown", handleGlobalKeydown, true);
+		trapFocus(popoverDropdownRef.value);
 	}
 	if (props.autoFocus) {
 		setTimeout(() => searchInputRef.value?.focus(), 100);
@@ -401,6 +409,7 @@ onUnmounted(() => {
 		closePopover();
 		document.removeEventListener("mousedown", onClickOutside, true);
 		window.removeEventListener("keydown", handleGlobalKeydown, true);
+		untrapFocus();
 	}
 });
 
@@ -417,6 +426,7 @@ defineExpose({
 		ref="popoverDropdownRef"
 		class="action-popover"
 		:style="popoverStyle"
+		@keydown.tab="handleTab"
 	>
 		<div class="popover-header">
 			<i class="fa fa-plus-circle"></i>

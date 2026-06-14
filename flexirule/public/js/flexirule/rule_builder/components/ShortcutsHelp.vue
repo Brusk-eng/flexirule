@@ -9,6 +9,7 @@
 				role="dialog"
 				aria-labelledby="shortcuts-help-title"
 				@keydown.esc.prevent="close"
+				@keydown.tab="handleTab"
 			>
 				<header class="shortcuts-help-header">
 					<div class="shortcuts-help-title">
@@ -44,7 +45,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, watch, ref } from "vue";
+import { computed, onBeforeUnmount, watch, ref, nextTick } from "vue";
+import { useFocusTrap } from "../composables/useFocusTrap";
 
 const props = defineProps({
 	modelValue: Boolean,
@@ -52,6 +54,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 const popoverRef = ref(null);
+const { handleTab: trapTab, trapFocus, untrapFocus } = useFocusTrap();
 
 const shortcutGroups = [
 	{
@@ -94,6 +97,10 @@ function close() {
 	emit("update:modelValue", false);
 }
 
+function handleTab(e) {
+	trapTab(e, popoverRef.value);
+}
+
 function onWindowMouseDown(event) {
 	if (!props.modelValue) return;
 	if (popoverRef.value && !popoverRef.value.contains(event.target)) {
@@ -113,9 +120,11 @@ watch(
 		if (visible) {
 			window.addEventListener("mousedown", onWindowMouseDown, true);
 			window.addEventListener("keydown", onWindowKeydown, true);
+			trapFocus(popoverRef.value);
 		} else {
 			window.removeEventListener("mousedown", onWindowMouseDown, true);
 			window.removeEventListener("keydown", onWindowKeydown, true);
+			untrapFocus();
 		}
 	},
 	{ immediate: true }
@@ -264,7 +273,9 @@ kbd {
 
 .shortcuts-popover-enter-active,
 .shortcuts-popover-leave-active {
-	transition: opacity 0.14s ease, transform 0.14s ease;
+	transition:
+		opacity 0.14s ease,
+		transform 0.14s ease;
 }
 
 .shortcuts-popover-enter-from,

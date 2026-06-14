@@ -1,8 +1,13 @@
 <template>
 	<Teleport to="body">
 		<transition name="modal-fade">
-			<div v-if="modelValue" class="config-modal-overlay" @click.self="cancel">
-				<div class="config-modal-container">
+			<div
+				v-if="modelValue"
+				class="config-modal-overlay"
+				@click.self="cancel"
+				@keydown.tab="handleTab"
+			>
+				<div class="config-modal-container" ref="modalRef">
 					<header
 						class="config-modal-header"
 						@touchstart="handleTouchStart"
@@ -372,10 +377,10 @@
 																		collapseInputPanel
 																			? __(
 																					'Expand Input Panel'
-																			  )
+																				)
 																			: __(
 																					'Collapse Input Panel'
-																			  )
+																				)
 																	"
 																>
 																	<i
@@ -567,6 +572,8 @@ import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { useRuleConfig } from "../../composables/useRuleConfig";
 import { useResponsiveConfigLayout } from "../../composables/useResponsiveConfigLayout";
 import { useFloatingDropdown } from "../../composables/useFloatingDropdown";
+import { useKeyboardRegistry } from "../../composables/useKeyboardRegistry";
+import { useFocusTrap } from "../../composables/useFocusTrap";
 import { getContract, getActionPresentation } from "../../../core/contracts.js";
 
 const props = defineProps({
@@ -576,6 +583,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "save"]);
 const ruleStore = useRuleStore();
+const modalRef = ref(null);
 const graphStore = useGraphStore();
 const uiStore = useUIStore();
 // Legacy support
@@ -592,6 +600,9 @@ const {
 	rememberScroll,
 	getRememberedScroll,
 } = useResponsiveConfigLayout(1200, 768);
+
+const { registerShortcut, pushContext, popContext } = useKeyboardRegistry();
+const { handleTab: trapTab, trapFocus, untrapFocus } = useFocusTrap();
 
 const {
 	triggerRef: overflowTriggerRef,
@@ -757,6 +768,9 @@ watch(
 			collapseInputPanel.value = false;
 			collapseOutputPanel.value = false;
 			activateCompactTab("config");
+			trapFocus(modalRef.value);
+		} else {
+			untrapFocus();
 		}
 	}
 );
@@ -885,6 +899,10 @@ function activateCompactTab(tabKey) {
 	});
 }
 
+function handleTab(e) {
+	trapTab(e, modalRef.value);
+}
+
 function onCompactTabKeydown(event) {
 	if (!isCompactLayout.value) return;
 	const currentIndex = compactTabs.findIndex((t) => t.key === activeCompactTab.value);
@@ -906,81 +924,96 @@ function onCompactTabKeydown(event) {
 }
 
 // -- Keyboard Shortcuts --
-function handleKeydown(e) {
-	if (!props.modelValue) return;
-
-	// 1. Capture ESC key to close modal
-	if (e.key === "Escape") {
-		cancel();
-		e.preventDefault();
-		e.stopPropagation();
-		return;
-	}
-
-	// 2. Capture Ctrl+S to save (takes precedence even when inputs are focused)
-	if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-		if (!ruleStore.is_read_only) {
-			save();
-			e.preventDefault();
-			e.stopPropagation();
-			return;
-		}
-	}
-
-	// Don't trigger other shortcuts if typing in an input
-	if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) || e.target.isContentEditable) {
-		return;
-	}
-
-	// Ctrl+Up/Left to previous node
-	if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowUp" || e.key === "ArrowLeft")) {
-		if (currentNodeIndex.value > 0) {
-			ruleStore.prev_config_node();
-			e.preventDefault();
-			e.stopPropagation();
-		}
-	}
-
-	// Ctrl+Down/Right to next node
-	if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowDown" || e.key === "ArrowRight")) {
-		if (currentNodeIndex.value < totalNodes.value - 1) {
-			ruleStore.next_config_node();
-			e.preventDefault();
-			e.stopPropagation();
-		}
-	}
-
-	// Alt+1: Variables
-	if (e.altKey && e.key === "1") {
-		e.preventDefault();
-		showContextSidebar.value = true;
-		nextTick(() => {
-			panelRefs.input.value?.focusSearch();
-		});
-	}
-
-	// Alt+2: Configuration
-	if (e.altKey && e.key === "2") {
-		e.preventDefault();
-		panelRefs.config.value?.focusFirst();
-	}
-
-	// Alt+3: Settings Bar
-	if (e.altKey && e.key === "3") {
-		e.preventDefault();
-		showSettingsBar.value = !showSettingsBar.value;
-	}
-}
+const unregisterShortcuts = ref([]);
 
 onMounted(() => {
-	window.addEventListener("keydown", handleKeydown);
 	window.addEventListener("resize", updateViewportWidth);
 	updateViewportWidth();
+
+	pushContext("modal");
+	unregisterShortcuts.value = [
+		registerShortcut({
+			key: "Escape",
+			context: "modal",
+			priority: 10,
+			callback: () => cancel(),
+		}),
+		registerShortcut({
+			key: "s",
+			mod: true,
+			context: "modal",
+			priority: 11,
+			callback: () => {
+				if (!ruleStore.is_read_only) save();
+			},
+		}),
+		registerShortcut({
+			key: "ArrowUp",
+			mod: true,
+			context: "modal",
+			priority: 10,
+			callback: () => {
+				if (currentNodeIndex.value > 0) ruleStore.prev_config_node();
+			},
+		}),
+		registerShortcut({
+			key: "ArrowLeft",
+			mod: true,
+			context: "modal",
+			priority: 10,
+			callback: () => {
+				if (currentNodeIndex.value > 0) ruleStore.prev_config_node();
+			},
+		}),
+		registerShortcut({
+			key: "ArrowDown",
+			mod: true,
+			context: "modal",
+			priority: 10,
+			callback: () => {
+				if (currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
+			},
+		}),
+		registerShortcut({
+			key: "ArrowRight",
+			mod: true,
+			context: "modal",
+			priority: 10,
+			callback: () => {
+				if (currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
+			},
+		}),
+		registerShortcut({
+			key: "1",
+			alt: true,
+			context: "modal",
+			priority: 10,
+			callback: () => {
+				showContextSidebar.value = true;
+				nextTick(() => panelRefs.input.value?.focusSearch());
+			},
+		}),
+		registerShortcut({
+			key: "2",
+			alt: true,
+			context: "modal",
+			priority: 10,
+			callback: () => panelRefs.config.value?.focusFirst(),
+		}),
+		registerShortcut({
+			key: "3",
+			alt: true,
+			context: "modal",
+			priority: 10,
+			callback: () => (showSettingsBar.value = !showSettingsBar.value),
+		}),
+	];
 });
 
 onUnmounted(() => {
-	window.removeEventListener("keydown", handleKeydown);
 	window.removeEventListener("resize", updateViewportWidth);
+	unregisterShortcuts.value.forEach((unreg) => unreg());
+	popContext("modal");
 	closeOverflow();
 });
 </script>

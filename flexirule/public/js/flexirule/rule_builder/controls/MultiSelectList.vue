@@ -350,14 +350,18 @@ function onKeydown(event) {
 	if (event.key === "ArrowDown") {
 		event.preventDefault();
 		const options = filteredOptions.value || [];
-		activeIndex.value = Math.min(activeIndex.value + 1, options.length - 1);
-		scrollToActive();
+		if (activeIndex.value < options.length - 1) {
+			activeIndex.value++;
+			scrollToActive();
+		}
 		return;
 	}
 	if (event.key === "ArrowUp") {
 		event.preventDefault();
-		activeIndex.value = Math.max(activeIndex.value - 1, 0);
-		scrollToActive();
+		if (activeIndex.value > 0) {
+			activeIndex.value--;
+			scrollToActive();
+		}
 		return;
 	}
 	if (event.key === "Enter") {
@@ -800,7 +804,9 @@ onBeforeUnmount(() => {
 	align-items: center;
 	gap: 8px;
 	cursor: pointer;
-	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
 }
 
 .multi-select-trigger.invalid {
@@ -1126,7 +1132,9 @@ onBeforeUnmount(() => {
 
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-	transition: opacity 0.2s ease, transform 0.2s ease;
+	transition:
+		opacity 0.2s ease,
+		transform 0.2s ease;
 }
 
 .dropdown-fade-enter-from,
