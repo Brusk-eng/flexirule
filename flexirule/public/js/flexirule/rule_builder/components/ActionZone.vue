@@ -1,8 +1,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import { getOperationOptions, isTerminalAction } from "../../core/contracts";
-import { useStore } from "../stores";
+import {
+	getOperationOptions,
+	isTerminalAction,
+	getContract,
+	getEffectiveActionPolicy,
+	getFieldLabel,
+} from "../../core/contracts";
+import { useRuleStore, useGraphStore, useUIStore } from "../stores";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { useActionSearch } from "../composables/useActionSearch";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
@@ -51,7 +57,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["select", "paste", "close"]);
-const store = useStore();
+
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
+const uiStore = useUIStore();
 
 const {
 	searchQuery,
@@ -88,15 +97,9 @@ const step = ref("discovery"); // 'discovery' | 'labeling'
 const customLabel = ref("");
 const selectedItemData = ref(null);
 
-// Node mode state
-const selectedPreset = ref({
-	action_type: "Process",
-	operation: null,
-	process_name: null,
-	selected_label: "Process",
+const isHorizontal = computed(() => {
+	return ruleStore.settings?.layout_direction !== "Top to Bottom";
 });
-
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 const targetPos = computed(
 	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
 );
@@ -134,15 +137,6 @@ function selectItem(item) {
 	selectedItemData.value = selection;
 	customLabel.value = selection.label;
 	step.value = "labeling";
-
-	if (props.mode === "node") {
-		selectedPreset.value = {
-			action_type: selection.action_type,
-			operation: selection.operation,
-			process_name: selection.process_name,
-			selected_label: selection.label,
-		};
-	}
 
 	nextTick(() => {
 		updatePopoverPosition();
@@ -198,7 +192,7 @@ function onKeydown(e) {
 			selectItem(filteredResults.value[selectedIndex.value]);
 		}
 	} else if (step.value === "labeling") {
-		if (e.key === "Enter") {
+		if (e.key === "Enter" && !isCreating.value) {
 			e.preventDefault();
 			confirmSelection();
 		}
@@ -212,7 +206,7 @@ function goBack() {
 }
 
 function confirmSelection() {
-	if (!selectedItemData.value) return;
+	if (!selectedItemData.value || isCreating.value) return;
 
 	const payload = {
 		...selectedItemData.value,
@@ -239,94 +233,112 @@ function onPasteClick() {
 	emit("paste");
 }
 
-function onCreate(finalPayload = null) {
-	if (props.mode !== "node") return;
-	const nodeIndex = store.nodes.findIndex((n) => n.id === props.id);
-	if (nodeIndex === -1) {
-		console.warn("[ActionZone] Node not found for upgrade:", props.id);
-		return;
+async function onCreate(finalPayload = null) {
+	if (props.mode !== "node" || isCreating.value) return;
+
+	const selection =
+		finalPayload ||
+		(selectedItemData.value
+			? {
+					...selectedItemData.value,
+					label: (customLabel.value || selectedItemData.value.label).trim(),
+			  }
+			: null);
+
+	if (!selection) return;
+
+	isCreating.value = true;
+	try {
+		console.log(`[ActionZone] Creating node ${props.id} with type ${selection.action_type}`);
+
+		// Use graphStore.upgrade_node for centralized, immutable updates
+		const upgraded = graphStore.upgrade_node(props.id, selection);
+
+		if (upgraded) {
+			uiStore.select(props.id);
+			uiStore.show_sidebar = true;
+			ruleStore.mark_dirty();
+		} else {
+			console.error(`[ActionZone] Failed to upgrade node ${props.id}`);
+		}
+	} catch (e) {
+		console.error("[ActionZone] Error during node creation:", e);
+	} finally {
+		isCreating.value = false;
 	}
+}
 
-	const selection = finalPayload || {
-		action_type: selectedPreset.value.action_type || "Process",
-		label:
-			customLabel.value ||
-			selectedPreset.value.operation ||
-			selectedPreset.value.selected_label ||
-			"Process",
-		operation: selectedPreset.value.operation,
-		process_name: selectedPreset.value.process_name,
-	};
+const showProcessSelector = computed(() => {
+	return selectedItemData.value?.action_type === "Process";
+});
 
-	const action_type = selection.action_type;
-	const label = selection.label;
-	const nodeType = mapActionTypeToNodeType(action_type);
-	const node = store.nodes[nodeIndex];
+const showOperationSelector = computed(() => {
+	if (!selectedItemData.value) return false;
+	const actionType = selectedItemData.value.action_type;
+	const contract = getContract(actionType);
+	return (
+		(contract.operation_options && contract.operation_options.length > 0) ||
+		["Process", "Query Records", "Document Action", "Stop", "Notify"].includes(actionType)
+	);
+});
 
-	console.log("[ActionZone] Upgrading node:", props.id, "to type:", action_type);
+const operationLabel = computed(() => {
+	if (!selectedItemData.value) return __("Operation");
+	const actionType = selectedItemData.value.action_type;
+	const contract = getContract(actionType);
+	return (
+		getFieldLabel(actionType, "operation", {
+			operation: selectedItemData.value.operation,
+			processName: selectedItemData.value.process_name,
+		}) ||
+		contract.operation_label ||
+		__("Operation / Mode")
+	);
+});
 
-	const nodeData = store.get_default_node_data(action_type.toLowerCase(), label);
-	const suggestedParentId = node.data?.suggested_parent_id;
-	const suggestedSourceHandle = node.data?.suggested_source_handle || "default";
+const processOptions = computed(() => {
+	const processes = ruleStore.processes || [];
+	return processes.map((p) => ({
+		value: p.name,
+		label: p.process_name || p.name,
+		description: p.module,
+	}));
+});
 
-	if (selection.operation) nodeData.operation = selection.operation;
-	if (selection.process_name) nodeData.process_name = selection.process_name;
+const operationOptions = computed(() => {
+	if (!selectedItemData.value) return [];
+	const actionType = selectedItemData.value.action_type;
+	const processName = selectedItemData.value.process_name;
 
-	if (action_type === "Process" && nodeData.operation && !nodeData.process_name) {
-		const matches = getOperationOptions("Process", {})
-			.filter((op) => op.value === nodeData.operation && op.process_name)
-			.map((op) => op.process_name);
-		const unique = [...new Set(matches)];
-		if (unique.length === 1) nodeData.process_name = unique[0];
+	return getOperationOptions(actionType, { processName }).map((op) => ({
+		value: op.value,
+		label: op.label || op.value,
+		description: op.description || "",
+	}));
+});
+
+function onProcessChange() {
+	if (selectedItemData.value) {
+		selectedItemData.value.operation = null;
 	}
+}
 
-	// Trigger full reactivity by replacing the node object
-	const updatedNode = {
-		...node,
-		type: nodeType,
-		label: label,
-		data: {
-			...nodeData,
-			action_id: props.id,
-			action_label: label,
-			next_step_if_true: node.data?.next_step_if_true || nodeData.next_step_if_true,
-			next_step_if_false: node.data?.next_step_if_false || nodeData.next_step_if_false,
-			suggested_parent_id: null,
-			suggested_source_handle: null,
-		},
-	};
+function onOperationChange(val) {
+	if (!selectedItemData.value) return;
 
-	store.nodes.splice(nodeIndex, 1, updatedNode);
-
-	if (suggestedParentId) {
-		const edgeId = `e-${suggestedParentId}-${props.id}-${suggestedSourceHandle}`;
-		const hasIncoming = store.edges.some((edge) => edge.target === props.id);
-		if (!hasIncoming) {
-			store.edges.push({
-				id: edgeId,
-				source: suggestedParentId,
-				target: props.id,
-				sourceHandle: suggestedSourceHandle,
-				animated: suggestedParentId === "root",
-			});
+	// Update label if it was matching the old operation or is empty
+	const actionType = selectedItemData.value.action_type;
+	if (!customLabel.value || customLabel.value === actionType) {
+		const option = operationOptions.value.find((o) => o.value === val);
+		if (option) {
+			customLabel.value = option.label;
 		}
 	}
-
-	if (isTerminalAction(action_type)) {
-		store.edges = store.edges.filter((edge) => edge.source !== props.id);
-		store.nodes[nodeIndex].data.next_step_if_true = null;
-		store.nodes[nodeIndex].data.next_step_if_false = null;
-	}
-
-	store.select(props.id);
-	store.show_sidebar = true;
-	store.touch_node(props.id);
-	store.mark_dirty();
 }
 
 function deleteNode() {
 	if (props.mode === "node") {
-		frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
+		frappe.confirm(__("Delete this node?"), () => graphStore.delete_node(props.id));
 	}
 }
 
@@ -509,6 +521,24 @@ defineExpose({
 							<div class="item-type-badge">{{ selectedItemData.action_type }}</div>
 						</div>
 					</div>
+					<div v-if="showProcessSelector" class="form-group labeling-form">
+						<label class="fxr-label-sm">{{ __("Process") }}</label>
+						<ComboBoxControl
+							v-model="selectedItemData.process_name"
+							:options="processOptions"
+							:placeholder="__('Select Process...')"
+							@change="onProcessChange"
+						/>
+					</div>
+					<div v-if="showOperationSelector" class="form-group labeling-form">
+						<label class="fxr-label-sm">{{ operationLabel }}</label>
+						<ComboBoxControl
+							v-model="selectedItemData.operation"
+							:options="operationOptions"
+							:placeholder="__('Select Operation...')"
+							@change="onOperationChange"
+						/>
+					</div>
 					<div class="form-group labeling-form">
 						<label class="fxr-label-sm">{{ __("Label") }}</label>
 						<input
@@ -520,11 +550,20 @@ defineExpose({
 						/>
 					</div>
 					<div class="labeling-footer">
-						<button class="btn btn-default btn-sm" @click="goBack">
+						<button
+							class="btn btn-default btn-sm"
+							@click="goBack"
+							:disabled="isCreating"
+						>
 							<i class="fa fa-chevron-left mr-1"></i> {{ __("Back") }}
 						</button>
-						<button class="btn btn-primary btn-sm" @click="confirmSelection">
-							{{ __("Create Action") }}
+						<button
+							class="btn btn-primary btn-sm"
+							@click="confirmSelection"
+							:disabled="isCreating"
+						>
+							<i v-if="isCreating" class="fa fa-spinner fa-spin mr-1"></i>
+							{{ isCreating ? __("Creating...") : __("Create Action") }}
 						</button>
 					</div>
 				</div>
@@ -607,17 +646,28 @@ defineExpose({
 							</div>
 						</div>
 					</div>
-					<div v-if="selectedPreset.operation" class="selected-operation-preview">
-						<span class="badge-chip">{{ selectedPreset.action_type }}</span>
-						<span class="selected-operation-text">{{ selectedPreset.operation }}</span>
-						<span v-if="selectedPreset.process_name" class="selected-process-name">
-							({{ selectedPreset.process_name }})
-						</span>
-					</div>
 				</template>
 
 				<template v-else-if="step === 'labeling'">
 					<div class="labeling-container in-node">
+						<div v-if="showProcessSelector" class="form-group labeling-form">
+							<label class="small text-muted">{{ __("Process") }}</label>
+							<ComboBoxControl
+								v-model="selectedItemData.process_name"
+								:options="processOptions"
+								:placeholder="__('Select Process...')"
+								@change="onProcessChange"
+							/>
+						</div>
+						<div v-if="showOperationSelector" class="form-group labeling-form">
+							<label class="small text-muted">{{ operationLabel }}</label>
+							<ComboBoxControl
+								v-model="selectedItemData.operation"
+								:options="operationOptions"
+								:placeholder="__('Select Operation...')"
+								@change="onOperationChange"
+							/>
+						</div>
 						<div class="form-group labeling-form">
 							<label class="small text-muted">{{ __("Label") }}</label>
 							<input
@@ -629,11 +679,20 @@ defineExpose({
 							/>
 						</div>
 						<div class="labeling-footer mt-2">
-							<button class="btn btn-default btn-xs" @click="goBack">
+							<button
+								class="btn btn-default btn-xs"
+								@click="goBack"
+								:disabled="isCreating"
+							>
 								{{ __("Back") }}
 							</button>
-							<button class="btn btn-primary btn-xs flex-1" @click="confirmSelection">
-								{{ __("Create") }}
+							<button
+								class="btn btn-primary btn-xs flex-1"
+								@click="confirmSelection"
+								:disabled="isCreating"
+							>
+								<i v-if="isCreating" class="fa fa-spinner fa-spin mr-1"></i>
+								{{ isCreating ? __("Creating...") : __("Create") }}
 							</button>
 						</div>
 					</div>
