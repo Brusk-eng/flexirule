@@ -47,6 +47,7 @@
 <script setup>
 import { computed, onBeforeUnmount, watch, ref, nextTick } from "vue";
 import { useFocusTrap } from "../composables/useFocusTrap";
+import { useKeyboardRegistry } from "../composables/useKeyboardRegistry";
 
 const props = defineProps({
 	modelValue: Boolean,
@@ -55,6 +56,8 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"]);
 const popoverRef = ref(null);
 const { handleTab: trapTab, trapFocus, untrapFocus } = useFocusTrap();
+const { registerShortcut } = useKeyboardRegistry();
+const unregisterEsc = ref(null);
 
 const shortcutGroups = [
 	{
@@ -108,22 +111,20 @@ function onWindowMouseDown(event) {
 	}
 }
 
-function onWindowKeydown(event) {
-	if (event.key === "Escape" && props.modelValue) {
-		close();
-	}
-}
-
 watch(
 	() => props.modelValue,
 	(visible) => {
 		if (visible) {
 			window.addEventListener("mousedown", onWindowMouseDown, true);
-			window.addEventListener("keydown", onWindowKeydown, true);
+			unregisterEsc.value = registerShortcut({
+				key: "Escape",
+				priority: 30,
+				callback: () => close(),
+			});
 			trapFocus(popoverRef.value);
 		} else {
 			window.removeEventListener("mousedown", onWindowMouseDown, true);
-			window.removeEventListener("keydown", onWindowKeydown, true);
+			if (unregisterEsc.value) unregisterEsc.value();
 			untrapFocus();
 		}
 	},
@@ -132,7 +133,7 @@ watch(
 
 onBeforeUnmount(() => {
 	window.removeEventListener("mousedown", onWindowMouseDown, true);
-	window.removeEventListener("keydown", onWindowKeydown, true);
+	if (unregisterEsc.value) unregisterEsc.value();
 });
 </script>
 

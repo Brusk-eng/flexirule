@@ -62,8 +62,9 @@ export function useKeyboardRegistry() {
 			id: Math.random().toString(36).substr(2, 9),
 		};
 
-		registry.value.push(shortcut);
-		// Sort by priority descending, then by registration order (latest first)
+		// Add to beginning of registry
+		registry.value.unshift(shortcut);
+		// Sort by priority descending
 		registry.value.sort((a, b) => b.priority - a.priority);
 
 		return () => {
@@ -137,5 +138,6 @@ export function useKeyboardRegistry() {
 // Singleton listener
 if (typeof window !== "undefined") {
 	const { handleKeydown } = useKeyboardRegistry();
-	window.addEventListener("keydown", handleKeydown, true);
+	// Use bubble phase (false) so that components can stop propagation
+	window.addEventListener("keydown", (e) => handleKeydown(e), false);
 }
