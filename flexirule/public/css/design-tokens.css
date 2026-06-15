@@ -139,6 +139,23 @@
 	--fxr-z-modal: 100030;
 }
 
+/* Global High-Visibility Focus States */
+:focus-visible {
+	outline: 2px solid var(--fxr-accent);
+	outline-offset: 2px;
+	box-shadow: 0 0 0 4px var(--fxr-accent-soft);
+}
+
+/* Specific overrides for common elements */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+	outline: 2px solid var(--fxr-accent);
+	outline-offset: 2px;
+}
+
 /* ─── Dark Theme Overrides ─── */
 html[data-theme="dark"] {
 	--tg-bg: #111111;

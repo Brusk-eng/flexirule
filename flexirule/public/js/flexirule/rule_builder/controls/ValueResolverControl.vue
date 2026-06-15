@@ -657,6 +657,7 @@ import { useStore } from "../stores";
 import ComboBoxControl from "./ComboBoxControl.vue";
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
+import { useKeyboardRegistry } from "../composables/useKeyboardRegistry";
 
 const props = defineProps({
 	modelValue: {
@@ -695,6 +696,8 @@ const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
 const tokenRef = ref(null);
 const kindSelectRef = ref(null);
+const { registerShortcut } = useKeyboardRegistry();
+const unregisterEsc = ref(null);
 let _syncing = false;
 
 const {
@@ -1206,7 +1209,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
 	document.removeEventListener("mousedown", handleClickOutside);
-	window.removeEventListener("keydown", handleGlobalKeydown);
+	if (unregisterEsc.value) unregisterEsc.value();
 	cleanupFloatingDropdown();
 });
 
@@ -1237,14 +1240,6 @@ const handleParentKeydown = (e) => {
 
 const handleGlobalKeydown = (e) => {
 	if (!showPopover.value) return;
-
-	if (e.key === "Escape") {
-		e.preventDefault();
-		e.stopPropagation();
-		e.stopImmediatePropagation();
-		closePopover();
-		return;
-	}
 
 	if (e.key === "Tab") {
 		const popover = popoverRef.value;
@@ -1285,13 +1280,20 @@ const open = async () => {
 		kindSelectRef.value.focus();
 	}
 
-	window.addEventListener("keydown", handleGlobalKeydown);
+	unregisterEsc.value = registerShortcut({
+		key: "Escape",
+		priority: 20,
+		callback: () => closePopover(),
+	});
 };
 
 const closePopover = () => {
 	if (!showPopover.value) return;
 	closeDropdown();
-	window.removeEventListener("keydown", handleGlobalKeydown);
+	if (unregisterEsc.value) {
+		unregisterEsc.value();
+		unregisterEsc.value = null;
+	}
 
 	// Return focus to trigger
 	nextTick(() => {

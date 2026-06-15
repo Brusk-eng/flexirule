@@ -9,6 +9,7 @@
 				role="dialog"
 				aria-labelledby="shortcuts-help-title"
 				@keydown.esc.prevent="close"
+				@keydown.tab="handleTab"
 			>
 				<header class="shortcuts-help-header">
 					<div class="shortcuts-help-title">
@@ -44,7 +45,9 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, watch, ref } from "vue";
+import { computed, onBeforeUnmount, watch, ref, nextTick } from "vue";
+import { useFocusTrap } from "../composables/useFocusTrap";
+import { useKeyboardRegistry } from "../composables/useKeyboardRegistry";
 
 const props = defineProps({
 	modelValue: Boolean,
@@ -52,6 +55,9 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 const popoverRef = ref(null);
+const { handleTab: trapTab, trapFocus, untrapFocus } = useFocusTrap();
+const { registerShortcut } = useKeyboardRegistry();
+const unregisterEsc = ref(null);
 
 const shortcutGroups = [
 	{
@@ -94,15 +100,13 @@ function close() {
 	emit("update:modelValue", false);
 }
 
+function handleTab(e) {
+	trapTab(e, popoverRef.value);
+}
+
 function onWindowMouseDown(event) {
 	if (!props.modelValue) return;
 	if (popoverRef.value && !popoverRef.value.contains(event.target)) {
-		close();
-	}
-}
-
-function onWindowKeydown(event) {
-	if (event.key === "Escape" && props.modelValue) {
 		close();
 	}
 }
@@ -112,10 +116,16 @@ watch(
 	(visible) => {
 		if (visible) {
 			window.addEventListener("mousedown", onWindowMouseDown, true);
-			window.addEventListener("keydown", onWindowKeydown, true);
+			unregisterEsc.value = registerShortcut({
+				key: "Escape",
+				priority: 30,
+				callback: () => close(),
+			});
+			trapFocus(popoverRef.value);
 		} else {
 			window.removeEventListener("mousedown", onWindowMouseDown, true);
-			window.removeEventListener("keydown", onWindowKeydown, true);
+			if (unregisterEsc.value) unregisterEsc.value();
+			untrapFocus();
 		}
 	},
 	{ immediate: true }
@@ -123,7 +133,7 @@ watch(
 
 onBeforeUnmount(() => {
 	window.removeEventListener("mousedown", onWindowMouseDown, true);
-	window.removeEventListener("keydown", onWindowKeydown, true);
+	if (unregisterEsc.value) unregisterEsc.value();
 });
 </script>
 

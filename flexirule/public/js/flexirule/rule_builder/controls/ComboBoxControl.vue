@@ -547,19 +547,27 @@ function onKeydown(e) {
 
 	if (e.key === "ArrowDown") {
 		e.preventDefault();
-		activeIndex.value = Math.min(activeIndex.value + 1, filteredOptions.value.length - 1);
-		scrollToActive();
+		if (activeIndex.value < filteredOptions.value.length - 1) {
+			activeIndex.value++;
+			scrollToActive();
+		}
 		return;
 	}
 
 	if (e.key === "ArrowUp") {
 		e.preventDefault();
 		if (activeIndex.value > 0) {
-			activeIndex.value -= 1;
-		} else if (props.allowCustomValue && query.value !== "" && !exactMatch.value) {
+			activeIndex.value--;
+			scrollToActive();
+		} else if (
+			props.allowCustomValue &&
+			query.value !== "" &&
+			!exactMatch.value &&
+			activeIndex.value !== -2
+		) {
 			activeIndex.value = -2;
+			scrollToActive();
 		}
-		scrollToActive();
 		return;
 	}
 

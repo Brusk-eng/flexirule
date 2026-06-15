@@ -182,6 +182,7 @@
 			@save="ruleStore.mark_dirty()"
 		/>
 		<ShortcutsHelp v-model="uiStore.show_shortcuts_help" />
+		<CommandPalette v-model="uiStore.show_command_palette" />
 		<Teleport to="body">
 			<div
 				v-if="showQuickActions"
@@ -232,6 +233,7 @@ import { useMetaStore } from "./stores/useMetaStore";
 
 import { useRuleGraph } from "./composables/useRuleGraph";
 import { useClipboard } from "./composables/useClipboard";
+import { useKeyboardRegistry } from "./composables/useKeyboardRegistry";
 import { isTerminalAction } from "../core/contracts";
 import { mapActionTypeToNodeType } from "./composables/useActionTypeMapper";
 
@@ -248,6 +250,7 @@ import ActionZone from "./components/ActionZone.vue";
 import Sidebar from "./components/Sidebar.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
 import ShortcutsHelp from "./components/ShortcutsHelp.vue";
+import CommandPalette from "./components/CommandPalette.vue";
 import AddNodeEdge from "./components/AddNodeEdge.vue";
 import DebuggerPath from "./components/debugger/DebuggerPath.vue";
 
@@ -265,6 +268,7 @@ const metaStore = useMetaStore();
 const { zoomIn, zoomOut, removeEdges, fitView } = useVueFlow();
 const { layoutGraph } = useRuleGraph();
 const { copySelectedToClipboard, pasteFromClipboard } = useClipboard();
+const { registerShortcut, pushContext, popContext } = useKeyboardRegistry();
 const showQuickActions = ref(false);
 const quickActionsButtonRef = ref(null);
 const quickActionsMenuRef = ref(null);
@@ -472,18 +476,99 @@ function onDebugProgress(data) {
 	}
 }
 
+const unregisterShortcuts = ref([]);
+
 onMounted(async () => {
 	document.body.classList.add("fxr-builder-active");
 	if (props.rule) ruleStore.rule_name = props.rule;
 	await ruleStore.fetch();
 	graphStore.autoConnectStartNode();
-	window.addEventListener("keydown", handleKeydown);
+
+	pushContext("canvas");
+
+	// Register shortcuts
+	unregisterShortcuts.value = [
+		registerShortcut({
+			key: "s",
+			mod: true,
+			callback: () => ruleStore.save_changes(),
+			description: "Save changes",
+		}),
+		registerShortcut({
+			key: "z",
+			mod: true,
+			context: "canvas",
+			callback: () => {
+				if (ruleStore.can_undo()) ruleStore.undo();
+			},
+			description: "Undo",
+		}),
+		registerShortcut({
+			key: "y",
+			mod: true,
+			context: "canvas",
+			callback: () => {
+				if (ruleStore.can_redo()) ruleStore.redo();
+			},
+			description: "Redo",
+		}),
+		registerShortcut({
+			key: "z",
+			mod: true,
+			shift: true,
+			context: "canvas",
+			callback: () => {
+				if (ruleStore.can_redo()) ruleStore.redo();
+			},
+			description: "Redo",
+		}),
+		registerShortcut({
+			key: "c",
+			mod: true,
+			context: "canvas",
+			callback: () => {
+				if (window.getSelection().toString().length === 0) {
+					copySelectedToClipboard();
+				}
+			},
+			description: "Copy nodes",
+		}),
+		registerShortcut({
+			key: "v",
+			mod: true,
+			context: "canvas",
+			callback: () => pasteFromClipboardWrapper(),
+			description: "Paste nodes",
+		}),
+		registerShortcut({
+			key: "?",
+			shift: true,
+			callback: () => (uiStore.show_shortcuts_help = !uiStore.show_shortcuts_help),
+			description: "Shortcuts Help",
+		}),
+		registerShortcut({
+			key: "1",
+			alt: true,
+			callback: () => {
+				if (uiStore.selected_id) uiStore.show_sidebar = true;
+			},
+			description: "Focus Sidebar",
+		}),
+		registerShortcut({
+			key: "k",
+			mod: true,
+			callback: () => (uiStore.show_command_palette = !uiStore.show_command_palette),
+			description: "Command Palette",
+		}),
+	];
+
 	window.addEventListener("keyup", handleKeyup);
 	window.addEventListener("mousemove", updateMousePos);
 	window.addEventListener("mousemove", handleAltFieldInspect, true);
 	window.addEventListener("mousedown", handleGlobalMouseDown, true);
 	window.addEventListener("resize", updateQuickActionsPosition);
 	window.addEventListener("flexirule:show-shortcuts-help", showShortcutsHelp);
+
 	if (window.frappe?.realtime) {
 		frappe.realtime.on("flexirule_debug_progress", onDebugProgress);
 	}
@@ -494,11 +579,18 @@ onMounted(async () => {
 			layoutGraph(dir);
 		}
 	}, 100);
+
+	// Expose layoutGraph to window for CommandPalette
+	window.fxrRuleBuilder = {
+		...window.fxrRuleBuilder,
+		layoutGraph,
+	};
 });
 
 onUnmounted(() => {
 	document.body.classList.remove("fxr-builder-active");
-	window.removeEventListener("keydown", handleKeydown);
+	popContext("canvas");
+	unregisterShortcuts.value.forEach((unreg) => unreg());
 	window.removeEventListener("keyup", handleKeyup);
 	window.removeEventListener("mousemove", updateMousePos);
 	window.removeEventListener("mousemove", handleAltFieldInspect, true);
@@ -524,58 +616,6 @@ function onDragOver(event) {
 function onDrop(event) {
 	event.preventDefault();
 	// Handle drop if any drag-and-drop node creation is implemented
-}
-
-function handleKeydown(e) {
-	// If the config modal is open, let it handle keypress events
-	if (uiStore.show_config_modal) return;
-
-	// Don't trigger if typing in an input
-	if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) || e.target.isContentEditable)
-		return;
-
-	// Save: Ctrl+S
-	if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-		e.preventDefault();
-		ruleStore.save_changes();
-	}
-	// Undo: Ctrl+Z
-	if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-		e.preventDefault();
-		if (ruleStore.can_undo()) ruleStore.undo();
-	}
-	// Redo: Ctrl+Y or Ctrl+Shift+Z
-	if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
-		e.preventDefault();
-		if (ruleStore.can_redo()) ruleStore.redo();
-	}
-	// Copy: Ctrl+C
-	if ((e.ctrlKey || e.metaKey) && e.key === "c") {
-		if (window.getSelection().toString().length > 0) return;
-		copySelectedToClipboard();
-	}
-	// Paste: Ctrl+V
-	if ((e.ctrlKey || e.metaKey) && e.key === "v") {
-		pasteFromClipboardWrapper();
-	}
-
-	// Shortcuts Help: Shift+?
-	if (e.shiftKey && e.key === "?") {
-		uiStore.show_shortcuts_help = !uiStore.show_shortcuts_help;
-	}
-
-	// Alt+1: Focus Sidebar
-	if (e.altKey && e.key === "1") {
-		if (uiStore.selected_id) {
-			uiStore.show_sidebar = true;
-			e.preventDefault();
-		}
-	}
-
-	// Alt+2: Variable Search (Global Sidebar)
-	if (e.altKey && e.key === "2") {
-		// Not implemented in sidebar yet, but could be added if Sidebar had a search
-	}
 }
 
 function handleKeyup(e) {
@@ -617,6 +657,14 @@ function copyInspectedFieldname() {
 		2
 	);
 }
+
+watch(
+	() => uiStore.show_config_modal,
+	(val) => {
+		if (val) popContext("canvas");
+		else pushContext("canvas");
+	}
+);
 
 function handleGlobalMouseDown(event) {
 	if (
