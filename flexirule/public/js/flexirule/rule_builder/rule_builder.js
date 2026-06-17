@@ -1,4 +1,4 @@
-import { createApp } from "vue";
+import { createApp, watch } from "vue";
 import { createPinia } from "pinia";
 
 // Import FlexiRule Utilities
@@ -114,19 +114,24 @@ class RuleBuilder {
 		// Initial sync
 		this.update_test_ui(this.uiStore.test_execution_path);
 
-		// Watch for state changes
-		this.ruleStore.$subscribe((mutation, state) => {
-			this.update_save_button(state.is_dirty);
-			this.update_status_button(state.rule_doc?.is_active);
-
-			if (this.reset_btn) {
-				if (state.is_dirty) {
-					this.reset_btn.show();
-				} else {
-					this.reset_btn.hide();
+		// Watch for dirty state changes (computed)
+		watch(
+			() => this.ruleStore.is_dirty,
+			(is_dirty) => {
+				this.update_save_button(is_dirty);
+				if (this.reset_btn) {
+					is_dirty ? this.reset_btn.show() : this.reset_btn.hide();
 				}
 			}
-		});
+		);
+
+		// Watch for active status changes
+		watch(
+			() => this.ruleStore.rule_doc?.is_active,
+			(is_active) => {
+				this.update_status_button(is_active);
+			}
+		);
 
 		this.uiStore.$subscribe((mutation, state) => {
 			this.update_test_ui(state.test_execution_path);
