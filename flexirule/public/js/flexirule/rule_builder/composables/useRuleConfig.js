@@ -15,6 +15,14 @@ export function useRuleConfig(props, emit) {
 	const draftNode = ref(null);
 	const config = computed(() => draftNode.value?.data || {});
 
+	const isDirty = computed(() => {
+		if (!props.node || !draftNode.value) return false;
+		// Compare draft data with original node data
+		const original = JSON.stringify(props.node.data || {});
+		const draft = JSON.stringify(draftNode.value.data || {});
+		return original !== draft;
+	});
+
 	// Refs for panel validation
 	const panelRefs = {
 		input: ref(null),
@@ -168,6 +176,7 @@ export function useRuleConfig(props, emit) {
 	return {
 		draftNode,
 		config,
+		isDirty,
 		panelRefs,
 		updateField,
 		validate,

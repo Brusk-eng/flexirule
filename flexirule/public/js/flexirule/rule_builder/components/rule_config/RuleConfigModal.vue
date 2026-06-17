@@ -49,11 +49,7 @@
 										{{ title }}
 									</h3>
 									<div
-										v-if="
-											ruleStore.is_dirty &&
-											!ruleStore.is_read_only &&
-											!isMobile
-										"
+										v-if="isDirty && !ruleStore.is_read_only && !isMobile"
 										class="dirty-badge"
 									>
 										<i class="fa fa-circle"></i>
@@ -136,9 +132,10 @@
 									<button
 										v-if="
 											!ruleStore.is_read_only &&
-											(!isMobile || (ruleStore.is_dirty && !isEditingLabel))
+											(!isMobile || (isDirty && !isEditingLabel))
 										"
 										class="toolbar-btn save-action"
+										:disabled="!isDirty"
 										@click="save"
 										:title="__('Save Changes')"
 									>
@@ -589,7 +586,7 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const { draftNode, panelRefs, save, cancel } = useRuleConfig(props, emit);
+const { draftNode, panelRefs, save, cancel, isDirty } = useRuleConfig(props, emit);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,

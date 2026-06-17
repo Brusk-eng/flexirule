@@ -335,26 +335,16 @@ watch(
 	{ immediate: true, deep: false }
 );
 
-// Watch for layout direction or nodes changes to re-layout the graph
+// Watch for layout direction changes to re-layout the graph
 watch(
-	[() => ruleStore.settings?.layout_direction, () => graphStore.nodes.length],
-	([newDir, nodeCount], [oldDir, oldNodeCount]) => {
-		if (newDir && nodeCount > 0) {
-			// Only auto-layout if direction changed OR if it's the first time nodes are loaded
-			if (newDir !== oldDir || (nodeCount > 0 && oldNodeCount === 0)) {
-				const dir = newDir === "Top to Bottom" ? "TB" : "LR";
-				// Use nextTick to ensure VueFlow has nodes
-				nextTick(() => {
-					setTimeout(() => {
-						layoutGraph(dir);
-						// After initial layout settling, ensure the store's initial_state matches
-						// the new positions to prevent immediate "unsaved" badge.
-						if (oldNodeCount === 0 && nodeCount > 0) {
-							setTimeout(() => ruleStore.clear_dirty(), 150);
-						}
-					}, 50);
-				});
-			}
+	() => ruleStore.settings?.layout_direction,
+	(newDir, oldDir) => {
+		// Only auto-layout if direction explicitly changed by user
+		if (newDir && oldDir && newDir !== oldDir && graphStore.nodes.length > 0) {
+			const dir = newDir === "Top to Bottom" ? "TB" : "LR";
+			nextTick(() => {
+				setTimeout(() => layoutGraph(dir), 50);
+			});
 		}
 	}
 );
@@ -579,13 +569,6 @@ onMounted(async () => {
 	if (window.frappe?.realtime) {
 		frappe.realtime.on("flexirule_debug_progress", onDebugProgress);
 	}
-
-	setTimeout(() => {
-		if (graphStore.nodes.length > 0) {
-			const dir = ruleStore.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
-			layoutGraph(dir);
-		}
-	}, 100);
 
 	// Expose layoutGraph to window for CommandPalette
 	window.fxrRuleBuilder = {

@@ -45,13 +45,14 @@ class RuleBuilder {
 		);
 
 		// Secondary button - Reset
-		this.page.add_button(
+		this.reset_btn = this.page.add_button(
 			__("Reset Changes"),
 			() => {
 				this.ruleStore.fetch();
 			},
 			{ icon: "refresh" }
 		);
+		this.reset_btn.hide();
 
 		// Status Toggle
 		this.status_btn = this.page.add_inner_button(__("Draft"), async () => {
@@ -117,6 +118,14 @@ class RuleBuilder {
 		this.ruleStore.$subscribe((mutation, state) => {
 			this.update_save_button(state.is_dirty);
 			this.update_status_button(state.rule_doc?.is_active);
+
+			if (this.reset_btn) {
+				if (state.is_dirty) {
+					this.reset_btn.show();
+				} else {
+					this.reset_btn.hide();
+				}
+			}
 		});
 
 		this.uiStore.$subscribe((mutation, state) => {
