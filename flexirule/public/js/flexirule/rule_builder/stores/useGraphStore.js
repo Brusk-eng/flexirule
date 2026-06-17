@@ -102,9 +102,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		}));
 
 		// Return a flat array to maintain compatibility with existing logic
-		return [...nodesSnap, ...edgesSnap].sort((a, b) =>
-			(a.id || "").localeCompare(b.id || "")
-		);
+		return [...nodesSnap, ...edgesSnap].sort((a, b) => (a.id || "").localeCompare(b.id || ""));
 	}
 
 	function getGraphSnapshot() {
