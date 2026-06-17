@@ -579,6 +579,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		// This prevents components that sync on mount from triggering a dirty state.
 		if (is_loading.value) return;
 
+		// Set flag for immediate UI response
+		_is_dirty.value = true;
+
 		// Commit to history
 		const historyStore = useHistoryStore();
 		const graphStore = useGraphStore();
@@ -587,6 +590,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 	function mark_position_change() {
 		if (is_read_only.value) return;
+
+		_is_dirty.value = true;
+
 		// Positions are checked by checkDirty in the computed is_dirty
 		const graphStore = useGraphStore();
 		const historyStore = useHistoryStore();
@@ -596,6 +602,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	function checkDirty() {
 		if (is_read_only.value || !initial_state.value) return false;
 		const graphStore = useGraphStore();
+		// Ensure nodes and edges are accessed for reactivity
+		const currentNodes = graphStore.nodes;
+		const currentEdges = graphStore.edges;
 		const current = JSON.stringify(graphStore.getStateSnapshot());
 		return current !== initial_state.value;
 	}

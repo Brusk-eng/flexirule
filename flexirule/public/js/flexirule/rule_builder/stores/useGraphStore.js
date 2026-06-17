@@ -106,20 +106,21 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	}
 
 	function getGraphSnapshot() {
-		// We use a deep clone for history to ensure snapshots are immutable.
-		// History snapshots must contain full node/edge data to be restorable.
-		return JSON.parse(JSON.stringify({ nodes: nodes.value, edges: edges.value }));
+		// Use the stable state snapshot for history to prevent transient UI changes
+		// (like node selection or dragging) from polluting the undo/redo stack.
+		return getStateSnapshot();
 	}
 
 	function applyGraphSnapshot(snapshot) {
-		if (!snapshot) return;
-		// Restore full node and edge arrays
-		if (Array.isArray(snapshot.nodes)) {
-			nodes.value = JSON.parse(JSON.stringify(snapshot.nodes));
-		}
-		if (Array.isArray(snapshot.edges)) {
-			edges.value = JSON.parse(JSON.stringify(snapshot.edges));
-		}
+		if (!Array.isArray(snapshot)) return;
+
+		// Correctly re-split the flat snapshot array into nodes and edges.
+		// Nodes are identified by having a 'type' and 'position', Edges by having a 'source'.
+		const newNodes = snapshot.filter((el) => el.type && el.position);
+		const newEdges = snapshot.filter((el) => el.source && el.target);
+
+		nodes.value = JSON.parse(JSON.stringify(newNodes));
+		edges.value = JSON.parse(JSON.stringify(newEdges));
 	}
 
 	function update_node_position(nodeId, position) {

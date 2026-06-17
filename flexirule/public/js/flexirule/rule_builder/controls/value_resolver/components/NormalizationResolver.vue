@@ -172,9 +172,15 @@ const runDemo = async () => {
 
 		// If profile was changed, update the read-only pipeline view
 		if (!isCustomProfile.value && res.message.breakdown) {
-			props.modelValue.norm_pipeline = res.message.breakdown
+			const nextPipeline = res.message.breakdown
 				.filter((b) => b.operation !== "Initial")
 				.map((b) => b.operation);
+
+			// Avoid redundant updates to prevent premature dirty states
+			if (JSON.stringify(props.modelValue.norm_pipeline) !== JSON.stringify(nextPipeline)) {
+				// Use emit or standard object update if possible, but for local state normalization:
+				Object.assign(props.modelValue, { norm_pipeline: nextPipeline });
+			}
 		}
 	} catch (e) {
 		console.error("Normalization demo failed", e);

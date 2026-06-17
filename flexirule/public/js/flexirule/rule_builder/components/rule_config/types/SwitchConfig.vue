@@ -51,7 +51,10 @@ function updateJsonConfig(key, val) {
 		syncEdges(val);
 	}
 
-	store.mark_dirty();
+	const isDraft = !store.nodes.some((n) => n === props.node);
+	if (!isDraft) {
+		store.mark_dirty();
+	}
 }
 
 function syncEdges(cases) {

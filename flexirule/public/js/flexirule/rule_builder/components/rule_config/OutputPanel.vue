@@ -393,8 +393,13 @@ function saveOutputMappings() {
 
 function updateField(fieldname, value) {
 	if (props.node.data) {
+		if (props.node.data[fieldname] === value) return;
 		props.node.data[fieldname] = value;
-		store.mark_dirty();
+
+		const isDraft = !store.nodes.some((n) => n === props.node);
+		if (!isDraft) {
+			store.mark_dirty();
+		}
 	}
 }
 
@@ -426,7 +431,11 @@ function updateConfigKey(key, value) {
 	}
 
 	props.node.data.config = nextConfig;
-	store.mark_dirty();
+
+	const isDraft = !store.nodes.some((n) => n === props.node);
+	if (!isDraft) {
+		store.mark_dirty();
+	}
 }
 
 async function refreshVariables() {
