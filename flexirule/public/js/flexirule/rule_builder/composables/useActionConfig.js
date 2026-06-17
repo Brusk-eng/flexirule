@@ -158,8 +158,16 @@ export function useActionConfig(props, options = {}) {
 
 	function update_action_field(fieldname, value) {
 		if (!props.node?.data) return;
+		if (props.node.data[fieldname] === value) return;
+
 		props.node.data[fieldname] = value;
-		store.mark_dirty();
+
+		// Avoid marking dirty if we are modifying a draft node (inside a modal)
+		// or if we are currently in a read-only state.
+		const isDraft = !store.nodes.some((n) => n === props.node);
+		if (!props.readOnly && !isDraft) {
+			store.mark_dirty();
+		}
 	}
 
 	watch(

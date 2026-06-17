@@ -345,7 +345,14 @@ watch(
 				const dir = newDir === "Top to Bottom" ? "TB" : "LR";
 				// Use nextTick to ensure VueFlow has nodes
 				nextTick(() => {
-					setTimeout(() => layoutGraph(dir), 50);
+					setTimeout(() => {
+						layoutGraph(dir);
+						// After initial layout settling, ensure the store's initial_state matches
+						// the new positions to prevent immediate "unsaved" badge.
+						if (oldNodeCount === 0 && nodeCount > 0) {
+							setTimeout(() => ruleStore.clear_dirty(), 150);
+						}
+					}, 50);
 				});
 			}
 		}

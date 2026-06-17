@@ -73,30 +73,50 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	}
 
 	// ── Snapshot for dirty checking + history ──
+	/**
+	 * Returns a stable, serializable representation of the graph data.
+	 * Excludes transient UI state (selection, dragging, etc.) to ensure
+	 * comparison only detects meaningful changes.
+	 */
 	function getStateSnapshot() {
-		const nodesSnap = nodes.value.map((el) => ({
-			id: el.id,
-			type: el.type,
-			label: el.label,
-			data: el.data,
-			position: { x: Math.round(el.position.x), y: Math.round(el.position.y) },
-		}));
+		const nodesSnap = nodes.value.map((el) => {
+			// Deep clone data to avoid reference pollution
+			const data = JSON.parse(JSON.stringify(el.data || {}));
+			return {
+				id: el.id,
+				type: el.type,
+				label: el.label,
+				data: data,
+				position: {
+					x: Math.round(el.position?.x || 0),
+					y: Math.round(el.position?.y || 0),
+				},
+			};
+		});
 		const edgesSnap = edges.value.map((el) => ({
 			id: el.id,
 			source: el.source,
 			target: el.target,
-			sourceHandle: el.sourceHandle,
+			sourceHandle: el.sourceHandle || "default",
+			targetHandle: el.targetHandle || null,
 		}));
-		return [...nodesSnap, ...edgesSnap].sort((a, b) => a.id.localeCompare(b.id));
+
+		// Return a flat array to maintain compatibility with existing logic
+		return [...nodesSnap, ...edgesSnap].sort((a, b) =>
+			(a.id || "").localeCompare(b.id || "")
+		);
 	}
 
 	function getGraphSnapshot() {
-		return { nodes: nodes.value, edges: edges.value };
+		// We use a deep clone for history to ensure snapshots are immutable
+		const snap = getStateSnapshot();
+		return JSON.parse(JSON.stringify(snap));
 	}
 
 	function applyGraphSnapshot(snapshot) {
-		if (snapshot.nodes) nodes.value = snapshot.nodes;
-		if (snapshot.edges) edges.value = snapshot.edges;
+		if (!snapshot) return;
+		if (snapshot.nodes) nodes.value = JSON.parse(JSON.stringify(snapshot.nodes));
+		if (snapshot.edges) edges.value = JSON.parse(JSON.stringify(snapshot.edges));
 	}
 
 	function update_node_position(nodeId, position) {

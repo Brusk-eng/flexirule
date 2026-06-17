@@ -74,6 +74,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const metaStore = useMetaStore();
 		const historyStore = useHistoryStore();
 
+		// Guard to prevent redundant fetches
+		if (is_loading.value) return;
+		is_loading.value = true;
 		// Fetch Settings
 		try {
 			const res = await frappe.call({
@@ -117,6 +120,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		if (!rule_doc.value) {
 			frappe.show_alert({ message: __("Rule not found"), indicator: "orange" });
+			is_loading.value = false;
 			return;
 		}
 
@@ -147,6 +151,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		edges.value = [...graphStore.edges];
 
 		historyStore.reset(() => graphStore.getGraphSnapshot());
+		is_loading.value = false;
 	}
 
 	// ── Save ──
@@ -569,6 +574,11 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	// ── Dirty tracking ──
 	function mark_dirty() {
 		if (is_read_only.value) return;
+
+		// Guard: If we are currently fetching or loading, don't mark dirty.
+		// This prevents components that sync on mount from triggering a dirty state.
+		if (is_loading.value) return;
+
 		// Commit to history
 		const historyStore = useHistoryStore();
 		const graphStore = useGraphStore();
@@ -583,16 +593,21 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		historyStore.commit(() => graphStore.getGraphSnapshot());
 	}
 
+	function checkDirty() {
+		if (is_read_only.value || !initial_state.value) return false;
+		const graphStore = useGraphStore();
+		const current = JSON.stringify(graphStore.getStateSnapshot());
+		return current !== initial_state.value;
+	}
+
+	/**
+	 * Reset the rule's initial state to the current graph snapshot.
+	 * Used after fetches, saves, and initial layout settling.
+	 */
 	function clear_dirty() {
 		const graphStore = useGraphStore();
 		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
 		_is_dirty.value = false;
-	}
-
-	function checkDirty() {
-		if (is_read_only.value || !initial_state.value) return false;
-		const graphStore = useGraphStore();
-		return JSON.stringify(graphStore.getStateSnapshot()) !== initial_state.value;
 	}
 
 	// ── UI Helpers (Delegated to UI Store) ──
@@ -627,6 +642,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const graphStore = useGraphStore();
 		historyStore.undo((snap) => {
 			graphStore.applyGraphSnapshot(snap);
+			// Force a reactivity check for is_dirty after undo
+			_is_dirty.value = checkDirty();
 		});
 	}
 
@@ -636,6 +653,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const graphStore = useGraphStore();
 		historyStore.redo((snap) => {
 			graphStore.applyGraphSnapshot(snap);
+			// Force a reactivity check for is_dirty after redo
+			_is_dirty.value = checkDirty();
 		});
 	}
 
