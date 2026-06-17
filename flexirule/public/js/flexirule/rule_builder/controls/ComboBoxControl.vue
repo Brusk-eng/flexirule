@@ -32,6 +32,7 @@
 							v-if="trigger === 'button'"
 							class="combobox-button-trigger"
 							@click.prevent="toggleDropdown"
+							@keydown="onKeydown"
 							:disabled="read_only"
 						>
 							<span class="selected-label truncate">
@@ -104,12 +105,15 @@
 						<div
 							v-if="isDropdownOpen"
 							class="fxr-dropdown"
+							:class="{ 'has-search': trigger === 'button' && !hideSearch }"
 							:style="dropdownStyle"
 							ref="optionsRef"
+							tabindex="-1"
 							@mousedown.prevent
+							@keydown="onKeydown"
 						>
 							<!-- Search box inside popover for button mode -->
-							<div v-if="trigger === 'button'" class="popover-search">
+							<div v-if="trigger === 'button' && !hideSearch" class="popover-search">
 								<i class="fa fa-search text-muted mr-2"></i>
 								<input
 									ref="popoverSearchInput"
@@ -240,6 +244,7 @@ const props = defineProps({
 	placeholder: String,
 	trigger: { type: String, default: "input" },
 	allowCustomValue: Boolean,
+	hideSearch: Boolean,
 	sortBy: [String, Function],
 	dropdownMinWidth: { type: Number, default: 220 },
 	dropdownMaxWidth: { type: Number, default: 680 },
@@ -432,8 +437,12 @@ function openDropdown() {
 	openFloatingDropdown();
 	nextTick(() => {
 		updateDropdownPosition();
-		if (props.trigger === "button" && popoverSearchInput.value) {
-			popoverSearchInput.value.focus();
+		if (props.trigger === "button") {
+			if (popoverSearchInput.value) {
+				popoverSearchInput.value.focus();
+			} else if (optionsRef.value) {
+				optionsRef.value.focus();
+			}
 		} else if (mainInputRef.value) {
 			mainInputRef.value.focus();
 			mainInputRef.value.select();
@@ -615,7 +624,7 @@ function onKeydown(e) {
 		return;
 	}
 
-	if (/^[\\w\\s-]$/.test(e.key) && props.trigger === "button") {
+	if (/^[\w\s-]$/.test(e.key) && (props.trigger === "button" || props.hideSearch)) {
 		runTypeahead(e.key);
 	}
 }

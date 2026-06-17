@@ -1,8 +1,10 @@
 <!--
-  SelectControl - Simple native select for reliability
+  SelectControl - Styled dropdown using ComboBoxControl
 -->
 <script setup>
-import { computed, ref } from "vue";
+import { computed } from "vue";
+import ComboBoxControl from "./ComboBoxControl.vue";
+
 const props = defineProps({
 	df: Object,
 	modelValue: [String, Number],
@@ -12,108 +14,70 @@ const props = defineProps({
 	hideDescription: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["update:modelValue"]);
-
-const isFocused = ref(false);
-
-const hasValue = computed(() => {
-	return props.modelValue !== undefined && props.modelValue !== null && props.modelValue !== "";
-});
+const emit = defineEmits(["update:modelValue", "change"]);
 
 const options = computed(() => {
 	let opts = props.df?.options;
+	let finalOptions = [];
 
-	if (!opts) return [];
-
-	// String options (newline separated)
-	if (typeof opts === "string") {
-		return opts
-			.split("\n")
-			.filter(Boolean)
-			.map((opt) => ({
-				label: __(opt.trim()),
-				value: opt.trim(),
+	if (opts) {
+		// String options (newline separated)
+		if (typeof opts === "string") {
+			finalOptions = opts
+				.split("\n")
+				.filter(Boolean)
+				.map((opt) => ({
+					label: __(opt.trim()),
+					value: opt.trim(),
+				}));
+		}
+		// Array of strings
+		else if (Array.isArray(opts) && opts.length && typeof opts[0] === "string") {
+			finalOptions = opts.map((opt) => ({
+				label: __(opt),
+				value: opt,
 			}));
+		}
+		// Array of objects with label/value
+		else if (Array.isArray(opts)) {
+			finalOptions = opts.map((opt) => ({
+				label: __(opt.label || opt.value),
+				value: opt.value,
+			}));
+		}
 	}
 
-	// Array of strings
-	if (Array.isArray(opts) && opts.length && typeof opts[0] === "string") {
-		return opts.map((opt) => ({
-			label: __(opt),
-			value: opt,
-		}));
+	// Add "Select..." option if not required
+	if (!props.df?.reqd) {
+		finalOptions.unshift({
+			label: __("Select..."),
+			value: "",
+		});
 	}
 
-	// Array of objects with label/value
-	if (Array.isArray(opts)) {
-		return opts.map((opt) => ({
-			label: __(opt.label || opt.value),
-			value: opt.value,
-		}));
-	}
-
-	return [];
+	return finalOptions;
 });
 
-function on_change(event) {
-	emit("update:modelValue", event.target.value);
+function on_change(value) {
+	emit("update:modelValue", value);
+	emit("change", value);
 }
 </script>
 
 <template>
-	<div class="fxr-control">
-		<div
-			class="fxr-input-group"
-			:class="{
-				'has-value': hasValue,
-				'is-focused': isFocused,
-			}"
-		>
-			<label
-				v-if="df?.label && !no_label && !hideLabel"
-				class="fxr-label"
-				:class="{ reqd: df.reqd }"
-			>
-				{{ __(df.label) }}
-			</label>
-			<div class="select-wrapper">
-				<select
-					class="fxr-select"
-					:value="modelValue"
-					:disabled="read_only || df?.read_only"
-					@change="on_change"
-					@focus="isFocused = true"
-					@blur="isFocused = false"
-				>
-					<option v-if="!df?.reqd" value="">
-						{{ __("Select...") }}
-					</option>
-					<option v-for="opt in options" :key="opt.value" :value="opt.value">
-						{{ opt.label }}
-					</option>
-				</select>
-			</div>
-		</div>
-		<div v-if="df?.description && !hideDescription" class="fxr-description">
-			{{ __(df.description) }}
-		</div>
-	</div>
+	<ComboBoxControl
+		:df="df"
+		:model-value="modelValue"
+		:options="options"
+		:read_only="read_only || df?.read_only"
+		:hide-label="hideLabel || no_label"
+		:hide-description="hideDescription"
+		trigger="button"
+		:hide-search="true"
+		@update:model-value="on_change"
+	/>
 </template>
 
 <style scoped>
-.select-wrapper {
-	position: relative;
-	width: 100%;
-}
-
-.select-wrapper select {
-	width: 100%;
-}
-
-.fxr-label {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 100%;
-}
+/* Scoped styles removed as ComboBoxControl handles the layout */
 </style>
