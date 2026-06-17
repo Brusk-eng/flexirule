@@ -73,30 +73,54 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	}
 
 	// ── Snapshot for dirty checking + history ──
+	/**
+	 * Returns a stable, serializable representation of the graph data.
+	 * Excludes transient UI state (selection, dragging, etc.) to ensure
+	 * comparison only detects meaningful changes.
+	 */
 	function getStateSnapshot() {
-		const nodesSnap = nodes.value.map((el) => ({
-			id: el.id,
-			type: el.type,
-			label: el.label,
-			data: el.data,
-			position: { x: Math.round(el.position.x), y: Math.round(el.position.y) },
-		}));
+		const nodesSnap = nodes.value.map((el) => {
+			// Deep clone data to avoid reference pollution
+			const data = JSON.parse(JSON.stringify(el.data || {}));
+			return {
+				id: el.id,
+				type: el.type,
+				label: el.label,
+				data: data,
+				position: {
+					x: Math.round(el.position?.x || 0),
+					y: Math.round(el.position?.y || 0),
+				},
+			};
+		});
 		const edgesSnap = edges.value.map((el) => ({
 			id: el.id,
 			source: el.source,
 			target: el.target,
-			sourceHandle: el.sourceHandle,
+			sourceHandle: el.sourceHandle || "default",
+			targetHandle: el.targetHandle || null,
 		}));
-		return [...nodesSnap, ...edgesSnap].sort((a, b) => a.id.localeCompare(b.id));
+
+		// Return a flat array to maintain compatibility with existing logic
+		return [...nodesSnap, ...edgesSnap].sort((a, b) => (a.id || "").localeCompare(b.id || ""));
 	}
 
 	function getGraphSnapshot() {
-		return { nodes: nodes.value, edges: edges.value };
+		// Use the stable state snapshot for history to prevent transient UI changes
+		// (like node selection or dragging) from polluting the undo/redo stack.
+		return getStateSnapshot();
 	}
 
 	function applyGraphSnapshot(snapshot) {
-		if (snapshot.nodes) nodes.value = snapshot.nodes;
-		if (snapshot.edges) edges.value = snapshot.edges;
+		if (!Array.isArray(snapshot)) return;
+
+		// Correctly re-split the flat snapshot array into nodes and edges.
+		// Nodes are identified by having a 'type' and 'position', Edges by having a 'source'.
+		const newNodes = snapshot.filter((el) => el.type && el.position);
+		const newEdges = snapshot.filter((el) => el.source && el.target);
+
+		nodes.value = JSON.parse(JSON.stringify(newNodes));
+		edges.value = JSON.parse(JSON.stringify(newEdges));
 	}
 
 	function update_node_position(nodeId, position) {

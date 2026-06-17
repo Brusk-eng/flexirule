@@ -480,7 +480,11 @@ function syncToNode() {
 	}));
 	// Standard: update_action_field handles 'config' as Object
 	update_action_field("config", clean);
-	store.mark_dirty();
+
+	const isDraft = !store.nodes.some((n) => n === props.node);
+	if (!isDraft) {
+		store.mark_dirty();
+	}
 }
 
 function addAssignment() {

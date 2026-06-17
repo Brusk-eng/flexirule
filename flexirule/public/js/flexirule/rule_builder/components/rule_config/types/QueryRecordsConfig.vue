@@ -1133,7 +1133,11 @@ async function test_query() {
 		if (res.message) {
 			props.node.data.resolved_output_schema = res.message.schema || [];
 			test_status.value = __("Success");
-			store.mark_dirty();
+
+			const isDraft = !store.nodes.some((n) => n === props.node);
+			if (!isDraft) {
+				store.mark_dirty();
+			}
 		}
 	} catch (e) {
 		test_status.value = __("Failed");
@@ -1159,7 +1163,11 @@ const debounced_schema_update = flexirule.utils.debounce(async function update_r
 			const next = JSON.stringify(res.message.schema || []);
 			if (current !== next) {
 				props.node.data.resolved_output_schema = res.message.schema;
-				store.mark_dirty();
+
+				const isDraft = !store.nodes.some((n) => n === props.node);
+				if (!isDraft) {
+					store.mark_dirty();
+				}
 			}
 		}
 	} catch (e) {

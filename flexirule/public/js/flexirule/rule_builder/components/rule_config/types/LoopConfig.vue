@@ -28,6 +28,10 @@ function updateJsonConfig(key, val) {
 
 	config[key] = val;
 	props.node.data.config = config;
-	store.mark_dirty();
+
+	const isDraft = !store.nodes.some((n) => n === props.node);
+	if (!isDraft) {
+		store.mark_dirty();
+	}
 }
 </script>

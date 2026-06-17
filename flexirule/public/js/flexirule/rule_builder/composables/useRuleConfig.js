@@ -15,6 +15,17 @@ export function useRuleConfig(props, emit) {
 	const draftNode = ref(null);
 	const config = computed(() => draftNode.value?.data || {});
 
+	// Capture initial draft state after a short delay to allow background sync to settle
+	const initialDraftState = ref(null);
+
+	const isDirty = computed(() => {
+		if (!props.node || !draftNode.value || initialDraftState.value === null) return false;
+
+		// Compare current draft state with the captured initial state
+		const current = JSON.stringify(draftNode.value.data || {});
+		return current !== initialDraftState.value;
+	});
+
 	// Refs for panel validation
 	const panelRefs = {
 		input: ref(null),
@@ -160,6 +171,16 @@ export function useRuleConfig(props, emit) {
 		([newNode, isOpen]) => {
 			if (isOpen && newNode) {
 				createDraft();
+				initialDraftState.value = null;
+
+				// Capture baseline state after background discovery (schema, profiles, etc.) settles.
+				// We increase this to 1000ms to ensure all async normalization and schema
+				// discovery tasks have finished before we define what "clean" looks like.
+				setTimeout(() => {
+					if (draftNode.value) {
+						initialDraftState.value = JSON.stringify(draftNode.value.data || {});
+					}
+				}, 1000);
 			}
 		},
 		{ immediate: true }
@@ -168,6 +189,7 @@ export function useRuleConfig(props, emit) {
 	return {
 		draftNode,
 		config,
+		isDirty,
 		panelRefs,
 		updateField,
 		validate,
