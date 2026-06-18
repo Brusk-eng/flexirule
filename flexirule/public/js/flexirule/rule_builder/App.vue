@@ -204,7 +204,9 @@
 						>
 							<i :class="['fa', item.icon]"></i>
 							<span>{{ item.label }}</span>
-							<kbd v-if="item.shortcut" class="shortcut-badge">{{ item.shortcut }}</kbd>
+							<kbd v-if="item.shortcut" class="shortcut-badge">{{
+								item.shortcut
+							}}</kbd>
 						</button>
 					</template>
 				</div>
