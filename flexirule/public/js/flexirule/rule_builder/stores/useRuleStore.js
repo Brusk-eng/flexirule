@@ -73,10 +73,12 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const graphStore = useGraphStore();
 		const metaStore = useMetaStore();
 		const historyStore = useHistoryStore();
+		const uiStore = useUIStore();
 
 		// Guard to prevent redundant fetches
 		if (is_loading.value) return;
 		is_loading.value = true;
+		uiStore.is_initializing = true;
 		// Fetch Settings
 		try {
 			const res = await frappe.call({
@@ -139,6 +141,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			graphStore.initialize_default_graph(rule_doc.value);
 		}
 
+		graphStore.autoConnectStartNode();
 		graphStore.normalize_graph_nodes();
 
 		setup_breadcrumbs();
@@ -152,6 +155,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		historyStore.reset(() => graphStore.getGraphSnapshot());
 		is_loading.value = false;
+
+		// Note: is_initializing is kept true until VueFlow reports ready in App.vue
 	}
 
 	// ── Save ──
@@ -573,11 +578,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 	// ── Dirty tracking ──
 	function mark_dirty() {
-		if (is_read_only.value) return;
-
-		// Guard: If we are currently fetching or loading, don't mark dirty.
-		// This prevents components that sync on mount from triggering a dirty state.
-		if (is_loading.value) return;
+		const uiStore = useUIStore();
+		if (is_read_only.value || is_loading.value || uiStore.is_initializing) return;
 
 		// Set flag for immediate UI response
 		_is_dirty.value = true;
@@ -589,7 +591,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	}
 
 	function mark_position_change() {
-		if (is_read_only.value) return;
+		const uiStore = useUIStore();
+		if (is_read_only.value || is_loading.value || uiStore.is_initializing) return;
 
 		_is_dirty.value = true;
 
