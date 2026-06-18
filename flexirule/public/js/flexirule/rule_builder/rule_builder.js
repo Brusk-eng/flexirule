@@ -61,7 +61,7 @@ class RuleBuilder {
 
 		// Debug
 		this.test_btn = this.page.add_inner_button(__("Debug Rule"), () => {
-			this.show_debug_dialog();
+			flexirule.debug.show_dialog();
 		});
 
 		// Clear visualization if any
@@ -150,6 +150,8 @@ class RuleBuilder {
 				});
 			}
 		});
+
+		this.setup_debug_api();
 
 		// Mount app
 		this.$rule_builder = app.mount(this.$wrapper.get(0));
@@ -248,6 +250,11 @@ class RuleBuilder {
 				this.clear_test_btn.hide().addClass("hide");
 			}
 		}
+	}
+
+	setup_debug_api() {
+		frappe.provide("flexirule.debug");
+		flexirule.debug.show_dialog = () => this.show_debug_dialog();
 	}
 
 	show_debug_dialog() {
