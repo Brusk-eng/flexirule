@@ -84,7 +84,10 @@ export function useKeyboardRegistry() {
 		// Don't trigger if typing in an input, unless the shortcut is specifically allowed
 		const isInput =
 			["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) ||
-			e.target.isContentEditable;
+			e.target.isContentEditable ||
+			e.target.closest(".monaco-editor") ||
+			e.target.closest(".CodeMirror") ||
+			e.target.closest(".ace_editor");
 
 		const pressedKey = e.key.toLowerCase();
 		const ctrl = e.ctrlKey;

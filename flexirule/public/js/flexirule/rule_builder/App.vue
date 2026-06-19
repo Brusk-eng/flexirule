@@ -193,18 +193,22 @@
 				@keydown="handleQuickActionsKeydown"
 			>
 				<div class="quick-actions-section">
-					<button
-						v-for="item in quickActionItems"
-						:key="item.key"
-						class="quick-action-item"
-						role="menuitem"
-						:disabled="item.disabled"
-						@click="runQuickAction(item)"
-					>
-						<i :class="['fa', item.icon]"></i>
-						<span>{{ item.label }}</span>
-						<small v-if="item.shortcut">{{ item.shortcut }}</small>
-					</button>
+					<template v-for="item in quickActionItems" :key="item.key || item.type">
+						<div v-if="item.type === 'divider'" class="quick-action-divider"></div>
+						<button
+							v-else
+							class="quick-action-item"
+							role="menuitem"
+							:disabled="item.disabled"
+							@click="runQuickAction(item)"
+						>
+							<i :class="['fa', item.icon]"></i>
+							<span>{{ item.label }}</span>
+							<kbd v-if="item.shortcut" class="shortcut-badge">{{
+								item.shortcut
+							}}</kbd>
+						</button>
+					</template>
 				</div>
 			</div>
 			<div
@@ -287,15 +291,31 @@ const fieldInspector = ref({
 });
 
 const quickActionItems = computed(() => [
+	{
+		key: "undo",
+		label: __("Undo"),
+		icon: "fa-undo",
+		shortcut: "Ctrl Z",
+		disabled: !ruleStore.can_undo(),
+	},
+	{
+		key: "redo",
+		label: __("Redo"),
+		icon: "fa-repeat",
+		shortcut: "Ctrl Y",
+		disabled: !ruleStore.can_redo(),
+	},
+	{ type: "divider" },
 	{ key: "save", label: __("Save"), icon: "fa-floppy-o", shortcut: "Ctrl S" },
-	{ key: "test", label: __("Debug"), icon: "fa-bug" },
+	{ key: "test", label: __("Debug"), icon: "fa-bug", shortcut: "Alt D" },
 	{
 		key: "status",
 		label: isReadOnly.value ? __("Unlock for editing") : __("Set to active"),
 		icon: isReadOnly.value ? "fa-unlock" : "fa-rocket",
+		shortcut: "Alt Shift A",
 	},
-	{ key: "shortcuts", label: __("Keyboard shortcuts"), icon: "fa-keyboard-o" },
-	{ key: "layout", label: __("Auto Layout"), icon: "fa-sitemap" },
+	{ key: "shortcuts", label: __("Keyboard shortcuts"), icon: "fa-keyboard-o", shortcut: "?" },
+	{ key: "layout", label: __("Auto Layout"), icon: "fa-sitemap", shortcut: "Alt L" },
 	{ key: "permissions", label: __("Set Permission"), icon: "fa-shield" },
 	{ key: "copy", label: __("Copy"), icon: "fa-copy", shortcut: "Ctrl C" },
 	{
@@ -405,8 +425,10 @@ function updateQuickActionsPosition() {
 
 function runQuickAction(item) {
 	const actions = {
+		undo: () => ruleStore.undo(),
+		redo: () => ruleStore.redo(),
 		save: () => ruleStore.save_changes(),
-		test: () => window.fxrRuleBuilder?.show_debug_dialog?.(),
+		test: () => flexirule.debug.show_dialog(),
 		status: () => toggleRuleAccess(),
 		shortcuts: () => (uiStore.show_shortcuts_help = true),
 		layout: () => runAutoLayout(),
@@ -559,6 +581,25 @@ onMounted(async () => {
 			mod: true,
 			callback: () => (uiStore.show_command_palette = !uiStore.show_command_palette),
 			description: "Command Palette",
+		}),
+		registerShortcut({
+			key: "d",
+			alt: true,
+			callback: () => flexirule.debug.show_dialog(),
+			description: "Debug Rule",
+		}),
+		registerShortcut({
+			key: "l",
+			alt: true,
+			callback: () => runAutoLayout(),
+			description: "Auto Layout",
+		}),
+		registerShortcut({
+			key: "a",
+			alt: true,
+			shift: true,
+			callback: () => toggleRuleAccess(),
+			description: "Toggle Active/Draft",
 		}),
 	];
 
@@ -916,10 +957,23 @@ function onEdgeClick({ edge, event }) {
 	text-align: center;
 }
 
-.quick-action-item small {
-	color: var(--fxr-text-faint);
+.quick-action-divider {
+	height: 1px;
+	background-color: var(--fxr-border-subtle);
+	margin: 4px 8px;
+}
+
+.shortcut-badge {
+	background: var(--fxr-surface-3);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: 4px;
+	padding: 2px 5px;
 	font-size: 9px;
 	font-weight: 600;
+	color: var(--fxr-text-soft);
+	font-family: var(--font-stack-monospaced);
+	line-height: 1;
+	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
 }
 
 .quick-action-item:hover,
