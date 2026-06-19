@@ -14,6 +14,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const selected_id = ref(null);
 	const show_sidebar = ref(false);
 	const local_clipboard = ref(null);
+	const is_initializing = ref(false);
 
 	// ── Config Modal ──
 	const show_config_modal = ref(false);
@@ -185,6 +186,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		local_clipboard,
 		test_multi_results,
 		test_current_multi_index,
+		is_initializing,
 
 		// Computed
 		has_selection,

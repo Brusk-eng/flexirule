@@ -465,6 +465,10 @@ function toggleRuleAccess() {
 
 function onPaneReady(instance) {
 	instance.fitView();
+	// Small delay to ensure fitView doesn't trigger a trailing position change
+	setTimeout(() => {
+		uiStore.is_initializing = false;
+	}, 150);
 }
 
 function onDebugProgress(data) {
@@ -479,7 +483,6 @@ onMounted(async () => {
 	document.body.classList.add("fxr-builder-active");
 	if (props.rule) ruleStore.rule_name = props.rule;
 	await ruleStore.fetch();
-	graphStore.autoConnectStartNode();
 
 	pushContext("canvas");
 
@@ -783,11 +786,13 @@ function onConnect(params) {
 }
 
 function onNodesChange(changes) {
+	if (uiStore.is_initializing) return;
 	const hasDrag = changes.some((c) => c.type === "position" && c.dragging === false);
 	if (hasDrag) ruleStore.mark_position_change();
 }
 
 function onEdgesChange(changes) {
+	if (uiStore.is_initializing) return;
 	changes.forEach((change) => {
 		if (change.type === "remove") {
 			graphStore.delete_edge(change.id, ruleStore.is_read_only);

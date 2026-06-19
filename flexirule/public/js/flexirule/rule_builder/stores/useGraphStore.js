@@ -1314,7 +1314,32 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	function normalize_graph_nodes() {
 		nodes.value = nodes.value.map((node) => {
-			if (node.type === "start" || !node.data?.action_type) return node;
+			if (!node.data?.action_type) return node;
+
+			// 1. Deep sync conditions to config before normalization
+			if (node.data.action_type === "Condition") {
+				const payload = getConditionPayload({
+					config: node.data.config,
+					condition_json: node.data.condition_json,
+				});
+				if (payload) {
+					node.data.config = payload;
+					node.data.condition_json = null;
+				}
+				if (!node.data.config || typeof node.data.config !== "object") {
+					node.data.config = { op: "and", conditions: [] };
+				}
+			}
+
+			// 2. Structural normalization for Assignments
+			if (node.data.action_type === "Assignment") {
+				if (!node.data.config || !Array.isArray(node.data.config)) {
+					node.data.config = [];
+				}
+			}
+
+			if (node.type === "start") return node;
+
 			return {
 				...node,
 				data: normalize_action_data(node.data.action_type, node.data),
