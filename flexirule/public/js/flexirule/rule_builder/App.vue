@@ -375,7 +375,6 @@ watch(
 	{ immediate: true, deep: false }
 );
 
-
 const showSidebar = computed(() => {
 	if (ruleStore.settings?.action_config_mode === "Dialog") return false;
 	return uiStore.show_sidebar && uiStore.selected_id !== null;

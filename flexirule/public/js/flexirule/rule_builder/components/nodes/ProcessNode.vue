@@ -15,7 +15,11 @@ const uiStore = useUIStore();
 // Legacy
 const store = uiStore;
 
-const { isHorizontal, sourcePosition: defaultSourcePos, targetPosition: defaultTargetPos } = useCanvasLayout();
+const {
+	isHorizontal,
+	sourcePosition: defaultSourcePos,
+	targetPosition: defaultTargetPos,
+} = useCanvasLayout();
 
 const targetPos = computed(() => props.targetPosition || defaultTargetPos.value);
 const sourcePos = computed(() => props.sourcePosition || defaultSourcePos.value);

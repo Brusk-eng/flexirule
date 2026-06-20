@@ -106,7 +106,11 @@ const selectedPreset = ref({
 	selected_label: "Process",
 });
 
-const { isHorizontal, sourcePosition: defaultSourcePos, targetPosition: defaultTargetPos } = useCanvasLayout();
+const {
+	isHorizontal,
+	sourcePosition: defaultSourcePos,
+	targetPosition: defaultTargetPos,
+} = useCanvasLayout();
 const targetPos = computed(() => props.targetPosition || defaultTargetPos.value);
 const sourcePos = computed(() => props.sourcePosition || defaultSourcePos.value);
 

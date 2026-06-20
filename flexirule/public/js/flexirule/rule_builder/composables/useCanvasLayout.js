@@ -36,6 +36,6 @@ export function useCanvasLayout() {
 		isHorizontal,
 		sourcePosition,
 		targetPosition,
-		toggleLayout
+		toggleLayout,
 	};
 }

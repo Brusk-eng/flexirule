@@ -10,7 +10,11 @@ import InlineEditor from "./InlineEditor.vue";
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
 
-const { isHorizontal, sourcePosition: defaultSourcePos, targetPosition: defaultTargetPos } = useCanvasLayout();
+const {
+	isHorizontal,
+	sourcePosition: defaultSourcePos,
+	targetPosition: defaultTargetPos,
+} = useCanvasLayout();
 
 const targetPos = computed(() => props.targetPosition || defaultTargetPos.value);
 // TB layout: For Each → Bottom (straight down), After Last → Left (bypass)
