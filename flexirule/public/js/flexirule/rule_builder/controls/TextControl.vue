@@ -48,7 +48,13 @@ defineExpose({ validate });
 			<slot name="label" />
 			<slot name="actions" />
 		</div>
-		<div v-else-if="df?.label" class="control-label label">{{ __(df.label) }}</div>
+		<div
+			v-else-if="df?.label"
+			class="control-label label"
+			v-field-reveal="df?.fieldname || fieldname || null"
+		>
+			{{ __(df.label) }}
+		</div>
 
 		<!-- textarea input -->
 		<textarea

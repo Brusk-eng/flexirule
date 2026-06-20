@@ -84,3 +84,20 @@
 html[data-theme="dark"] .fxr-active-element {
 	background: #242424 !important;
 }
+
+/* 8. Field Reveal Directive */
+.fxr-field-revealed {
+	color: var(--fxr-accent) !important;
+	font-family: var(--font-mono, monospace);
+	font-weight: var(--fxr-weight-bold, 600);
+	cursor: copy !important;
+	text-decoration: underline dotted;
+	background: var(--fxr-accent-soft);
+	padding: 0 2px;
+	border-radius: var(--fxr-radius-sm, 4px);
+}
+
+.fxr-copy-success {
+	color: var(--green-600, #16a34a) !important;
+	transition: color 0.2s ease;
+}

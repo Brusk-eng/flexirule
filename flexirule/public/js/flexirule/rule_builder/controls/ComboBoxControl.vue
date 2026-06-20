@@ -14,7 +14,12 @@
 				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
 			}"
 		>
-			<label v-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
+			<label
+				v-if="df?.label && !hideLabel"
+				class="fxr-label"
+				:class="{ reqd: df.reqd }"
+				v-field-reveal="df.fieldname || fieldname || null"
+			>
 				{{ __(df.label) }}
 			</label>
 

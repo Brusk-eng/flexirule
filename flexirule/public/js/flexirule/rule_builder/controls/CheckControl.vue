@@ -57,9 +57,13 @@ const showTooltip = ref(false);
 				:disabled="read_only"
 				@change="(event) => $emit('update:modelValue', event.target.checked)"
 			/>
-			<span v-if="df?.label && !hideLabel" class="label-area" :class="{ reqd: df.reqd }">{{
-				__(df.label)
-			}}</span>
+			<span
+				v-if="df?.label && !hideLabel"
+				class="label-area"
+				:class="{ reqd: df.reqd }"
+				v-field-reveal="df?.fieldname || fieldname || null"
+				>{{ __(df.label) }}</span
+			>
 		</label>
 
 		<!-- Tooltip Popup for Grid / Hidden Label Mode -->

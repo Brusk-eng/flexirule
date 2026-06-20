@@ -523,7 +523,12 @@ onBeforeUnmount(() => {
 		ref="wrapperRef"
 		:data-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
-		<div v-if="df.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
+		<div
+			v-if="df.label && !hideLabel"
+			class="fxr-label"
+			:class="{ reqd: df.reqd }"
+			v-field-reveal="df.fieldname || fieldname || null"
+		>
 			{{ __(df.label) }}
 		</div>
 

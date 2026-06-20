@@ -23,7 +23,11 @@ import TimePickerControl from "./controls/TimePickerControl.vue";
 import ResourceMapperControl from "./controls/ResourceMapperControl.vue";
 import CollapsibleSection from "./controls/CollapsibleSection.vue";
 
+import { fieldRevealDirective } from "./utils/directives.js";
+
 export function registerGlobalComponents(app) {
+	app.directive("field-reveal", fieldRevealDirective);
+
 	app.component("ComboBoxControl", ComboBoxControl)
 		.component("FlexiGrid", FlexiGrid)
 		.component("DataControl", DataControl)
