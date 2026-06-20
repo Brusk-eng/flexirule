@@ -128,21 +128,41 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		await fetch_processes();
 
-		const visual_data = flexirule.utils.safe_json_parse(rule_doc.value.visual_data, null);
+		const visual_data = flexirule.utils.safe_json_parse(rule_doc.value.visual_data, []);
 
 		// Build graph from actions (mirrors workflow_builder: get_workflow_elements)
 		graphStore.sync_actions_to_graph(rule_doc.value);
 
+		let needs_auto_layout = false;
 		if (visual_data && visual_data.length > 0) {
 			graphStore.merge_visual_layout(visual_data);
+
+			// Smart layout detection: if stored layout differs from UI preference, re-layout
+			const storedPref = visual_data.find((el) => el.type === "ui_preferences")?.layout;
+			if (storedPref && storedPref !== uiStore.layout_preference) {
+				needs_auto_layout = true;
+			}
+		} else {
+			// Brand new rule or missing visual data
+			needs_auto_layout = true;
 		}
 
 		if (!graphStore.nodes.length) {
 			graphStore.initialize_default_graph(rule_doc.value);
+			needs_auto_layout = true;
 		}
 
 		graphStore.autoConnectStartNode();
 		graphStore.normalize_graph_nodes();
+
+		// Trigger auto-layout only if mismatch or new
+		if (needs_auto_layout) {
+			const { useRuleGraph } = await import("../composables/useRuleGraph");
+			const { layoutGraph } = useRuleGraph();
+			nextTick(() => {
+				layoutGraph(uiStore.layout_preference);
+			});
+		}
 
 		setup_breadcrumbs();
 		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
@@ -287,10 +307,12 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			);
 			const resolveActionId = (nodeId) => nodeIdToActionId.get(nodeId) || nodeId || null;
 
+			const uiStore = useUIStore();
 			doc.visual_data = JSON.stringify(
 				canonicalizeGraphData(
 					graphStore.get_visual_data_payload(
-						settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR"
+						uiStore.layout_preference ||
+							(settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR")
 					),
 					nodeIdToActionId
 				)

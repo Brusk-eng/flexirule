@@ -3,16 +3,15 @@ import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../stores";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import { useCanvasLayout } from "../../composables/useCanvasLayout";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "targetPosition"]);
 const store = useStore();
 
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
-const targetPos = computed(
-	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
-);
+const { isHorizontal, targetPosition: defaultTargetPos } = useCanvasLayout();
+const targetPos = computed(() => props.targetPosition || defaultTargetPos.value);
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);

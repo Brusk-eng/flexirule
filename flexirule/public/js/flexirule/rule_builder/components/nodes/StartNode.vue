@@ -4,6 +4,7 @@ import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import { useCanvasLayout } from "../../composables/useCanvasLayout";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
@@ -11,10 +12,8 @@ const props = defineProps(["data", "label", "id", "selected", "sourcePosition"])
 const store = useStore();
 const isReadOnly = computed(() => store.is_read_only);
 
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
-const sourcePos = computed(
-	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
-);
+const { isHorizontal, sourcePosition: defaultSourcePos } = useCanvasLayout();
+const sourcePos = computed(() => props.sourcePosition || defaultSourcePos.value);
 
 const displayLabel = computed(() => {
 	const data = props.data || {};

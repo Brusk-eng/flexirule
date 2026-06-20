@@ -10,6 +10,7 @@ import {
 import { useStore } from "../stores";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { useActionSearch } from "../composables/useActionSearch";
+import { useCanvasLayout } from "../composables/useCanvasLayout";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useFocusTrap } from "../composables/useFocusTrap";
 import NodeToolbar from "./nodes/NodeToolbar.vue";
@@ -105,13 +106,13 @@ const selectedPreset = ref({
 	selected_label: "Process",
 });
 
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
-const targetPos = computed(
-	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
-);
-const sourcePos = computed(
-	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
-);
+const {
+	isHorizontal,
+	sourcePosition: defaultSourcePos,
+	targetPosition: defaultTargetPos,
+} = useCanvasLayout();
+const targetPos = computed(() => props.targetPosition || defaultTargetPos.value);
+const sourcePos = computed(() => props.sourcePosition || defaultSourcePos.value);
 
 function goToStep(newStep) {
 	step.value = newStep;

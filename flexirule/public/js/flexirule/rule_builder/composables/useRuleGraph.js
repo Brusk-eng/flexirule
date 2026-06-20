@@ -1,5 +1,8 @@
 import dagre from "dagre";
 import { useVueFlow } from "@vue-flow/core";
+import { useUIStore } from "../stores/useUIStore";
+import { useRuleStore } from "../stores/useRuleStore";
+import { nextTick } from "vue";
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 140;
@@ -7,7 +10,9 @@ const H_GAP = 46; // horizontal gap between ranks (LR) or between main and body 
 const V_GAP = 72; // vertical gap between nodes
 
 export function useRuleGraph() {
-	const { nodes, edges, setNodes, setEdges, fitView } = useVueFlow();
+	const { nodes, edges, setNodes, fitView } = useVueFlow();
+	const uiStore = useUIStore();
+	const ruleStore = useRuleStore();
 
 	// ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -45,8 +50,11 @@ export function useRuleGraph() {
 	// ── Main layout function ──────────────────────────────────────────────────
 
 	const layoutGraph = (direction = "TB") => {
-		const currentNodes = nodes.value;
-		const currentEdges = edges.value;
+		if (uiStore.is_performing_layout) return;
+		uiStore.is_performing_layout = true;
+
+		const currentNodes = JSON.parse(JSON.stringify(nodes.value));
+		const currentEdges = JSON.parse(JSON.stringify(edges.value));
 
 		const isHorizontal = direction === "LR";
 
@@ -240,16 +248,26 @@ export function useRuleGraph() {
 			};
 		});
 
+		// 5. Update nodes with a brief delay for reactivity to catch up if needed
+		// VueFlow will handle the position transition if we provide the new positions
 		setNodes(layoutedNodes);
 
-		setTimeout(() => {
-			fitView({
-				padding: 0.12,
-				duration: 500,
-				minZoom: isHorizontal ? 0.68 : 0.72,
-				maxZoom: 1,
-			});
-		}, 100);
+		nextTick(() => {
+			setTimeout(() => {
+				fitView({
+					padding: 0.15,
+					duration: 600,
+					minZoom: isHorizontal ? 0.85 : 0.9,
+					maxZoom: 1,
+				});
+
+				// Reset layout flag and sync baseline so layout change isn't "dirty"
+				setTimeout(() => {
+					uiStore.is_performing_layout = false;
+					ruleStore.clear_dirty();
+				}, 650);
+			}, 50);
+		});
 	};
 
 	return { layoutGraph };

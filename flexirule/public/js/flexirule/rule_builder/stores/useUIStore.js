@@ -7,7 +7,7 @@
  *   - Refs/computed exposed directly
  */
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 
 export const useUIStore = defineStore("rule-builder-ui", () => {
 	// ── Selection ──
@@ -15,6 +15,19 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const show_sidebar = ref(false);
 	const local_clipboard = ref(null);
 	const is_initializing = ref(false);
+	const is_performing_layout = ref(false);
+	const layout_preference = ref("LR"); // "LR" | "TB"
+
+	// Keep preference in sync with localStorage for session persistence
+	// but the primary persistence is in Rule visual_data
+	const saved_pref = localStorage.getItem("flexirule_layout_preference");
+	if (saved_pref) {
+		layout_preference.value = saved_pref;
+	}
+
+	watch(layout_preference, (val) => {
+		localStorage.setItem("flexirule_layout_preference", val);
+	});
 
 	// ── Config Modal ──
 	const show_config_modal = ref(false);
@@ -203,5 +216,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		navigate_node,
 		add_test_progress_result,
 		set_active_multi_result,
+		layout_preference,
+		is_performing_layout,
 	};
 });
