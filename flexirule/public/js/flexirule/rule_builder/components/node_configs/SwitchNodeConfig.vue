@@ -4,9 +4,7 @@
 			class="form-group"
 			:class="{ 'has-error': showValidation && !getJsonConfig('expression') }"
 		>
-			<label v-field-reveal="'config.expression'">{{
-				__("Switch Expression (Python)")
-			}}</label>
+			<label>{{ __("Switch Expression (Python)") }}</label>
 			<textarea
 				class="form-control"
 				rows="2"
@@ -23,7 +21,7 @@
 			class="form-group"
 			:class="{ 'has-error': showValidation && Object.keys(cases).length === 0 }"
 		>
-			<label v-field-reveal="'config.cases'">{{ __("Cases") }}</label>
+			<label>{{ __("Cases") }}</label>
 			<div
 				v-if="showValidation && Object.keys(cases).length === 0"
 				class="fxr-error-msg mb-2"

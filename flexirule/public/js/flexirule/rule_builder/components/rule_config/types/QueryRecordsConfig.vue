@@ -41,7 +41,7 @@
 			<!-- Configuration based on selected Mode -->
 			<template v-if="mode === 'Query List'">
 				<div class="sub-section section-subcard">
-					<h6 v-field-reveal="'filters'">{{ __("Filters") }}</h6>
+					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
 						:ref="setControlRef"
@@ -142,9 +142,7 @@
 							/>
 						</div>
 						<div class="grid-item">
-							<label class="control-label small" v-field-reveal="'group_by'">{{
-								__("Group By")
-							}}</label>
+							<label class="control-label small">{{ __("Group By") }}</label>
 							<ComboBoxControl
 								:ref="setControlRef"
 								fieldname="group_by"
@@ -188,9 +186,7 @@
 						</div>
 
 						<div class="grid-item">
-							<label class="control-label small" v-field-reveal="'doctype_name'">{{
-								__("DocType Name")
-							}}</label>
+							<label class="control-label small">{{ __("DocType Name") }}</label>
 							<FlexValueControl
 								:ref="setControlRef"
 								:modelValue="config.doctype_name"
@@ -205,7 +201,7 @@
 						</div>
 
 						<div v-if="show_docname_field" class="grid-item">
-							<label class="control-label small" v-field-reveal="'docname'">{{
+							<label class="control-label small">{{
 								__("Document Name (ID)")
 							}}</label>
 							<FlexValueControl
@@ -228,7 +224,7 @@
 					v-if="config.fetch_strategy === 'Get latest Doc'"
 					class="sub-section section-subcard"
 				>
-					<h6 v-field-reveal="'filters'">{{ __("Filters") }}</h6>
+					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
 						:ref="setControlRef"
@@ -245,7 +241,7 @@
 
 			<template v-else-if="mode === 'Exist Record'">
 				<div class="sub-section section-subcard">
-					<h6 v-field-reveal="'filters'">{{ __("Filters") }}</h6>
+					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
 						:ref="setControlRef"
@@ -346,7 +342,7 @@
 				v-else-if="['Sum', 'Average', 'Min', 'Max', 'Count', 'Group By'].includes(mode)"
 			>
 				<div class="sub-section section-subcard">
-					<h6 v-field-reveal="'filters'">{{ __("Filters") }}</h6>
+					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
 						:ref="setControlRef"
@@ -365,7 +361,7 @@
 					<div class="query-doc-grid">
 						<template v-if="['Sum', 'Average', 'Min', 'Max'].includes(mode)">
 							<div class="grid-item">
-								<label class="control-label small" v-field-reveal="'field'">{{
+								<label class="control-label small">{{
 									__("Field to Aggregate")
 								}}</label>
 								<div class="field-picker-container">
@@ -400,11 +396,9 @@
 						</template>
 						<template v-else-if="mode === 'Group By'">
 							<div class="grid-item">
-								<label
-									class="control-label small"
-									v-field-reveal="'group_by_field'"
-									>{{ __("Group By Field") }}</label
-								>
+								<label class="control-label small">{{
+									__("Group By Field")
+								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
 										:ref="setControlRef"
@@ -448,7 +442,7 @@
 								/>
 							</div>
 							<div class="grid-item">
-								<label class="control-label small" v-field-reveal="'agg_field'">{{
+								<label class="control-label small">{{
 									__("Aggregate Field")
 								}}</label>
 								<div class="field-picker-container">

@@ -29,16 +29,10 @@
 
 		<!-- Horizontal Table Grid Header -->
 		<div v-if="assignments.length" class="assignment-grid-header">
-			<div class="grid-col-when" v-field-reveal="'run_if'">{{ __("Run If") }}</div>
-			<div class="grid-col-target" v-field-reveal="'target'">
-				{{ __("Target Field") }}
-			</div>
-			<div class="grid-col-operator" v-field-reveal="'operator'">
-				{{ __("Operator") }}
-			</div>
-			<div class="grid-col-value" v-field-reveal="'value'">
-				{{ __("Value Expression") }}
-			</div>
+			<div class="grid-col-when">{{ __("Run If") }}</div>
+			<div class="grid-col-target">{{ __("Target Field") }}</div>
+			<div class="grid-col-operator">{{ __("Operator") }}</div>
+			<div class="grid-col-value">{{ __("Value Expression") }}</div>
 			<div class="grid-col-actions"></div>
 		</div>
 

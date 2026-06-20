@@ -5,9 +5,7 @@
 				class="form-group col-md-6"
 				:class="{ 'has-error': showValidation && getJsonConfig('value', 1) <= 0 }"
 			>
-				<label class="small text-muted" v-field-reveal="'config.value'">{{
-					__("Delay Value")
-				}}</label>
+				<label class="small text-muted">{{ __("Delay Value") }}</label>
 				<input
 					type="number"
 					class="form-control"
@@ -19,9 +17,7 @@
 				</div>
 			</div>
 			<div class="form-group col-md-6">
-				<label class="small text-muted" v-field-reveal="'config.unit'">{{
-					__("Unit")
-				}}</label>
+				<label class="small text-muted">{{ __("Unit") }}</label>
 				<select
 					class="form-control"
 					:value="getJsonConfig('unit', 'Minutes')"
