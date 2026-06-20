@@ -6,6 +6,7 @@
 			'has-error': showValidation && !isValid,
 		}"
 		:data-fxr-fieldname="df?.fieldname || fieldname || null"
+		v-field-reveal="df?.fieldname || fieldname || null"
 	>
 		<div
 			class="fxr-input-group"
@@ -14,12 +15,7 @@
 				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
 			}"
 		>
-			<label
-				v-if="df?.label && !hideLabel"
-				class="fxr-label"
-				:class="{ reqd: df.reqd }"
-				v-field-reveal="df.fieldname || fieldname || null"
-			>
+			<label v-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
 				{{ __(df.label) }}
 			</label>
 

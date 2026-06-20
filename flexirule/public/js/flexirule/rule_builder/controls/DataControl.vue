@@ -123,6 +123,7 @@ defineExpose({ validate });
 			'has-error': showValidation && !isValid,
 		}"
 		:data-fxr-fieldname="df?.fieldname || fieldname || null"
+		v-field-reveal="df?.fieldname || fieldname || null"
 	>
 		<div
 			class="fxr-input-group"
@@ -139,7 +140,6 @@ defineExpose({ validate });
 				v-else-if="df?.label && !hideLabel"
 				class="fxr-label"
 				:class="{ reqd: df?.reqd }"
-				v-field-reveal="df?.fieldname || fieldname || null"
 			>
 				{{ __(df.label) }}
 			</label>
