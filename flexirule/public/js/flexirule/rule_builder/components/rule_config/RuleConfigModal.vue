@@ -346,8 +346,13 @@
 															<ActionSettings
 																:node="draftNode"
 																:readOnly="ruleStore.is_read_only"
+																:showValidation="showValidation"
 																@update:field="
 																	on_update_action_field
+																"
+																@open:conditions="
+																	uiStore.config_modal_mode =
+																		'logic'
 																"
 															/>
 														</div>
@@ -505,8 +510,13 @@
 															<ActionSettings
 																:node="draftNode"
 																:readOnly="ruleStore.is_read_only"
+																:showValidation="showValidation"
 																@update:field="
 																	on_update_action_field
+																"
+																@open:conditions="
+																	uiStore.config_modal_mode =
+																		'logic'
 																"
 															/>
 														</div>
