@@ -336,7 +336,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 						? getConditionPayload({
 								config: node.data?.config,
 								condition_json: node.data?.condition_json,
-						  })
+							})
 						: null;
 
 				const finalInputMapping =
@@ -760,7 +760,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 						istable: doctype_meta.istable,
 						is_submittable: doctype_meta.is_submittable,
 						track_changes: doctype_meta.track_changes,
-				  }
+					}
 				: null,
 		});
 	}
@@ -805,8 +805,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		let breadcrumbs = `
 			<li><a href="/app/rule">${__("Rule")}</a></li>
 			<li><a href="/app/rule/${rule_name.value}">${__(
-			rule_doc.value?.rule_name || rule_name.value
-		)}</a></li>
+				rule_doc.value?.rule_name || rule_name.value
+			)}</a></li>
 			<li class="disabled"><a href="#">${__("Builder")}</a></li>
 		`;
 		frappe.breadcrumbs.clear();

@@ -1,4 +1,3 @@
-
 export const fieldRevealDirective = {
 	mounted(el, binding) {
 		const fieldname = binding.value;
@@ -74,10 +73,15 @@ export const fieldRevealDirective = {
 					}, 1000);
 
 					if (window.frappe && frappe.show_alert) {
-						frappe.show_alert({
-							message: __ ? __("Fieldname copied to clipboard: {0}", [fieldname]) : `Fieldname copied: ${fieldname}`,
-							indicator: "green"
-						}, 3);
+						frappe.show_alert(
+							{
+								message: __
+									? __("Fieldname copied to clipboard: {0}", [fieldname])
+									: `Fieldname copied: ${fieldname}`,
+								indicator: "green",
+							},
+							3
+						);
 					}
 				});
 			}
