@@ -88,30 +88,6 @@ const { getPolicyField, getPolicyValue } = useNodeConfigPolicy({
 	processName: () => props.node?.data?.process_name || "",
 });
 
-// Fields handled by other specialized panels
-const EXCLUDED_FIELDS = [
-	"action_id",
-	"action_label",
-	"action_type",
-	"process_name",
-	"rule",
-	"operation",
-	"input_source",
-	"reference_doctype",
-	"reference_docname",
-	"mutation_mode",
-	"return_variable",
-	"return_type",
-	"resolved_output_schema",
-	"config",
-	"condition_json",
-	"compiled_expression",
-	"value_template",
-	"target_field",
-	"configure_operation",
-	"set_conditions",
-];
-
 const LAYOUT_FIELDS = ["Section Break", "Column Break", "Tab Break"];
 
 const ruleActionMeta = computed(() => frappe.get_meta("Rule Action"));
@@ -122,7 +98,6 @@ const docFields = computed(() => {
 	return ruleActionMeta.value.fields
 		.filter((df) => {
 			if (LAYOUT_FIELDS.includes(df.fieldtype)) return false;
-			if (EXCLUDED_FIELDS.includes(df.fieldname)) return false;
 			if (df.hidden) return false;
 			if (getPolicyValue(df.fieldname, "hidden", false)) return false;
 			return true;
