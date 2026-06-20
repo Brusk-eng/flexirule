@@ -1,33 +1,32 @@
 export const fieldRevealDirective = {
 	mounted(el, binding) {
-		const fieldname = binding.value;
-		if (!fieldname) return;
-
-		let isHovered = false;
-		let originalText = "";
-		let originalHTML = "";
-		let isRevealed = false;
+		el._revealState = {
+			fieldname: binding.value,
+			isHovered: false,
+			originalHTML: "",
+			isRevealed: false,
+		};
 
 		const reveal = () => {
-			if (isRevealed) return;
-			originalHTML = el.innerHTML;
-			originalText = el.innerText;
+			const state = el._revealState;
+			if (state.isRevealed || !state.fieldname) return;
+			state.originalHTML = el.innerHTML;
 
-			// Use a span to maintain some styling if needed, but replace content
-			el.innerText = fieldname;
+			el.innerText = state.fieldname;
 			el.classList.add("fxr-field-revealed");
-			isRevealed = true;
+			state.isRevealed = true;
 		};
 
 		const reset = () => {
-			if (!isRevealed) return;
-			el.innerHTML = originalHTML;
+			const state = el._revealState;
+			if (!state.isRevealed) return;
+			el.innerHTML = state.originalHTML;
 			el.classList.remove("fxr-field-revealed");
-			isRevealed = false;
+			state.isRevealed = false;
 		};
 
 		const handleMouseMove = (e) => {
-			isHovered = true;
+			el._revealState.isHovered = true;
 			if (e.shiftKey) {
 				reveal();
 			} else {
@@ -36,12 +35,12 @@ export const fieldRevealDirective = {
 		};
 
 		const handleMouseLeave = () => {
-			isHovered = false;
+			el._revealState.isHovered = false;
 			reset();
 		};
 
 		const handleGlobalKeyDown = (e) => {
-			if (e.key === "Shift" && isHovered) {
+			if (e.key === "Shift" && el._revealState.isHovered) {
 				reveal();
 			}
 		};
@@ -53,31 +52,31 @@ export const fieldRevealDirective = {
 		};
 
 		const handleClick = (e) => {
-			if (e.shiftKey && isRevealed) {
+			const state = el._revealState;
+			if (e.shiftKey && state.isRevealed) {
 				e.preventDefault();
 				e.stopPropagation();
 
-				navigator.clipboard.writeText(fieldname).then(() => {
-					// Visual feedback
+				navigator.clipboard.writeText(state.fieldname).then(() => {
 					const prevText = el.innerText;
 					el.innerText = window.__ ? __("Copied!") : "Copied!";
 					el.classList.add("fxr-copy-success");
 
 					setTimeout(() => {
 						el.classList.remove("fxr-copy-success");
-						if (isRevealed) {
-							el.innerText = fieldname;
+						if (state.isRevealed) {
+							el.innerText = state.fieldname;
 						} else {
 							reset();
 						}
-					}, 1000);
+					}, 800);
 
 					if (window.frappe && frappe.show_alert) {
 						frappe.show_alert(
 							{
 								message: __
-									? __("Fieldname copied to clipboard: {0}", [fieldname])
-									: `Fieldname copied: ${fieldname}`,
+									? __("Fieldname copied: {0}", [state.fieldname])
+									: `Fieldname copied: ${state.fieldname}`,
 								indicator: "green",
 							},
 							3
@@ -93,7 +92,6 @@ export const fieldRevealDirective = {
 		window.addEventListener("keydown", handleGlobalKeyDown);
 		window.addEventListener("keyup", handleGlobalKeyUp);
 
-		// Store cleanup function
 		el._cleanupFieldReveal = () => {
 			el.removeEventListener("mousemove", handleMouseMove);
 			el.removeEventListener("mouseleave", handleMouseLeave);
@@ -101,6 +99,9 @@ export const fieldRevealDirective = {
 			window.removeEventListener("keydown", handleGlobalKeyDown);
 			window.removeEventListener("keyup", handleGlobalKeyUp);
 		};
+	},
+	updated(el, binding) {
+		el._revealState.fieldname = binding.value;
 	},
 	unmounted(el) {
 		if (el._cleanupFieldReveal) {

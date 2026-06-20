@@ -8,6 +8,7 @@
 			'has-error': showValidation && !isValid,
 		}"
 		:data-fxr-fieldname="context?.df?.fieldname || fieldname || null"
+		v-field-reveal="context?.df?.fieldname || fieldname || null"
 		@keydown.capture="onStaticKeydown"
 	>
 		<!-- ── Main Control Area ── -->
@@ -1225,7 +1226,7 @@ function handleBuilderUpdate(config, details) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-				})
+			  })
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;

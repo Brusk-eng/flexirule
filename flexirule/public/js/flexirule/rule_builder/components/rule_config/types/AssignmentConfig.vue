@@ -29,10 +29,16 @@
 
 		<!-- Horizontal Table Grid Header -->
 		<div v-if="assignments.length" class="assignment-grid-header">
-			<div class="grid-col-when">{{ __("Run If") }}</div>
-			<div class="grid-col-target">{{ __("Target Field") }}</div>
-			<div class="grid-col-operator">{{ __("Operator") }}</div>
-			<div class="grid-col-value">{{ __("Value Expression") }}</div>
+			<div class="grid-col-when" v-field-reveal="'run_if'">{{ __("Run If") }}</div>
+			<div class="grid-col-target" v-field-reveal="'target'">
+				{{ __("Target Field") }}
+			</div>
+			<div class="grid-col-operator" v-field-reveal="'operator'">
+				{{ __("Operator") }}
+			</div>
+			<div class="grid-col-value" v-field-reveal="'value'">
+				{{ __("Value Expression") }}
+			</div>
 			<div class="grid-col-actions"></div>
 		</div>
 
@@ -43,7 +49,7 @@
 				class="assignment-grid-row align-items-center mb-2"
 			>
 				<div class="grid-col-when">
-					<div class="when-editor-cell" data-fxr-fieldname="assignments.run_if">
+					<div class="when-editor-cell">
 						<button
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
 							:class="{
@@ -60,8 +66,8 @@
 									getWhenConditionStatus(assignment).isInvalid
 										? 'fa fa-exclamation-triangle'
 										: hasWhenCondition(assignment)
-											? 'fa fa-filter'
-											: 'fa fa-play-circle-o'
+										? 'fa fa-filter'
+										: 'fa fa-play-circle-o'
 								"
 								class="me-2"
 							></i>
@@ -70,8 +76,8 @@
 									getWhenConditionStatus(assignment).isInvalid
 										? __("Invalid Condition")
 										: hasWhenCondition(assignment)
-											? __("Condition Set")
-											: __("Always Run")
+										? __("Condition Set")
+										: __("Always Run")
 								}}
 							</span>
 						</button>

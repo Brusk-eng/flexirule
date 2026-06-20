@@ -85,19 +85,28 @@ html[data-theme="dark"] .fxr-active-element {
 	background: #242424 !important;
 }
 
-/* 8. Field Reveal Directive */
+/* 8. Field Reveal Directive (Frappe-style) */
 .fxr-field-revealed {
-	color: var(--fxr-accent) !important;
-	font-family: var(--font-mono, monospace);
-	font-weight: var(--fxr-weight-bold, 600);
+	color: var(--fxr-accent, #2490ef) !important;
+	font-family: var(--font-mono, "SFMono-Regular", Menlo, Monaco, Consolas, monospace) !important;
+	font-weight: 600 !important;
+	font-size: 0.95em !important;
 	cursor: copy !important;
-	text-decoration: underline dotted;
-	background: var(--fxr-accent-soft);
-	padding: 0 2px;
-	border-radius: var(--fxr-radius-sm, 4px);
+	text-decoration: none !important;
+	background: var(--fxr-accent-soft, rgba(36, 144, 239, 0.1));
+	padding: 0 4px;
+	border-radius: 4px;
+	border: 1px dashed var(--fxr-accent);
+	transition: all 0.15s ease;
 }
 
 .fxr-copy-success {
 	color: var(--green-600, #16a34a) !important;
+	background-color: var(--green-50, #f0fdf4) !important;
+	border-style: solid !important;
 	transition: color 0.2s ease;
+}
+
+html[data-theme="dark"] .fxr-copy-success {
+	background-color: var(--green-900, #064e3b) !important;
 }

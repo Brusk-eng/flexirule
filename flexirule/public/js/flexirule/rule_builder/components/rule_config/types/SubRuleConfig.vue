@@ -79,7 +79,9 @@
 				<div v-if="view === 'list'" class="table-rows">
 					<div v-for="(row, idx) in mapping_rows" :key="idx" class="row-item mapping-row">
 						<div class="mapping-cell">
-							<label class="small text-muted mb-1">{{ __("Parent Variable") }}</label>
+							<label class="small text-muted mb-1" v-field-reveal="'source'">{{
+								__("Parent Variable")
+							}}</label>
 							<ComboBoxControl
 								:ref="setControlRef"
 								fieldname="config.input_mapping.source"
@@ -96,7 +98,9 @@
 							<i class="fa fa-arrow-right text-muted"></i>
 						</div>
 						<div class="mapping-cell">
-							<label class="small text-muted mb-1">{{ __("Sub-Rule Param") }}</label>
+							<label class="small text-muted mb-1" v-field-reveal="'target'">{{
+								__("Sub-Rule Param")
+							}}</label>
 							<input
 								type="text"
 								class="form-control form-control-sm"
@@ -260,7 +264,7 @@ function load_local_config() {
 		? mappings.map((m) => ({
 				source: m.source || m.source_expression || "",
 				target: m.target || "",
-			}))
+		  }))
 		: [];
 }
 
