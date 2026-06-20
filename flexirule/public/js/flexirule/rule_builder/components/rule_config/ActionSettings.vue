@@ -1,272 +1,353 @@
 <template>
 	<div class="action-settings-container">
-		<!-- ═══════════════ EXECUTION SETTINGS ═══════════════ -->
-		<div class="settings-section">
-			<h6 class="section-title-mini">{{ __("Execution Settings") }}</h6>
+		<div v-for="(section, sIdx) in visibleSections" :key="section.id" class="settings-section">
+			<h6 v-if="section.label" class="section-title-mini">{{ __(section.label) }}</h6>
 			<div class="settings-grid">
-				<div class="grid-item">
-					<ControlFactory
-						:df="
-							ro({
-								fieldname: 'is_enabled',
-								fieldtype: 'Check',
-								label: __('Enabled'),
-							})
-						"
-						:modelValue="node.data?.is_enabled"
-						@update:modelValue="(v) => emit_field('is_enabled', v)"
-					/>
-				</div>
-				<div class="grid-item">
-					<ControlFactory
-						:df="
-							ro({
-								fieldname: 'is_async',
-								fieldtype: 'Check',
-								label: __('Run Asynchronously'),
-							})
-						"
-						:modelValue="node.data?.is_async"
-						@update:modelValue="(v) => emit_field('is_async', v)"
-					/>
-				</div>
-				<div class="grid-item">
-					<ControlFactory
-						:df="
-							ro({
-								fieldname: 'on_error',
-								fieldtype: 'Select',
-								label: __('On Error'),
-								options: '\nStop\nContinue\nRetry\nRollback\nEscalate',
-							})
-						"
-						:modelValue="node.data?.on_error"
-						@update:modelValue="(v) => emit_field('on_error', v)"
-					/>
-				</div>
-				<div class="grid-item" v-if="node.data?.on_error === 'Retry'">
-					<ControlFactory
-						:df="
-							ro({
-								fieldname: 'retry_count',
-								fieldtype: 'Int',
-								label: __('Retry Count'),
-							})
-						"
-						:modelValue="node.data?.retry_count"
-						@update:modelValue="(v) => emit_field('retry_count', v)"
-					/>
-				</div>
-				<div class="grid-item">
-					<ControlFactory
-						:df="
-							ro({ fieldname: 'timeout', fieldtype: 'Int', label: __('Timeout (s)') })
-						"
-						:modelValue="node.data?.timeout"
-						@update:modelValue="(v) => emit_field('timeout', v)"
-					/>
-				</div>
-			</div>
-		</div>
+				<div
+					v-for="df in section.fields"
+					:key="df.fieldname"
+					class="grid-item"
+					:class="{ 'span-2': isFullWidth(df) }"
+				>
+					<!-- Button fields -->
+					<template v-if="isButtonField(df)">
+						<button class="btn btn-default btn-sm w-100" @click="handleButtonClick(df)">
+							<i v-if="getButtonIcon(df)" :class="['fa', getButtonIcon(df)]"></i>
+							{{ __(df.label) }}
+						</button>
+					</template>
 
-		<!-- ═══════════════ OUTPUT SETTINGS ═══════════════ -->
-		<!-- Hidden for Condition / Loop / Switch / Stop — they don't store a return variable -->
-		<template v-if="showReturnVariable">
-			<div class="section-divider my-4"></div>
-			<div class="settings-section">
-				<h6 class="section-title-mini">{{ __("Output Settings") }}</h6>
-				<div class="settings-grid">
-					<div class="grid-item span-2">
+					<!-- Autocomplete / Link fields -->
+					<template v-else-if="needsAutocomplete(df)">
+						<ComboBoxControl
+							ref="controlRefs"
+							:df="{
+								...df,
+								reqd: isMandatory(df),
+								read_only: isReadOnly(df),
+							}"
+							:modelValue="getDisplayValue(df)"
+							:doctype="getDoctypeForLink(df)"
+							:get_query="(txt) => getAutocompleteOptions(df, txt)"
+							:doc="node.data"
+							:read_only="isReadOnly(df)"
+							:showValidation="showValidation"
+							@update:modelValue="updateNormalizedValue(df, $event)"
+						/>
+					</template>
+
+					<!-- Standard fields -->
+					<template v-else>
 						<ControlFactory
-							:df="
-								ro({
-									fieldname: 'return_variable',
-									fieldtype: 'Data',
-									label: __('Return Variable Name'),
-									placeholder: __('e.g. my_result'),
-									description: __(
-										'The variable where the action result will be stored.'
-									),
-								})
-							"
-							:modelValue="node.data?.return_variable"
-							@update:modelValue="(v) => emit_field('return_variable', v)"
+							ref="controlRefs"
+							:df="{
+								...df,
+								reqd: isMandatory(df),
+								read_only: isReadOnly(df),
+							}"
+							:modelValue="getNormalizedValue(df)"
+							:read_only="isReadOnly(df)"
+							:showValidation="showValidation"
+							:doc="node.data"
+							@update:modelValue="updateNormalizedValue(df, $event)"
 						/>
-					</div>
+					</template>
 				</div>
 			</div>
-		</template>
-
-		<!-- ═══════════════ FLOW CONTROL ═══════════════ -->
-		<!-- Hidden for terminal actions (Stop) -->
-		<template v-if="!isTerminal">
-			<div class="section-divider my-4"></div>
-			<div class="settings-section">
-				<h6 class="section-title-mini">{{ __("Flow Control") }}</h6>
-				<p class="text-muted extra-small mb-3">
-					{{ __("Select the next node to execute on each path.") }}
-				</p>
-				<div class="flow-control-grid">
-					<!-- Primary path -->
-					<div class="flow-control-item">
-						<label class="flow-label">
-							<span
-								class="flow-dot"
-								:style="{ background: flowMeta.primaryColor }"
-							></span>
-							{{ __(flowMeta.primary) }}
-						</label>
-						<ComboBoxControl
-							:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
-							:modelValue="primaryNodeLabel"
-							:get_query="getNodeOptions"
-							:placeholder="__('Select next node…')"
-							:read_only="readOnly"
-							:hideLabel="true"
-							@update:modelValue="onSelectPrimary"
-						/>
-					</div>
-
-					<!-- Secondary path (Condition NO / Loop After Last / Switch default) -->
-					<div class="flow-control-item" v-if="flowMeta.hasSecondary">
-						<label class="flow-label">
-							<span class="flow-dot" style="background: #ef4444"></span>
-							{{ __(flowMeta.secondary) }}
-						</label>
-						<ComboBoxControl
-							:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
-							:modelValue="secondaryNodeLabel"
-							:get_query="getNodeOptions"
-							:placeholder="__('Select next node…')"
-							:read_only="readOnly"
-							:hideLabel="true"
-							@update:modelValue="onSelectSecondary"
-						/>
-					</div>
-				</div>
-			</div>
-		</template>
+			<div v-if="sIdx < visibleSections.length - 1" class="section-divider my-4"></div>
+		</div>
 	</div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, onMounted, onBeforeUpdate } from "vue";
 import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
-import { getContract, getDerivedFieldState } from "../../../core/contracts.js";
+import {
+	getContract,
+	getFieldLabel,
+	getOperationOptions,
+	getActionTypeOptions,
+} from "../../../core/contracts.js";
+import { useNodeConfigPolicy } from "../../composables/useNodeConfigPolicy";
+import { toCodeString, fromCodeString, isJsonField } from "../../utils/serialization";
 
-const props = defineProps({ node: Object, readOnly: Boolean });
-const emit = defineEmits(["update:field"]);
-const store = useStore();
-
-// ── Helpers ───────────────────────────────────────────────────────────────
-const ro = (field) => ({ ...field, read_only: props.readOnly });
-const emit_field = (fieldname, value) => emit("update:field", { fieldname, value });
-
-// ── Contract state ────────────────────────────────────────────────────────
-const actionType = computed(() => props.node?.data?.action_type);
-const contract = computed(() => getContract(actionType.value));
-const isTerminal = computed(() => contract.value.terminal);
-
-const showReturnVariable = computed(() => {
-	const state = getDerivedFieldState(
-		actionType.value,
-		"return_variable",
-		props.node?.data || {},
-		store.rule_doc || {},
-		{
-			operation: props.node?.data?.operation,
-			processName: props.node?.data?.process_name,
-		}
-	);
-	if (state.hidden) return false;
-	return !["Condition", "Loop", "Switch", "Stop", "Entry Action"].includes(actionType.value);
+const props = defineProps({
+	node: Object,
+	readOnly: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
-// ── Flow control metadata per action type ─────────────────────────────────
-const FLOW_META = {
-	Condition: {
-		primary: "YES (If True)",
-		secondary: "NO (If False)",
-		primaryColor: "#22c55e",
-		hasSecondary: true,
-	},
-	Loop: {
-		primary: "For Each (body)",
-		secondary: "After Last (continue)",
-		primaryColor: "#f59e0b",
-		hasSecondary: true,
-	},
-	Switch: {
-		primary: "True / Matched",
-		secondary: "Default / False",
-		primaryColor: "#06b6d4",
-		hasSecondary: true,
-	},
-};
-const flowMeta = computed(
-	() =>
-		FLOW_META[actionType.value] ?? {
-			primary: "Next Step",
-			secondary: null,
-			primaryColor: "#6366f1",
-			hasSecondary: false,
+const emit = defineEmits(["update:field", "open:conditions", "open:config"]);
+
+const store = useStore();
+const { getPolicyField, getPolicyValue } = useNodeConfigPolicy({
+	actionType: () => props.node?.data?.action_type || "",
+	operation: () => props.node?.data?.operation || "",
+	processName: () => props.node?.data?.process_name || "",
+});
+
+// Fields handled by other specialized panels
+const EXCLUDED_FIELDS = [
+	"action_id",
+	"action_label",
+	"action_type",
+	"process_name",
+	"rule",
+	"operation",
+	"input_source",
+	"reference_doctype",
+	"reference_docname",
+	"mutation_mode",
+	"return_variable",
+	"return_type",
+	"resolved_output_schema",
+	"config",
+	"condition_json",
+	"compiled_expression",
+	"value_template",
+	"target_field",
+	"configure_operation",
+	"set_conditions",
+];
+
+const LAYOUT_FIELDS = ["Section Break", "Column Break", "Tab Break"];
+
+const ruleActionMeta = computed(() => frappe.get_meta("Rule Action"));
+
+const docFields = computed(() => {
+	if (!ruleActionMeta.value?.fields) return [];
+
+	return ruleActionMeta.value.fields
+		.filter((df) => {
+			if (LAYOUT_FIELDS.includes(df.fieldtype)) return false;
+			if (EXCLUDED_FIELDS.includes(df.fieldname)) return false;
+			if (df.hidden) return false;
+			if (getPolicyValue(df.fieldname, "hidden", false)) return false;
+			return true;
+		})
+		.map((df) => {
+			let resolved = { ...df };
+			const actionType = props.node?.data?.action_type;
+			const policyLabel = actionType
+				? getFieldLabel(actionType, df.fieldname, {
+						operation: props.node?.data?.operation,
+						processName: props.node?.data?.process_name,
+				  })
+				: null;
+
+			if (resolved.fieldname === "action_type") {
+				resolved.options = getActionTypeOptions().join("\n");
+			}
+
+			resolved = getPolicyField(resolved.fieldname, resolved);
+
+			if (policyLabel) {
+				resolved.label = __(policyLabel);
+			}
+			return resolved;
+		});
+});
+
+const visibleSections = computed(() => {
+	if (!ruleActionMeta.value?.fields) return [];
+
+	const sections = [];
+	let currentSection = { id: "default", label: "", fields: [] };
+
+	ruleActionMeta.value.fields.forEach((df, idx) => {
+		if (df.fieldtype === "Section Break") {
+			if (currentSection.fields.length > 0) {
+				sections.push(currentSection);
+			}
+			currentSection = {
+				id: df.fieldname || `section_${idx}`,
+				label: df.label || "",
+				fields: [],
+				depends_on: df.depends_on,
+			};
+		} else if (!LAYOUT_FIELDS.includes(df.fieldtype)) {
+			const processedField = docFields.value.find((f) => f.fieldname === df.fieldname);
+			if (processedField && evaluateDependsOn(processedField.depends_on)) {
+				currentSection.fields.push(processedField);
+			}
 		}
-);
+	});
 
-// ── Node autocomplete ─────────────────────────────────────────────────────
-function getNodeOptions() {
-	const cid = props.node?.id;
-	return (store.nodes || [])
-		.filter((n) => n.id !== cid && n.type !== "start" && n.id !== "root")
-		.map((n) => ({ label: n.data?.action_label || n.label || n.id, value: n.id }));
+	if (currentSection.fields.length > 0) {
+		sections.push(currentSection);
+	}
+
+	return sections.filter((s) => !s.depends_on || evaluateDependsOn(s.depends_on));
+});
+
+function evaluateDependsOn(expression) {
+	if (!expression) return true;
+	const doc = props.node?.data;
+	if (!doc) return true;
+
+	if (typeof expression === "boolean") return expression;
+
+	if (expression.startsWith("eval:")) {
+		try {
+			const parent = store.rule_doc;
+			return frappe.utils.eval(expression.substr(5), { doc, parent });
+		} catch (e) {
+			return false;
+		}
+	}
+
+	const value = doc[expression];
+	return Array.isArray(value) ? !!value.length : !!value;
 }
 
-function resolveLabel(nodeId) {
-	if (!nodeId) return "";
-	const n = (store.nodes || []).find((nd) => nd.id === nodeId);
-	return n ? n.data?.action_label || n.label || nodeId : nodeId;
+function isMandatory(df) {
+	if (df.reqd) return true;
+	if (!df.mandatory_depends_on) return false;
+	return evaluateDependsOn(df.mandatory_depends_on);
 }
 
-const primaryNodeLabel = computed(() => resolveLabel(props.node?.data?.next_step_if_true));
-const secondaryNodeLabel = computed(() => resolveLabel(props.node?.data?.next_step_if_false));
+function isReadOnly(df) {
+	if (props.readOnly) return true;
+	if (df.read_only) return true;
+	if (!df.read_only_depends_on) return false;
+	return evaluateDependsOn(df.read_only_depends_on);
+}
 
-function resolveId(labelOrId) {
-	if (!labelOrId) return null;
-	const byId = (store.nodes || []).find((n) => n.id === labelOrId);
-	if (byId) return byId.id;
-	const byLabel = (store.nodes || []).find(
-		(n) => (n.data?.action_label || n.label) === labelOrId
+function getNormalizedValue(df) {
+	const val = props.node?.data?.[df.fieldname];
+	return isJsonField(df) ? toCodeString(val) : val;
+}
+
+function getDisplayValue(df) {
+	const val = props.node?.data?.[df.fieldname];
+	if (df.options === "action_id" && val) {
+		const targetNode = (store.nodes || []).find((n) => n.id === val);
+		return targetNode ? targetNode.data?.action_label || targetNode.label || val : val;
+	}
+	return getNormalizedValue(df);
+}
+
+function updateNormalizedValue(df, value) {
+	let nextValue = value;
+	if (isJsonField(df)) {
+		nextValue = fromCodeString(value);
+	}
+
+	// Resolve Label back to ID if it's an action_id field
+	if (df.options === "action_id" && nextValue) {
+		const target = (store.nodes || []).find(
+			(n) => n.id === nextValue || (n.data?.action_label || n.label) === nextValue
+		);
+		if (target) {
+			nextValue = target.id;
+		}
+	}
+
+	const oldValue = props.node?.data?.[df.fieldname];
+	if (oldValue === nextValue) return;
+
+	// Emit with standard object signature expected by RuleConfigModal
+	emit("update:field", { fieldname: df.fieldname, value: nextValue });
+
+	// Handle flow control edge reconnection
+	if (df.fieldname === "next_step_if_true" || df.fieldname === "next_step_if_false") {
+		const branch = df.fieldname === "next_step_if_true" ? "true" : "false";
+		store.reconnect_node_edge?.(props.node?.id, branch, nextValue);
+	}
+}
+
+function isButtonField(df) {
+	return df.fieldtype === "Button";
+}
+
+function getButtonIcon(df) {
+	if (df.fieldname === "configure_operation" || df.fieldname === "configures") return "fa-cog";
+	if (df.fieldname === "set_conditions") return "fa-code-fork";
+	return null;
+}
+
+function handleButtonClick(df) {
+	if (df.fieldname === "configure_operation" || df.fieldname === "configures") {
+		emit("open:config");
+	} else if (df.fieldname === "set_conditions") {
+		emit("open:conditions");
+	}
+}
+
+function needsAutocomplete(df) {
+	return (
+		["Autocomplete", "Link", "Dynamic Link"].includes(df.fieldtype) ||
+		df.options === "action_id"
 	);
-	return byLabel ? byLabel.id : labelOrId;
 }
 
-function onSelectPrimary(val) {
-	const id = resolveId(val);
-	emit_field("next_step_if_true", id);
-	store.reconnect_node_edge?.(props.node?.id, "true", id);
+function getDoctypeForLink(df) {
+	if (df.fieldtype === "Dynamic Link") {
+		return props.node?.data?.[df.options] || "";
+	}
+	return df.options || df.target_doctype;
 }
 
-function onSelectSecondary(val) {
-	const id = resolveId(val);
-	emit_field("next_step_if_false", id);
-	store.reconnect_node_edge?.(props.node?.id, "false", id);
+async function getAutocompleteOptions(df, txt) {
+	if (df.options === "action_id") {
+		const currentId = props.node?.data?.action_id;
+		return (store.nodes || [])
+			.filter((n) => n.id !== currentId && n.type !== "start" && n.id !== "root")
+			.map((n) => ({
+				value: n.id,
+				label: n.data?.action_label || n.label || n.id,
+			}));
+	}
+	// For other Link fields, return null to let ComboBoxControl handle standard search
+	return null;
 }
+
+function isFullWidth(df) {
+	return ["Code", "Text", "Small Text", "Long Text"].includes(df.fieldtype);
+}
+
+const controlRefs = ref([]);
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+async function validate() {
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ref) => {
+			if (ref && typeof ref.validate === "function") {
+				return ref.validate();
+			}
+			return { valid: true };
+		})
+	);
+	const errors = results.flatMap((r) => r.errors || []);
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
+
+onMounted(async () => {
+	if (!frappe.get_meta("Rule Action")) {
+		await frappe.model.with_doctype("Rule Action");
+	}
+});
 </script>
 
 <style scoped>
 .action-settings-container {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 8px;
 }
 
 .settings-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 16px;
+	gap: 12px;
 }
+
 .grid-item.span-2 {
 	grid-column: 1 / -1;
 }
@@ -274,51 +355,25 @@ function onSelectSecondary(val) {
 .section-title-mini {
 	font-size: 11px;
 	font-weight: 800;
-	color: #64748b;
+	color: var(--fxr-text-soft);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	margin-bottom: 12px;
+	padding-bottom: 4px;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 }
+
 .section-divider {
 	height: 1px;
-	background: #e2e8f0;
+	background: var(--fxr-border-subtle);
 	margin: 8px 0;
 }
-.extra-small {
-	font-size: 10px;
+
+:deep(.fxr-control-wrapper) {
+	margin-bottom: 0;
 }
 
-/* ── Flow Control ── */
-.flow-control-grid {
-	display: flex;
-	flex-direction: column;
-	gap: 14px;
-}
-.flow-control-item {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-}
-.flow-label {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 11px;
-	font-weight: 700;
-	color: #374151;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	margin: 0;
-}
-.flow-dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	flex-shrink: 0;
-}
-
-:deep(.autocomplete-control) {
-	border-radius: 8px;
-	font-size: 13px;
+.w-100 {
+	width: 100%;
 }
 </style>
