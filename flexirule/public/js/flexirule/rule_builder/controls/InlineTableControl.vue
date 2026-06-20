@@ -199,7 +199,11 @@ defineExpose({ validate });
 		class="inline-table-control fxr-control"
 		:class="{ 'has-error': showValidation && !isValid }"
 	>
-		<label v-if="df.label" class="control-label">
+		<label
+			v-if="df.label"
+			class="control-label"
+			v-field-reveal="df.fieldname || fieldname || null"
+		>
 			{{ __(df.label) }}
 			<span v-if="df.reqd" class="text-danger">*</span>
 		</label>
@@ -211,6 +215,7 @@ defineExpose({ validate });
 						<th
 							v-for="col in visibleTableFields"
 							:key="col.fieldname"
+							v-field-reveal="col.fieldname"
 							:style="{
 								width: col.width || (col.fieldtype === 'Percent' ? '100px' : ''),
 								minWidth: col.width ? '' : '120px',

@@ -4,7 +4,6 @@
 			<div
 				class="form-group col-md-6"
 				:class="{ 'has-error': showValidation && getJsonConfig('value', 1) <= 0 }"
-				data-fxr-fieldname="config.value"
 			>
 				<label class="small text-muted">{{ __("Delay Value") }}</label>
 				<input
@@ -17,7 +16,7 @@
 					{{ __("Delay must be greater than 0") }}
 				</div>
 			</div>
-			<div class="form-group col-md-6" data-fxr-fieldname="config.unit">
+			<div class="form-group col-md-6">
 				<label class="small text-muted">{{ __("Unit") }}</label>
 				<select
 					class="form-control"
