@@ -15,6 +15,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const show_sidebar = ref(false);
 	const local_clipboard = ref(null);
 	const is_initializing = ref(false);
+	const is_performing_layout = ref(false);
 	const layout_preference = ref("LR"); // "LR" | "TB"
 
 	// Keep preference in sync with localStorage for session persistence
@@ -216,5 +217,6 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		add_test_progress_result,
 		set_active_multi_result,
 		layout_preference,
+		is_performing_layout,
 	};
 });

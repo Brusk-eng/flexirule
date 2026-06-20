@@ -833,7 +833,7 @@ function onConnect(params) {
 }
 
 function onNodesChange(changes) {
-	if (uiStore.is_initializing) return;
+	if (uiStore.is_initializing || uiStore.is_performing_layout) return;
 	const hasDrag = changes.some((c) => c.type === "position" && c.dragging === false);
 	if (hasDrag) ruleStore.mark_position_change();
 }
