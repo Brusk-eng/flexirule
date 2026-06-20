@@ -287,10 +287,12 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			);
 			const resolveActionId = (nodeId) => nodeIdToActionId.get(nodeId) || nodeId || null;
 
+			const uiStore = useUIStore();
 			doc.visual_data = JSON.stringify(
 				canonicalizeGraphData(
 					graphStore.get_visual_data_payload(
-						settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR"
+						uiStore.layout_preference ||
+							(settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR")
 					),
 					nodeIdToActionId
 				)

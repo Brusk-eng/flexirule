@@ -4,6 +4,7 @@ import { Handle, Position } from "@vue-flow/core";
 import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import { useCanvasLayout } from "../../composables/useCanvasLayout";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
@@ -14,14 +15,10 @@ const uiStore = useUIStore();
 // Legacy
 const store = uiStore;
 
-const isHorizontal = computed(() => ruleStore.settings?.layout_direction !== "Top to Bottom");
+const { isHorizontal, sourcePosition: defaultSourcePos, targetPosition: defaultTargetPos } = useCanvasLayout();
 
-const targetPos = computed(
-	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
-);
-const sourcePos = computed(
-	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
-);
+const targetPos = computed(() => props.targetPosition || defaultTargetPos.value);
+const sourcePos = computed(() => props.sourcePosition || defaultSourcePos.value);
 
 const isEffectiveDisabled = computed(() => {
 	return graphStore.effectiveDisabledIds?.has(props.id);

@@ -126,6 +126,24 @@
 
 						<div class="divider-vertical"></div>
 
+						<div class="btn-group controls-row">
+							<button
+								class="btn btn-sm btn-default d-inline-flex align-items-center gap-2"
+								@click="toggleLayout"
+								:title="__('Switch Layout Orientation')"
+							>
+								<i
+									class="fa"
+									:class="isHorizontal ? 'fa-columns' : 'fa-align-justify'"
+								></i>
+								<span class="small font-weight-bold">{{
+									isHorizontal ? __("Vertical") : __("Horizontal")
+								}}</span>
+							</button>
+						</div>
+
+						<div class="divider-vertical"></div>
+
 						<div v-if="isReadOnly" class="read-only-badge mr-2">
 							<i class="fa fa-lock"></i> {{ __("Read Only") }}
 						</div>
@@ -236,6 +254,7 @@ import { useUIStore } from "./stores/useUIStore";
 import { useMetaStore } from "./stores/useMetaStore";
 
 import { useRuleGraph } from "./composables/useRuleGraph";
+import { useCanvasLayout } from "./composables/useCanvasLayout";
 import { useClipboard } from "./composables/useClipboard";
 import { useKeyboardRegistry } from "./composables/useKeyboardRegistry";
 import { isTerminalAction } from "../core/contracts";
@@ -271,6 +290,7 @@ const metaStore = useMetaStore();
 
 const { zoomIn, zoomOut, removeEdges, fitView } = useVueFlow();
 const { layoutGraph } = useRuleGraph();
+const { isHorizontal, toggleLayout } = useCanvasLayout();
 const { copySelectedToClipboard, pasteFromClipboard } = useClipboard();
 const { registerShortcut, pushContext, popContext } = useKeyboardRegistry();
 const showQuickActions = ref(false);
@@ -355,19 +375,6 @@ watch(
 	{ immediate: true, deep: false }
 );
 
-// Watch for layout direction changes to re-layout the graph
-watch(
-	() => ruleStore.settings?.layout_direction,
-	(newDir, oldDir) => {
-		// Only auto-layout if direction explicitly changed by user
-		if (newDir && oldDir && newDir !== oldDir && graphStore.nodes.length > 0) {
-			const dir = newDir === "Top to Bottom" ? "TB" : "LR";
-			nextTick(() => {
-				setTimeout(() => layoutGraph(dir), 50);
-			});
-		}
-	}
-);
 
 const showSidebar = computed(() => {
 	if (ruleStore.settings?.action_config_mode === "Dialog") return false;

@@ -4,18 +4,17 @@ import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import { useCanvasLayout } from "../../composables/useCanvasLayout";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
 
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+const { isHorizontal, sourcePosition: defaultSourcePos, targetPosition: defaultTargetPos } = useCanvasLayout();
 
-const targetPos = computed(
-	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
-);
-const truePos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
+const targetPos = computed(() => props.targetPosition || defaultTargetPos.value);
+const truePos = computed(() => defaultSourcePos.value);
 const falsePos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
 
 const isEffectiveDisabled = computed(() => {

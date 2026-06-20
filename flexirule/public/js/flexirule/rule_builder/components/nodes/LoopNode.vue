@@ -3,20 +3,19 @@ import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../stores";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import { useCanvasLayout } from "../../composables/useCanvasLayout";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
 
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+const { isHorizontal, sourcePosition: defaultSourcePos, targetPosition: defaultTargetPos } = useCanvasLayout();
 
-const targetPos = computed(
-	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
-);
+const targetPos = computed(() => props.targetPosition || defaultTargetPos.value);
 // TB layout: For Each → Bottom (straight down), After Last → Left (bypass)
 // LR layout: For Each → Right (straight right), After Last → Bottom (bypass)
-const doPos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
+const doPos = computed(() => defaultSourcePos.value);
 const donePos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
 const returnPos = computed(() => (isHorizontal.value ? Position.Top : Position.Left));
 

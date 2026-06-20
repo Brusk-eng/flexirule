@@ -45,8 +45,8 @@ export function useRuleGraph() {
 	// ── Main layout function ──────────────────────────────────────────────────
 
 	const layoutGraph = (direction = "TB") => {
-		const currentNodes = nodes.value;
-		const currentEdges = edges.value;
+		const currentNodes = JSON.parse(JSON.stringify(nodes.value));
+		const currentEdges = JSON.parse(JSON.stringify(edges.value));
 
 		const isHorizontal = direction === "LR";
 
@@ -240,16 +240,20 @@ export function useRuleGraph() {
 			};
 		});
 
+		// 5. Update nodes with a brief delay for reactivity to catch up if needed
+		// VueFlow will handle the position transition if we provide the new positions
 		setNodes(layoutedNodes);
 
-		setTimeout(() => {
-			fitView({
-				padding: 0.12,
-				duration: 500,
-				minZoom: isHorizontal ? 0.68 : 0.72,
-				maxZoom: 1,
-			});
-		}, 100);
+		nextTick(() => {
+			setTimeout(() => {
+				fitView({
+					padding: 0.12,
+					duration: 600,
+					minZoom: isHorizontal ? 0.65 : 0.7,
+					maxZoom: 1,
+				});
+			}, 50);
+		});
 	};
 
 	return { layoutGraph };

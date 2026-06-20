@@ -11,6 +11,7 @@
  */
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { useUIStore } from "./useUIStore";
 import {
 	getContract,
 	getEffectiveActionPolicy,
@@ -1585,6 +1586,13 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				])
 		);
 
+		// 0. Extract UI preferences if present
+		const uiStore = useUIStore();
+		const pref = visual_data?.find((el) => el.type === "ui_preferences");
+		if (pref?.layout) {
+			uiStore.layout_preference = pref.layout;
+		}
+
 		// 1. Merge node positions
 		const seenNodeIds = new Set();
 		const mergedNodes = nodes.value.map((node) => {
@@ -1669,6 +1677,13 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			direction: layoutDirection || node.direction || null,
 		}));
 
+		// Inject UI preferences into meta if they exist
+		const uiStore = useUIStore();
+		const metaPayload = {
+			type: "ui_preferences",
+			layout: layoutDirection || uiStore.layout_preference || "LR",
+		};
+
 		const edgePayload = edges.value.map((edge) => ({
 			id: edge.id,
 			source: edge.source,
@@ -1677,7 +1692,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			targetHandle: edge.targetHandle || null,
 		}));
 
-		return [...nodePayload, ...edgePayload];
+		return [...nodePayload, ...edgePayload, metaPayload];
 	}
 
 	/**
