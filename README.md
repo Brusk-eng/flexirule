@@ -1,5 +1,8 @@
 <div align="center">
-  <img width="180" alt="flexiRule" src="flexirule/public/icons/flexirule.svg" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img width="180" alt="flexiRule" src="assets/logo-light.svg">
+  </picture>
 
   <h1>FlexiRule</h1>
 
@@ -22,7 +25,7 @@
 
 ## 🚀 Overview
 
-In enterprise systems built on **Frappe** and **ERPNext**, business logic frequently turns into a fragmented web of Python hooks scattered across multiple custom apps. This unstructured approach introduces several challenges:
+In enterprise systems built on **Frappe** and **ERPNext**, business logic frequently turns into a fragmented web of Python hooks scattered across custom apps. This unstructured approach introduces several challenges:
 
 * **Implicit Ordering**: It is difficult to determine which hook executes first, leading to unpredictable side effects.
 * **Lack of Observability**: Debugging execution paths and tracing runtime failures is complex.
@@ -33,9 +36,22 @@ In enterprise systems built on **Frappe** and **ERPNext**, business logic freque
 
 ---
 
+## ⚖️ Why Not Server Scripts?
+
+| Traditional Hooks / Server Scripts | FlexiRule |
+| :--- | :--- |
+| **Scattered Python Code** | **Centralized Rules**: View all business rules from a single, auditable dashboard. |
+| **Hidden Execution Order** | **Visual Graph**: Connections define clear, deterministic execution paths on canvas. |
+| **Hard to Debug** | **Execution Tracing**: Real-time trace lines highlight the exact path and state of each node. |
+| **Duplicate Logic** | **Reusable Processes**: Package core logic once and share it securely across multiple rules. |
+| **Manual Forms & Controls** | **Schema-Driven UI**: Forms and fields auto-generate from standard JSON schemas. |
+| **Difficult Governance** | **Built-in Safety**: Advanced sandboxing, role exclusions, and permission audits. |
+
+---
+
 ## 💎 Why FlexiRule?
 
-FlexiRule provides a modern, structured alternative to scattered Server Scripts and custom hook code:
+FlexiRule provides a modern, structured alternative to scattered custom hooks:
 
 * **Centralized Logic**: Consolidate your business rules into a single, auditable dashboard instead of maintaining custom hooks across multiple repositories.
 * **Deterministic Orchestration**: Define clear execution paths using direct visual connections, resolving hook execution ordering issues.
@@ -62,7 +78,7 @@ FlexiRule provides a modern, structured alternative to scattered Server Scripts 
   <p><em>VueFlow Rule Builder with drag-and-drop node configurations and topological routing.</em></p>
 
   <img width="1331" height="627" alt="Debugger Path Tracing" src="https://github.com/user-attachments/assets/e1e7bf85-7f27-4be1-9999-f9dcdd511603" />
-  <p><em>Real-Time execution path tracing and state tracing directly on the canvas.</em></p>
+  <p><em>Real-time execution path tracing and state tracing directly on the canvas.</em></p>
 
   <img width="1029" height="722" alt="Query Records Configuration" src="https://github.com/user-attachments/assets/2bc38417-092e-4623-8324-dc736629213f" />
   <p><em>Query node configuration for introspecting fields, mapping inputs, and filtering database records.</em></p>
@@ -88,10 +104,30 @@ FlexiRule separates trigger criteria, execution paths, and business logic into s
 * **Rule**: The entry point that defines *when* execution should trigger, binding to DocType database hooks, background scheduler intervals, or manual callable events.
 * **Action Type**: Reusable visual action definitions declaring layout styles, required parameters, and outcome capabilities.
 * **Rule Action**: A specific step (node) in the execution graph that processes input configurations and routes control to successor nodes based on execution outcomes.
-* **Process**: A file-backed Python module that acts as a secure, performance-optimized container for custom code.
+* **Process**: A file-backed Python module that acts as a secure, performance-optimized container for custom code. Processes are highly reusable across multiple rules, allowing developers to share critical business logic instead of duplicating it.
 * **Operation**: An individual function within a Process that exposes its parameters through a declarative JSON Schema.
 * **Runtime Context**: An isolated execution namespace carrying the root document, context variables, and metadata.
 * **Execution Graph**: The topologically ordered sequence of steps representing your business workflow.
+
+---
+
+## 🛠️ Key Features
+
+* **Visual Rule Builder**: Drag, drop, and connect steps with automatic topological sorting to organize your workflows easily.
+* **No-Code Configuration**: Custom UI controls let you set up complex database queries, field assignments, and operations without writing code.
+* **Deterministic Execution**: Run logic along explicit paths with built-in loop limits to guarantee safe, infinite-recursion-free routing.
+* **Rule Simulation**: Test your rules safely using a dry-run mode that evaluates criteria, traces execution paths, and rolls back transaction changes.
+* **Runtime Debugging**: Gain complete observability with real-time execution path tracing, detailed state snapshots, and error traces.
+* **Process Reusability**: Bundle core logical routines into reusable file-backed Processes, allowing them to be shared across multiple active rules.
+* **Extensible Action Types**: Expand the platform easily with custom action types to connect with external systems and services.
+* **Enterprise Safety**: Restrict rule executions by user roles, bypass permissions with mandatory audit reasons, and handle errors with safe database savepoint rollbacks.
+* **High-Performance Runtime**: Designed for zero-overhead event execution through layered metadata caching, pre-compiled condition strings, and watched-field pruning.
+
+### 💻 Developer Experience (DX)
+
+* **Schema-Driven UI**: Configuration panels and forms are automatically generated from standard JSON schemas, ensuring perfect alignment between frontend controls and backend data.
+* **Dynamic Control Factory**: Automatically renders standard Vue 3 form inputs, link autocompletes, and collection controls based on dynamic parameters.
+* **Custom UI Controls**: Embed customized input widgets or advanced data selectors directly into action configurations.
 
 ---
 
@@ -113,7 +149,7 @@ graph TD
 
 * **Rule Trigger**: Binds database lifecycle events, scheduler intervals, or programmatic calls to start execution.
 * **Rule Coordinator**: Resolves active rules and performs early eligibility pruning using pre-compiled conditions.
-* **Runtime Registry**: A distributed cache layer that holds active rule maps to prevent database lookups during event hooks.
+* **Runtime Registry**: Caches compiled runtime metadata to minimize database access during event hooks.
 * **Rule Engine**: Traverses the execution graph topologically, manages context state, and handles retry and transaction boundaries.
 * **Action Registry**: Maps individual execution steps to their respective strategy implementations (e.g., Conditions, Assignments, Loops).
 * **Process Runtime**: Orchestrates custom processes, maps context variables, and validates configurations against JSON schemas.
@@ -123,7 +159,7 @@ graph TD
 
 ## 🔄 Execution Lifecycle
 
-FlexiRule executes workflows through a deterministic path, utilizing database savepoints and background queues for safe, fast operations:
+The following diagram illustrates how FlexiRule coordinates execution, from event matching to transaction completion:
 
 ```mermaid
 flowchart TD
@@ -159,16 +195,16 @@ The execution flow begins with **Rule Discovery** and optimizes database perform
 
 ---
 
-## 🛠️ Key Features
+## ⚡ Performance Architecture
 
-* **Visual VueFlow Canvas**: Edit workflows, set outcomes, and visual transitions within an interactive graph.
-* **Sandboxed Safe Execution**: Criteria evaluations are restricted to read-only database queries, preventing accidental data writes.
-* **Topological Traversal**: Node routing resolves execution sequence, preventing infinite recursion loops.
-* **Robust Error Handling**: Out-of-the-box support for `Retry` (with exponential backoff), `Continue`, `Rollback` (via db savepoints), and `Escalate` behaviors.
-* **Cache-First Dispatch**: Minimizes database overhead by storing compiled rules inside a distributed registry.
-* **Watched Fields Optimization**: Automatically prunes rules early if the modified fields do not overlap with fields analyzed in the rule's active criteria.
-* **Variable Isolation**: Isolate context variables during sub-rule execution to prevent namespace collisions.
-* **Audit & Compliance Controls**: Explicitly restrict workflows by user roles, bypass permissions with mandatory audit reasons, and persist detailed execution path traces.
+FlexiRule is engineered for high throughput to ensure database transaction event loops remain fast and lightweight:
+
+* **Runtime Registry Cache**: Rule metadata and structures are cached in a dedicated Redis registry (`flexirule_runtime_registry_v2`). The platform avoids expensive SQL operations by bypassing database queries during event hooks.
+* **Watched Fields Optimization**: Event listeners analyze changed fields first. If a modified database field does not overlap with fields evaluated by the rule, execution is pruned immediately before compiling criteria.
+* **Compiled Expressions**: Visual condition trees are pre-compiled into optimized Python expressions on Rule save, facilitating fast, single-pass evaluations.
+* **Action Plan Caching**: Compiled execution actions and strategy plans are cached locally to eliminate parsing overhead during runtime execution.
+* **Asynchronous Execution Log Persistence**: Logging and heavy notification tasks are enqueued to background workers (`short` / `default` queues), removing them from the critical request path.
+* **Minimal Database Lookups**: State variables and resolved inputs are stored exclusively in the in-memory execution context, avoiding redundant database lookups.
 
 ---
 
@@ -183,15 +219,18 @@ Developers can extend FlexiRule at multiple layers to integrate custom business 
 
 ---
 
-## 📬 API Capabilities
+## 📬 API Reference
 
-FlexiRule provides a robust suite of whitelisted endpoints to programmatically manage, test, and execute rules:
+FlexiRule exposes a clean suite of whitelisted endpoints to programmatically manage, test, and execute rules:
 
-* **Manual Execution**: Run rules programmatically on specific records.
-* **Sandboxed Simulation**: Perform a dry-run execution that rolls back database changes and returns the exact execution path trace.
-* **State & Lifecycle Management**: Transition rules between `Draft` and `Active` states.
-* **Path Prediction**: Inspect criteria and predict node traversal based on current field values.
-* **Schema Introspection**: Retrieve active schemas, dynamic form structures, and active variable contexts at specific steps of the execution graph.
+* **`execute_rule(rule, context, dry_run)`**: Run a rule on a document manually, with options for sandboxed dry-runs.
+* **`simulate_rule(rule_name, docname)`**: Run a sandboxed execution that rolls back database changes and returns the exact execution path trace and state updates.
+* **`test_rule(rule_name, docname, save_log)`**: Programmatically test a rule and verify its outcomes.
+* **`get_execution_preview(rule_name, docname)`**: Predict node traversal routes based on current field values without triggering state mutations.
+* **`transition_rule(rule_name, target_status)`**: State machine transition for rules between `Draft` and `Active` states.
+* **`get_contract_dto(action_type)`**: Retrieve active layouts, parameters, and contracts for active action types.
+* **`get_node_config_schema(action_type, process, operation)`**: Generate dynamic UI form configurations from custom parameters.
+* **`get_action_context_schema(rule_name, action_id)`**: Inspect the context variables available at a specific graph step.
 
 ---
 
