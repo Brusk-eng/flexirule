@@ -257,7 +257,10 @@ Contributions are welcome! If you are interested in improving FlexiRule, please 
 ---
 
 <div align="center">
-  <img width="100" alt="flexiRule" src="https://github.com/user-attachments/assets/e3724231-fccc-4f92-89af-6dd7b93c640f" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img width="50" alt="flexiRule" src="assets/logo-light.svg">
+  </picture>
   <p><strong>FlexiRule</strong> — Declarative, Visual, and Safe Business Logic for Frappe.</p>
   <p>Built with ❤️ by the community. Distributed under the MIT License.</p>
 </div>
