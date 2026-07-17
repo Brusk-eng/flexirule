@@ -22,7 +22,7 @@
 </div>
 
 ---
-##Overview
+## Overview
 
 Business logic in Frappe applications and ERPNext is commonly implemented through a combination of framework hooks, server scripts, controller methods, and custom application code. As projects grow, this logic often becomes distributed across multiple locations, making it increasingly difficult to understand, maintain, test, and evolve.
 
