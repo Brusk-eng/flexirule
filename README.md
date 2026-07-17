@@ -221,22 +221,7 @@ Developers can extend FlexiRule at multiple layers to integrate custom business 
 * **Processes & Operations**: Package custom logic into file-backed Python classes. FlexiRule automatically discovers these methods, letting you expose inputs through standard JSON schemas that automatically render as validated forms in the UI.
 * **Dynamic Config Schemas**: Define dynamic layout fields, allowing the builder UI to generate user-friendly configuration panels on the fly.
 * **Custom UI Controls**: Wire custom controls directly into action properties, supporting advanced data selectors and interactive widgets.
-
----
-
-## 📬 API Reference
-
-FlexiRule exposes a clean suite of whitelisted endpoints to programmatically manage, test, and execute rules:
-
-* **`execute_rule(rule, context, dry_run)`**: Run a rule on a document manually, with options for sandboxed dry-runs.
-* **`simulate_rule(rule_name, docname)`**: Run a sandboxed execution that rolls back database changes and returns the exact execution path trace and state updates.
-* **`test_rule(rule_name, docname, save_log)`**: Programmatically test a rule and verify its outcomes.
-* **`get_execution_preview(rule_name, docname)`**: Predict node traversal routes based on current field values without triggering state mutations.
-* **`transition_rule(rule_name, target_status)`**: State machine transition for rules between `Draft` and `Active` states.
-* **`get_contract_dto(action_type)`**: Retrieve active layouts, parameters, and contracts for active action types.
-* **`get_node_config_schema(action_type, process, operation)`**: Generate dynamic UI form configurations from custom parameters.
-* **`get_action_context_schema(rule_name, action_id)`**: Inspect the context variables available at a specific graph step.
-
+ 
 ---
 
 ## 📦 Installation
