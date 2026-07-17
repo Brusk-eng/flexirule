@@ -22,17 +22,22 @@
 </div>
 
 ---
+##Overview
 
-## 🚀 Overview
+Business logic in Frappe applications and ERPNext is commonly implemented through a combination of framework hooks, server scripts, controller methods, and custom application code. As projects grow, this logic often becomes distributed across multiple locations, making it increasingly difficult to understand, maintain, test, and evolve.
 
-In enterprise systems built on **Frappe** and **ERPNext**, business logic frequently turns into a fragmented web of Python hooks scattered across custom apps. This unstructured approach introduces several challenges:
+Common challenges include:
 
-* **Implicit Ordering**: It is difficult to determine which hook executes first, leading to unpredictable side effects.
-* **Lack of Observability**: Debugging execution paths and tracing runtime failures is complex.
-* **High Upgrade Risk**: Heavy dependency on internal API paths increases maintenance overhead.
-* **Silent Failure States**: Uncaught errors can leave database transactions in an inconsistent state.
+- Distributed Execution Flow — Business logic is spread across hooks, controllers, server scripts, and custom modules, making execution paths difficult to follow and reason about.
+- Limited Observability — Understanding why a rule executed, tracing failures, or inspecting runtime state often requires manual debugging and code analysis.
+- Maintenance Overhead — Custom code tied to framework internals or application-specific implementations can increase the effort required for upgrades, refactoring, and long-term maintenance.
+- Inconsistent Reliability — Validation, error handling, and transaction management may vary across implementations, increasing the risk of unexpected behavior.
 
-**FlexiRule** changes the paradigm by providing a **visual, graph-based orchestration layer**. Rather than spreading hidden code across your system, you design, validate, and execute declarative business logic with full control, complete observability, and built-in transaction safety.
+FlexiRule provides a visual, graph-based orchestration engine that complements the Frappe framework. Instead of embedding business rules across multiple code locations, workflows are modeled declaratively in a centralized rule engine. This enables predictable execution, built-in validation, comprehensive debugging and execution tracing, transaction-aware processing, and a clear separation between business logic and application code.
+
+Beyond orchestration, FlexiRule enables sophisticated business logic to be designed visually rather than implemented programmatically. Dynamic value resolution, variables, conditional expressions, branching, loops, data transformations, calculations, document operations, integrations with external services, and reusable rule components can all be composed through the Rule Builder.
+
+As a result, many business scenarios that traditionally require custom Python development can instead be implemented declaratively. This empowers both developers and power users to build, test, and evolve business processes more rapidly while improving maintainability, consistency, and visibility, and significantly reducing the amount of custom code required.
 
 ---
 
