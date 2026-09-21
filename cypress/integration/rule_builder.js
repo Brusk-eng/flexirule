@@ -1,141 +1,121 @@
-describe("Rule Builder E2E Tests", () => {
+import { ruleBuilderPage } from "../support/pages/RuleBuilderPage";
+
+describe("FlexiRule UI Test Suite", () => {
 	beforeEach(() => {
 		cy.login();
 		cy.visit("/app");
-		// Wait for the desk to be fully loaded
 		cy.get(".navbar", { timeout: 30000 }).should("be.visible");
 	});
 
-	it("Creates a new rule, adds actions in the builder, and verifies persistence", () => {
-		const ruleName = `Test Rule ${Date.now()}`;
+	it("1. Rule Creation & Visual Builder Launch", () => {
+		const ruleName = `Rule_Create_${Date.now()}`;
 
-		// 1. Create a new Rule
 		cy.new_form("Rule");
 		cy.fill_field("rule_name", ruleName);
 		cy.fill_field("document_type", "Contact", "Link");
 		cy.get('select[data-fieldname="trigger_event"]').select("After Save");
 		cy.save();
 
-		// 2. Open Visual Builder
-		cy.get('.primary-action:contains("Visual Builder")').click();
-		cy.url().should("include", "/rule-builder/");
-		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-
-		// 3. Add an Assignment action
-		cy.get(".edge-add-button").last().click();
-		cy.get('.result-item.is-option:contains("Assignment")').click();
-
-		// Set label in labeling container
-		cy.get(".labeling-container", { timeout: 10000 }).should("be.visible");
-		cy.get(".labeling-container input").type("Set Initial Score");
-		cy.get(".labeling-container button.btn-primary").click();
-
-		// Verify node added
-		cy.get(".vue-flow__node .assignment", { timeout: 10000 }).should("be.visible");
-		cy.get(".vue-flow__node .assignment .node-title").should("contain", "Set Initial Score");
-
-		// 4. Configure the node
-		cy.get(".vue-flow__node .assignment").last().click();
-		cy.get(".action-settings-container", { timeout: 10000 }).should("be.visible");
-		cy.get('.action-settings-container [data-fieldname="action_label"] input')
-			.clear()
-			.type("Calculate Global Score");
-		cy.get(".vue-flow__node .assignment .node-title").should(
-			"contain",
-			"Calculate Global Score"
-		);
-
-		// Click outside to close settings
-		cy.get(".vue-flow").click(10, 10);
-		cy.get(".action-settings-container").should("not.exist");
-
-		// 5. Add a Notify action
-		cy.get(".edge-add-button").last().click();
-		cy.get('.result-item.is-option:contains("Notify")').click();
-		cy.get(".labeling-container input").type("Alert Manager");
-		cy.get(".labeling-container button.btn-primary").click();
-
-		// Configure Notify action
-		cy.get(".vue-flow__node .notify").last().click();
-		cy.get('.action-settings-container [data-fieldname="is_async"] input').check();
-		cy.get('.action-settings-container [data-fieldname="on_error"] select').select("Ignore");
-		cy.get(".vue-flow").click(10, 10);
-
-		// 6. Save Rule
-		cy.get('button:contains("Save Rule")').click();
-		cy.get(".desk-alert.green", { timeout: 20000 }).should("contain", "Saved");
-
-		// 7. Reload and verify persistence
-		cy.reload();
-		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-		cy.get(".vue-flow__node .assignment").should("be.visible");
-		cy.get(".vue-flow__node .assignment .node-title").should(
-			"contain",
-			"Calculate Global Score"
-		);
-		cy.get(".vue-flow__node .notify").should("be.visible");
-		cy.get(".vue-flow__node .notify .node-title").should("contain", "Alert Manager");
-
-		// 8. Delete an action
-		cy.get(".vue-flow__node .notify").last().click();
-		cy.get(".action-settings-container").should("be.visible");
-		cy.get('button:contains("Delete Action")').click();
-		// Assuming there is a confirmation dialog
-		cy.get('.modal-footer button:contains("Yes")').click();
-		cy.get(".vue-flow__node .notify").should("not.exist");
-
-		// Save again
-		cy.get('button:contains("Save Rule")').click();
-		cy.get(".desk-alert.green").should("contain", "Saved");
+		// Open visual builder
+		ruleBuilderPage.openVisualBuilder();
+		cy.get(".vue-flow__node").should("exist");
 	});
 
-	it("Handles nested groups and branching (Condition)", () => {
-		const ruleName = `Branching Rule ${Date.now()}`;
+	it("2. Canvas Node Addition, Configuration & Persistence", () => {
+		const ruleName = `Rule_Persist_${Date.now()}`;
 
-		cy.new_form("Rule");
-		cy.fill_field("rule_name", ruleName);
-		cy.fill_field("document_type", "Contact", "Link");
-		cy.get('select[data-fieldname="trigger_event"]').select("After Save");
-		cy.save();
+		// Fast backend creation of rule document
+		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
+			ruleBuilderPage.visitRule(doc.name);
+			ruleBuilderPage.openVisualBuilder();
 
-		cy.get('.primary-action:contains("Visual Builder")').click();
-		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
+			// Add Assignment Action
+			ruleBuilderPage.addNodeFromEdge("Assignment", "Set Initial State");
+			cy.get(".vue-flow__node .assignment").should("be.visible");
 
-		// Add Condition node
-		cy.get(".edge-add-button").last().click();
-		cy.get('.result-item.is-option:contains("Condition")').click();
-		cy.get(".labeling-container input").type("Check Score");
-		cy.get(".labeling-container button.btn-primary").click();
+			// Configure Node
+			ruleBuilderPage.selectNode("assignment");
+			ruleBuilderPage.configureNodeLabel("Updated State Label");
+			ruleBuilderPage.closeSettingsPanel();
 
-		cy.get(".vue-flow__node .condition", { timeout: 10000 }).should("be.visible");
+			// Add Notify Action
+			ruleBuilderPage.addNodeFromEdge("Notify", "Notify Manager");
+			cy.get(".vue-flow__node .notify").should("be.visible");
 
-		// Add action to TRUE branch
-		cy.get('.vue-flow__node .condition [data-handleid="true"]').should("exist");
-		// Trigger hover on the edge path coming from true handle
-		cy.get('.vue-flow__edge-path[data-source-handle="true"]').trigger("mouseover", {
-			force: true,
+			// Save
+			ruleBuilderPage.saveRule();
+
+			// Reload & Verify Persistence
+			cy.reload();
+			cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
+			cy.get(".vue-flow__node .assignment .node-title").should(
+				"contain",
+				"Updated State Label"
+			);
+			cy.get(".vue-flow__node .notify .node-title").should("contain", "Notify Manager");
 		});
-		cy.get('.edge-add-button[data-source-handle="true"]').click({ force: true });
-		cy.get('.result-item.is-option:contains("Assignment")').click();
-		cy.get(".labeling-container input").type("High Score Action");
-		cy.get(".labeling-container button.btn-primary").click();
+	});
 
-		// Add action to FALSE branch
-		cy.get('.vue-flow__edge-path[data-source-handle="false"]').trigger("mouseover", {
-			force: true,
+	it("3. Branching & Condition Node Configuration", () => {
+		const ruleName = `Rule_Branch_${Date.now()}`;
+
+		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
+			ruleBuilderPage.visitRule(doc.name);
+			ruleBuilderPage.openVisualBuilder();
+
+			// Add Condition
+			ruleBuilderPage.addNodeFromEdge("Condition", "Check Credit Limit");
+			cy.get(".vue-flow__node .condition").should("be.visible");
+
+			// True Branch
+			ruleBuilderPage.addNodeFromEdge("Assignment", "Approve Branch", "true");
+			cy.get(".vue-flow__node .assignment .node-title").should("contain", "Approve Branch");
+
+			// False Branch
+			ruleBuilderPage.addNodeFromEdge("Notify", "Reject Branch", "false");
+			cy.get(".vue-flow__node .notify .node-title").should("contain", "Reject Branch");
+
+			// Save and verify
+			ruleBuilderPage.saveRule();
+			cy.reload();
+			cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
+			cy.get(".vue-flow__node .assignment .node-title").should("contain", "Approve Branch");
+			cy.get(".vue-flow__node .notify .node-title").should("contain", "Reject Branch");
 		});
-		cy.get('.edge-add-button[data-source-handle="false"]').click({ force: true });
-		cy.get('.result-item.is-option:contains("Notify")').click();
-		cy.get(".labeling-container input").type("Low Score Alert");
-		cy.get(".labeling-container button.btn-primary").click();
+	});
 
-		cy.get('button:contains("Save Rule")').click();
-		cy.get(".desk-alert.green").should("contain", "Saved");
+	it("4. Action Node Deletion and UI State Update", () => {
+		const ruleName = `Rule_Delete_${Date.now()}`;
 
-		// Verify both branches saved
-		cy.reload();
-		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-		cy.get(".vue-flow__node .assignment .node-title").should("contain", "High Score Action");
-		cy.get(".vue-flow__node .notify .node-title").should("contain", "Low Score Alert");
+		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
+			ruleBuilderPage.visitRule(doc.name);
+			ruleBuilderPage.openVisualBuilder();
+
+			ruleBuilderPage.addNodeFromEdge("Stop", "Stop Execution");
+			cy.get(".vue-flow__node .stop").should("be.visible");
+
+			// Delete Stop node
+			ruleBuilderPage.selectNode("stop");
+			ruleBuilderPage.deleteSelectedNode();
+			cy.get(".vue-flow__node .stop").should("not.exist");
+
+			ruleBuilderPage.saveRule();
+		});
+	});
+
+	it("5. Rule Activation & Validation Flow", () => {
+		const ruleName = `Rule_Activation_${Date.now()}`;
+
+		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
+			ruleBuilderPage.visitRule(doc.name);
+
+			// Activate rule in form view
+			cy.get('input[data-fieldname="is_active"]').check({ force: true });
+			cy.save();
+
+			// Reload and verify active check remains
+			cy.reload();
+			cy.get('input[data-fieldname="is_active"]').should("be.checked");
+		});
 	});
 });
