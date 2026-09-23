@@ -9,7 +9,7 @@
 [![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml?query=branch%3Adevelop)
 ![Beta Release](https://img.shields.io/badge/release-beta-orange)
 ![Frappe](https://img.shields.io/badge/built%20for-Frappe%20v15%2B-blue)
-
+[![Listed on Frappe Gems](https://frappegems.com/api/method/frappe_gems.seo.badge?app=Sendipad%2Fflexirule)](https://frappegems.com/gems/apps/Sendipad/flexirule)
   <p><strong>Declarative Business Automation & Visual Orchestration Platform for Frappe and ERPNext</strong></p>
 
 </div>
