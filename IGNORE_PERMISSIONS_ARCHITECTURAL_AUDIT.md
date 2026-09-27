@@ -251,6 +251,8 @@ notification.insert(ignore_permissions=True)  <-- Implicitly forced bypass! No r
    *Evidence*: `flexirule/ruleflow/core/action_handlers/simple_actions.py` line 404 forces `notification.insert(ignore_permissions=True)` without checking `can_ignore_permissions()` or requiring an audit reason.
 4. **Bug D: Session User Conflict on Rule Authoring vs. Rule Triggering**
    *Evidence*: `can_ignore_permissions()` checks the role of `frappe.session.user` (the user executing the event) rather than verifying whether the rule was authored/saved by an authorized `System Manager`.
+5. **Bug E: Silent Default Injection of Permission Audit Reason in Frontend Stores**
+   *Evidence*: `flexirule/public/js/flexirule/rule_builder/stores/useRuleStore.js` (line 250) and `useGraphStore.js` (line 1872) auto-populate `permission_audit_reason = "System Rule Execution"` if the field is empty upon saving or initializing nodes. This silently satisfies backend audit reason validation without forcing rule authors to provide genuine, meaningful audit justifications for bypassing permission controls.
 
 ---
 
