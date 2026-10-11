@@ -82,32 +82,67 @@ def _contains_logical_filter_groups(value) -> bool:
 	return False
 
 
-def _contains_or_filter_groups(value) -> bool:
-	"""Detect OR connectors in groups without mistaking a leaf's value for syntax."""
-	if _is_legacy_filter_leaf(value):
-		return False
-	if not isinstance(value, list | tuple):
-		return False
-	for index, item in enumerate(value):
-		if isinstance(item, str) and item.casefold() == "or" and 0 < index < len(value) - 1:
-			return True
-		if _contains_or_filter_groups(item):
-			return True
-	return False
+def _permission_filter_clauses(filters):
+	"""Convert logical filters into DatabaseQuery AND filters and one OR group.
 
+	Frappe v15 combines filters with AND and or_filters as one parenthesized
+	OR group. Reject shapes requiring multiple OR groups or OR over nested
+	conjunctions rather than weakening the query.
+	"""
+	if filters is None or filters == "" or filters == []:
+		return [], [], False
+	if _is_legacy_filter_leaf(filters):
+		return [list(filters)], [], False
+	if not isinstance(filters, list | tuple):
+		return [filters], [], False
 
-def _flatten_and_filter_groups(value):
-	"""Flatten AND-only groups into Frappe v15 DatabaseQuery filter rows."""
-	if _is_legacy_filter_leaf(value):
-		return [list(value)]
-	if not isinstance(value, list | tuple):
-		return [value]
-	flattened = []
-	for item in value:
-		if isinstance(item, str) and item.casefold() == "and":
-			continue
-		flattened.extend(_flatten_and_filter_groups(item))
-	return flattened
+	connector_indexes = [
+		index
+		for index, item in enumerate(filters)
+		if 0 < index < len(filters) - 1
+		and isinstance(item, str)
+		and item.casefold() in {"and", "or"}
+	]
+	if not connector_indexes:
+		and_filters = []
+		or_filters = []
+		has_or_group = False
+		for child in filters:
+			child_and, child_or, child_has_or = _permission_filter_clauses(child)
+			if child_has_or and has_or_group:
+				raise ValueError("Only one OR filter group can be used with permission-aware queries on Frappe v15")
+			and_filters.extend(child_and)
+			if child_has_or:
+				or_filters = child_or
+				has_or_group = True
+		return and_filters, or_filters, has_or_group
+
+	operators = {filters[index].casefold() for index in connector_indexes}
+	if len(operators) != 1:
+		raise ValueError("Mixed AND/OR operators at the same filter level require a nested filter group")
+	operator = next(iter(operators))
+	children = [item for index, item in enumerate(filters) if index not in connector_indexes]
+
+	if operator == "or":
+		if not children or not all(_is_legacy_filter_leaf(child) for child in children):
+			raise ValueError(
+				"OR filters around nested conjunctions are not supported by the permission-aware "
+				"Frappe v15 query API"
+			)
+		return [], [list(child) for child in children], True
+
+	and_filters = []
+	or_filters = []
+	has_or_group = False
+	for child in children:
+		child_and, child_or, child_has_or = _permission_filter_clauses(child)
+		if child_has_or and has_or_group:
+			raise ValueError("Only one OR filter group can be used with permission-aware queries on Frappe v15")
+		and_filters.extend(child_and)
+		if child_has_or:
+			or_filters = child_or
+			has_or_group = True
+	return and_filters, or_filters, has_or_group
 
 
 def _criterion_for_leaf(doctype: str, leaf):
@@ -182,22 +217,18 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 	filters = query_kwargs.get("filters")
 
 	if not QUERY_CAPABILITIES.supports_ignore_permissions and not ignore_permissions:
-		if isinstance(filters, Criterion) or _contains_or_filter_groups(filters):
-			raise frappe.ValidationError(
-				"Fetch Records with OR filter groups requires a Frappe version "
-				"whose Query Builder supports permission-aware logical filters. "
-				"Use AND-only filters or upgrade Frappe."
-			)
-		if _contains_logical_filter_groups(filters):
-			filters = _flatten_and_filter_groups(filters)
+		try:
+			and_filters, or_filters, _ = _permission_filter_clauses(filters)
+		except ValueError as exc:
+			raise frappe.ValidationError(str(exc)) from exc
 
-		# The DatabaseQuery-backed list API is Frappe's permission-aware query
-		# implementation on versions without Query Builder permission flags.
-		# It applies row/user permissions, shares, permission query hooks, and
-		# field-level read restrictions centrally.
+		# DatabaseQuery is the supported v15 permission-aware query path. It
+		# applies doctype and row/user permissions, shares, permission query
+		# hooks, and field-level read restrictions without hand-built SQL.
 		list_kwargs = {
 			"fields": query_kwargs.get("fields") or ["name"],
-			"filters": filters,
+			"filters": and_filters,
+			"or_filters": or_filters,
 			"order_by": query_kwargs.get("order_by"),
 			"group_by": query_kwargs.get("group_by"),
 			"start": query_kwargs.get("offset", 0),
@@ -205,15 +236,6 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 			"distinct": query_kwargs.get("distinct", False),
 			"ignore_permissions": False,
 		}
-		# Legacy filters are expected as a list of rows; a flat 3/4-part
-		# leaf tuple is ambiguous to DatabaseQuery and must be wrapped.
-		if (
-			_is_legacy_filter_leaf(filters)
-			and len(filters) in (3, 4)
-			and isinstance(filters[1 if len(filters) == 3 else 2], str)
-			and filters[1 if len(filters) == 3 else 2].casefold() in OPERATOR_MAP
-		):
-			list_kwargs["filters"] = [filters]
 		return frappe.get_list(doctype, **list_kwargs)
 
 	if not QUERY_CAPABILITIES.supports_logical_filter_groups:
