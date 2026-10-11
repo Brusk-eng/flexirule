@@ -266,7 +266,7 @@ const limitField = computed(() => ({
 	label: __("Limit"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __("Maximum 1000 records. Leave blank to use the framework default."),
+	description: __("Defaults to 1000 records; maximum 1000 records."),
 }));
 
 const offsetField = computed(() => ({
