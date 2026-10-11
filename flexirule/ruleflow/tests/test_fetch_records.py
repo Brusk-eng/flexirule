@@ -473,3 +473,58 @@ class TestFetchRecords(FrappeTestCase):
 		res_names = {r.get("name") for r in res_true}
 		self.assertEqual(res_names, {t_open.name})
 		self.assertNotIn(t_closed.name, res_names)
+
+	def test_dynamic_limit_is_bounded_after_resolution(self):
+		context = {"vars": {"max_count": self.handler.MAX_FETCH_RECORDS_LIMIT + 1}}
+		action = frappe._dict({"label": "Dynamic limit test"})
+		with self.assertRaises(frappe.ValidationError):
+			self.handler._fetch_records(
+				reference_doctype="ToDo",
+				config={"limit": "{vars.max_count}"},
+				context=context,
+				action=action,
+				ignore_permissions=True,
+			)
+
+	def test_fetch_records_defaults_to_bounded_result_limit(self):
+		from unittest.mock import patch
+
+		action = frappe._dict({"label": "Default limit test"})
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.execute_query",
+			return_value=[],
+		) as execute_query:
+			self.handler._fetch_records(
+				reference_doctype="ToDo",
+				config={},
+				context={},
+				action=action,
+				ignore_permissions=True,
+			)
+		self.assertEqual(
+			execute_query.call_args.args[1]["limit"],
+			self.handler.MAX_FETCH_RECORDS_LIMIT,
+		)
+
+	def test_resolved_output_field_is_validated_before_query_execution(self):
+		from unittest.mock import patch
+
+		action = frappe._dict({"label": "Dynamic field test"})
+		context = {"vars": {"output_field": "definitely_missing_field"}}
+		with patch("flexirule.ruleflow.utils.frappe_query_compat.execute_query") as execute_query:
+			with self.assertRaises(frappe.ValidationError):
+				self.handler._fetch_records(
+					reference_doctype="ToDo",
+					config={"fields": ["{vars.output_field}"]},
+					context=context,
+					action=action,
+					ignore_permissions=True,
+				)
+		execute_query.assert_not_called()
+
+	def test_validate_fetch_records_enforces_static_limit_ceiling(self):
+		action = frappe._dict({"reference_doctype": "ToDo"})
+		errors = self.handler.validate_fetch_records(
+			action, {"limit": self.handler.MAX_FETCH_RECORDS_LIMIT + 1}
+		)
+		self.assertTrue(any("cannot exceed" in error for error in errors))
