@@ -134,7 +134,11 @@ class TestFrappeQueryCompat(FrappeTestCase):
 		filters = [
 			["enabled", "=", 1],
 			"and",
-			[["email", "=", "visible@example.com"], "or", [["user_type", "=", "System User"], "and", ["enabled", "=", 1]]],
+			[
+				["email", "=", "visible@example.com"],
+				"or",
+				[["user_type", "=", "System User"], "and", ["enabled", "=", 1]],
+			],
 		]
 		with patch(
 			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
