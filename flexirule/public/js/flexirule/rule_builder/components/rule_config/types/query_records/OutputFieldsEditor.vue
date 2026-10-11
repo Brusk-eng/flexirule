@@ -317,8 +317,8 @@ function rowDescription(row) {
 	if (row.kind === "field") {
 		const source = row.field
 			? (row.field.includes(".") ? __("Related field") : __("Parent field")) +
-				" · " +
-				row.field
+			  " · " +
+			  row.field
 			: __("Choose a field");
 		return row.alias ? source + " · " + __("Output alias") + ": " + row.alias : source;
 	}
@@ -618,9 +618,7 @@ defineExpose({ validate });
 	color: var(--fxr-text-muted);
 	font-size: var(--fxr-text-xs);
 	cursor: pointer;
-	transition:
-		color var(--fxr-transition-fast),
-		background-color var(--fxr-transition-fast),
+	transition: color var(--fxr-transition-fast), background-color var(--fxr-transition-fast),
 		border-color var(--fxr-transition-fast);
 }
 
@@ -724,9 +722,7 @@ defineExpose({ validate });
 	font-size: var(--fxr-text-sm);
 	font-weight: var(--fxr-weight-medium);
 	cursor: pointer;
-	transition:
-		background-color var(--fxr-transition-fast),
-		border-color var(--fxr-transition-fast),
+	transition: background-color var(--fxr-transition-fast), border-color var(--fxr-transition-fast),
 		color var(--fxr-transition-fast);
 }
 
@@ -781,9 +777,7 @@ defineExpose({ validate });
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
 	font-size: var(--fxr-input-font-size, var(--fxr-text-sm)) !important;
-	transition:
-		border-color var(--fxr-transition-fast),
-		box-shadow var(--fxr-transition-fast);
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
 }
 
 :deep(.form-control:focus) {
