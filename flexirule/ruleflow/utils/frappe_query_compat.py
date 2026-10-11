@@ -37,9 +37,8 @@ def detect_query_capabilities() -> FrappeQueryCapabilities:
 	# v15 applies filter rows independently; v16 parses nested logical groups
 	# directly inside apply_filters. Recognize both documented source shapes, and
 	# fall back to our compatibility compiler when neither can be verified.
-	supports_nested_filters = (
-		("_parse_nested_filters" in source and "_condition_to_criterion" in source)
-		or ("is_nested_structure" in source and "potential_nested_list" in source)
+	supports_nested_filters = ("_parse_nested_filters" in source and "_condition_to_criterion" in source) or (
+		"is_nested_structure" in source and "potential_nested_list" in source
 	)
 
 	return FrappeQueryCapabilities(
@@ -58,11 +57,7 @@ def _is_legacy_filter_leaf(value) -> bool:
 	if len(value) == 2:
 		return isinstance(value[0], str)
 	if len(value) == 3:
-		return (
-			isinstance(value[0], str)
-			and isinstance(value[1], str)
-			and value[1].casefold() in OPERATOR_MAP
-		)
+		return isinstance(value[0], str) and isinstance(value[1], str) and value[1].casefold() in OPERATOR_MAP
 	if len(value) == 4:
 		return (
 			isinstance(value[0], str)
@@ -80,11 +75,7 @@ def _contains_logical_filter_groups(value) -> bool:
 	if not isinstance(value, list | tuple):
 		return False
 	for index, item in enumerate(value):
-		if (
-			isinstance(item, str)
-			and item.casefold() in {"and", "or"}
-			and 0 < index < len(value) - 1
-		):
+		if isinstance(item, str) and item.casefold() in {"and", "or"} and 0 < index < len(value) - 1:
 			return True
 		if _contains_logical_filter_groups(item):
 			return True
