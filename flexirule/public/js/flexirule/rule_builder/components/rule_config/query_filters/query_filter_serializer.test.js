@@ -42,6 +42,14 @@ const nested = {
 					operator: "=",
 					value: { mode: "static", value: 1 },
 				},
+				{
+					id: "c",
+					type: "leaf",
+					doctype: "Sales Order",
+					field: "status",
+					operator: "=",
+					value: { mode: "static", value: "Closed" },
+				},
 			],
 		},
 	],
@@ -50,8 +58,18 @@ const payload = serializeQueryFilters(nested);
 assert.deepEqual(payload, [
 	["Sales Order", "status", "=", { mode: "static", value: "Open" }],
 	"and",
-	["Sales Order", "docstatus", "=", { mode: "static", value: 1 }],
+	[
+		["Sales Order", "docstatus", "=", { mode: "static", value: 1 }],
+		"or",
+		["Sales Order", "status", "=", { mode: "static", value: "Closed" }],
+	],
 ]);
+const reopened = deserializeQueryFilters(payload);
+assert.equal(reopened.operator, "and");
+assert.equal(reopened.children[1].type, "group");
+assert.equal(reopened.children[1].operator, "or");
+assert.equal(reopened.children[1].children.length, 2);
+assert.deepEqual(serializeQueryFilters(reopened), payload);
 console.log("query filter serializer tests passed");
 
 const canonical = deserializeQueryFilters({
