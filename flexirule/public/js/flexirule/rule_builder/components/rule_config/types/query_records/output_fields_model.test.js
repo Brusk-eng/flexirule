@@ -25,7 +25,10 @@ const source = [
 	{ COUNT: "name", as: "total_users" },
 ];
 const rows = parseOutputFields(source);
-assert.deepEqual(rows.map((row) => row.kind), ["field", "field", "child", "function"]);
+assert.deepEqual(
+	rows.map((row) => row.kind),
+	["field", "field", "child", "function"]
+);
 assert.deepEqual(serializeOutputFields(rows), [
 	"name",
 	"customer.customer_name as customer_name",

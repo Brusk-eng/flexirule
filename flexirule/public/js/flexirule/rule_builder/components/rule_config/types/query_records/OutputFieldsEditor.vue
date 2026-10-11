@@ -2,7 +2,9 @@
 	<div class="output-fields-editor">
 		<div v-if="!rows.length" class="output-fields-empty">
 			<i class="fa fa-list-ul"></i>
-			<span>{{ __("No output fields yet. Add a field or child selection to get started.") }}</span>
+			<span>{{
+				__("No output fields yet. Add a field or child selection to get started.")
+			}}</span>
 		</div>
 
 		<div class="output-fields-list">
@@ -27,8 +29,16 @@
 							type="button"
 							class="output-field-action"
 							:class="{ 'is-active': row.isEditing }"
-							:title="row.isEditing ? __('Finish editing output field') : __('Edit output field')"
-							:aria-label="row.isEditing ? __('Finish editing output field') : __('Edit output field')"
+							:title="
+								row.isEditing
+									? __('Finish editing output field')
+									: __('Edit output field')
+							"
+							:aria-label="
+								row.isEditing
+									? __('Finish editing output field')
+									: __('Edit output field')
+							"
 							:aria-expanded="String(row.isEditing)"
 							@click="toggleEdit(row)"
 						>
@@ -88,7 +98,10 @@
 						/>
 					</div>
 
-					<div v-else-if="row.kind === 'function'" class="output-field-controls output-function-controls">
+					<div
+						v-else-if="row.kind === 'function'"
+						class="output-field-controls output-function-controls"
+					>
 						<select
 							class="form-control output-function-select"
 							:value="row.functionName"
@@ -163,8 +176,12 @@
 							class="form-control output-field-raw"
 							:value="row.expression"
 							:disabled="readOnly"
-							:placeholder="__('Advanced native field expression or JSON field descriptor')"
-							:aria-label="__('Advanced native field expression or JSON field descriptor')"
+							:placeholder="
+								__('Advanced native field expression or JSON field descriptor')
+							"
+							:aria-label="
+								__('Advanced native field expression or JSON field descriptor')
+							"
 							rows="2"
 							@input="updateRaw(row, $event.target.value)"
 						></textarea>
@@ -174,18 +191,10 @@
 		</div>
 
 		<div v-if="!readOnly" class="output-fields-add-actions">
-			<button
-				type="button"
-				class="output-fields-add-btn"
-				@click="addField"
-			>
+			<button type="button" class="output-fields-add-btn" @click="addField">
 				<i class="fa fa-plus"></i>{{ __("Add output field") }}
 			</button>
-			<button
-				type="button"
-				class="output-fields-add-btn"
-				@click="addFunction"
-			>
+			<button type="button" class="output-fields-add-btn" @click="addFunction">
 				<i class="fa fa-calculator"></i>{{ __("Add function") }}
 			</button>
 			<button
@@ -274,10 +283,16 @@ const aggregateFunctions = AGGREGATE_FUNCTIONS.map((value) => ({
 const parentFields = computed(() => metaStore.doc_meta[props.doctype] || []);
 const childTableOptions = computed(() =>
 	parentFields.value
-		.filter((field) => ["Table", "Table MultiSelect"].includes(field.fieldtype) && field.options)
+		.filter(
+			(field) => ["Table", "Table MultiSelect"].includes(field.fieldtype) && field.options
+		)
 		.map((field) => ({
 			value: field.fieldname,
-			label: (field.original_label || field.label || field.fieldname) + " (" + field.fieldname + ")",
+			label:
+				(field.original_label || field.label || field.fieldname) +
+				" (" +
+				field.fieldname +
+				")",
 			doctype: field.options,
 		}))
 );
@@ -289,7 +304,10 @@ function newId() {
 function rowTitle(row) {
 	if (row.kind === "field") return row.alias || row.field || __("Output field");
 	if (row.kind === "function") {
-		return row.alias || (row.functionName || "count").toUpperCase() + "(" + (row.field || "?") + ")";
+		return (
+			row.alias ||
+			(row.functionName || "count").toUpperCase() + "(" + (row.field || "?") + ")"
+		);
 	}
 	if (row.kind === "child") return row.tableField || __("Embedded child selection");
 	return row.expression || __("Advanced field expression");
@@ -298,14 +316,21 @@ function rowTitle(row) {
 function rowDescription(row) {
 	if (row.kind === "field") {
 		const source = row.field
-			? (row.field.includes(".") ? __("Related field") : __("Parent field")) + " · " + row.field
+			? (row.field.includes(".") ? __("Related field") : __("Parent field")) +
+				" · " +
+				row.field
 			: __("Choose a field");
 		return row.alias ? source + " · " + __("Output alias") + ": " + row.alias : source;
 	}
 	if (row.kind === "function") {
 		const expression =
 			(row.functionName || "count").toUpperCase() + "(" + (row.field || "?") + ")";
-		return __("Function") + " · " + expression + (row.alias ? " · " + __("Output alias") + ": " + row.alias : "");
+		return (
+			__("Function") +
+			" · " +
+			expression +
+			(row.alias ? " · " + __("Output alias") + ": " + row.alias : "")
+		);
 	}
 	if (row.kind === "child") {
 		const fields = Array.isArray(row.fields) ? row.fields.join(", ") : "";
@@ -407,7 +432,11 @@ async function loadChildFieldOptions(row, filterExisting = false) {
 			.filter((field) => field.fieldname && !field.hidden)
 			.map((field) => ({
 				value: field.fieldname,
-				label: (field.original_label || field.label || field.fieldname) + " (" + field.fieldname + ")",
+				label:
+					(field.original_label || field.label || field.fieldname) +
+					" (" +
+					field.fieldname +
+					")",
 			}));
 		if (filterExisting) {
 			const allowed = new Set(row.childFieldOptions.map((field) => field.value));
@@ -447,7 +476,11 @@ async function validate() {
 			errors.push("Child selection references a field that is not a child table.");
 			continue;
 		}
-		if (row.fields.some((field) => !row.childFieldOptions.some((option) => option.value === field))) {
+		if (
+			row.fields.some(
+				(field) => !row.childFieldOptions.some((option) => option.value === field)
+			)
+		) {
 			errors.push(
 				"Child selection contains a field that is not available in the selected child DocType."
 			);

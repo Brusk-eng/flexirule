@@ -43,7 +43,9 @@ export function inferResultShape(fields, explicitShape) {
 	return RESULT_SHAPES.selectedFields;
 }
 function parseAlias(expression) {
-	const match = String(expression).trim().match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+	const match = String(expression)
+		.trim()
+		.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
 	if (!match) return { expression: String(expression).trim(), alias: "" };
 	return { expression: match[1].trim(), alias: match[2] };
 }
@@ -96,7 +98,11 @@ export function parseOutputFields(value) {
 	} else if (typeof value === "string" && value.trim()) {
 		const raw = value.trim();
 		if (raw === "*" || /[()]/.test(raw)) list = [raw];
-		else list = raw.split(",").map((part) => part.trim()).filter(Boolean);
+		else
+			list = raw
+				.split(",")
+				.map((part) => part.trim())
+				.filter(Boolean);
 	} else {
 		list = [];
 	}
@@ -108,14 +114,18 @@ export function parseOutputFields(value) {
 			continue;
 		}
 		if (isObject(item)) {
-			const aggregateKey = Object.keys(item).find((key) => AGGREGATE_SET.has(key.toLowerCase()));
+			const aggregateKey = Object.keys(item).find((key) =>
+				AGGREGATE_SET.has(key.toLowerCase())
+			);
 			if (aggregateKey) {
-				rows.push(createRow("function", index++, {
-					functionName: aggregateKey.toLowerCase(),
-					field: String(item[aggregateKey] ?? ""),
-					alias: String(item.as ?? ""),
-					originalValue: clone(item),
-				}));
+				rows.push(
+					createRow("function", index++, {
+						functionName: aggregateKey.toLowerCase(),
+						field: String(item[aggregateKey] ?? ""),
+						alias: String(item.as ?? ""),
+						originalValue: clone(item),
+					})
+				);
 				continue;
 			}
 			const childEntries = Object.entries(item).filter(
@@ -123,15 +133,19 @@ export function parseOutputFields(value) {
 			);
 			if (childEntries.length) {
 				for (const [tableField, childFields] of childEntries) {
-					rows.push(createRow("child", index++, { tableField, fields: clone(childFields) }));
+					rows.push(
+						createRow("child", index++, { tableField, fields: clone(childFields) })
+					);
 				}
 				continue;
 			}
 		}
-		rows.push(createRow("raw", index++, {
-			expression: JSON.stringify(item),
-			originalValue: clone(item),
-		}));
+		rows.push(
+			createRow("raw", index++, {
+				expression: JSON.stringify(item),
+				originalValue: clone(item),
+			})
+		);
 	}
 	return rows;
 }
@@ -207,9 +221,9 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			if (!alias) errors.push(prefix + "enter an output alias for the function.");
 			else if (!ALIAS_PATTERN.test(alias)) {
 				errors.push(
-						prefix +
-							"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
-					);
+					prefix +
+						"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
+				);
 			}
 		} else if (row.kind === "child") {
 			if (!String(row.tableField ?? "").trim()) errors.push(prefix + "select a child table.");
@@ -224,9 +238,9 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			if (!ALIAS_PATTERN.test(alias)) {
 				if (row.kind !== "function") {
 					errors.push(
-					prefix +
-						"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
-				);
+						prefix +
+							"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
+					);
 				}
 			} else if (aliases.has(alias)) {
 				errors.push(prefix + "Alias '" + alias + "' is already used.");

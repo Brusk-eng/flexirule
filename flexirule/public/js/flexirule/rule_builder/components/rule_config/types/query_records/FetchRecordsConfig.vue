@@ -62,7 +62,10 @@
 			</div>
 		</div>
 
-		<div v-if="isCustomResultShape(localConfig.result_shape)" class="sub-section section-subcard">
+		<div
+			v-if="isCustomResultShape(localConfig.result_shape)"
+			class="sub-section section-subcard"
+		>
 			<div class="section-heading">
 				<div>
 					<h6>{{ __("2. Output Fields") }}</h6>
@@ -217,9 +220,13 @@ function getEditableFieldDraft(value) {
 
 const customFieldsDraft = ref({
 	selected_fields:
-		localConfig.result_shape === "selected_fields" ? getEditableFieldDraft(localConfig.fields) : [],
+		localConfig.result_shape === "selected_fields"
+			? getEditableFieldDraft(localConfig.fields)
+			: [],
 	embedded_children:
-		localConfig.result_shape === "embedded_children" ? getEditableFieldDraft(localConfig.fields) : [],
+		localConfig.result_shape === "embedded_children"
+			? getEditableFieldDraft(localConfig.fields)
+			: [],
 });
 const resultShapes = [
 	{
@@ -366,7 +373,9 @@ function updateConfig(key, value) {
 function selectResultShape(shape) {
 	if (props.readOnly || shape === localConfig.result_shape) return;
 	if (isCustomResultShape(localConfig.result_shape)) {
-		customFieldsDraft.value[localConfig.result_shape] = getEditableFieldDraft(localConfig.fields);
+		customFieldsDraft.value[localConfig.result_shape] = getEditableFieldDraft(
+			localConfig.fields
+		);
 	}
 
 	localConfig.result_shape = shape;
@@ -392,7 +401,7 @@ function emitConfig() {
 				filters &&
 				typeof filters === "object" &&
 				(Array.isArray(filters.children) ? filters.children.length > 0 : true)
-		  );
+			);
 	if (!hasFilters) delete next.filters;
 	if (!next.fields?.length) delete next.fields;
 	if (!next.order_by) delete next.order_by;
@@ -472,7 +481,9 @@ defineExpose({ validate });
 	background: var(--fxr-bg, var(--card-bg));
 	border: 1px solid var(--fxr-border, var(--border-color));
 	border-radius: var(--border-radius-md, 8px);
-	transition: border-color 120ms ease, background-color 120ms ease;
+	transition:
+		border-color 120ms ease,
+		background-color 120ms ease;
 }
 .result-shape-card:hover:not(:disabled) {
 	border-color: var(--fxr-accent, var(--primary));
