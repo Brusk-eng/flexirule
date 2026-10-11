@@ -876,8 +876,8 @@ class QueryRecordsHandler(ActionHandler):
 					):
 						errors.append(
 							_("Aggregate field '{0}' does not exist in {1}").format(
-							aggregate_field, reference_doctype
-						)
+								aggregate_field, reference_doctype
+							)
 						)
 					continue
 				for table_field, child_fields in field_expression.items():
