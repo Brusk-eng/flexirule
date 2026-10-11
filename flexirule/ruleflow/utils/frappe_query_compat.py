@@ -45,6 +45,46 @@ def detect_query_capabilities() -> FrappeQueryCapabilities:
 QUERY_CAPABILITIES = detect_query_capabilities()
 
 
+def _is_legacy_filter_leaf(value) -> bool:
+	"""Distinguish a filter tuple from a logical filter group by its operator slot."""
+	if not isinstance(value, list | tuple):
+		return False
+	if len(value) == 2:
+		return isinstance(value[0], str)
+	if len(value) == 3:
+		return (
+			isinstance(value[0], str)
+			and isinstance(value[1], str)
+			and value[1].casefold() in OPERATOR_MAP
+		)
+	if len(value) == 4:
+		return (
+			isinstance(value[0], str)
+			and isinstance(value[1], str)
+			and isinstance(value[2], str)
+			and value[2].casefold() in OPERATOR_MAP
+		)
+	return False
+
+
+def _contains_logical_filter_groups(value) -> bool:
+	"""Check for connector tokens only in a group, never inside a leaf's value."""
+	if _is_legacy_filter_leaf(value):
+		return False
+	if not isinstance(value, list | tuple):
+		return False
+	for index, item in enumerate(value):
+		if (
+			isinstance(item, str)
+			and item.casefold() in {"and", "or"}
+			and 0 < index < len(value) - 1
+		):
+			return True
+		if _contains_logical_filter_groups(item):
+			return True
+	return False
+
+
 def _criterion_for_leaf(doctype: str, leaf):
 	"""Compile one simple filter using Frappe/Pypika operators."""
 	if not isinstance(leaf, list | tuple) or len(leaf) not in (2, 3, 4):
@@ -76,7 +116,7 @@ def _compile_logical_filters(doctype: str, filters):
 	"""Compile legacy-incompatible AND/OR filter lists into a native Criterion."""
 	if not isinstance(filters, list | tuple):
 		return filters
-	if not any(isinstance(item, str) and item.casefold() in {"and", "or"} for item in filters):
+	if not _contains_logical_filter_groups(filters):
 		return filters
 	if not filters:
 		return None
@@ -90,8 +130,7 @@ def _compile_logical_filters(doctype: str, filters):
 
 		criterion = (
 			_compile_logical_filters(doctype, item)
-			if isinstance(item, list | tuple)
-			and any(isinstance(part, str) and part.casefold() in {"and", "or"} for part in item)
+			if isinstance(item, list | tuple) and _contains_logical_filter_groups(item)
 			else _criterion_for_leaf(doctype, item)
 		)
 		if not criteria:
@@ -110,9 +149,7 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 
 	if not QUERY_CAPABILITIES.supports_logical_filter_groups:
 		filters = query_kwargs.get("filters")
-		if isinstance(filters, list | tuple) and any(
-			isinstance(item, str) and item.casefold() in {"and", "or"} for item in filters
-		):
+		if _contains_logical_filter_groups(filters):
 			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
 
 	if not QUERY_CAPABILITIES.supports_ignore_permissions and not ignore_permissions:
