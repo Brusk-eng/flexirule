@@ -241,13 +241,14 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 		return frappe.get_list(doctype, **list_kwargs)
 
 	if not QUERY_CAPABILITIES.supports_logical_filter_groups:
-		if (
-			_is_legacy_filter_leaf(filters)
-			and len(filters) in (3, 4)
-			and isinstance(filters[1 if len(filters) == 3 else 2], str)
-			and filters[1 if len(filters) == 3 else 2].casefold() in OPERATOR_MAP
-		):
-			query_kwargs["filters"] = [filters]
+		if isinstance(filters, list | tuple) and _is_legacy_filter_leaf(filters):
+			operator_index = 1 if len(filters) == 3 else 2
+			if (
+				len(filters) in (3, 4)
+				and isinstance(filters[operator_index], str)
+				and filters[operator_index].casefold() in OPERATOR_MAP
+			):
+				query_kwargs["filters"] = [list(filters)]
 		elif _contains_logical_filter_groups(filters):
 			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
 
