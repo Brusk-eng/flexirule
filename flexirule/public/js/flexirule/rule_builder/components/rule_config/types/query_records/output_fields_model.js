@@ -171,7 +171,11 @@ export function validateOutputFields(rows, shape) {
 	for (const [index, row] of list.entries()) {
 		const prefix = "Output field " + (index + 1) + ": ";
 		if (row.kind === "field") {
-			if (!String(row.field ?? "").trim()) errors.push(prefix + "select a field.");
+			const fieldPath = String(row.field ?? "").trim();
+			if (!fieldPath) errors.push(prefix + "select a field.");
+			else if (fieldPath.split(".").length > 2) {
+				errors.push(prefix + "Frappe v15 supports only one-level Link or child-table field paths in this selection.");
+			}
 		} else if (row.kind === "function") {
 			const fn = String(row.functionName ?? "").toLowerCase();
 			const field = String(row.field ?? "").trim();

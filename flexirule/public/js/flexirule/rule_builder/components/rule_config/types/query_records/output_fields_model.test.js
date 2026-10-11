@@ -35,6 +35,13 @@ assert.deepEqual(validateOutputFields(expressionRows, RESULT_SHAPES.selectedFiel
 const invalidChildShape = parseOutputFields(["name"]);
 assert.ok(validateOutputFields(invalidChildShape, RESULT_SHAPES.embeddedChildren).some((error) => error.includes("child-table selection")));
 
+const invalidMultiLevelPath = parseOutputFields(["customer.address.country"]);
+assert.ok(
+	validateOutputFields(invalidMultiLevelPath, RESULT_SHAPES.selectedFields).some((error) =>
+		error.includes("only one-level Link or child-table field paths")
+	)
+);
+
 const invalidChildAggregate = parseOutputFields(["sum(items.qty) as total_qty"]);
 assert.ok(validateOutputFields(invalidChildAggregate, RESULT_SHAPES.selectedFields).some((error) => error.includes("child/link aggregates need backend support")));
 

@@ -7,7 +7,7 @@
 		:read_only="readOnly"
 		:trigger="'button'"
 		:hideLabel="true"
-		:navigable="!rootOnly"
+		:navigable="canNavigate"
 		:navStack="navigableFields.navStack.value"
 		@navigate="navigableFields.handleNavigate"
 		@back="navigableFields.handleBack"
@@ -33,6 +33,14 @@ const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
 	() => (props.rootOnly ? "" : props.modelValue)
 );
+
+// The branch capability tests show Frappe v15 does not parse multi-level
+// relationship field paths, so allow browsing only from the root DocType.
+const canNavigate = computed(() => {
+	if (props.rootOnly) return false;
+	const pathPrefix = navigableFields.currentContext.value?.pathPrefix || "";
+	return pathPrefix.split(".").filter(Boolean).length === 0;
+});
 
 function onUpdate(value) {
 	emit("update:modelValue", value);
