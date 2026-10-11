@@ -202,9 +202,13 @@ The upcoming frontend task should build upon this finalized backend contract:
 
 The review-fix branch adds compatibility handling around frappe.qb.get_query and the permission-aware Frappe v15 frappe.get_list fallback. The first server CI run on this branch executed 543 tests and reported one error (two skipped): test_fetch_records_delegates_native_qb_payload_and_permissions failed because the test unintentionally exercised the installed Frappe v15 fallback against a live mocked DocType lookup instead of isolating the native Query Builder delegation contract.
 
-The test is being corrected to explicitly stub the capability descriptor as supporting native permission and logical-filter support for that test, while leaving the separate compatibility tests responsible for validating the legacy fallback. This is a test-isolation correction, not a production behavior change. The fix has been pushed; the rerun must pass before this regression can be marked verified.
+The test was corrected to explicitly stub the capability descriptor as supporting native permission and logical-filter support for that test, while separate compatibility tests continue to validate the legacy fallback. This is a test-isolation correction, not a production behavior change. The corrected test and configured workflows passed on commit 693971455c0752f45879cee82e91c635a2e07a27; the workflow file was subsequently restored, so its new run is tracked separately.
 
 
 ## 14. Latest CI Rerun: Payload Expectation Correction (2026-10-11)
 
-The next CI run narrowed the remaining failure to the native Query Builder delegation test's expected filter shape. Root-DocType leaves are normalized before delegation, so the expected filters should be `["enabled", "=", 1]` and `["email", "like", "%@example.com"]`, connected by `"or"`, rather than four-item leaves prefixed with `"User"`. The test assertion has been corrected; this is test-only. CI verification is still pending.
+The next CI run narrowed the remaining failure to the native Query Builder delegation test's expected filter shape. Root-DocType leaves are normalized before delegation, so the expected filters are `["enabled", "=", 1]` and `["email", "like", "%@example.com"]`, connected by `"or"`, rather than four-item leaves prefixed with `"User"`. The assertion correction is test-only. Both CI and Linters passed on commit 693971455c0752f45879cee82e91c635a2e07a27. The original workflow file was restored in commit 47e4b5713c9b2e7dcf99a0d89cffc7478a9d8906; the new run for that restored definition is still in progress, and must be checked before closing verification.
+
+### Recommended next step for filter representation
+
+Keep the persisted Fetch Records filter tree independent of Frappe's version-specific payload format. Normalize only root-DocType field leaves at the QB adapter boundary, after validation has resolved the actual field DocType/path. Do not globally remove the root DocType from saved filter data or from legacy Query Records filters. Add explicit tests for root fields, linked/child paths, and operator/value literals to prove that only the native payload is normalized.
