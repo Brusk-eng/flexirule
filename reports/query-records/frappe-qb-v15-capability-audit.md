@@ -5,12 +5,12 @@
 This report separates three evidence categories that must not be conflated:
 
 1. **Native Frappe Query Builder characterization** — observations about the installed Frappe v15 `frappe.qb.get_query()` API and its SQL/runtime behavior. These characterize Frappe, not the correctness of FlexiRule's adapter.
-2. **Fetch Records integration evidence** — the latest CI runs for the reviewed head are green: [Server CI run 37973964507](https://github.com/Sendipad/flexirule/actions/runs/37973964507) and [Linters run 37973964439](https://github.com/Sendipad/flexirule/actions/runs/37973964439) completed successfully. The earlier run 37971338723 was red (531 tests, 10 failures, 1 error, 2 skipped) but was superseded by these successful runs. CI success confirms the configured jobs passed; it does not replace targeted assertions for edge cases that the suite may not cover.
+2. **Fetch Records integration evidence** — historical CI runs 37973964507 (Server) and 37973964439 (Linters) passed for an earlier reviewed head; they do not establish that the current review-fix branch is green. On 2026-10-11, the current branch's server run executed 543 tests and reported one error (two skipped) in test_fetch_records_delegates_native_qb_payload_and_permissions. The test was coupled to the installed Frappe v15 capability detection and entered the legacy permission fallback unexpectedly. A test-isolation fix has been pushed; its rerun remains the evidence needed to close this item. CI success confirms only the configured jobs for the specific commit passed.
 3. **Existing-mode legacy regression tests** — `test_query_records_filters.py` also covers legacy tuple/list/dict normalization and established Query Records modes. Keep those compatibility guarantees separate from Fetch Records' new persisted contract.
 
 **Contract discrepancy at the reviewed head:** the intended Fetch Records contract is canonical `group`/`leaf` tree only, but `query_records.py` currently recursively calls `resolve_payload()` on the entire filter object and then invokes `_normalize_filters_for_backend()` for non-canonical list/dict filters. In addition, `test_03_legacy_tuple_and_list_filter_shapes` in `test_fetch_records_filter_tree_integration.py` explicitly expects Fetch Records to accept legacy filters. Both the implementation and that test conflict with the intended strict contract. Legacy normalization should remain available to established modes such as Query List/Get List; Fetch Records should validate and convert only canonical trees.
 
-**Latest CI evidence:** [Server CI run 37973964507](https://github.com/Sendipad/flexirule/actions/runs/37973964507) and [Linters run 37973964439](https://github.com/Sendipad/flexirule/actions/runs/37973964439) both completed successfully for the reviewed head. The earlier failed run 37971338723 is historical and superseded. Keep CI status distinct from the remaining design/test-coverage questions below.
+**Historical CI evidence:** [Server CI run 37973964507](https://github.com/Sendipad/flexirule/actions/runs/37973964507) and [Linters run 37973964439](https://github.com/Sendipad/flexirule/actions/runs/37973964439) passed for an earlier head only. For current branch status, use the latest workflow run associated with the current commit and the review-fix follow-up in Section 16 below.
 
 ---
 
@@ -217,3 +217,16 @@ The factual audit findings establish clear contracts for the upcoming FlexiRule 
 14. **Permissions:** Perform permission checks explicitly via `Permission.check_permissions(query, user=rule_user)` in the backend handler.
 15. **Pypika Compilation Boundary:** Maintain the explicit architectural boundary:
     `FlexiRule UI Config -> Normalized JSON Specification -> FlexiRule Backend Compiler -> Pypika Criterion / Query -> frappe.qb.get_query() -> MariaDB`.
+
+
+## 16. Current Review-Fix Test Failure and Remediation (2026-10-11)
+
+The server CI log for the review-fix branch shows:
+
+- Command: bench --site test_site run-tests --app flexirule
+- Result: 543 tests run, one error, zero assertion failures, two skipped.
+- Error: test_fetch_records_delegates_native_qb_payload_and_permissions raised KeyError: 0 in Frappe's is_virtual_doctype lookup after the test reached frappe.get_list.
+
+Root cause: this test intends to assert the native frappe.qb.get_query payload, but it relied on environment-derived capability detection. On the Frappe v15 CI environment, native ignore_permissions support is absent, so the compatibility layer correctly chose the permission-aware frappe.get_list fallback. The test had mocked QB only, not the fallback path, and therefore unintentionally touched database metadata.
+
+Remediation pushed: the test now stubs QUERY_CAPABILITIES to represent the native-capability scenario and asserts the ignore_permissions=False argument explicitly. Separate compatibility tests continue to cover the v15 fallback. This is intended to make the test deterministic across Frappe versions without weakening production permission handling. Do not mark this item complete until the updated CI rerun passes.
