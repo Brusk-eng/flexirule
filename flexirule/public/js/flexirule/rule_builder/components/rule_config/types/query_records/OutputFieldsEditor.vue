@@ -61,7 +61,7 @@
 					:value="row.alias"
 					:disabled="readOnly"
 					:placeholder="__('Output alias (optional)')"
-					:aria-label="__('Output alias (optional)' )"
+					:aria-label="__('Output alias (optional)')"
 					@input="updateRowValue(row, 'alias', $event.target.value)"
 				/>
 			</div>
@@ -257,7 +257,9 @@ function rowDescription(row) {
 	if (row.kind === "field") {
 		return row.field ? __("Field") + " · " + row.field : __("Choose the field to return");
 	}
-	if (row.kind === "function") return __("Aggregate function") + (row.alias ? " · " + row.alias : "");
+	if (row.kind === "function") {
+		return __("Aggregate function") + (row.alias ? " · " + row.alias : "");
+	}
 	if (row.kind === "child") {
 		return __("Nested child array") + " · " + (row.fields || []).length + " " + __("selected fields");
 	}

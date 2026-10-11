@@ -215,7 +215,10 @@ export function validateOutputFields(rows, shape) {
 		if (alias) {
 			if (!ALIAS_PATTERN.test(alias)) {
 				if (row.kind !== "function") {
-					errors.push(prefix + "alias must start with a letter or underscore and contain only letters, numbers, and underscores.");
+					errors.push(
+					prefix +
+						"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
+				);
 				}
 			} else if (aliases.has(alias)) {
 				errors.push(prefix + "Alias '" + alias + "' is already used.");
