@@ -76,7 +76,7 @@ class TestFrappeQueryCompat(FrappeTestCase):
 			),
 		):
 			with patch("frappe.qb.get_query") as get_query:
-				with self.assertRaises(frappe.ValidationError):
+				with self.assertRaises(frappe.PermissionError):
 					execute_query("User", {"fields": ["name"]}, ignore_permissions=False)
 
 		get_query.assert_not_called()
