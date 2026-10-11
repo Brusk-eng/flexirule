@@ -186,8 +186,16 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 			list_kwargs["filters"] = [filters]
 		return frappe.get_list(doctype, **list_kwargs)
 
-	if not QUERY_CAPABILITIES.supports_logical_filter_groups and _contains_logical_filter_groups(filters):
-		query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
+	if not QUERY_CAPABILITIES.supports_logical_filter_groups:
+		if (
+			_is_legacy_filter_leaf(filters)
+			and len(filters) in (3, 4)
+			and isinstance(filters[1 if len(filters) == 3 else 2], str)
+			and filters[1 if len(filters) == 3 else 2].casefold() in OPERATOR_MAP
+		):
+			query_kwargs["filters"] = [filters]
+		elif _contains_logical_filter_groups(filters):
+			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
 
 	if QUERY_CAPABILITIES.supports_ignore_permissions:
 		query_kwargs["ignore_permissions"] = ignore_permissions
