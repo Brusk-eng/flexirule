@@ -8,7 +8,7 @@ from inspect import getsource, signature
 
 import frappe
 from frappe.database.operator_map import OPERATOR_MAP
-from frappe.database.query import Engine, Permission
+from frappe.database.query import Engine
 from frappe.query_builder import Criterion
 
 
@@ -21,31 +21,28 @@ class FrappeQueryCapabilities:
 
 
 def detect_query_capabilities() -> FrappeQueryCapabilities:
-	"""Detect Query Builder keyword capabilities once during module initialization."""
-	parameters = signature(Engine.get_query).parameters
-	source = getsource(Engine.apply_filters)
+	"""Detect optional Engine capabilities without making imports depend on source inspection."""
+	try:
+		get_query = getattr(Engine, "get_query", None)
+		parameters = signature(get_query).parameters if callable(get_query) else {}
+	except (AttributeError, TypeError, ValueError):
+		parameters = {}
+
+	try:
+		apply_filters = getattr(Engine, "apply_filters", None)
+		source = getsource(apply_filters) if callable(apply_filters) else ""
+	except (OSError, TypeError, ValueError):
+		source = ""
+
 	return FrappeQueryCapabilities(
 		supports_ignore_permissions="ignore_permissions" in parameters,
-		supports_logical_filter_groups="_parse_nested_filters" in source
-		and "_condition_to_criterion" in source,
+		supports_logical_filter_groups=(
+			"_parse_nested_filters" in source and "_condition_to_criterion" in source
+		),
 	)
 
 
 QUERY_CAPABILITIES = detect_query_capabilities()
-
-
-class _TrustedSQLCriterion(Criterion):
-	"""Render SQL produced by Frappe's own permission compiler.
-
-	The SQL is never assembled from FlexiRule input. It comes from Frappe's
-	DatabaseQuery permission machinery and is therefore treated as trusted.
-	"""
-
-	def __init__(self, sql: str):
-		self.sql = sql
-
-	def get_sql(self, **kwargs):
-		return self.sql
 
 
 def _criterion_for_leaf(doctype: str, leaf):
@@ -62,7 +59,6 @@ def _criterion_for_leaf(doctype: str, leaf):
 
 	if not isinstance(field, str) or "." in field:
 		raise ValueError("Legacy Query Builder OR compatibility requires root DocType fields")
-
 	if not isinstance(operator, str):
 		raise ValueError("Filter operator must be a string")
 
@@ -80,10 +76,8 @@ def _compile_logical_filters(doctype: str, filters):
 	"""Compile legacy-incompatible AND/OR filter lists into a native Criterion."""
 	if not isinstance(filters, list | tuple):
 		return filters
-
 	if not any(isinstance(item, str) and item.casefold() in {"and", "or"} for item in filters):
 		return filters
-
 	if not filters:
 		return None
 
@@ -110,18 +104,8 @@ def _compile_logical_filters(doctype: str, filters):
 	return criteria[0]
 
 
-def _get_permission_condition(doctype: str, user: str) -> str:
-	"""Build Frappe's v15 row-level permission condition without executing a query."""
-	from frappe.model.db_query import DatabaseQuery
-
-	permission_query = DatabaseQuery(doctype, user=user)
-	permission_query.flags.ignore_permissions = False
-	permission_query.reference_doctype = doctype
-	return permission_query.build_match_conditions()
-
-
 def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
-	"""Execute through native Query Builder with the smallest compatibility shim."""
+	"""Execute via native Query Builder; never emulate missing permission semantics."""
 	query_kwargs = dict(kwargs)
 
 	if not QUERY_CAPABILITIES.supports_logical_filter_groups:
@@ -131,21 +115,18 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 		):
 			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
 
+	if not QUERY_CAPABILITIES.supports_ignore_permissions and not ignore_permissions:
+		# A DocType-level check or a manually attached row predicate cannot establish
+		# parity with Frappe's permission semantics (User Permissions, shares, ownership,
+		# permission query hooks, and field-level restrictions). Do not return data.
+		raise frappe.ValidationError(
+			"Fetch Records cannot safely enforce query permissions on this Frappe version. "
+			"Upgrade to a version with native Query Builder ignore_permissions support, "
+			"or explicitly authorize this action to ignore permissions."
+		)
+
 	if QUERY_CAPABILITIES.supports_ignore_permissions:
 		query_kwargs["ignore_permissions"] = ignore_permissions
-		query = frappe.qb.get_query(doctype, **query_kwargs)
-	else:
-		query = frappe.qb.get_query(doctype, **query_kwargs)
-		if not ignore_permissions:
-			user = frappe.session.user
-			try:
-				Permission.check_permissions(query, user=user)
-			except frappe.ValidationError as e:
-				if "Insufficient Permission" in str(e):
-					raise frappe.PermissionError(e)
-				raise
-			permission_condition = _get_permission_condition(doctype, user)
-			if permission_condition:
-				query = query.where(_TrustedSQLCriterion(permission_condition))
 
+	query = frappe.qb.get_query(doctype, **query_kwargs)
 	return query.run(as_dict=True)
