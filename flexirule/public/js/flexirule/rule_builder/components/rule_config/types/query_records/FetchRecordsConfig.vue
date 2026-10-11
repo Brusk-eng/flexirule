@@ -62,7 +62,10 @@
 			</div>
 		</div>
 
-		<div v-if="isCustomResultShape(localConfig.result_shape)" class="sub-section section-subcard">
+		<div
+			v-if="isCustomResultShape(localConfig.result_shape)"
+			class="sub-section section-subcard"
+		>
 			<div class="section-heading">
 				<div>
 					<h6>{{ __("2. Output Fields") }}</h6>
@@ -217,9 +220,13 @@ function getEditableFieldDraft(value) {
 
 const customFieldsDraft = ref({
 	selected_fields:
-		localConfig.result_shape === "selected_fields" ? getEditableFieldDraft(localConfig.fields) : [],
+		localConfig.result_shape === "selected_fields"
+			? getEditableFieldDraft(localConfig.fields)
+			: [],
 	embedded_children:
-		localConfig.result_shape === "embedded_children" ? getEditableFieldDraft(localConfig.fields) : [],
+		localConfig.result_shape === "embedded_children"
+			? getEditableFieldDraft(localConfig.fields)
+			: [],
 });
 const resultShapes = [
 	{
@@ -288,8 +295,8 @@ function normalizeConfig(value) {
 			typeof source.fields === "string"
 				? source.fields
 				: Array.isArray(source.fields)
-					? source.fields
-					: [],
+				? source.fields
+				: [],
 		result_shape: inferResultShape(source.fields, source.result_shape),
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",
@@ -366,7 +373,9 @@ function updateConfig(key, value) {
 function selectResultShape(shape) {
 	if (props.readOnly || shape === localConfig.result_shape) return;
 	if (isCustomResultShape(localConfig.result_shape)) {
-		customFieldsDraft.value[localConfig.result_shape] = getEditableFieldDraft(localConfig.fields);
+		customFieldsDraft.value[localConfig.result_shape] = getEditableFieldDraft(
+			localConfig.fields
+		);
 	}
 
 	localConfig.result_shape = shape;
