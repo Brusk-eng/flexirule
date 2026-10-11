@@ -135,11 +135,11 @@ jobs:
                   set -e
                   npx --no-install eslint --ext .js,.vue flexirule/public/js
 
-                  cd flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters
-                  node --input-type=module < query_filter_serializer.test.js
+                  npx --no-install esbuild flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/query_filter_serializer.test.js --bundle --platform=node --format=esm --outfile=/tmp/query-filter-serializer.test.mjs
+                  node /tmp/query-filter-serializer.test.mjs
 
-                  cd ../types/query_records
-                  node --input-type=module < output_fields_model.test.js
+                  npx --no-install esbuild flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_fields_model.test.js --bundle --platform=node --format=esm --outfile=/tmp/output-fields-model.test.mjs
+                  node /tmp/output-fields-model.test.mjs
 
     tests:
         needs: changes
