@@ -445,9 +445,9 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 					{"roles": ["role", "parent"]},
 				],
 				"filters": [
-					["User", "enabled", "=", 1],
+					["enabled", "=", 1],
 					"or",
-					["User", "email", "like", "%@example.com"],
+					["email", "like", "%@example.com"],
 				],
 				"order_by": "modified desc",
 				"group_by": "enabled",
