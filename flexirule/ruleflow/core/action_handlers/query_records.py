@@ -723,6 +723,10 @@ class QueryRecordsHandler(ActionHandler):
 					value = self._normalize_filters_for_backend(value, reference_doctype)
 			kwargs[key] = value
 
+		# Frappe v15's Query Builder has no implicit result-page default. Always
+		# cap queries even when the user leaves Limit blank.
+		kwargs.setdefault("limit", self.MAX_FETCH_RECORDS_LIMIT)
+
 		# Validate the fully resolved payload, not only draft values in the UI.
 		validation_config = {
 			"fields": kwargs.get("fields"),
