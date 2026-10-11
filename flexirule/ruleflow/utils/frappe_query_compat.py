@@ -34,11 +34,17 @@ def detect_query_capabilities() -> FrappeQueryCapabilities:
 	except (OSError, TypeError, ValueError):
 		source = ""
 
+	# v15 applies filter rows independently; v16 parses nested logical groups
+	# directly inside apply_filters. Recognize both documented source shapes, and
+	# fall back to our compatibility compiler when neither can be verified.
+	supports_nested_filters = (
+		("_parse_nested_filters" in source and "_condition_to_criterion" in source)
+		or ("is_nested_structure" in source and "potential_nested_list" in source)
+	)
+
 	return FrappeQueryCapabilities(
 		supports_ignore_permissions="ignore_permissions" in parameters,
-		supports_logical_filter_groups=(
-			"_parse_nested_filters" in source and "_condition_to_criterion" in source
-		),
+		supports_logical_filter_groups=supports_nested_filters,
 	)
 
 
