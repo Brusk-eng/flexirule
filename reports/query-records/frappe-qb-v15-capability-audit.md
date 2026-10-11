@@ -230,3 +230,8 @@ The server CI log for the review-fix branch shows:
 Root cause: this test intends to assert the native frappe.qb.get_query payload, but it relied on environment-derived capability detection. On the Frappe v15 CI environment, native ignore_permissions support is absent, so the compatibility layer correctly chose the permission-aware frappe.get_list fallback. The test had mocked QB only, not the fallback path, and therefore unintentionally touched database metadata.
 
 Remediation pushed: the test now stubs QUERY_CAPABILITIES to represent the native-capability scenario and asserts the ignore_permissions=False argument explicitly. Separate compatibility tests continue to cover the v15 fallback. This is intended to make the test deterministic across Frappe versions without weakening production permission handling. Do not mark this item complete until the updated CI rerun passes.
+
+
+## 17. Latest CI Rerun: Normalized Filter Payload Assertion (2026-10-11)
+
+After isolating native capability detection in the delegation test, the latest server log reports one assertion failure (543 tests, two skipped). The test expected root-DocType filters to retain the `User` prefix, but the handler normalizes those filters to root-relative three-item leaves before calling `frappe.qb.get_query`. Updated the expected payload to the observed normalized contract; no production query behavior was changed. The new CI run must pass before the issue is considered verified.
