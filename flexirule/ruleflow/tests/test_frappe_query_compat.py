@@ -24,11 +24,11 @@ class TestFrappeQueryCompat(FrappeTestCase):
 	def test_capability_detection_tolerates_uninspectable_engine(self):
 		with patch(
 			"flexirule.ruleflow.utils.frappe_query_compat.signature",
-			side_effect=ValueError("signature unavailable"),
+			side_effect=RuntimeError("signature unavailable"),
 		):
 			with patch(
 				"flexirule.ruleflow.utils.frappe_query_compat.getsource",
-				side_effect=OSError("source unavailable"),
+				side_effect=RuntimeError("source unavailable"),
 			):
 				capabilities = detect_query_capabilities()
 
