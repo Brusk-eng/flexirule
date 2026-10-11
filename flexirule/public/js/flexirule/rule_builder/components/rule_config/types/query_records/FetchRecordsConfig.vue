@@ -26,21 +26,70 @@
 		</div>
 
 		<div class="sub-section section-subcard">
-			<h6>{{ __("Fields") }}</h6>
-			<MultiSelectList
-				:df="{
-					label: '',
-					fieldname: 'fields',
-					placeholder: __('Select fields to fetch...'),
-				}"
-				:options="navigableFields.currentFields.value"
+			<div class="section-heading result-shape-heading">
+				<div>
+					<h6>{{ __("1. Result shape") }}</h6>
+					<p class="section-description">
+						{{
+							__(
+								"Choose the structure returned by Fetch Records. Output fields are configurable only for custom field shapes."
+							)
+						}}
+					</p>
+				</div>
+			</div>
+			<div class="result-shape-grid" role="group" :aria-label="__('Result shape')">
+				<button
+					v-for="shape in resultShapes"
+					:key="shape.value"
+					type="button"
+					class="result-shape-card"
+					:class="{ 'is-selected': localConfig.result_shape === shape.value }"
+					:aria-pressed="localConfig.result_shape === shape.value"
+					:disabled="readOnly"
+					@click="selectResultShape(shape.value)"
+				>
+					<span class="result-shape-icon"><i :class="shape.icon"></i></span>
+					<span class="result-shape-copy">
+						<strong>{{ shape.label }}</strong>
+						<small>{{ shape.description }}</small>
+					</span>
+					<i
+						v-if="localConfig.result_shape === shape.value"
+						class="fa fa-check-circle result-shape-check"
+					></i>
+				</button>
+			</div>
+		</div>
+
+		<div
+			v-if="isCustomResultShape(localConfig.result_shape)"
+			class="sub-section section-subcard"
+		>
+			<div class="section-heading">
+				<div>
+					<h6>{{ __("2. Output Fields") }}</h6>
+					<p class="section-description">
+						{{
+							__(
+								"Each row defines one output value. Fields, aliases, aggregate functions, and nested child selections are serialized into Frappe Query Builder field syntax."
+							)
+						}}
+					</p>
+				</div>
+				<span class="output-fields-badge">{{ __("Syntax-aware editor") }}</span>
+			</div>
+			<OutputFieldsEditor
+				ref="outputFieldsRef"
+				:doctype="doctype"
 				:modelValue="localConfig.fields || []"
-				:read_only="readOnly"
-				:hideLabel="true"
+				:shape="localConfig.result_shape"
+				:groupBy="localConfig.group_by"
+				:readOnly="readOnly"
+				:showValidation="showValidation"
 				@update:modelValue="updateConfig('fields', $event)"
 			/>
 		</div>
-
 		<div class="sub-section section-subcard">
 			<h6>{{ __("Order By") }}</h6>
 			<div class="table-rows">
@@ -137,9 +186,15 @@
 import { computed, reactive, ref, watch } from "vue";
 import ControlFactory from "../../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../../controls/ComboBoxControl.vue";
-import MultiSelectList from "../../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../../composables/useNavigableFields";
 import QueryFilterTree from "../../query_filters/QueryFilterTree.vue";
+import OutputFieldsEditor from "./OutputFieldsEditor.vue";
+import {
+	inferResultShape,
+	isCustomResultShape,
+	parseOutputFields,
+	serializeOutputFields,
+} from "./output_fields_model.js";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
@@ -154,6 +209,51 @@ const emit = defineEmits(["update:modelValue", "change"]);
 const filterTreeRef = ref(null);
 
 const localConfig = reactive(normalizeConfig(props.modelValue));
+const outputFieldsRef = ref(null);
+function getEditableFieldDraft(value) {
+	if (Array.isArray(value)) return clone(value);
+	if (typeof value === "string" && value.trim() && value.trim() !== "*") {
+		return serializeOutputFields(parseOutputFields(value));
+	}
+	return [];
+}
+
+const customFieldsDraft = ref({
+	selected_fields:
+		localConfig.result_shape === "selected_fields"
+			? getEditableFieldDraft(localConfig.fields)
+			: [],
+	embedded_children:
+		localConfig.result_shape === "embedded_children"
+			? getEditableFieldDraft(localConfig.fields)
+			: [],
+});
+const resultShapes = [
+	{
+		value: "document_names",
+		label: __("Document names"),
+		description: __("One name field per result row"),
+		icon: "fa fa-list-ol",
+	},
+	{
+		value: "whole_documents",
+		label: __("Whole documents"),
+		description: __("All parent DocType fields"),
+		icon: "fa fa-file-text-o",
+	},
+	{
+		value: "selected_fields",
+		label: __("Selected fields"),
+		description: __("Choose fields, aliases, and supported functions"),
+		icon: "fa fa-columns",
+	},
+	{
+		value: "embedded_children",
+		label: __("Embedded children"),
+		description: __("Return selected child fields as nested arrays"),
+		icon: "fa fa-sitemap",
+	},
+];
 const orderRows = ref(parseOrderBy(localConfig.order_by));
 const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
@@ -191,7 +291,13 @@ function normalizeConfig(value) {
 	return {
 		...source,
 		filters: source.filters || [],
-		fields: Array.isArray(source.fields) ? source.fields : [],
+		fields:
+			typeof source.fields === "string"
+				? source.fields
+				: Array.isArray(source.fields)
+				? source.fields
+				: [],
+		result_shape: inferResultShape(source.fields, source.result_shape),
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",
 		limit: source.limit ?? "",
@@ -258,6 +364,31 @@ function getGroupByOptions() {
 
 function updateConfig(key, value) {
 	localConfig[key] = clone(value);
+	if (key === "fields" && isCustomResultShape(localConfig.result_shape)) {
+		customFieldsDraft.value[localConfig.result_shape] = getEditableFieldDraft(value);
+	}
+	emitConfig();
+}
+
+function selectResultShape(shape) {
+	if (props.readOnly || shape === localConfig.result_shape) return;
+	if (isCustomResultShape(localConfig.result_shape)) {
+		customFieldsDraft.value[localConfig.result_shape] = getEditableFieldDraft(
+			localConfig.fields
+		);
+	}
+
+	localConfig.result_shape = shape;
+	if (shape === "document_names") {
+		localConfig.fields = ["name"];
+	} else if (shape === "whole_documents") {
+		localConfig.fields = "*";
+	} else {
+		const draft = customFieldsDraft.value[shape];
+		localConfig.fields = Array.isArray(draft) ? clone(draft) : [];
+		customFieldsDraft.value[shape] = clone(localConfig.fields);
+	}
+	// result_shape is UI metadata; the backend receives only the compiled fields argument.
 	emitConfig();
 }
 
@@ -290,6 +421,9 @@ watch(
 		Object.keys(localConfig).forEach((key) => delete localConfig[key]);
 		Object.assign(localConfig, next);
 		orderRows.value = parseOrderBy(next.order_by);
+		if (isCustomResultShape(next.result_shape)) {
+			customFieldsDraft.value[next.result_shape] = getEditableFieldDraft(next.fields);
+		}
 	},
 	{ deep: true }
 );
@@ -297,6 +431,10 @@ watch(
 async function validate() {
 	const result = (await filterTreeRef.value?.validate?.()) || { valid: true, errors: [] };
 	const errors = [...(result.errors || [])];
+	if (isCustomResultShape(localConfig.result_shape) && outputFieldsRef.value?.validate) {
+		const outputResult = await outputFieldsRef.value.validate();
+		if (!outputResult.valid) errors.push(...outputResult.errors);
+	}
 
 	for (const [label, value] of [
 		[__("Limit"), localConfig.limit],
@@ -322,6 +460,92 @@ defineExpose({ validate });
 </script>
 
 <style scoped>
+.result-shape-heading {
+	margin-bottom: var(--spacing-xs);
+}
+.result-shape-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--spacing-sm);
+}
+.result-shape-card {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-sm);
+	width: 100%;
+	min-width: 0;
+	min-height: 66px;
+	padding: var(--spacing-md);
+	text-align: left;
+	color: var(--fxr-text, var(--text-color));
+	background: var(--fxr-bg, var(--card-bg));
+	border: 1px solid var(--fxr-border, var(--border-color));
+	border-radius: var(--border-radius-md, 8px);
+	transition: border-color 120ms ease, background-color 120ms ease;
+}
+.result-shape-card:hover:not(:disabled) {
+	border-color: var(--fxr-accent, var(--primary));
+}
+.result-shape-card.is-selected {
+	border-color: var(--fxr-accent, var(--primary));
+	box-shadow: inset 0 0 0 1px var(--fxr-accent, var(--primary));
+	background: var(--fxr-bg-subtle, var(--control-bg));
+}
+.result-shape-card:disabled {
+	cursor: default;
+	opacity: 0.85;
+}
+.result-shape-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	flex: 0 0 auto;
+	color: var(--fxr-text-muted, var(--text-muted));
+}
+.result-shape-card.is-selected .result-shape-icon,
+.result-shape-check {
+	color: var(--fxr-accent, var(--primary));
+}
+.result-shape-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	min-width: 0;
+}
+.result-shape-copy strong {
+	font-size: var(--fxr-text-sm);
+	font-weight: 600;
+}
+.result-shape-copy small {
+	font-size: var(--fxr-text-xs);
+	color: var(--fxr-text-muted, var(--text-muted));
+	line-height: 1.4;
+}
+.result-shape-check {
+	margin-left: auto;
+	flex: 0 0 auto;
+	padding-top: 2px;
+}
+.output-fields-badge {
+	flex: 0 0 auto;
+	padding: 2px 7px;
+	border-radius: 999px;
+	background: var(--fxr-bg-subtle);
+	color: var(--fxr-text-muted);
+	font-size: var(--fxr-text-xs);
+	white-space: nowrap;
+}
+@media (max-width: 600px) {
+	.result-shape-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.output-fields-badge {
+		display: none;
+	}
+}
+
 .fetch-records-config {
 	display: flex;
 	flex-direction: column;
