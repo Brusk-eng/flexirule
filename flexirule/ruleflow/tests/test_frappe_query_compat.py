@@ -141,3 +141,28 @@ class TestFrappeQueryCompat(FrappeTestCase):
 
 		self.assertEqual(get_query.call_args.kwargs["limit"], 50)
 		self.assertEqual(get_query.call_args.kwargs["offset"], 100)
+
+	def test_literal_and_or_filter_value_is_not_treated_as_group_operator(self):
+		query = MagicMock()
+		query.run.return_value = []
+		filters = [
+			["enabled", "=", 1],
+			"and",
+			["email", "=", "or"],
+		]
+
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(
+				supports_ignore_permissions=False,
+				supports_logical_filter_groups=False,
+			),
+		):
+			with patch("frappe.qb.get_query", return_value=query) as get_query:
+				execute_query("User", {"filters": filters}, ignore_permissions=True)
+
+		compiled = get_query.call_args.kwargs["filters"]
+		sql = compiled.get_sql().upper()
+		self.assertIn(" AND ", sql)
+		self.assertNotIn(" OR ", sql)
+		self.assertIn("'OR'", sql)
