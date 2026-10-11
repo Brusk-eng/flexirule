@@ -25,13 +25,13 @@ def detect_query_capabilities() -> FrappeQueryCapabilities:
 	try:
 		get_query = getattr(Engine, "get_query", None)
 		parameters = signature(get_query).parameters if callable(get_query) else {}
-	except (AttributeError, TypeError, ValueError):
+	except Exception:
 		parameters = {}
 
 	try:
 		apply_filters = getattr(Engine, "apply_filters", None)
 		source = getsource(apply_filters) if callable(apply_filters) else ""
-	except (OSError, TypeError, ValueError):
+	except Exception:
 		source = ""
 
 	# v15 applies filter rows independently; v16 parses nested logical groups
