@@ -854,7 +854,11 @@ class QueryRecordsHandler(ActionHandler):
 					)
 			elif isinstance(field_expression, dict):
 				aggregate_key = next(
-					(key for key in field_expression if isinstance(key, str) and key.lower() in {"count", "sum", "avg", "min", "max"}),
+					(
+						key
+						for key in field_expression
+						if isinstance(key, str) and key.lower() in {"count", "sum", "avg", "min", "max"}
+					),
 					None,
 				)
 				if aggregate_key:
@@ -863,20 +867,23 @@ class QueryRecordsHandler(ActionHandler):
 						errors.append(_("Aggregate field is required"))
 					elif "." in aggregate_field:
 						errors.append(
-							_("Aggregate field '{0}' must be a root DocType field; child/link aggregates are unsupported").format(
-								aggregate_field
-							)
+							_(
+								"Aggregate field '{0}' must be a root DocType field; child/link aggregates are unsupported"
+							).format(aggregate_field)
 						)
 					elif self._is_plain_field_reference(aggregate_field) and not self._doctype_has_field(
 						reference_doctype, aggregate_field
 					):
 						errors.append(
-							_("Aggregate field '{0}' does not exist in {1}").format(aggregate_field, reference_doctype)
+							_("Aggregate field '{0}' does not exist in {1}").format(
+							aggregate_field, reference_doctype
+						)
 						)
 					continue
 				for table_field, child_fields in field_expression.items():
 					if table_field == "as" or (
-						isinstance(table_field, str) and table_field.lower() in {"count", "sum", "avg", "min", "max"}
+						isinstance(table_field, str)
+						and table_field.lower() in {"count", "sum", "avg", "min", "max"}
 					):
 						continue
 					try:
