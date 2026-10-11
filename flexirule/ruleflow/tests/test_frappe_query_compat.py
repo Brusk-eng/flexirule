@@ -175,3 +175,20 @@ class TestFrappeQueryCompat(FrappeTestCase):
 			capabilities = detect_query_capabilities()
 
 		self.assertTrue(capabilities.supports_logical_filter_groups)
+
+	def test_legacy_flat_single_leaf_is_wrapped_as_filter_row(self):
+		query = MagicMock()
+		query.run.return_value = []
+		filters = ["User", "email", "=", "test@example.com"]
+
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(
+				supports_ignore_permissions=False,
+				supports_logical_filter_groups=False,
+			),
+		):
+			with patch("frappe.qb.get_query", return_value=query) as get_query:
+				execute_query("User", {"filters": filters}, ignore_permissions=True)
+
+		self.assertEqual(get_query.call_args.kwargs["filters"], [filters])
