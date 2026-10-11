@@ -15,40 +15,115 @@
 					</div>
 				</div>
 				<div class="output-field-row-actions">
-					<button type="button" class="btn btn-xs btn-default" :disabled="readOnly || index === 0" :title="__('Move output field up')" :aria-label="__('Move output field up')" @click="moveRow(index, -1)">
+					<button
+						type="button"
+						class="btn btn-xs btn-default"
+						:disabled="readOnly || index === 0"
+						:title="__('Move output field up')"
+						:aria-label="__('Move output field up')"
+						@click="moveRow(index, -1)"
+					>
 						<i class="fa fa-arrow-up"></i>
 					</button>
-					<button type="button" class="btn btn-xs btn-default" :disabled="readOnly || index === rows.length - 1" :title="__('Move output field down')" :aria-label="__('Move output field down')" @click="moveRow(index, 1)">
+					<button
+						type="button"
+						class="btn btn-xs btn-default"
+						:disabled="readOnly || index === rows.length - 1"
+						:title="__('Move output field down')"
+						:aria-label="__('Move output field down')"
+						@click="moveRow(index, 1)"
+					>
 						<i class="fa fa-arrow-down"></i>
 					</button>
-					<button type="button" class="btn btn-xs btn-link text-danger" :disabled="readOnly" :title="__('Remove output field')" :aria-label="__('Remove output field')" @click="removeRow(index)">
+					<button
+						type="button"
+						class="btn btn-xs btn-link text-danger"
+						:disabled="readOnly"
+						:title="__('Remove output field')"
+						:aria-label="__('Remove output field')"
+						@click="removeRow(index)"
+					>
 						<i class="fa fa-trash"></i>
 					</button>
 				</div>
 			</div>
 
 			<div v-if="row.kind === 'field'" class="output-field-controls">
-				<OutputFieldPicker :doctype="doctype" :modelValue="row.field" :readOnly="readOnly" :label="__('Field')" @update:modelValue="updateRowValue(row, 'field', $event)" />
-				<input class="form-control output-field-alias" :value="row.alias" :disabled="readOnly" :placeholder="__('Output alias (optional)')" :aria-label="__('Output alias (optional)')" @input="updateRowValue(row, 'alias', $event.target.value)" />
+				<OutputFieldPicker
+					:doctype="doctype"
+					:modelValue="row.field"
+					:readOnly="readOnly"
+					:label="__('Field')"
+					@update:modelValue="updateRowValue(row, 'field', $event)"
+				/>
+				<input
+					class="form-control output-field-alias"
+					:value="row.alias"
+					:disabled="readOnly"
+					:placeholder="__('Output alias (optional)')"
+					:aria-label="__('Output alias (optional)' )"
+					@input="updateRowValue(row, 'alias', $event.target.value)"
+				/>
 			</div>
 
 			<div v-else-if="row.kind === 'function'" class="output-field-controls output-function-controls">
-				<select class="form-control output-function-select" :value="row.functionName" :disabled="readOnly" :aria-label="__('Aggregate function')" @change="updateRowValue(row, 'functionName', $event.target.value)">
-					<option v-for="fn in aggregateFunctions" :key="fn.value" :value="fn.value">{{ fn.label }}</option>
+				<select
+					class="form-control output-function-select"
+					:value="row.functionName"
+					:disabled="readOnly"
+					:aria-label="__('Aggregate function')"
+					@change="updateRowValue(row, 'functionName', $event.target.value)"
+				>
+					<option
+						v-for="fn in aggregateFunctions"
+						:key="fn.value"
+						:value="fn.value"
+					>
+						{{ fn.label }}
+					</option>
 				</select>
-				<OutputFieldPicker :doctype="doctype" :modelValue="row.field" :readOnly="readOnly" :rootOnly="true" :label="__('Source field')" @update:modelValue="updateRowValue(row, 'field', $event)" />
-				<input class="form-control output-field-alias" :value="row.alias" :disabled="readOnly" :placeholder="__('Required output alias')" :aria-label="__('Required output alias')" @input="updateRowValue(row, 'alias', $event.target.value)" />
+				<OutputFieldPicker
+					:doctype="doctype"
+					:modelValue="row.field"
+					:readOnly="readOnly"
+					:rootOnly="true"
+					:label="__('Source field')"
+					@update:modelValue="updateRowValue(row, 'field', $event)"
+				/>
+				<input
+					class="form-control output-field-alias"
+					:value="row.alias"
+					:disabled="readOnly"
+					:placeholder="__('Required output alias')"
+					:aria-label="__('Required output alias')"
+					@input="updateRowValue(row, 'alias', $event.target.value)"
+				/>
 			</div>
 
 			<div v-else-if="row.kind === 'child'" class="output-child-controls">
 				<label class="output-field-label">{{ __("Child table") }}</label>
-				<select class="form-control" :value="row.tableField" :disabled="readOnly" @change="changeChildTable(row, $event.target.value)">
+				<select
+					class="form-control"
+					:value="row.tableField"
+					:disabled="readOnly"
+					@change="changeChildTable(row, $event.target.value)"
+				>
 					<option value="">{{ __("Select a child table...") }}</option>
-					<option v-for="option in childTableOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+					<option
+						v-for="option in childTableOptions"
+						:key="option.value"
+						:value="option.value"
+					>
+						{{ option.label }}
+					</option>
 				</select>
 				<label class="output-field-label">{{ __("Child fields") }}</label>
 				<MultiSelectList
-					:df="{ label: '', fieldname: 'child_fields', placeholder: __('Select child fields...') }"
+					:df="{
+						label: '',
+						fieldname: 'child_fields',
+						placeholder: __('Select child fields...'),
+					}"
 					:options="row.childFieldOptions || []"
 					:modelValue="row.fields || []"
 					:read_only="readOnly || !row.tableField"
@@ -58,25 +133,62 @@
 			</div>
 
 			<div v-else class="output-field-controls">
-				<textarea class="form-control output-field-raw" :value="row.expression" :disabled="readOnly" :placeholder="__('Advanced native field expression or JSON field descriptor')" :aria-label="__('Advanced native field expression or JSON field descriptor')" rows="2" @input="updateRaw(row, $event.target.value)"></textarea>
+				<textarea
+					class="form-control output-field-raw"
+					:value="row.expression"
+					:disabled="readOnly"
+					:placeholder="__('Advanced native field expression or JSON field descriptor')"
+					:aria-label="__('Advanced native field expression or JSON field descriptor')"
+					rows="2"
+					@input="updateRaw(row, $event.target.value)"
+				></textarea>
 			</div>
 		</div>
 
-		<div class="output-fields-add-actions" v-if="!readOnly">
-			<button type="button" class="btn btn-xs btn-link p-0 text-primary" @click="addField"><i class="fa fa-plus-circle mr-1"></i>{{ __("Add output field") }}</button>
-			<button type="button" class="btn btn-xs btn-link p-0 text-primary" @click="addFunction"><i class="fa fa-calculator mr-1"></i>{{ __("Add aggregate function") }}</button>
-			<button v-if="shape === 'embedded_children'" type="button" class="btn btn-xs btn-link p-0 text-primary" @click="addChild"><i class="fa fa-sitemap mr-1"></i>{{ __("Add embedded child selection") }}</button>
+		<div v-if="!readOnly" class="output-fields-add-actions">
+			<button
+				type="button"
+				class="btn btn-xs btn-link p-0 text-primary"
+				@click="addField"
+			>
+				<i class="fa fa-plus-circle mr-1"></i>{{ __("Add output field") }}
+			</button>
+			<button
+				type="button"
+				class="btn btn-xs btn-link p-0 text-primary"
+				@click="addFunction"
+			>
+				<i class="fa fa-calculator mr-1"></i>{{ __("Add aggregate function") }}
+			</button>
+			<button
+				v-if="shape === 'embedded_children'"
+				type="button"
+				class="btn btn-xs btn-link p-0 text-primary"
+				@click="addChild"
+			>
+				<i class="fa fa-sitemap mr-1"></i>{{ __("Add embedded child selection") }}
+			</button>
 		</div>
 
 		<p v-if="shape === 'embedded_children'" class="output-fields-hint">
-			{{ __("Child selections are serialized as nested arrays. Use dotted child paths only when you intentionally want flat joined rows.") }}
+			{{
+				__(
+					"Child selections are serialized as nested arrays. Use dotted child paths only when you intentionally want flat joined rows."
+				)
+			}}
 		</p>
 		<p class="output-fields-hint">
-			{{ __("Function expressions use native Frappe field syntax. Aggregate functions over child/link paths are not supported by the current backend contract.") }}
+			{{
+				__(
+					"Function expressions use native Frappe field syntax. Aggregate functions over child/link paths are not supported by the current backend contract."
+				)
+			}}
 		</p>
 
 		<div v-if="showValidation && validationErrors.length" class="output-fields-errors">
-			<div v-for="error in validationErrors" :key="error"><i class="fa fa-exclamation-circle mr-1"></i>{{ error }}</div>
+			<div v-for="error in validationErrors" :key="error">
+				<i class="fa fa-exclamation-circle mr-1"></i>{{ error }}
+			</div>
 		</div>
 	</div>
 </template>
@@ -102,9 +214,14 @@ const props = defineProps({
 });
 const emit = defineEmits(["update:modelValue"]);
 const metaStore = useMetaStore();
-const rows = ref(parseOutputFields(props.modelValue).map((row) => ({ ...row, childFieldOptions: [] })));
+const rows = ref(
+	parseOutputFields(props.modelValue).map((row) => ({ ...row, childFieldOptions: [] }))
+);
 const validationErrors = ref([]);
-const aggregateFunctions = AGGREGATE_FUNCTIONS.map((value) => ({ value, label: value.toUpperCase() }));
+const aggregateFunctions = AGGREGATE_FUNCTIONS.map((value) => ({
+	value,
+	label: value.toUpperCase(),
+}));
 
 const parentFields = computed(() => metaStore.doc_meta[props.doctype] || []);
 const childTableOptions = computed(() =>
@@ -120,53 +237,96 @@ const childTableOptions = computed(() =>
 function newId() {
 	return "output-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
+
 function rowTitle(row) {
 	if (row.kind === "field") return row.alias || row.field || __("Output field");
-	if (row.kind === "function") return (row.functionName || "count").toUpperCase() + "(" + (row.field || "?") + ")" + (row.alias ? " as " + row.alias : "");
+	if (row.kind === "function") {
+		return (
+			(row.functionName || "count").toUpperCase() +
+			"(" +
+			(row.field || "?") +
+			")" +
+			(row.alias ? " as " + row.alias : "")
+		);
+	}
 	if (row.kind === "child") return row.tableField || __("Embedded child selection");
 	return __("Advanced field expression");
 }
+
 function rowDescription(row) {
-	if (row.kind === "field") return row.field ? __("Field") + " · " + row.field : __("Choose the field to return");
+	if (row.kind === "field") {
+		return row.field ? __("Field") + " · " + row.field : __("Choose the field to return");
+	}
 	if (row.kind === "function") return __("Aggregate function") + (row.alias ? " · " + row.alias : "");
-	if (row.kind === "child") return __("Nested child array") + " · " + (row.fields || []).length + " " + __("selected fields");
+	if (row.kind === "child") {
+		return __("Nested child array") + " · " + (row.fields || []).length + " " + __("selected fields");
+	}
 	return __("Native field syntax is preserved until you edit this expression");
 }
+
 function emitRows() {
 	validationErrors.value = [];
 	emit("update:modelValue", serializeOutputFields(rows.value));
 }
+
 function updateRowValue(row, key, value) {
 	if (props.readOnly) return;
 	row[key] = value;
 	emitRows();
 }
+
 function updateRaw(row, value) {
 	if (props.readOnly) return;
 	row.expression = value;
 	row.dirty = true;
 	emitRows();
 }
+
 function addField() {
 	if (props.readOnly) return;
-	rows.value.push({ id: newId(), kind: "field", field: "", alias: "", fields: [], childFieldOptions: [] });
+	rows.value.push({
+		id: newId(),
+		kind: "field",
+		field: "",
+		alias: "",
+		fields: [],
+		childFieldOptions: [],
+	});
 	emitRows();
 }
+
 function addFunction() {
 	if (props.readOnly) return;
-	rows.value.push({ id: newId(), kind: "function", functionName: "count", field: "", alias: "", fields: [], childFieldOptions: [] });
+	rows.value.push({
+		id: newId(),
+		kind: "function",
+		functionName: "count",
+		field: "",
+		alias: "",
+		fields: [],
+		childFieldOptions: [],
+	});
 	emitRows();
 }
+
 function addChild() {
 	if (props.readOnly) return;
-	rows.value.push({ id: newId(), kind: "child", tableField: "", fields: [], childFieldOptions: [] });
+	rows.value.push({
+		id: newId(),
+		kind: "child",
+		tableField: "",
+		fields: [],
+		childFieldOptions: [],
+	});
 	emitRows();
 }
+
 function removeRow(index) {
 	if (props.readOnly) return;
 	rows.value.splice(index, 1);
 	emitRows();
 }
+
 function moveRow(index, direction) {
 	if (props.readOnly) return;
 	const nextIndex = index + direction;
@@ -175,6 +335,7 @@ function moveRow(index, direction) {
 	rows.value.splice(nextIndex, 0, row);
 	emitRows();
 }
+
 async function loadChildFieldOptions(row, filterExisting = false) {
 	const option = childTableOptions.value.find((item) => item.value === row.tableField);
 	if (!option) {
@@ -199,6 +360,7 @@ async function loadChildFieldOptions(row, filterExisting = false) {
 		row.childFieldOptions = [];
 	}
 }
+
 async function refreshMetadata() {
 	if (!props.doctype) return;
 	try {
@@ -210,6 +372,7 @@ async function refreshMetadata() {
 		console.warn("OutputFieldsEditor: failed to load DocType fields", error);
 	}
 }
+
 async function changeChildTable(row, tableField) {
 	if (props.readOnly) return;
 	row.tableField = tableField;
@@ -217,6 +380,7 @@ async function changeChildTable(row, tableField) {
 	await loadChildFieldOptions(row);
 	emitRows();
 }
+
 async function validate() {
 	const errors = validateOutputFields(rows.value, props.shape);
 	for (const row of rows.value) {
@@ -226,7 +390,9 @@ async function validate() {
 			continue;
 		}
 		if (row.fields.some((field) => !row.childFieldOptions.some((option) => option.value === field))) {
-			errors.push("Child selection contains a field that is not available in the selected child DocType.");
+			errors.push(
+				"Child selection contains a field that is not available in the selected child DocType."
+			);
 		}
 	}
 	validationErrors.value = errors;

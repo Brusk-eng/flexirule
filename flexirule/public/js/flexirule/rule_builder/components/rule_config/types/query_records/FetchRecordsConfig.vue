@@ -30,7 +30,11 @@
 				<div>
 					<h6>{{ __("1. Result shape") }}</h6>
 					<p class="section-description">
-						{{ __("Choose the structure returned by Fetch Records. Output fields are configurable only for custom field shapes.") }}
+						{{
+							__(
+								"Choose the structure returned by Fetch Records. Output fields are configurable only for custom field shapes."
+							)
+						}}
 					</p>
 				</div>
 			</div>
@@ -50,7 +54,10 @@
 						<strong>{{ shape.label }}</strong>
 						<small>{{ shape.description }}</small>
 					</span>
-					<i v-if="localConfig.result_shape === shape.value" class="fa fa-check-circle result-shape-check"></i>
+					<i
+						v-if="localConfig.result_shape === shape.value"
+						class="fa fa-check-circle result-shape-check"
+					></i>
 				</button>
 			</div>
 		</div>
@@ -60,7 +67,11 @@
 				<div>
 					<h6>{{ __("2. Output Fields") }}</h6>
 					<p class="section-description">
-						{{ __("Each row defines one output value. Fields, aliases, aggregate functions, and nested child selections are serialized into Frappe Query Builder field syntax.") }}
+						{{
+							__(
+								"Each row defines one output value. Fields, aliases, aggregate functions, and nested child selections are serialized into Frappe Query Builder field syntax."
+							)
+						}}
 					</p>
 				</div>
 				<span class="output-fields-badge">{{ __("Syntax-aware editor") }}</span>
@@ -204,14 +215,36 @@ function getEditableFieldDraft(value) {
 }
 
 const customFieldsDraft = ref({
-	selected_fields: localConfig.result_shape === "selected_fields" ? getEditableFieldDraft(localConfig.fields) : [],
-	embedded_children: localConfig.result_shape === "embedded_children" ? getEditableFieldDraft(localConfig.fields) : [],
+	selected_fields:
+		localConfig.result_shape === "selected_fields" ? getEditableFieldDraft(localConfig.fields) : [],
+	embedded_children:
+		localConfig.result_shape === "embedded_children" ? getEditableFieldDraft(localConfig.fields) : [],
 });
 const resultShapes = [
-	{ value: "document_names", label: __("Document names"), description: __("One name field per result row"), icon: "fa fa-list-ol" },
-	{ value: "whole_documents", label: __("Whole documents"), description: __("All parent DocType fields"), icon: "fa fa-file-text-o" },
-	{ value: "selected_fields", label: __("Selected fields"), description: __("Choose fields, aliases, and supported functions"), icon: "fa fa-columns" },
-	{ value: "embedded_children", label: __("Embedded children"), description: __("Return selected child fields as nested arrays"), icon: "fa fa-sitemap" },
+	{
+		value: "document_names",
+		label: __("Document names"),
+		description: __("One name field per result row"),
+		icon: "fa fa-list-ol",
+	},
+	{
+		value: "whole_documents",
+		label: __("Whole documents"),
+		description: __("All parent DocType fields"),
+		icon: "fa fa-file-text-o",
+	},
+	{
+		value: "selected_fields",
+		label: __("Selected fields"),
+		description: __("Choose fields, aliases, and supported functions"),
+		icon: "fa fa-columns",
+	},
+	{
+		value: "embedded_children",
+		label: __("Embedded children"),
+		description: __("Return selected child fields as nested arrays"),
+		icon: "fa fa-sitemap",
+	},
 ];
 const orderRows = ref(parseOrderBy(localConfig.order_by));
 const navigableFields = useNavigableFields(
@@ -250,7 +283,12 @@ function normalizeConfig(value) {
 	return {
 		...source,
 		filters: source.filters || [],
-		fields: typeof source.fields === "string" ? source.fields : Array.isArray(source.fields) ? source.fields : [],
+		fields:
+			typeof source.fields === "string"
+				? source.fields
+				: Array.isArray(source.fields)
+					? source.fields
+					: [],
 		result_shape: inferResultShape(source.fields, source.result_shape),
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",

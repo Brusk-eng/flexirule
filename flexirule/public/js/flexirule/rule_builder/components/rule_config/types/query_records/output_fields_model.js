@@ -65,7 +65,9 @@ function createRow(kind, index, values = {}) {
 function parseTextField(value, index) {
 	const raw = String(value ?? "").trim();
 	const withAlias = parseAlias(raw);
-	const functionMatch = withAlias.expression.match(/^(count|sum|avg|min|max)\s*\(\s*([^)]+?)\s*\)$/i);
+	const functionMatch = withAlias.expression.match(
+		/^(count|sum|avg|min|max)\s*\(\s*([^)]+?)\s*\)$/i
+	);
 	if (functionMatch) {
 		return createRow("function", index, {
 			functionName: functionMatch[1].toLowerCase(),
@@ -73,7 +75,10 @@ function parseTextField(value, index) {
 			alias: withAlias.alias,
 		});
 	}
-	if (raw === "" || /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(withAlias.expression)) {
+	if (
+		raw === "" ||
+		/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(withAlias.expression)
+	) {
 		return createRow("field", index, { field: withAlias.expression, alias: withAlias.alias });
 	}
 	return createRow("raw", index, { expression: raw, originalValue: raw });
@@ -174,7 +179,10 @@ export function validateOutputFields(rows, shape) {
 			const fieldPath = String(row.field ?? "").trim();
 			if (!fieldPath) errors.push(prefix + "select a field.");
 			else if (fieldPath.split(".").length > 2) {
-				errors.push(prefix + "Frappe v15 supports only one-level Link or child-table field paths in this selection.");
+				errors.push(
+					prefix +
+						"Frappe v15 supports only one-level Link or child-table field paths in this selection."
+				);
 			}
 		} else if (row.kind === "function") {
 			const fn = String(row.functionName ?? "").toLowerCase();
@@ -183,15 +191,23 @@ export function validateOutputFields(rows, shape) {
 			if (!AGGREGATE_SET.has(fn)) errors.push(prefix + "choose a supported function.");
 			if (!field) errors.push(prefix + "select a field for the function.");
 			else if (field.includes(".")) {
-				errors.push(prefix + "aggregate functions currently support root DocType fields only; child/link aggregates need backend support.");
+				errors.push(
+					prefix +
+						"aggregate functions currently support root DocType fields only; child/link aggregates need backend support."
+				);
 			}
 			if (!alias) errors.push(prefix + "enter an output alias for the function.");
 			else if (!ALIAS_PATTERN.test(alias)) {
-				errors.push(prefix + "alias must start with a letter or underscore and contain only letters, numbers, and underscores.");
+				errors.push(
+						prefix +
+							"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
+					);
 			}
 		} else if (row.kind === "child") {
 			if (!String(row.tableField ?? "").trim()) errors.push(prefix + "select a child table.");
-			if (!Array.isArray(row.fields) || !row.fields.length) errors.push(prefix + "select at least one child field.");
+			if (!Array.isArray(row.fields) || !row.fields.length) {
+				errors.push(prefix + "select at least one child field.");
+			}
 		} else if (row.kind === "raw" && !String(row.expression ?? "").trim()) {
 			errors.push(prefix + "enter a field expression.");
 		}
@@ -202,7 +218,7 @@ export function validateOutputFields(rows, shape) {
 					errors.push(prefix + "alias must start with a letter or underscore and contain only letters, numbers, and underscores.");
 				}
 			} else if (aliases.has(alias)) {
-				errors.push(prefix + "alias '" + alias + "' is already used.");
+				errors.push(prefix + "Alias '" + alias + "' is already used.");
 			} else {
 				aliases.add(alias);
 			}
