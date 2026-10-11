@@ -166,3 +166,12 @@ class TestFrappeQueryCompat(FrappeTestCase):
 		self.assertIn(" AND ", sql)
 		self.assertNotIn(" OR ", sql)
 		self.assertIn("'OR'", sql)
+
+	def test_capability_detection_recognizes_v16_nested_filter_parser(self):
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.getsource",
+			return_value="def apply_filters(): is_nested_structure = True; potential_nested_list = []",
+		):
+			capabilities = detect_query_capabilities()
+
+		self.assertTrue(capabilities.supports_logical_filter_groups)
