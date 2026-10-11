@@ -119,10 +119,9 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 		# A DocType-level check or a manually attached row predicate cannot establish
 		# parity with Frappe's permission semantics (User Permissions, shares, ownership,
 		# permission query hooks, and field-level restrictions). Do not return data.
-		raise frappe.ValidationError(
+		raise frappe.PermissionError(
 			"Fetch Records cannot safely enforce query permissions on this Frappe version. "
-			"Upgrade to a version with native Query Builder ignore_permissions support, "
-			"or explicitly authorize this action to ignore permissions."
+			"Upgrade to a version with native Query Builder permission support."
 		)
 
 	if QUERY_CAPABILITIES.supports_ignore_permissions:
