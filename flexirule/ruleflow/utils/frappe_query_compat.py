@@ -141,32 +141,53 @@ def _compile_logical_filters(doctype: str, filters):
 
 
 def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
-	"""Execute via native Query Builder; never emulate missing permission semantics."""
-	query_kwargs = dict(kwargs)
+	"""Execute with native Query Builder permissions or Frappe's permission-aware list API.
 
-	if not QUERY_CAPABILITIES.supports_logical_filter_groups:
-		filters = query_kwargs.get("filters")
-		# Frappe v15 treats a flat string/int list as a list of document names.
-		# Canonical leaf filters (field/operator/value or doctype/field/operator/value)
-		# must be wrapped so the engine receives one filter row.
+	Frappe v15's Query Builder does not expose permission application. In that
+	case, route ordinary filter queries through frappe.get_list/DatabaseQuery,
+	which applies doctype, row/user, share, query-hook, and field-level permissions.
+	Do not emulate those semantics with hand-built SQL predicates. Filters with
+	logical groups cannot be faithfully expressed by the v15 list API and fail
+	closed unless an explicitly authorized ignore_permissions override is active.
+	"""
+	query_kwargs = dict(kwargs)
+	filters = query_kwargs.get("filters")
+
+	if not QUERY_CAPABILITIES.supports_ignore_permissions and not ignore_permissions:
+		if isinstance(filters, Criterion) or _contains_logical_filter_groups(filters):
+			raise frappe.ValidationError(
+				"Fetch Records with nested AND/OR filter groups requires a Frappe version "
+				"whose Query Builder supports permission-aware logical filters. "
+			"Flatten the filters to AND-only conditions or upgrade Frappe."
+			)
+
+		# The DatabaseQuery-backed list API is Frappe's permission-aware query
+		# implementation on versions without Query Builder permission flags.
+		# It applies row/user permissions, shares, permission query hooks, and
+		# field-level read restrictions centrally.
+		list_kwargs = {
+			"fields": query_kwargs.get("fields") or ["name"],
+			"filters": filters,
+			"order_by": query_kwargs.get("order_by"),
+			"group_by": query_kwargs.get("group_by"),
+			"start": query_kwargs.get("offset", 0),
+			"page_length": query_kwargs.get("limit", 1000),
+			"distinct": query_kwargs.get("distinct", False),
+			"ignore_permissions": False,
+		}
+		# Legacy filters are expected as a list of rows; a flat 3/4-part
+		# leaf tuple is ambiguous to DatabaseQuery and must be wrapped.
 		if (
 			_is_legacy_filter_leaf(filters)
 			and len(filters) in (3, 4)
 			and isinstance(filters[1 if len(filters) == 3 else 2], str)
 			and filters[1 if len(filters) == 3 else 2].casefold() in OPERATOR_MAP
 		):
-			query_kwargs["filters"] = [filters]
-		elif _contains_logical_filter_groups(filters):
-			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
+			list_kwargs["filters"] = [filters]
+		return frappe.get_list(doctype, **list_kwargs)
 
-	if not QUERY_CAPABILITIES.supports_ignore_permissions and not ignore_permissions:
-		# A DocType-level check or a manually attached row predicate cannot establish
-		# parity with Frappe's permission semantics (User Permissions, shares, ownership,
-		# permission query hooks, and field-level restrictions). Do not return data.
-		raise frappe.PermissionError(
-			"Fetch Records cannot safely enforce query permissions on this Frappe version. "
-			"Upgrade to a version with native Query Builder permission support."
-		)
+	if not QUERY_CAPABILITIES.supports_logical_filter_groups and _contains_logical_filter_groups(filters):
+		query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
 
 	if QUERY_CAPABILITIES.supports_ignore_permissions:
 		query_kwargs["ignore_permissions"] = ignore_permissions
