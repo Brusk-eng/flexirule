@@ -139,7 +139,9 @@ def _permission_filter_clauses(filters):
 	for child in children:
 		child_and, child_or, child_has_or = _permission_filter_clauses(child)
 		if child_has_or and has_or_group:
-			raise ValueError("Only one OR filter group can be used with permission-aware queries on Frappe v15")
+			raise ValueError(
+				"Only one OR filter group can be used with permission-aware queries on Frappe v15"
+			)
 		and_filters.extend(child_and)
 		if child_has_or:
 			or_filters = child_or
