@@ -266,7 +266,7 @@ const limitField = computed(() => ({
 	label: __("Limit"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __("Maximum number of records to return. Leave blank for the framework default."),
+	description: __("Maximum 1000 records. Leave blank to use the framework default."),
 }));
 
 const offsetField = computed(() => ({
@@ -275,7 +275,7 @@ const offsetField = computed(() => ({
 	label: __("Offset"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __("Number of matching records to skip."),
+	description: __("Number of matching records to skip (maximum 100,000)."),
 }));
 
 const distinctField = computed(() => ({
@@ -450,6 +450,11 @@ async function validate() {
 		const parsed = Number(value);
 		if (!Number.isInteger(parsed) || parsed < 0) {
 			errors.push(__("{0} must be a non-negative integer.").format(label));
+			continue;
+		}
+		const maximum = label === __("Limit") ? 1000 : 100000;
+		if (parsed > maximum) {
+			errors.push(__("{0} cannot exceed {1}.").format(label, maximum));
 		}
 	}
 
