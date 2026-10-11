@@ -67,7 +67,10 @@ class TestFrappeQueryCompat(FrappeTestCase):
 		self.assertEqual(get_query.call_args.kwargs["limit"], 10)
 		self.assertEqual(get_query.call_args.kwargs["offset"], 2)
 
-	def test_legacy_permission_path_fails_closed_before_query_execution(self):
+	def test_legacy_permission_path_uses_native_permission_aware_get_list(self):
+		rows = [{"name": "visible-user"}]
+		filters = [["email", "=", "visible@example.com"]]
+
 		with patch(
 			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
 			FrappeQueryCapabilities(
@@ -75,11 +78,41 @@ class TestFrappeQueryCompat(FrappeTestCase):
 				supports_logical_filter_groups=True,
 			),
 		):
-			with patch("frappe.qb.get_query") as get_query:
-				with self.assertRaises(frappe.PermissionError):
-					execute_query("User", {"fields": ["name"]}, ignore_permissions=False)
+			with patch("frappe.get_list", return_value=rows) as get_list:
+				with patch("frappe.qb.get_query") as get_query:
+					result = execute_query(
+						"User",
+						{"fields": ["name"], "filters": filters, "limit": 10, "offset": 2},
+						ignore_permissions=False,
+					)
 
+		self.assertEqual(result, rows)
+		get_list.assert_called_once_with(
+			"User",
+			fields=["name"],
+			filters=filters,
+			order_by=None,
+			group_by=None,
+			start=2,
+			page_length=10,
+			distinct=False,
+			ignore_permissions=False,
+		)
 		get_query.assert_not_called()
+
+	def test_legacy_permission_path_rejects_nested_groups_it_cannot_preserve(self):
+		filters = [["enabled", "=", 1], "or", ["email", "=", "visible@example.com"]]
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(
+				supports_ignore_permissions=False,
+				supports_logical_filter_groups=False,
+			),
+		):
+			with patch("frappe.get_list") as get_list:
+				with self.assertRaises(frappe.ValidationError):
+					execute_query("User", {"fields": ["name"], "filters": filters}, ignore_permissions=False)
+		get_list.assert_not_called()
 
 	def test_explicit_ignore_permissions_is_supported_on_legacy_query_api(self):
 		query = MagicMock()
