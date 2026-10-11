@@ -13,6 +13,7 @@ Modes:
 """
 
 import json
+import re
 from typing import Any, ClassVar
 
 import frappe
@@ -513,20 +514,12 @@ class QueryRecordsHandler(ActionHandler):
 			errors.extend(self._validate_canonical_fetch_filter_tree(filters))
 		for key in ("limit", "offset"):
 			value = config.get(key)
-			if value in (None, "") or (
-				isinstance(value, str) and (value.strip().startswith("{") or value.strip().startswith("@"))
-			):
-				continue
-			if not isinstance(value, str | int | float):
-				errors.append(_("{0} must be an integer").format(key.replace("_", " ").title()))
+			if value in (None, "") or self._is_deferred_query_value(value):
 				continue
 			try:
-				parsed = int(value)
-			except (TypeError, ValueError):
-				errors.append(_("{0} must be an integer").format(key.replace("_", " ").title()))
-				continue
-			if parsed < 0:
-				errors.append(_("{0} must be a non-negative integer").format(key.replace("_", " ").title()))
+				self._coerce_fetch_records_integer(value, key)
+			except ValueError as exc:
+				errors.append(str(exc))
 
 		distinct = config.get("distinct")
 		if distinct is not None and not isinstance(distinct, bool | int):
@@ -534,6 +527,9 @@ class QueryRecordsHandler(ActionHandler):
 				errors.append(_("Distinct must be a boolean value"))
 
 		return errors
+
+	MAX_FETCH_RECORDS_LIMIT: ClassVar[int] = 1000
+	MAX_FETCH_RECORDS_OFFSET: ClassVar[int] = 100_000
 
 	_FETCH_RECORDS_OPERATORS: ClassVar[set[str]] = {
 		"=",
@@ -558,6 +554,67 @@ class QueryRecordsHandler(ActionHandler):
 		"descendants of",
 		"ancestors of",
 	}
+
+	@staticmethod
+	def _is_deferred_query_value(value) -> bool:
+		if isinstance(value, dict):
+			return "mode" in value
+		if isinstance(value, str):
+			text = value.strip()
+			return text.startswith("{") or text.startswith("@")
+		return False
+
+	def _coerce_fetch_records_integer(self, value, key: str) -> int:
+		label = _("Limit") if key == "limit" else _("Offset")
+		if isinstance(value, bool):
+			raise ValueError(_("{0} must be an integer").format(label))
+		if isinstance(value, int):
+			parsed = value
+		elif isinstance(value, float) and value.is_integer():
+			parsed = int(value)
+		elif isinstance(value, str) and re.fullmatch(r"[+-]?\\d+", value.strip()):
+			parsed = int(value.strip())
+		else:
+			raise ValueError(_("{0} must be an integer").format(label))
+		if parsed < 0:
+			raise ValueError(_("{0} must be a non-negative integer").format(label))
+		maximum = self.MAX_FETCH_RECORDS_LIMIT if key == "limit" else self.MAX_FETCH_RECORDS_OFFSET
+		if parsed > maximum:
+			raise ValueError(_("{0} cannot exceed {1}").format(label, maximum))
+		return parsed
+
+	@staticmethod
+	def _split_fetch_field_expressions(value: str) -> list[str]:
+		"""Split field lists at top-level commas, preserving commas in function calls."""
+		parts = []
+		start = 0
+		depth = 0
+		quote = None
+		escaped = False
+		for index, char in enumerate(value):
+			if quote:
+				if escaped:
+					escaped = False
+				elif char == "\\\\":
+					escaped = True
+				elif char == quote:
+					quote = None
+				continue
+			if char in ("'", '"', "`"):
+				quote = char
+			elif char in "([{":
+				depth += 1
+			elif char in ")]}":
+				depth = max(0, depth - 1)
+			elif char == "," and depth == 0:
+				part = value[start:index].strip()
+				if part:
+					parts.append(part)
+				start = index + 1
+		last = value[start:].strip()
+		if last:
+			parts.append(last)
+		return parts
 
 	def _validate_canonical_fetch_filter_tree(self, node, path="filters") -> list[str]:
 		"""Validate Fetch Records' persisted tree contract; never accept legacy filter shapes."""
@@ -645,12 +702,28 @@ class QueryRecordsHandler(ActionHandler):
 			if value is None or value == "":
 				continue
 			value = resolve_payload(value, f"{action_label}.{key}")
+			if key in {"limit", "offset"}:
+				try:
+					value = self._coerce_fetch_records_integer(value, key)
+				except ValueError as exc:
+					frappe.throw(str(exc))
 			if key == "filters":
 				if self._is_canonical_filter_tree(value):
 					value = self._canonical_filter_tree_to_backend(value, reference_doctype)
 				elif isinstance(value, list | dict):
 					value = self._normalize_filters_for_backend(value, reference_doctype)
 			kwargs[key] = value
+
+		# Validate the fully resolved payload, not only draft values in the UI.
+		validation_config = {
+			"fields": kwargs.get("fields"),
+			"filters": kwargs.get("filters"),
+			"order_by": kwargs.get("order_by"),
+			"group_by": kwargs.get("group_by"),
+		}
+		validation_errors = self._validate_doctype_field_references(reference_doctype, validation_config)
+		if validation_errors:
+			frappe.throw("; ".join(validation_errors))
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
@@ -732,9 +805,44 @@ class QueryRecordsHandler(ActionHandler):
 		except Exception:
 			return [_("Reference DocType '{0}' does not exist").format(reference_doctype)]
 
-		for f in config.get("fields", []) or []:
-			if self._is_plain_field_reference(f) and not self._doctype_has_field(reference_doctype, f):
-				errors.append(_("Selected field '{0}' does not exist in {1}").format(f, reference_doctype))
+		fields = config.get("fields", []) or []
+		if isinstance(fields, str):
+			fields = [] if fields.strip() == "*" else self._split_fetch_field_expressions(fields)
+		for field_expression in fields:
+			if isinstance(field_expression, str):
+				field_source = re.split(r"\\s+as\\s+", field_expression.strip(), maxsplit=1, flags=re.IGNORECASE)[0]
+				aggregate = re.fullmatch(
+					r"(?:count|sum|avg|min|max)\\s*\\(\\s*([^)]+?)\\s*\\)",
+					field_source,
+					re.IGNORECASE,
+				)
+				field_reference = aggregate.group(1).strip() if aggregate else field_source
+				if self._is_plain_field_reference(field_reference) and not self._doctype_has_field(
+					reference_doctype, field_reference
+				):
+					errors.append(
+						_("Selected field '{0}' does not exist in {1}").format(field_reference, reference_doctype)
+					)
+			elif isinstance(field_expression, dict):
+				for table_field, child_fields in field_expression.items():
+					if table_field == "as":
+						continue
+					try:
+						table_df = frappe.get_meta(reference_doctype).get_field(table_field)
+					except Exception:
+						table_df = None
+					if not table_df or table_df.fieldtype not in {"Table", "Table MultiSelect"} or not table_df.options:
+						errors.append(_("Child-table field '{0}' does not exist in {1}").format(table_field, reference_doctype))
+						continue
+					for child_field in child_fields if isinstance(child_fields, list) else []:
+						if (
+							isinstance(child_field, str)
+							and self._is_plain_field_reference(child_field)
+							and not self._doctype_has_field(table_df.options, child_field)
+						):
+							errors.append(
+								_("Child field '{0}' does not exist in {1}").format(child_field, table_df.options)
+							)
 
 		for key in ("field", "group_by_field", "agg_field"):
 			val = config.get(key)
@@ -749,16 +857,33 @@ class QueryRecordsHandler(ActionHandler):
 					)
 				)
 
-		order_by = (config.get("order_by") or "").strip()
+		order_by = config.get("order_by") or ""
 		if order_by:
-			for part in [x.strip() for x in order_by.split(",") if x.strip()]:
-				field = part.split(" ")[0].strip()
-				if self._is_plain_field_reference(field) and not self._doctype_has_field(
-					reference_doctype, field
-				):
-					errors.append(
-						_("Order-by field '{0}' does not exist in {1}").format(field, reference_doctype)
-					)
+			if not isinstance(order_by, str):
+				errors.append(_("Order By must resolve to a string"))
+			else:
+				for part in self._split_fetch_field_expressions(order_by):
+					tokens = part.split()
+					field = tokens[0].strip() if tokens else ""
+					if self._is_plain_field_reference(field) and not self._doctype_has_field(
+						reference_doctype, field
+					):
+						errors.append(
+							_("Order-by field '{0}' does not exist in {1}").format(field, reference_doctype)
+						)
+
+		group_by = config.get("group_by") or ""
+		if group_by:
+			if not isinstance(group_by, str):
+				errors.append(_("Group By must resolve to a string"))
+			else:
+				for field in self._split_fetch_field_expressions(group_by):
+					if self._is_plain_field_reference(field) and not self._doctype_has_field(
+						reference_doctype, field
+					):
+						errors.append(
+							_("Group-by field '{0}' does not exist in {1}").format(field, reference_doctype)
+						)
 
 		errors.extend(self._validate_filter_fields(reference_doctype, config.get("filters")))
 		errors.extend(self._validate_filter_fields(reference_doctype, config.get("or_filters")))
