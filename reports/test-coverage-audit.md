@@ -40,3 +40,8 @@ A dedicated regression test module `flexirule/ruleflow/tests/test_audit_reproduc
 - [ ] Confirm all linter and frontend CI jobs pass for the same branch head.
 
 Do not convert the unchecked items to complete based only on the code change; the CI results for the new commit are the acceptance evidence.
+
+
+## 4. Latest CI Rerun: Native Payload Assertion (2026-10-11)
+
+The next server run still reports one failure among 543 tests (zero errors, one assertion failure, two skipped): `test_fetch_records_delegates_native_qb_payload_and_permissions`. The capability-isolation fix resolved the prior environment-dependent fallback path, exposing a stale expected payload in the same test. Fetch Records normalizes root-DocType filter leaves from four-item form `[doctype, field, operator, value]` to three-item form `[field, operator, value]` before delegation. The assertion expected the pre-normalized `User` prefix, while the actual delegated payload correctly omitted it. Updated the expected payload to match the handler's normalized contract. CI for this correction is pending; verification remains open until the complete server suite and other checks pass.
