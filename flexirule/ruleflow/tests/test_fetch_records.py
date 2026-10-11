@@ -528,3 +528,26 @@ class TestFetchRecords(FrappeTestCase):
 			action, {"limit": self.handler.MAX_FETCH_RECORDS_LIMIT + 1}
 		)
 		self.assertTrue(any("cannot exceed" in error for error in errors))
+
+	def test_zero_limit_returns_no_rows_without_querying(self):
+		from unittest.mock import patch
+
+		result = None
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.execute_query",
+		) as execute_query:
+			result = self.handler._fetch_records(
+				reference_doctype="ToDo",
+				config={"limit": 0},
+				context={},
+				action=frappe._dict({"label": "Zero limit test"}),
+				ignore_permissions=True,
+			)
+		self.assertEqual(result, [])
+		execute_query.assert_not_called()
+
+	def test_fetch_records_rejects_child_table_aggregate_field(self):
+		errors = self.handler._validate_doctype_field_references(
+			"User", {"fields": ["count(roles.role) as role_count"]}
+		)
+		self.assertTrue(any("child/link aggregates are unsupported" in error for error in errors))
