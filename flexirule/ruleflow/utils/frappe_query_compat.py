@@ -89,6 +89,8 @@ def _permission_filter_clauses(filters):
 	OR group. Reject shapes requiring multiple OR groups or OR over nested
 	conjunctions rather than weakening the query.
 	"""
+	if isinstance(filters, Criterion):
+		raise ValueError("Native Criterion filters cannot use the permission-aware Frappe v15 fallback")
 	if filters is None or filters == "" or filters == []:
 		return [], [], False
 	if _is_legacy_filter_leaf(filters):
@@ -207,10 +209,10 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 	"""Execute with native Query Builder permissions or Frappe's permission-aware list API.
 
 	Frappe v15's Query Builder does not expose permission application. In that
-	case, route ordinary filter queries through frappe.get_list/DatabaseQuery,
+	case, route supported filter queries through frappe.get_list/DatabaseQuery,
 	which applies doctype, row/user, share, query-hook, and field-level permissions.
-	Do not emulate those semantics with hand-built SQL predicates. Filters with
-	logical groups cannot be faithfully expressed by the v15 list API and fail
+	Do not emulate those semantics with hand-built SQL predicates. The fallback
+	preserves AND-only groups and one OR group; unsupported boolean shapes fail
 	closed unless an explicitly authorized ignore_permissions override is active.
 	"""
 	query_kwargs = dict(kwargs)
