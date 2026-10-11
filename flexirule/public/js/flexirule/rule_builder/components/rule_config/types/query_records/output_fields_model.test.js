@@ -1,0 +1,41 @@
+import assert from "node:assert/strict";
+import {
+	inferResultShape,
+	parseOutputFields,
+	RESULT_SHAPES,
+	serializeOutputFields,
+	validateOutputFields,
+} from "./output_fields_model.js";
+
+assert.equal(inferResultShape(undefined), RESULT_SHAPES.documentNames);
+assert.equal(inferResultShape("*"), RESULT_SHAPES.wholeDocuments);
+assert.equal(inferResultShape(["name", { items: ["item_code", "qty"] }]), RESULT_SHAPES.embeddedChildren);
+assert.equal(inferResultShape(["name"], RESULT_SHAPES.selectedFields), RESULT_SHAPES.selectedFields);
+
+const source = [
+	"name",
+	"customer.customer_name as customer_name",
+	{ items: ["item_code", "qty"] },
+	{ COUNT: "name", as: "total_users" },
+];
+const rows = parseOutputFields(source);
+assert.deepEqual(rows.map((row) => row.kind), ["field", "field", "child", "function"]);
+assert.deepEqual(serializeOutputFields(rows), [
+	"name",
+	"customer.customer_name as customer_name",
+	{ items: ["item_code", "qty"] },
+	"count(name) as total_users",
+]);
+
+const expressionRows = parseOutputFields(["sum(grand_total) as total_value"]);
+assert.equal(expressionRows[0].kind, "function");
+assert.deepEqual(serializeOutputFields(expressionRows), ["sum(grand_total) as total_value"]);
+assert.deepEqual(validateOutputFields(expressionRows, RESULT_SHAPES.selectedFields), []);
+
+const invalidChildShape = parseOutputFields(["name"]);
+assert.ok(validateOutputFields(invalidChildShape, RESULT_SHAPES.embeddedChildren).some((error) => error.includes("child-table selection")));
+
+const invalidChildAggregate = parseOutputFields(["sum(items.qty) as total_qty"]);
+assert.ok(validateOutputFields(invalidChildAggregate, RESULT_SHAPES.selectedFields).some((error) => error.includes("child/link aggregates need backend support")));
+
+console.log("output fields model tests passed");
