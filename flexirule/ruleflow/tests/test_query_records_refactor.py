@@ -7,6 +7,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import random_string
 
 from flexirule.ruleflow.core.action_handlers.query_records import QueryRecordsHandler
+from flexirule.ruleflow.utils.frappe_query_compat import FrappeQueryCapabilities
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
 
 
@@ -419,8 +420,18 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		mock_query.get_sql.return_value = "SELECT * FROM `tabUser`"
 		mock_query._tables = [frappe.qb.DocType("User")]
 		mock_query.where.return_value = mock_query
-		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
-			result, _ = self.handler.execute(action, {}, None)
+		# This test characterizes the native QB delegation contract independent of
+		# the Frappe version running the suite. Legacy-version permission fallback
+		# behavior is covered separately in test_frappe_query_compat.py.
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(
+				supports_ignore_permissions=True,
+				supports_logical_filter_groups=True,
+			),
+		):
+			with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
+				result, _ = self.handler.execute(action, {}, None)
 
 		self.assertEqual(result, [{"name": "Administrator"}])
 		get_query.assert_called_once()
@@ -443,11 +454,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 				"limit": 10,
 				"offset": 2,
 				"distinct": True,
-				**(
-					{"ignore_permissions": False}
-					if "ignore_permissions" in inspect.signature(Engine.get_query).parameters
-					else {}
-				),
+				"ignore_permissions": False,
 			},
 		)
 
