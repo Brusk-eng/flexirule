@@ -829,7 +829,9 @@ class QueryRecordsHandler(ActionHandler):
 			fields = [] if fields.strip() == "*" else self._split_fetch_field_expressions(fields)
 		for field_expression in fields:
 			if isinstance(field_expression, str):
-				field_source = re.split(r"\s+as\s+", field_expression.strip(), maxsplit=1, flags=re.IGNORECASE)[0]
+				field_source = re.split(
+					r"\s+as\s+", field_expression.strip(), maxsplit=1, flags=re.IGNORECASE
+				)[0]
 				aggregate = re.fullmatch(
 					r"(?:count|sum|avg|min|max)\s*\(\s*([^)]+?)\s*\)",
 					field_source,
@@ -838,15 +840,17 @@ class QueryRecordsHandler(ActionHandler):
 				field_reference = aggregate.group(1).strip() if aggregate else field_source
 				if aggregate and "." in field_reference:
 					errors.append(
-						_("Aggregate field '{0}' must be a root DocType field; child/link aggregates are unsupported").format(
-							field_reference
-						)
+						_(
+							"Aggregate field '{0}' must be a root DocType field; child/link aggregates are unsupported"
+						).format(field_reference)
 					)
 				elif self._is_plain_field_reference(field_reference) and not self._doctype_has_field(
 					reference_doctype, field_reference
 				):
 					errors.append(
-						_("Selected field '{0}' does not exist in {1}").format(field_reference, reference_doctype)
+						_("Selected field '{0}' does not exist in {1}").format(
+							field_reference, reference_doctype
+						)
 					)
 			elif isinstance(field_expression, dict):
 				for table_field, child_fields in field_expression.items():
@@ -856,8 +860,16 @@ class QueryRecordsHandler(ActionHandler):
 						table_df = frappe.get_meta(reference_doctype).get_field(table_field)
 					except Exception:
 						table_df = None
-					if not table_df or table_df.fieldtype not in {"Table", "Table MultiSelect"} or not table_df.options:
-						errors.append(_("Child-table field '{0}' does not exist in {1}").format(table_field, reference_doctype))
+					if (
+						not table_df
+						or table_df.fieldtype not in {"Table", "Table MultiSelect"}
+						or not table_df.options
+					):
+						errors.append(
+							_("Child-table field '{0}' does not exist in {1}").format(
+								table_field, reference_doctype
+							)
+						)
 						continue
 					for child_field in child_fields if isinstance(child_fields, list) else []:
 						if (
@@ -866,7 +878,9 @@ class QueryRecordsHandler(ActionHandler):
 							and not self._doctype_has_field(table_df.options, child_field)
 						):
 							errors.append(
-								_("Child field '{0}' does not exist in {1}").format(child_field, table_df.options)
+								_("Child field '{0}' does not exist in {1}").format(
+									child_field, table_df.options
+								)
 							)
 
 		for key in ("field", "group_by_field", "agg_field"):
