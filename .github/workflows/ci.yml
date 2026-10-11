@@ -135,6 +135,12 @@ jobs:
                   set -e
                   npx --no-install eslint --ext .js,.vue flexirule/public/js
 
+                  cd flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters
+                  node --input-type=module < query_filter_serializer.test.js
+
+                  cd ../types/query_records
+                  node --input-type=module < output_fields_model.test.js
+
     tests:
         needs: changes
         if: ${{ needs.changes.outputs.backend == 'true' }}
