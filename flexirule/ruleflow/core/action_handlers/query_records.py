@@ -707,6 +707,15 @@ class QueryRecordsHandler(ActionHandler):
 					value = self._coerce_fetch_records_integer(value, key)
 				except ValueError as exc:
 					frappe.throw(str(exc))
+			elif key == "distinct":
+				if isinstance(value, bool):
+					pass
+				elif isinstance(value, int) and value in (0, 1):
+					value = bool(value)
+				elif isinstance(value, str) and value.strip().lower() in {"true", "false", "0", "1"}:
+					value = value.strip().lower() in {"true", "1"}
+				else:
+					frappe.throw(_("Distinct must resolve to a boolean value"))
 			if key == "filters":
 				if self._is_canonical_filter_tree(value):
 					value = self._canonical_filter_tree_to_backend(value, reference_doctype)
