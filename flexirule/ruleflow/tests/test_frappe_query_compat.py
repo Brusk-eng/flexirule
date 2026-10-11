@@ -225,3 +225,33 @@ class TestFrappeQueryCompat(FrappeTestCase):
 				execute_query("User", {"filters": filters}, ignore_permissions=True)
 
 		self.assertEqual(get_query.call_args.kwargs["filters"], [filters])
+
+	def test_legacy_permission_fallback_flattens_and_only_groups(self):
+		rows = [{"name": "visible-user"}]
+		filters = [
+			["User", "enabled", "=", 1],
+			"and",
+			[["User", "email", "=", "visible@example.com"], "and", ["User", "user_type", "=", "System User"]],
+		]
+
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(
+				supports_ignore_permissions=False,
+				supports_logical_filter_groups=False,
+			),
+		):
+			with patch("frappe.get_list", return_value=rows) as get_list:
+				result = execute_query(
+					"User", {"fields": ["name"], "filters": filters}, ignore_permissions=False
+				)
+
+		self.assertEqual(result, rows)
+		self.assertEqual(
+			get_list.call_args.kwargs["filters"],
+			[
+				["User", "enabled", "=", 1],
+				["User", "email", "=", "visible@example.com"],
+				["User", "user_type", "=", "System User"],
+			],
+		)
