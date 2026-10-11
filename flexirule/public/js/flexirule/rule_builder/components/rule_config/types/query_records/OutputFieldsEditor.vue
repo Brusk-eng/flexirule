@@ -170,6 +170,15 @@
 			</button>
 		</div>
 
+		<p v-if="requiresGroupBy" class="output-fields-warning">
+			<i class="fa fa-info-circle mr-1"></i>
+			{{
+				__(
+					"Aggregate functions mixed with regular fields require Group By. Configure Group By under Retrieval Settings, or remove regular output fields."
+				)
+			}}
+		</p>
+
 		<p v-if="shape === 'embedded_children'" class="output-fields-hint">
 			{{
 				__(
@@ -209,6 +218,7 @@ const props = defineProps({
 	modelValue: { type: [Array, String], default: () => [] },
 	doctype: { type: String, required: true },
 	shape: { type: String, required: true },
+	groupBy: { type: String, default: "" },
 	readOnly: { type: Boolean, default: false },
 	showValidation: { type: Boolean, default: false },
 });
@@ -218,6 +228,12 @@ const rows = ref(
 	parseOutputFields(props.modelValue).map((row) => ({ ...row, childFieldOptions: [] }))
 );
 const validationErrors = ref([]);
+const requiresGroupBy = computed(
+	() =>
+		rows.value.some((row) => row.kind === "function") &&
+		rows.value.some((row) => ["field", "raw"].includes(row.kind)) &&
+		!String(props.groupBy || "").trim()
+);
 const aggregateFunctions = AGGREGATE_FUNCTIONS.map((value) => ({
 	value,
 	label: value.toUpperCase(),
@@ -384,7 +400,7 @@ async function changeChildTable(row, tableField) {
 }
 
 async function validate() {
-	const errors = validateOutputFields(rows.value, props.shape);
+	const errors = validateOutputFields(rows.value, props.shape, props.groupBy);
 	for (const row of rows.value) {
 		if (row.kind !== "child" || !row.tableField) continue;
 		if (!childTableOptions.value.some((option) => option.value === row.tableField)) {
@@ -520,6 +536,12 @@ defineExpose({ validate });
 	font-size: var(--fxr-text-xs);
 	margin: 0;
 }
+.output-fields-warning {
+	color: var(--orange-600, #b45309);
+	font-size: var(--fxr-text-sm);
+	margin: 0;
+}
+
 .output-fields-errors {
 	color: var(--red-600, #b91c1c);
 	font-size: var(--fxr-text-sm);

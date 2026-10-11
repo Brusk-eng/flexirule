@@ -81,6 +81,7 @@
 				:doctype="doctype"
 				:modelValue="localConfig.fields || []"
 				:shape="localConfig.result_shape"
+				:groupBy="localConfig.group_by"
 				:readOnly="readOnly"
 				:showValidation="showValidation"
 				@update:modelValue="updateConfig('fields', $event)"
@@ -376,7 +377,6 @@ function selectResultShape(shape) {
 	} else {
 		const draft = customFieldsDraft.value[shape];
 		localConfig.fields = Array.isArray(draft) ? clone(draft) : [];
-		if (shape === "selected_fields" && !localConfig.fields.length) localConfig.fields = ["name"];
 		customFieldsDraft.value[shape] = clone(localConfig.fields);
 	}
 	// result_shape is UI metadata; the backend receives only the compiled fields argument.

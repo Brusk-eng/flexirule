@@ -38,6 +38,17 @@ assert.equal(expressionRows[0].kind, "function");
 assert.deepEqual(serializeOutputFields(expressionRows), ["sum(grand_total) as total_value"]);
 assert.deepEqual(validateOutputFields(expressionRows, RESULT_SHAPES.selectedFields), []);
 
+const mixedAggregateRows = parseOutputFields(["customer", "count(name) as total_users"]);
+assert.ok(
+	validateOutputFields(mixedAggregateRows, RESULT_SHAPES.selectedFields).some((error) =>
+		error.includes("require Group By")
+	)
+);
+assert.deepEqual(
+	validateOutputFields(mixedAggregateRows, RESULT_SHAPES.selectedFields, "customer"),
+	[]
+);
+
 const invalidChildShape = parseOutputFields(["name"]);
 assert.ok(
 	validateOutputFields(invalidChildShape, RESULT_SHAPES.embeddedChildren).some((error) =>
@@ -61,5 +72,8 @@ assert.ok(
 
 const commaDelimitedFields = parseOutputFields("name, status as status_label");
 assert.deepEqual(serializeOutputFields(commaDelimitedFields), ["name", "status as status_label"]);
+
+const aggregateOnlyRows = parseOutputFields(["count(name) as total_users"]);
+assert.deepEqual(validateOutputFields(aggregateOnlyRows, RESULT_SHAPES.selectedFields), []);
 
 console.log("output fields model tests passed");

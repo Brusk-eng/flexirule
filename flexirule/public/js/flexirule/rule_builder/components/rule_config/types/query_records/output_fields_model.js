@@ -165,9 +165,17 @@ export function serializeOutputFields(rows) {
 		return clone(row.originalValue !== undefined ? row.originalValue : row.expression);
 	});
 }
-export function validateOutputFields(rows, shape) {
+export function validateOutputFields(rows, shape, groupBy = "") {
 	const errors = [];
 	const list = Array.isArray(rows) ? rows : [];
+	const hasAggregate = list.some((row) => row.kind === "function");
+	const hasRegularField = list.some((row) => ["field", "raw"].includes(row.kind));
+
+	if (hasAggregate && hasRegularField && !String(groupBy || "").trim()) {
+		errors.push(
+			"Aggregate functions mixed with regular fields require Group By. Configure Group By under Retrieval Settings, or remove regular output fields."
+		);
+	}
 	const aliases = new Set();
 	if (!list.length) errors.push("Add at least one output field.");
 	if (shape === RESULT_SHAPES.embeddedChildren && !list.some((row) => row.kind === "child")) {
