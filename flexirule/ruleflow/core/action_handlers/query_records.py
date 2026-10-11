@@ -853,8 +853,31 @@ class QueryRecordsHandler(ActionHandler):
 						)
 					)
 			elif isinstance(field_expression, dict):
+				aggregate_key = next(
+					(key for key in field_expression if isinstance(key, str) and key.lower() in {"count", "sum", "avg", "min", "max"}),
+					None,
+				)
+				if aggregate_key:
+					aggregate_field = field_expression[aggregate_key]
+					if not isinstance(aggregate_field, str) or not aggregate_field.strip():
+						errors.append(_("Aggregate field is required"))
+					elif "." in aggregate_field:
+						errors.append(
+							_("Aggregate field '{0}' must be a root DocType field; child/link aggregates are unsupported").format(
+								aggregate_field
+							)
+						)
+					elif self._is_plain_field_reference(aggregate_field) and not self._doctype_has_field(
+						reference_doctype, aggregate_field
+					):
+						errors.append(
+							_("Aggregate field '{0}' does not exist in {1}").format(aggregate_field, reference_doctype)
+						)
+					continue
 				for table_field, child_fields in field_expression.items():
-					if table_field == "as":
+					if table_field == "as" or (
+						isinstance(table_field, str) and table_field.lower() in {"count", "sum", "avg", "min", "max"}
+					):
 						continue
 					try:
 						table_df = frappe.get_meta(reference_doctype).get_field(table_field)
@@ -871,10 +894,23 @@ class QueryRecordsHandler(ActionHandler):
 							)
 						)
 						continue
+					standard_child_fields = {
+						"name",
+						"owner",
+						"creation",
+						"modified",
+						"modified_by",
+						"docstatus",
+						"idx",
+						"parent",
+						"parentfield",
+						"parenttype",
+					}
 					for child_field in child_fields if isinstance(child_fields, list) else []:
 						if (
 							isinstance(child_field, str)
 							and self._is_plain_field_reference(child_field)
+							and child_field not in standard_child_fields
 							and not self._doctype_has_field(table_df.options, child_field)
 						):
 							errors.append(
