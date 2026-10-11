@@ -189,6 +189,7 @@ function getOperators(def) {
 	const result = [...BASE, ...EXT].filter((op) => !invalid.includes(op));
 	if (def?.fieldtype === "Link" && frappe.boot?.nested_set_doctypes?.includes(def.options))
 		result.push(...NESTED.filter((op) => !result.includes(op)));
+	if (def?.fieldtype === "Check") return result.filter((op) => op === "=" || op === "!=");
 	return result.length ? result : ["="];
 }
 function updateOperator(event) {
