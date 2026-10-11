@@ -203,3 +203,8 @@ The upcoming frontend task should build upon this finalized backend contract:
 The review-fix branch adds compatibility handling around frappe.qb.get_query and the permission-aware Frappe v15 frappe.get_list fallback. The first server CI run on this branch executed 543 tests and reported one error (two skipped): test_fetch_records_delegates_native_qb_payload_and_permissions failed because the test unintentionally exercised the installed Frappe v15 fallback against a live mocked DocType lookup instead of isolating the native Query Builder delegation contract.
 
 The test is being corrected to explicitly stub the capability descriptor as supporting native permission and logical-filter support for that test, while leaving the separate compatibility tests responsible for validating the legacy fallback. This is a test-isolation correction, not a production behavior change. The fix has been pushed; the rerun must pass before this regression can be marked verified.
+
+
+## 14. Latest CI Rerun: Payload Expectation Correction (2026-10-11)
+
+The next CI run narrowed the remaining failure to the native Query Builder delegation test's expected filter shape. Root-DocType leaves are normalized before delegation, so the expected filters should be `["enabled", "=", 1]` and `["email", "like", "%@example.com"]`, connected by `"or"`, rather than four-item leaves prefixed with `"User"`. The test assertion has been corrected; this is test-only. CI verification is still pending.
