@@ -82,6 +82,34 @@ def _contains_logical_filter_groups(value) -> bool:
 	return False
 
 
+def _contains_or_filter_groups(value) -> bool:
+	"""Detect OR connectors in groups without mistaking a leaf's value for syntax."""
+	if _is_legacy_filter_leaf(value):
+		return False
+	if not isinstance(value, list | tuple):
+		return False
+	for index, item in enumerate(value):
+		if isinstance(item, str) and item.casefold() == "or" and 0 < index < len(value) - 1:
+			return True
+		if _contains_or_filter_groups(item):
+			return True
+	return False
+
+
+def _flatten_and_filter_groups(value):
+	"""Flatten AND-only groups into Frappe v15 DatabaseQuery filter rows."""
+	if _is_legacy_filter_leaf(value):
+		return [list(value)]
+	if not isinstance(value, list | tuple):
+		return [value]
+	flattened = []
+	for item in value:
+		if isinstance(item, str) and item.casefold() == "and":
+			continue
+		flattened.extend(_flatten_and_filter_groups(item))
+	return flattened
+
+
 def _criterion_for_leaf(doctype: str, leaf):
 	"""Compile one simple filter using Frappe/Pypika operators."""
 	if not isinstance(leaf, list | tuple) or len(leaf) not in (2, 3, 4):
@@ -154,12 +182,14 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 	filters = query_kwargs.get("filters")
 
 	if not QUERY_CAPABILITIES.supports_ignore_permissions and not ignore_permissions:
-		if isinstance(filters, Criterion) or _contains_logical_filter_groups(filters):
+		if isinstance(filters, Criterion) or _contains_or_filter_groups(filters):
 			raise frappe.ValidationError(
-				"Fetch Records with nested AND/OR filter groups requires a Frappe version "
+				"Fetch Records with OR filter groups requires a Frappe version "
 				"whose Query Builder supports permission-aware logical filters. "
-			"Flatten the filters to AND-only conditions or upgrade Frappe."
+				"Use AND-only filters or upgrade Frappe."
 			)
+		if _contains_logical_filter_groups(filters):
+			filters = _flatten_and_filter_groups(filters)
 
 		# The DatabaseQuery-backed list API is Frappe's permission-aware query
 		# implementation on versions without Query Builder permission flags.
