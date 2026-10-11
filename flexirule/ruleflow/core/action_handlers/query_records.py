@@ -572,7 +572,7 @@ class QueryRecordsHandler(ActionHandler):
 			parsed = value
 		elif isinstance(value, float) and value.is_integer():
 			parsed = int(value)
-		elif isinstance(value, str) and re.fullmatch(r"[+-]?\\d+", value.strip()):
+		elif isinstance(value, str) and re.fullmatch(r"[+-]?\d+", value.strip()):
 			parsed = int(value.strip())
 		else:
 			raise ValueError(_("{0} must be an integer").format(label))
@@ -595,7 +595,7 @@ class QueryRecordsHandler(ActionHandler):
 			if quote:
 				if escaped:
 					escaped = False
-				elif char == "\\\\":
+				elif char == "\\":
 					escaped = True
 				elif char == quote:
 					quote = None
@@ -810,9 +810,9 @@ class QueryRecordsHandler(ActionHandler):
 			fields = [] if fields.strip() == "*" else self._split_fetch_field_expressions(fields)
 		for field_expression in fields:
 			if isinstance(field_expression, str):
-				field_source = re.split(r"\\s+as\\s+", field_expression.strip(), maxsplit=1, flags=re.IGNORECASE)[0]
+				field_source = re.split(r"\s+as\s+", field_expression.strip(), maxsplit=1, flags=re.IGNORECASE)[0]
 				aggregate = re.fullmatch(
-					r"(?:count|sum|avg|min|max)\\s*\\(\\s*([^)]+?)\\s*\\)",
+					r"(?:count|sum|avg|min|max)\s*\(\s*([^)]+?)\s*\)",
 					field_source,
 					re.IGNORECASE,
 				)
