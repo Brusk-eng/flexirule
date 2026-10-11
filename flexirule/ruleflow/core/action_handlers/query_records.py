@@ -738,6 +738,12 @@ class QueryRecordsHandler(ActionHandler):
 		if validation_errors:
 			frappe.throw("; ".join(validation_errors))
 
+		# Query Builder v15 treats limit=0 as "no limit"; preserve intuitive
+		# semantics without accidentally turning a zero-row request into an
+		# unbounded query.
+		if kwargs.get("limit") == 0:
+			return []
+
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
 		return execute_query(
@@ -830,7 +836,13 @@ class QueryRecordsHandler(ActionHandler):
 					re.IGNORECASE,
 				)
 				field_reference = aggregate.group(1).strip() if aggregate else field_source
-				if self._is_plain_field_reference(field_reference) and not self._doctype_has_field(
+				if aggregate and "." in field_reference:
+					errors.append(
+						_("Aggregate field '{0}' must be a root DocType field; child/link aggregates are unsupported").format(
+							field_reference
+						)
+					)
+				elif self._is_plain_field_reference(field_reference) and not self._doctype_has_field(
 					reference_doctype, field_reference
 				):
 					errors.append(
