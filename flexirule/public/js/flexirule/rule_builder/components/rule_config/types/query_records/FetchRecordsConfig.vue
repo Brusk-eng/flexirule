@@ -174,7 +174,12 @@ import ComboBoxControl from "../../../../controls/ComboBoxControl.vue";
 import { useNavigableFields } from "../../../../composables/useNavigableFields";
 import QueryFilterTree from "../../query_filters/QueryFilterTree.vue";
 import OutputFieldsEditor from "./OutputFieldsEditor.vue";
-import { inferResultShape, isCustomResultShape } from "./output_fields_model.js";
+import {
+	inferResultShape,
+	isCustomResultShape,
+	parseOutputFields,
+	serializeOutputFields,
+} from "./output_fields_model.js";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
@@ -190,9 +195,17 @@ const filterTreeRef = ref(null);
 
 const localConfig = reactive(normalizeConfig(props.modelValue));
 const outputFieldsRef = ref(null);
+function getEditableFieldDraft(value) {
+	if (Array.isArray(value)) return clone(value);
+	if (typeof value === "string" && value.trim() && value.trim() !== "*") {
+		return serializeOutputFields(parseOutputFields(value));
+	}
+	return [];
+}
+
 const customFieldsDraft = ref({
-	selected_fields: localConfig.result_shape === "selected_fields" && Array.isArray(localConfig.fields) ? clone(localConfig.fields) : [],
-	embedded_children: localConfig.result_shape === "embedded_children" && Array.isArray(localConfig.fields) ? clone(localConfig.fields) : [],
+	selected_fields: localConfig.result_shape === "selected_fields" ? getEditableFieldDraft(localConfig.fields) : [],
+	embedded_children: localConfig.result_shape === "embedded_children" ? getEditableFieldDraft(localConfig.fields) : [],
 });
 const resultShapes = [
 	{ value: "document_names", label: __("Document names"), description: __("One name field per result row"), icon: "fa fa-list-ol" },
@@ -306,7 +319,7 @@ function getGroupByOptions() {
 function updateConfig(key, value) {
 	localConfig[key] = clone(value);
 	if (key === "fields" && isCustomResultShape(localConfig.result_shape)) {
-		customFieldsDraft.value[localConfig.result_shape] = clone(Array.isArray(value) ? value : []);
+		customFieldsDraft.value[localConfig.result_shape] = getEditableFieldDraft(value);
 	}
 	emitConfig();
 }
@@ -314,9 +327,7 @@ function updateConfig(key, value) {
 function selectResultShape(shape) {
 	if (props.readOnly || shape === localConfig.result_shape) return;
 	if (isCustomResultShape(localConfig.result_shape)) {
-		customFieldsDraft.value[localConfig.result_shape] = clone(
-			Array.isArray(localConfig.fields) ? localConfig.fields : []
-		);
+		customFieldsDraft.value[localConfig.result_shape] = getEditableFieldDraft(localConfig.fields);
 	}
 
 	localConfig.result_shape = shape;
@@ -364,7 +375,7 @@ watch(
 		Object.assign(localConfig, next);
 		orderRows.value = parseOrderBy(next.order_by);
 		if (isCustomResultShape(next.result_shape)) {
-			customFieldsDraft.value[next.result_shape] = clone(Array.isArray(next.fields) ? next.fields : []);
+			customFieldsDraft.value[next.result_shape] = getEditableFieldDraft(next.fields);
 		}
 	},
 	{ deep: true }
