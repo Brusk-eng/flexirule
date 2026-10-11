@@ -176,7 +176,7 @@ Comprehensive backend test coverage is implemented in `flexirule/ruleflow/tests/
 - `test_permissions_behavior`: Enforces `frappe.PermissionError` for Guest users when `ignore_permissions=False` and allows System Manager when `ignore_permissions=True`.
 - `test_validation_rules`: Rejection of invalid DocTypes, missing fields, and negative pagination values.
 
-All 9 new tests and the full FlexiRule test suite (483 tests) pass with 100% success.
+Historical verification note: an earlier run reported 483 tests passing. This is not evidence for the current Fetch Records review branch; use the dated CI evidence in the latest test-coverage audit below.
 
 ---
 
@@ -196,3 +196,10 @@ The upcoming frontend task should build upon this finalized backend contract:
 3. **Filter Builder**: Expose standard dictionary/tuple filters and nested AND/OR logical filter trees (serializing to `config.filters`).
 4. **Ordering & Pagination UI**: Provide inputs for `order_by`, `limit`, `offset`, and `distinct` toggle.
 5. **Result Mutation**: Bind output to standard mutation modes (`Set Context Variable`, `Update Context Variable`, `Append to Context Variable`).
+
+
+## 13. Review-Fix CI Follow-up (2026-10-11)
+
+The review-fix branch adds compatibility handling around frappe.qb.get_query and the permission-aware Frappe v15 frappe.get_list fallback. The first server CI run on this branch executed 543 tests and reported one error (two skipped): test_fetch_records_delegates_native_qb_payload_and_permissions failed because the test unintentionally exercised the installed Frappe v15 fallback against a live mocked DocType lookup instead of isolating the native Query Builder delegation contract.
+
+The test is being corrected to explicitly stub the capability descriptor as supporting native permission and logical-filter support for that test, while leaving the separate compatibility tests responsible for validating the legacy fallback. This is a test-isolation correction, not a production behavior change. The fix has been pushed; the rerun must pass before this regression can be marked verified.
