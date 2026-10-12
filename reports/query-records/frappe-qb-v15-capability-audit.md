@@ -239,3 +239,43 @@ The server failure was a stale test expectation, not a runtime defect: root-DocT
 ### Recommendation: keep root-relative QB filters at the adapter boundary
 
 Do not globally remove the root DocType from FlexiRule's persisted filter representation just to mirror Frappe's native QB payload. Keep one stable, explicit Fetch Records filter-tree contract in the UI/configuration layer; validate each leaf against the selected root DocType and any supported link/child path; then normalize root-field leaves to [field, operator, value] only in the Frappe QB adapter. Preserve qualified paths where they carry meaning, and reject ambiguous or unsupported paths rather than silently stripping a prefix. This isolates Frappe-version-specific syntax from saved rules and avoids breaking existing Query Records modes that use legacy filter formats. Add contract tests for persisted tree -> validated internal representation -> QB payload, including root fields, linked/child paths, and literal values equal to "or".
+
+
+## 18. Independent source review and current acceptance status (2026-10-12)
+
+This section records an independent check of the framework API contracts and the current PR head. It intentionally separates source-level facts from integration behavior that still requires runtime tests.
+
+### Verified framework API facts
+
+- Frappe v15 source: `frappe/database/query.py`, `Engine.get_query` accepts `validate_filters`, `skip_locked`, and `wait` as keyword-only arguments; it does **not** declare `ignore_permissions`. Its `Engine.get_query` builds a Query Builder query and does not itself provide the Frappe 16 permission-aware contract.
+- Frappe v16 source: `frappe/database/query.py`, `Engine.get_query` declares `ignore_permissions: bool = True`, `ignore_user_permissions: bool = False`, `user`, `parent_doctype`, `reference_doctype`, and `or_filters`. It sets `self.apply_permissions = not ignore_permissions`. This confirms the permission flag's presence and the direction of its default, but not by itself every field/row permission behavior.
+- Frappe v15 boot information populates `bootinfo.versions` from installed app versions, including the `frappe` version. The Fetch Records editor's v15 warning uses this server-provided value and is conditional on both Fetch Records mode and the explicit bypass checkbox.
+
+### Findings matrix
+
+| Requirement | Current assessment | Evidence / remaining proof |
+|---|---|---|
+| v15 + bypass disabled | Implemented in adapter: uses `frappe.get_list`, with a fail-closed translation for supported filter structures | Source inspection confirms v15 QB lacks the flag. Full integration tests are still needed for row/field permission parity. |
+| v15 + bypass enabled | Implemented in adapter: uses QB without passing the unsupported keyword | Requires integration tests proving the action's existing server-side authorization/audit gate and unrestricted results. |
+| v16 + bypass disabled | Implemented by native QB delegation with `ignore_permissions=False` when detected | Framework source confirms API support; live Frappe 16 runtime integration remains required. |
+| v16 + bypass enabled | Implemented by native QB delegation with `ignore_permissions=True` when detected | Framework source confirms API support; live Frappe 16 runtime integration remains required. |
+| Missing/invalid bypass configuration | Existing `can_ignore_permissions` gate returns false for a missing/false flag and requires role authorization plus an audit reason for explicit bypass | Add adversarial handler-level tests for malformed values and verify every execution identity. |
+| v15 filter tree | Adapter preserves AND-only trees and one OR group expressible by `filters` + `or_filters`; unsupported OR shapes are rejected | Unit tests cover selected cases. Runtime coverage of operators, linked paths, date values, and empty/null groups is incomplete. |
+| Aggregation and field permissions | Root-field aggregates can flow through the permission-aware list path; child/link aggregate expressions are rejected by Fetch Records validation | Do not claim parity for filter/order/group field-level restrictions or all aggregate shapes until tested against both framework versions. |
+| UI warning | Added to the Query Records configuration UI; requires Fetch Records mode, Frappe 15 boot version, and enabled bypass | CI/linter run for the warning commit is pending at time of writing. No dedicated component-level behavior test has yet been demonstrated. |
+
+### Upstream Frappe 15 API proposal
+
+The smallest upstream-compatible improvement is to add an explicit, backwards-compatible permission-aware contract to Frappe 15's `frappe.qb.get_query` / `Engine.get_query`:
+
+1. Add keyword-only `ignore_permissions: bool = True` (preserving current unrestricted behavior for existing callers) and, if required for parity, an explicit effective `user` parameter.
+2. When `ignore_permissions=False`, apply the framework's existing native permission pipeline to the query before execution: DocType permission, row-level/user permission conditions, ownership and sharing restrictions, permission-query hooks, and permitted-field enforcement for selected fields and fields used by filters, ordering, grouping, and aggregates.
+3. Ensure permission constraints are applied **before** aggregation, grouping, distinct selection, limits, and offsets. Do not fetch unrestricted rows and post-filter them.
+4. Reuse the established framework permission machinery rather than introduce a second authorization implementation. Keep default behavior backwards-compatible, document which permission dimensions are guaranteed, and add tests for denied DocTypes, hidden rows, User Permissions, shares/ownership, query hooks, restricted fields, aggregates, and explicit user context.
+5. Define how native filters and `or_filters` compose, and reject query shapes for which the API cannot preserve semantics.
+
+This is a proposal only; no vendored Frappe source is changed by this PR.
+
+### Verification caveat
+
+The previous head's configured CI and linter workflows passed on `d61e679ada447cdca3cd08db6ad372aa9defd23b`. The warning change was committed afterward, so those earlier green runs do not verify the current head. The full Frappe/MariaDB authorization matrix and both-version integration suite must remain marked pending until the new head's CI and the required runtime tests establish those outcomes.
