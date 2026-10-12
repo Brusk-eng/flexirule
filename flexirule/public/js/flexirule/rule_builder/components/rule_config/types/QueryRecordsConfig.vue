@@ -589,7 +589,7 @@ import { useNavigableFields } from "../../../composables/useNavigableFields";
 
 const isFrappe15 = computed(() => {
 	const version = frappe.boot?.versions?.frappe;
-	return typeof version === "string" && /^15(?:\\.|$)/.test(version);
+	return typeof version === "string" && /^15(?:\.|$)/.test(version);
 });
 
 const props = defineProps({
