@@ -303,6 +303,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
