@@ -84,11 +84,29 @@ function updateLeaf(id, value) {
 async function validate() {
 	const structural = treeBuilderRef.value?.validate?.() || { valid: true, errors: [] };
 	const errors = [...(structural.errors || []).map((error) => error.message)];
+	const tree = treeBuilderRef.value?.getTree?.();
+
+	// The root can be empty (no filters means "match all"), but any nested group
+	// the user explicitly adds must contain at least one condition/group.
+	function validateNestedGroups(node, isRoot = false) {
+		if (!node || typeof node !== "object") return;
+		if (node.type === "group") {
+			if (!isRoot && Array.isArray(node.children) && node.children.length === 0) {
+				errors.push(__("Nested filter groups cannot be empty."));
+			}
+			if (Array.isArray(node.children)) {
+				node.children.forEach((child) => validateNestedGroups(child, false));
+			}
+		}
+	}
+	validateNestedGroups(tree, true);
+
 	for (const instance of leafRefs.values()) {
 		const result = await instance?.validate?.();
 		if (!result?.valid && result.errors) errors.push(...result.errors);
 	}
-	return { valid: errors.length === 0, errors };
+	const uniqueErrors = [...new Set(errors)];
+	return { valid: uniqueErrors.length === 0, errors: uniqueErrors };
 }
 defineExpose({
 	validate,
