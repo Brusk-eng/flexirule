@@ -2,8 +2,8 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.tests.utils import FrappeTestCase
 from frappe.database.utils import NestedSetHierarchy
+from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.action_handlers.query_records import QueryRecordsHandler
 from flexirule.ruleflow.utils.frappe_query_compat import execute_query
