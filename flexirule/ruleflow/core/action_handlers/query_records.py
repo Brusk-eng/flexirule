@@ -704,6 +704,112 @@ class QueryRecordsHandler(ActionHandler):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(path))
 		return errors
 
+	def _validate_resolved_fetch_filter_operators(
+		self, filters, reference_doctype: str, path="filters"
+	) -> list[str]:
+		"""Validate operator and value contracts after resolving legacy or canonical filters."""
+		errors: list[str] = []
+
+		def validate_leaf(field, operator, value, filter_doctype, leaf_path):
+			operator_name = operator.strip().casefold() if isinstance(operator, str) else ""
+			if operator_name not in self._FETCH_RECORDS_OPERATORS:
+				errors.append(_("{0}.operator '{1}' is not supported by Fetch Records").format(leaf_path, operator))
+				return
+
+			if operator_name == "between" and not (isinstance(value, list | tuple) and len(value) == 2):
+				errors.append(_("{0}.value for Between must contain exactly two values").format(leaf_path))
+			elif operator_name == "is" and (
+				not isinstance(value, str) or value.strip().casefold() not in {"set", "not set"}
+			):
+				errors.append(_("{0}.value for Is must be 'set' or 'not set'").format(leaf_path))
+			elif operator_name in {"in", "not in"} and not isinstance(value, list | tuple | str):
+				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(leaf_path))
+
+			if operator_name not in {op.casefold() for op in NestedSetHierarchy}:
+				return
+
+			filter_doctype = filter_doctype or reference_doctype
+			tree_target = False
+			try:
+				filter_meta = frappe.get_meta(filter_doctype)
+				field_meta = filter_meta.get_field(field) if isinstance(field, str) else None
+				if field_meta and field_meta.fieldtype == "Link" and field_meta.options:
+					target_meta = frappe.get_meta(field_meta.options)
+					tree_target = target_meta.has_field("lft") and target_meta.has_field("rgt")
+				elif isinstance(field, str) and field.casefold() == "name":
+					tree_target = filter_meta.has_field("lft") and filter_meta.has_field("rgt")
+			except Exception:
+				# The normal DocType/field validator reports invalid references separately.
+				tree_target = False
+			if not tree_target:
+				errors.append(
+					_(
+						"{0}.operator '{1}' requires a Tree DocType name field or a Link to a Tree DocType"
+					).format(leaf_path, operator)
+				)
+
+		def visit(node, node_path, root_level=False):
+			if node is None or node == [] or node == "":
+				return
+
+			if isinstance(node, dict):
+				if node.get("type") == "group":
+					for index, child in enumerate(node.get("children") or []):
+						visit(child, f"{node_path}.children[{index}]")
+					return
+				if node.get("type") == "leaf":
+					validate_leaf(
+						node.get("field"),
+						node.get("operator"),
+						node.get("value"),
+						node.get("doctype") or reference_doctype,
+						node_path,
+					)
+					return
+				if "field" in node or "fieldname" in node:
+					validate_leaf(
+						node.get("field") or node.get("fieldname"),
+						node.get("operator", "="),
+						node.get("value"),
+						node.get("doctype") or reference_doctype,
+						node_path,
+					)
+					return
+
+				for field, value in node.items():
+					if str(field).casefold() in {"and", "or"}:
+						visit(value, f"{node_path}.{field}")
+					elif isinstance(value, list | tuple) and len(value) == 2 and isinstance(value[0], str):
+						validate_leaf(field, value[0], value[1], reference_doctype, f"{node_path}.{field}")
+					else:
+						validate_leaf(field, "=", value, reference_doctype, f"{node_path}.{field}")
+				return
+
+			if isinstance(node, list | tuple):
+				if (
+					len(node) == 4
+					and isinstance(node[0], str)
+					and isinstance(node[1], str)
+					and isinstance(node[2], str)
+				):
+					validate_leaf(node[1], node[2], node[3], node[0] or reference_doctype, node_path)
+					return
+				if len(node) == 3 and isinstance(node[0], str) and isinstance(node[1], str):
+					validate_leaf(node[0], node[1], node[2], reference_doctype, node_path)
+					return
+				if len(node) == 2 and isinstance(node[0], str) and not root_level:
+					validate_leaf(node[0], "=", node[1], reference_doctype, node_path)
+					return
+
+				for index, item in enumerate(node):
+					if isinstance(item, str) and item.casefold() in {"and", "or"}:
+						continue
+					visit(item, f"{node_path}[{index}]")
+				return
+
+		visit(filters, path, root_level=True)
+		return errors
+
 	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Execute Fetch Records through Frappe's native Query Builder API.
 
@@ -764,7 +870,14 @@ class QueryRecordsHandler(ActionHandler):
 					value = self._normalize_filters_for_backend(value, reference_doctype)
 			kwargs[key] = value
 
-		# Validate the fully resolved payload, not only draft values in the UI.
+		# Validate the fully resolved payload, not only draft values in the UI. This
+		# applies the same portable operator contract to canonical and legacy filter rows.
+		filter_operator_errors = self._validate_resolved_fetch_filter_operators(
+			kwargs.get("filters"), reference_doctype
+		)
+		if filter_operator_errors:
+			frappe.throw("; ".join(filter_operator_errors))
+
 		validation_config = {
 			"fields": kwargs.get("fields"),
 			"filters": kwargs.get("filters"),
