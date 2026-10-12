@@ -272,6 +272,10 @@ def _validate_action_contracts(
 	if permission_flag in (1, True, "1", "true", "True"):
 		reason = _safe_get(action, "permission_audit_reason")
 		if not isinstance(reason, str) or not reason.strip():
+			config_data = _parse_json_value(_safe_get(action, "config"), {})
+			if isinstance(config_data, Mapping):
+				reason = config_data.get("permission_audit_reason")
+		if not isinstance(reason, str) or not reason.strip():
 			errors.append(
 				_("Action '{0}' must provide a Permission Audit Reason when bypassing permissions.").format(
 					action_label
