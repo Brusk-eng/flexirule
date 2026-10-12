@@ -24,23 +24,8 @@ const emit = defineEmits(["remove", "operator"]);
 const api = inject("treeBuilderContext", null);
 const dragOver = ref(false);
 const dropPosition = ref(null);
-const dragging = ref(false);
 const kind = computed(() => props.node.type);
 const children = computed(() => props.node.children || []);
-
-function dragStart(e) {
-	if (props.readOnly) {
-		e.preventDefault();
-		return;
-	}
-	e.stopPropagation();
-	dragging.value = true;
-	api?.beginDrag(props.node.id);
-	if (e.dataTransfer) {
-		e.dataTransfer.effectAllowed = "move";
-		e.dataTransfer.setData("text/plain", props.node.id || "");
-	}
-}
 
 function getDropIntent(e) {
 	const rect = e.currentTarget.getBoundingClientRect();
@@ -85,14 +70,6 @@ function dragLeave(e) {
 	dropPosition.value = null;
 }
 
-function dragEnd(e) {
-	e.stopPropagation();
-	dragging.value = false;
-	dragOver.value = false;
-	dropPosition.value = null;
-	api?.endDrag();
-}
-
 function drop(e) {
 	e.preventDefault();
 	e.stopPropagation();
@@ -113,7 +90,6 @@ function drop(e) {
 		v-if="visibleNode(node)"
 		class="tree-node"
 		:class="{
-			'tree-node--draggable': !readOnly,
 			'drag-over': dragOver && dropPosition === 'inside',
 			'drop-before': dragOver && dropPosition === 'before',
 			'drop-after': dragOver && dropPosition === 'after',
@@ -122,20 +98,6 @@ function drop(e) {
 		@dragleave="dragLeave"
 		@drop="drop"
 	>
-		<button
-			v-if="!readOnly"
-			type="button"
-			class="tree-node__drag-handle"
-			:class="{ 'is-dragging': dragging }"
-			draggable="true"
-			:title="__('Drag to reorder')"
-			:aria-label="__('Drag to reorder')"
-			@dragstart="dragStart"
-			@dragend="dragEnd"
-			@click.stop
-		>
-			<i class="fa fa-arrows"></i>
-		</button>
 		<div class="tree-node__body">
 			<TreeBuilderGroup
 				v-if="kind === 'group'"
@@ -236,46 +198,9 @@ function drop(e) {
 	width: 100%;
 	min-width: 0;
 }
-.tree-node--draggable {
-	display: grid;
-	grid-template-columns: 20px minmax(0, 1fr);
-	align-items: stretch;
-	gap: var(--fxr-space-1);
-}
 .tree-node__body {
 	min-width: 0;
 	width: 100%;
-}
-.tree-node__drag-handle {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 20px;
-	height: 32px;
-	margin-top: 3px;
-	padding: 0;
-	border: 1px solid transparent;
-	border-radius: var(--fxr-radius-sm);
-	background: transparent;
-	color: var(--fxr-text-muted);
-	cursor: grab;
-	opacity: 0.58;
-	touch-action: none;
-	transition: color var(--fxr-transition-fast), background-color var(--fxr-transition-fast),
-		border-color var(--fxr-transition-fast), opacity var(--fxr-transition-fast);
-}
-.tree-node__drag-handle:hover,
-.tree-node__drag-handle:focus-visible {
-	border-color: var(--fxr-border-subtle);
-	background: var(--fxr-surface-2);
-	color: var(--fxr-text-strong);
-	opacity: 1;
-}
-.tree-node__drag-handle.is-dragging,
-.tree-node__drag-handle:active {
-	cursor: grabbing;
-	color: var(--fxr-node-accent, var(--fxr-accent));
-	opacity: 1;
 }
 .tree-node.drag-over {
 	background: var(--fxr-node-accent-light, var(--fxr-accent-soft));

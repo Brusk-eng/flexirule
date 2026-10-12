@@ -1,5 +1,12 @@
 <template>
-	<div class="tree-leaf">
+	<div
+		class="tree-leaf"
+		:class="{ 'is-dragging': dragging }"
+		:draggable="!readOnly"
+		@pointerdown.capture="rememberDragOrigin"
+		@dragstart="startDrag"
+		@dragend="endDrag"
+	>
 		<div class="tree-leaf__content">
 			<slot :node="node" :context="context" :index="index" :parent="parent" />
 		</div>
@@ -15,7 +22,9 @@
 	</div>
 </template>
 <script setup>
-defineProps({
+import { inject, ref } from "vue";
+
+const props = defineProps({
 	node: { type: Object, required: true },
 	context: { type: Object, default: () => ({ scopes: [], path: [] }) },
 	index: { type: Number, required: true },
@@ -23,6 +32,53 @@ defineProps({
 	readOnly: Boolean,
 });
 defineEmits(["remove"]);
+
+const api = inject("treeBuilderContext", null);
+const dragging = ref(false);
+let dragOriginWasInteractive = false;
+
+const interactiveSelector = [
+	"button",
+	"input",
+	"select",
+	"textarea",
+	"option",
+	"a",
+	'[contenteditable="true"]',
+	'[role="button"]',
+	'[role="combobox"]',
+	"[data-no-drag]",
+	".combobox-container",
+	".flex-value-control-button",
+	".form-control",
+].join(", ");
+
+function rememberDragOrigin(event) {
+	const target = event.target;
+	dragOriginWasInteractive =
+		target instanceof Element && Boolean(target.closest(interactiveSelector));
+}
+
+function startDrag(event) {
+	if (props.readOnly || dragOriginWasInteractive) {
+		event.preventDefault();
+		dragOriginWasInteractive = false;
+		return;
+	}
+
+	dragging.value = true;
+	api?.beginDrag(props.node.id);
+	if (event.dataTransfer) {
+		event.dataTransfer.effectAllowed = "move";
+		event.dataTransfer.setData("text/plain", props.node.id || "");
+	}
+}
+
+function endDrag() {
+	dragging.value = false;
+	dragOriginWasInteractive = false;
+	api?.endDrag();
+}
 </script>
 <style scoped>
 .tree-leaf {
@@ -32,6 +88,11 @@ defineEmits(["remove"]);
 	align-items: stretch;
 	width: 100%;
 	min-width: 0;
+	cursor: grab;
+}
+.tree-leaf.is-dragging {
+	cursor: grabbing;
+	opacity: 0.82;
 }
 .tree-leaf__content {
 	width: 100%;
