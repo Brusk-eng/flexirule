@@ -564,8 +564,16 @@ watch(
 );
 
 async function validate() {
-	const result = (await filterTreeRef.value?.validate?.()) || { valid: true, errors: [] };
-	const errors = [...(result.errors || [])];
+	const errors = [];
+	if (typeof filterTreeRef.value?.validate !== "function") {
+		errors.push(__("Filter tree validation is unavailable. Reopen the rule configuration and try again."));
+	} else {
+		const result = await filterTreeRef.value.validate();
+		errors.push(...(result.errors || []));
+		if (!result.valid && !(result.errors || []).length) {
+			errors.push(__("One or more filter groups or leaves are invalid."));
+		}
+	}
 	if (isCustomResultShape(localConfig.result_shape) && outputFieldsRef.value?.validate) {
 		const outputResult = await outputFieldsRef.value.validate();
 		if (!outputResult.valid) errors.push(...outputResult.errors);
