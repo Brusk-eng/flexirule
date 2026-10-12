@@ -100,7 +100,9 @@ const effectiveVariableOptions = computed(
 );
 const leaf = computed(() => props.modelValue || {});
 const emptyValue = { mode: "static", value: "" };
-const BASE = ["=", "!=", "like", "not like", "in", "not in", ">", "<", ">=", "<=", "is"];
+// Shared Query Builder operators across Frappe 15 and 16; version/dialect-specific
+// operators (e.g. ILIKE, previous, next) are intentionally not offered in this portable editor.
+const BASE = ["=", "!=", "like", "not like", "regex", "in", "not in", ">", "<", ">=", "<=", "is"];
 const EXT = ["Between", "Timespan", "starts with", "ends with"];
 const NESTED = [
 	"descendants of",
@@ -132,6 +134,7 @@ const labels = {
 	">=": __("Greater Than Or Equal To"),
 	"<=": __("Less Than Or Equal To"),
 	is: __("Is"),
+	regex: __("Regular Expression"),
 	Between: __("Between"),
 	Timespan: __("Timespan"),
 	"starts with": __("Starts With"),
