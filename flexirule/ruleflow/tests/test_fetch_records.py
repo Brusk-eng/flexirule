@@ -314,9 +314,16 @@ class TestFetchRecords(FrappeTestCase):
 			}
 		)
 
+		from flexirule.ruleflow.utils.frappe_query_compat import QUERY_CAPABILITIES
+
+		expected_error = (
+			frappe.PermissionError
+			if QUERY_CAPABILITIES.supports_ignore_permissions
+			else frappe.ValidationError
+		)
 		frappe.set_user("Guest")
 		try:
-			with self.assertRaises(frappe.PermissionError):
+			with self.assertRaises(expected_error):
 				self.handler.execute(action_restricted, {}, None)
 		finally:
 			frappe.set_user("Administrator")
@@ -474,10 +481,16 @@ class TestFetchRecords(FrappeTestCase):
 		self.assertEqual(res_names, {t_open.name})
 		self.assertNotIn(t_closed.name, res_names)
 
-	def test_dynamic_limit_is_bounded_after_resolution(self):
-		context = {"vars": {"max_count": self.handler.MAX_FETCH_RECORDS_LIMIT + 1}}
+	def test_dynamic_limit_is_not_capped_after_resolution(self):
+		from unittest.mock import patch
+
+		limit = 1_000_001
+		context = {"vars": {"max_count": limit}}
 		action = frappe._dict({"label": "Dynamic limit test"})
-		with self.assertRaises(frappe.ValidationError):
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.execute_query",
+			return_value=[],
+		) as execute_query:
 			self.handler._fetch_records(
 				reference_doctype="ToDo",
 				config={"limit": "{vars.max_count}"},
@@ -486,10 +499,12 @@ class TestFetchRecords(FrappeTestCase):
 				ignore_permissions=True,
 			)
 
-	def test_fetch_records_defaults_to_bounded_result_limit(self):
+		self.assertEqual(execute_query.call_args.args[1]["limit"], limit)
+
+	def test_fetch_records_does_not_inject_a_backend_limit_default(self):
 		from unittest.mock import patch
 
-		action = frappe._dict({"label": "Default limit test"})
+		action = frappe._dict({"label": "No default limit test"})
 		with patch(
 			"flexirule.ruleflow.utils.frappe_query_compat.execute_query",
 			return_value=[],
@@ -501,10 +516,8 @@ class TestFetchRecords(FrappeTestCase):
 				action=action,
 				ignore_permissions=True,
 			)
-		self.assertEqual(
-			execute_query.call_args.args[1]["limit"],
-			self.handler.MAX_FETCH_RECORDS_LIMIT,
-		)
+
+		self.assertNotIn("limit", execute_query.call_args.args[1])
 
 	def test_resolved_output_field_is_validated_before_query_execution(self):
 		from unittest.mock import patch
@@ -522,29 +535,29 @@ class TestFetchRecords(FrappeTestCase):
 				)
 		execute_query.assert_not_called()
 
-	def test_validate_fetch_records_enforces_static_limit_ceiling(self):
+	def test_validate_fetch_records_accepts_large_static_limit(self):
 		action = frappe._dict({"reference_doctype": "ToDo"})
-		errors = self.handler.validate_fetch_records(
-			action, {"limit": self.handler.MAX_FETCH_RECORDS_LIMIT + 1}
-		)
-		self.assertTrue(any("cannot exceed" in error for error in errors))
+		errors = self.handler.validate_fetch_records(action, {"limit": 1_000_001})
+		self.assertFalse(any("cannot exceed" in error for error in errors))
 
-	def test_zero_limit_returns_no_rows_without_querying(self):
+	def test_zero_limit_is_forwarded_to_query_builder(self):
 		from unittest.mock import patch
 
-		result = None
+		action = frappe._dict({"label": "Zero limit test"})
 		with patch(
 			"flexirule.ruleflow.utils.frappe_query_compat.execute_query",
+			return_value=[],
 		) as execute_query:
 			result = self.handler._fetch_records(
 				reference_doctype="ToDo",
 				config={"limit": 0},
 				context={},
-				action=frappe._dict({"label": "Zero limit test"}),
+				action=action,
 				ignore_permissions=True,
 			)
+
 		self.assertEqual(result, [])
-		execute_query.assert_not_called()
+		self.assertEqual(execute_query.call_args.args[1]["limit"], 0)
 
 	def test_fetch_records_rejects_child_table_aggregate_field(self):
 		errors = self.handler._validate_doctype_field_references(
