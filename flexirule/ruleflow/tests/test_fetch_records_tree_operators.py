@@ -133,6 +133,36 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 				)
 				self.assertTrue(any("operator is not supported" in error for error in errors))
 
+	def test_operator_contract_also_rejects_unsupported_legacy_filter_rows(self):
+		handler = QueryRecordsHandler()
+		for operator in ("<>", "regex", "ilike", "previous", "next"):
+			with self.subTest(operator=operator):
+				errors = handler._validate_resolved_fetch_filter_operators(
+					[[TREE_DOCTYPE, "tree_label", operator, "Root"]],
+					TREE_DOCTYPE,
+				)
+				self.assertTrue(any("is not supported by Fetch Records" in error for error in errors))
+
+	def test_resolved_is_values_and_legacy_tree_targets_are_validated(self):
+		handler = QueryRecordsHandler()
+		is_errors = handler._validate_resolved_fetch_filter_operators(
+			[[TREE_DOCTYPE, "tree_label", "is", "empty"]],
+			TREE_DOCTYPE,
+		)
+		self.assertTrue(any("must be 'set' or 'not set'" in error for error in is_errors))
+
+		tree_errors = handler._validate_resolved_fetch_filter_operators(
+			[["ToDo", "name", "descendants of", "some-name"]],
+			"ToDo",
+		)
+		self.assertTrue(any("requires a Tree DocType" in error for error in tree_errors))
+
+		valid_errors = handler._validate_resolved_fetch_filter_operators(
+			[[TREE_DOCTYPE, "name", "descendants of", self.root.name]],
+			TREE_DOCTYPE,
+		)
+		self.assertEqual(valid_errors, [])
+
 	def test_is_operator_requires_native_set_value(self):
 		handler = QueryRecordsHandler()
 		for value in ("set", "not set", "SET", "Not Set"):
