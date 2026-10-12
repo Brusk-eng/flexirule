@@ -572,14 +572,11 @@ class TestFetchRecords(FrappeTestCase):
 		errors = self.handler.validate_fetch_records(action, {"limit": 1_000_001})
 		self.assertFalse(any("cannot exceed" in error for error in errors))
 
-	def test_zero_limit_is_forwarded_to_query_builder(self):
+	def test_zero_limit_returns_no_rows_without_querying(self):
 		from unittest.mock import patch
 
 		action = frappe._dict({"label": "Zero limit test"})
-		with patch(
-			"flexirule.ruleflow.utils.frappe_query_compat.execute_query",
-			return_value=[],
-		) as execute_query:
+		with patch("flexirule.ruleflow.utils.frappe_query_compat.execute_query") as execute_query:
 			result = self.handler._fetch_records(
 				reference_doctype="ToDo",
 				config={"limit": 0},
@@ -589,7 +586,7 @@ class TestFetchRecords(FrappeTestCase):
 			)
 
 		self.assertEqual(result, [])
-		self.assertEqual(execute_query.call_args.args[1]["limit"], 0)
+		execute_query.assert_not_called()
 
 	def test_fetch_records_rejects_child_table_aggregate_field(self):
 		errors = self.handler._validate_doctype_field_references(
