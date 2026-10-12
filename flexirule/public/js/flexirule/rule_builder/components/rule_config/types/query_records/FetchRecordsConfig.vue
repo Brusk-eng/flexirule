@@ -80,7 +80,11 @@
 				<div>
 					<h6>{{ __("Sort results") }}</h6>
 					<p class="section-description">
-						{{ __("Choose one or more fields to decide which matching records appear first.") }}
+						{{
+							__(
+								"Choose one or more fields to decide which matching records appear first."
+							)
+						}}
 					</p>
 				</div>
 			</div>
