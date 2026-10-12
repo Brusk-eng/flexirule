@@ -39,7 +39,6 @@
 				</div>
 			</div>
 			<SelectControl
-				fieldname="result_shape"
 				:df="resultShapeField"
 				:modelValue="localConfig.result_shape"
 				:read_only="readOnly"
@@ -396,7 +395,7 @@ function normalizeConfig(value) {
 }
 
 function inferLimitMode(source) {
-	const knownModes = new Set(limitModes.map((option) => option.value));
+	const knownModes = new Set(["first_match", "first_20", "first_1000", "all", "custom"]);
 	if (knownModes.has(source.limit_mode)) return source.limit_mode;
 
 	const limit = source.limit;
