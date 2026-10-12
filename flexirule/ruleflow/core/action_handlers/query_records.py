@@ -553,7 +553,6 @@ class QueryRecordsHandler(ActionHandler):
 		"in",
 		"not in",
 		"between",
-		"not between",
 		"is",
 		"is set",
 		"is not set",
@@ -561,7 +560,10 @@ class QueryRecordsHandler(ActionHandler):
 		"starts with",
 		"ends with",
 		"descendants of",
+		"descendants of (inclusive)",
+		"not descendants of",
 		"ancestors of",
+		"not ancestors of",
 	}
 
 	@staticmethod
