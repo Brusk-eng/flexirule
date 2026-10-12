@@ -25,6 +25,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -50,6 +52,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -80,6 +84,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_eq = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -99,6 +105,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_in = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -140,6 +148,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json({"filters": filter_tree}),
 			}
@@ -198,6 +208,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json({"filters": filter_tree}),
 			}
@@ -225,6 +237,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "User",
 				"config": frappe.as_json(
 					{
@@ -252,6 +266,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -345,6 +361,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -369,6 +387,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_bad_dt = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "NonExistentDocType",
 				"config": frappe.as_json({}),
 			}
@@ -380,6 +400,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_bad_field = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json({"fields": ["non_existent_column"]}),
 			}
@@ -391,6 +413,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_bad_limit = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json({"limit": -5}),
 			}
@@ -417,6 +441,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_starts = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -434,6 +460,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_ends = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -460,6 +488,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_true = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
