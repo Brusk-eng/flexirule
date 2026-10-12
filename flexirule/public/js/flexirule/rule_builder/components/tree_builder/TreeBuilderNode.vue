@@ -24,6 +24,7 @@ const emit = defineEmits(["remove", "operator"]);
 const api = inject("treeBuilderContext", null);
 const dragOver = ref(false);
 const dropPosition = ref(null);
+const containerDragging = ref(false);
 const kind = computed(() => props.node.type);
 const children = computed(() => props.node.children || []);
 const isDraggableContainer = computed(() => isGroupNode(props.node) || isCollectionNode(props.node));
@@ -61,6 +62,7 @@ function startContainerDrag(e) {
 		return;
 	}
 	e.stopPropagation();
+	containerDragging.value = true;
 	api?.beginDrag(props.node.id);
 	if (e.dataTransfer) {
 		e.dataTransfer.effectAllowed = "move";
@@ -70,6 +72,7 @@ function startContainerDrag(e) {
 
 function endContainerDrag(e) {
 	e.stopPropagation();
+	containerDragging.value = false;
 	dragOriginWasInteractive = false;
 	api?.endDrag();
 }
@@ -141,6 +144,7 @@ function drop(e) {
 		@dragstart="startContainerDrag"
 		@dragend="endContainerDrag"
 		:class="{
+			'is-dragging': containerDragging,
 			'drag-over': dragOver && dropPosition === 'inside',
 			'drop-before': dragOver && dropPosition === 'before',
 			'drop-after': dragOver && dropPosition === 'after',
@@ -252,6 +256,13 @@ function drop(e) {
 .tree-node__body {
 	min-width: 0;
 	width: 100%;
+}
+.tree-node[draggable="true"] {
+	cursor: grab;
+}
+.tree-node.is-dragging {
+	cursor: grabbing;
+	opacity: 0.82;
 }
 .tree-node.drag-over {
 	background: var(--fxr-node-accent-light, var(--fxr-accent-soft));
