@@ -588,6 +588,24 @@ class TestFetchRecords(FrappeTestCase):
 		self.assertEqual(result, [])
 		execute_query.assert_not_called()
 
+	def test_frappe15_fetch_records_contract_defaults_skip_permissions_for_new_actions(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.utils.frappe_query_compat import FrappeQueryCapabilities
+
+		with patch(
+			"flexirule.ruleflow.core.action_handlers.query_records.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(supports_ignore_permissions=False),
+		):
+			contract = self.handler.get_operation_contracts()["Fetch Records"]
+
+		permission_overrides = [
+			override
+			for override in contract.action_overrides
+			if override.get("fieldname") == "ignore_permissions"
+		]
+		self.assertTrue(any(override.get("default") == 1 for override in permission_overrides))
+
 	def test_canonical_filter_validator_accepts_nested_set_operators_from_ui(self):
 		operators = (
 			"descendants of",
