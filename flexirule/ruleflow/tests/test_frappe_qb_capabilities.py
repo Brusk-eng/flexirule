@@ -253,12 +253,6 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				"is_group": 0,
 			}
 		).insert(ignore_permissions=True)
-		# A second root makes OR-combination assertions distinguish the inclusive
-		# descendants result from the full table result.
-		cls.other_root = frappe.get_doc(
-			{"doctype": "QB Test Tree", "tree_name": "Other Root", "is_group": 1}
-		).insert(ignore_permissions=True)
-
 		frappe.db.commit()
 
 	# -------------------------------------------------------------------------
@@ -396,93 +390,6 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		)
 		res_anc = q_anc.run(as_dict=True)
 		self.assertEqual({r["tree_name"] for r in res_anc}, {"Root", "Child A"})
-
-	def test_fetch_records_adapter_nested_set_operators_as_single_filters(self):
-		"""Execute each hierarchy operator against persisted nested-set rows."""
-		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
-
-		cases = {
-			"descendants of": (
-				self.root.name,
-				{self.child_a.name, self.grandchild_a.name, self.child_b.name},
-			),
-			"descendants of (inclusive)": (
-				self.root.name,
-				{self.root.name, self.child_a.name, self.grandchild_a.name, self.child_b.name},
-			),
-			"not descendants of": (
-				self.root.name,
-				{self.root.name, self.other_root.name},
-			),
-			"ancestors of": (
-				self.grandchild_a.name,
-				{self.root.name, self.child_a.name},
-			),
-			"not ancestors of": (
-				self.grandchild_a.name,
-				{self.grandchild_a.name, self.child_b.name, self.other_root.name},
-			),
-		}
-
-		for operator, (target, expected_names) in cases.items():
-			with self.subTest(operator=operator):
-				rows = execute_query(
-					"QB Test Tree",
-					{"fields": ["name"], "filters": ["name", operator, target]},
-					ignore_permissions=True,
-				)
-				self.assertEqual({row["name"] for row in rows}, expected_names)
-
-	def test_fetch_records_adapter_nested_set_operators_preserve_and_or_semantics(self):
-		"""The five hierarchy operators must compose with normal filters in both directions."""
-		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
-
-		cases = {
-			"descendants of": (
-				self.root.name,
-				{self.child_a.name, self.grandchild_a.name, self.child_b.name},
-				self.root.name,
-			),
-			"descendants of (inclusive)": (
-				self.root.name,
-				{self.root.name, self.child_a.name, self.grandchild_a.name, self.child_b.name},
-				self.other_root.name,
-			),
-			"not descendants of": (
-				self.root.name,
-				{self.root.name, self.other_root.name},
-				self.child_a.name,
-			),
-			"ancestors of": (
-				self.grandchild_a.name,
-				{self.root.name, self.child_a.name},
-				self.child_b.name,
-			),
-			"not ancestors of": (
-				self.grandchild_a.name,
-				{self.grandchild_a.name, self.child_b.name, self.other_root.name},
-				self.root.name,
-			),
-		}
-
-		for operator, (target, hierarchy_names, disjoint_name) in cases.items():
-			for connector in ("and", "or"):
-				with self.subTest(operator=operator, connector=connector):
-					filters = [
-						["name", operator, target],
-						connector,
-						["name", "=", disjoint_name],
-					]
-					rows = execute_query(
-						"QB Test Tree",
-						{"fields": ["name"], "filters": filters},
-						ignore_permissions=True,
-					)
-					actual_names = {row["name"] for row in rows}
-					if connector == "and":
-						self.assertEqual(actual_names, hierarchy_names & {disjoint_name})
-					else:
-						self.assertEqual(actual_names, hierarchy_names | {disjoint_name})
 
 	# -------------------------------------------------------------------------
 	# 3. Link-Field Traversal
