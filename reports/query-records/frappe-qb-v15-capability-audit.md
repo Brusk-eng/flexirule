@@ -279,3 +279,34 @@ This is a proposal only; no vendored Frappe source is changed by this PR.
 ### Verification caveat
 
 The previous head's configured CI and linter workflows passed on `d61e679ada447cdca3cd08db6ad372aa9defd23b`. The warning change was committed afterward, so those earlier green runs do not verify the current head. The full Frappe/MariaDB authorization matrix and both-version integration suite must remain marked pending until the new head's CI and the required runtime tests establish those outcomes.
+
+## 19. Revised release decision — native Query Builder only (2026-10-12)
+
+This section supersedes the earlier recommendation in this report to use `frappe.get_list` as a Frappe 15 permission-aware fallback. After product review, compatibility between Fetch Records' native Query Builder filter tree and Frappe 15 permission enforcement is deferred until after the first production release and discussion with the Frappe team.
+
+### Execution contract for the first production release
+
+- **Fetch Records always executes through `frappe.qb.get_query`.** It does not switch to `frappe.get_list` or `frappe.get_all` based on permission mode. This avoids silently changing field parsing, joins, aggregate behavior, nested boolean semantics, and result shape between framework versions.
+- **Frappe 16+ (when the installed `Engine.get_query` signature exposes `ignore_permissions`):** pass the explicit permission flag to the native API. Permission behavior is owned by the installed framework implementation; validate it with integration tests for the exact supported versions.
+- **Frappe 15 (no native `ignore_permissions` API parameter):** Fetch Records cannot claim native per-record permission enforcement. The editor enables Skip Permissions by default and locks that setting for Fetch Records on Frappe 15. The backend rejects permission-sensitive Fetch Records calls rather than falling back to a different query API. The existing FlexiRule authorization policy and mandatory audit-reason check remain in force when the bypass is used.
+- **Permission-filtered reads on Frappe 15:** use the existing Query List mode (which uses `frappe.get_list`) until the upstream API question is resolved. This is an explicit product boundary, not a compatibility fallback hidden inside Fetch Records.
+- **Frappe 15 nested logical filters:** the adapter compiles supported root-DocType leaf groups to native Pypika `Criterion` objects and then calls `frappe.qb.get_query`. It rejects linked/child-field leaves inside those compiled groups rather than altering query meaning. Better parity is deferred, not inferred from this partial compiler.
+
+### API selection and initialization
+
+`detect_query_capabilities()` now inspects only the installed `Engine.get_query` method signature for the explicit `ignore_permissions` parameter, once when the adapter module is imported. Source-text inspection of `Engine.apply_filters` has been removed. A positive match enables passing the native keyword; an uninspectable signature fails closed by treating the permission parameter as unavailable. Fetch Records does not choose `frappe.get_list` as an alternative execution path.
+
+This is a small, local feature-detection boundary based on the public method signature, not a vendored copy of Frappe code and not a general promise of v15/v16 semantic parity.
+
+### Result limits
+
+- The backend no longer injects a default limit or caps a configured limit/offset.
+- Explicit dynamic or static limits are still resolved and validated as non-negative integers before query execution.
+- An omitted limit is omitted from the Query Builder payload; the rule author controls whether to limit results. The UI may provide a suggested default in the future, but it is not an execution policy.
+- Zero-limit behavior is delegated to the installed Query Builder API rather than being reinterpreted by FlexiRule.
+
+### Acceptance and remaining verification
+
+This change intentionally removes the previous Frappe 15 `get_list` fallback and its promise of permission parity. It must not be described as enforcing normal record-level permissions on Frappe 15. The existing role and audit-reason governance for explicit permission bypass remains mandatory.
+
+CI and the Frappe/MariaDB integration suite must be rerun on the updated PR head. In particular, test: native permission flag forwarding where supported; v15 failure when bypass is not configured; v15 audited bypass dispatch; nested root-field groups and fail-closed linked/child groups; large dynamic limit/offset pass-through; omitted-limit pass-through; and regression behavior for all other Query Records modes.
