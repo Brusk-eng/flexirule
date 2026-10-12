@@ -112,9 +112,10 @@ const visibleNode = (node) => props.visibleNode(node) !== false;
 const rootDragOver = ref(false);
 
 function onRootDragOver(e) {
-	const draggedId = api.dragState.nodeId;
+	const draggedId = api.dragState.nodeId || e.dataTransfer?.getData("text/plain");
 	if (props.readOnly || !draggedId || !api.canMove(draggedId, root.id)) return;
 	e.preventDefault();
+	if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 	rootDragOver.value = true;
 }
 
