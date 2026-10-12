@@ -674,9 +674,9 @@ class QueryRecordsHandler(ActionHandler):
 				tree_target = False
 			if not tree_target:
 				errors.append(
-					_("{0}.operator '{1}' requires a Tree DocType name field or a Link to a Tree DocType").format(
-						path, operator
-					)
+					_(
+						"{0}.operator '{1}' requires a Tree DocType name field or a Link to a Tree DocType"
+					).format(path, operator)
 				)
 		value = node.get("value")
 		if "value" not in node:
