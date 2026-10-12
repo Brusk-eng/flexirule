@@ -19,7 +19,7 @@
 						description: __(
 							'Bypass read permissions for this action. Requires audit reason.'
 						),
-						read_only: readOnly || (mode === 'Fetch Records' && isFrappe15),
+						read_only: readOnly || (mode === 'Fetch Records' && isFrappe15 && !!node?.data?.ignore_permissions),
 					}"
 					:modelValue="node?.data?.ignore_permissions"
 					@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
@@ -795,7 +795,9 @@ onMounted(async () => {
 	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
-		applyFetchRecordsFrappe15Defaults();
+		// Do not silently elevate an existing saved action with an explicit false.
+		// New/migrated actions with no value receive the v15-safe UI default.
+		applyFetchRecordsFrappe15Defaults({ onlyWhenUnset: true });
 		if (mode.value === "Query Doc") {
 			await reconcile_query_doc_state();
 		} else if (reference_doctype.value) {
@@ -1379,10 +1381,12 @@ function update_action_key(key, value) {
 	props.node.data[key] = value;
 }
 
-function applyFetchRecordsFrappe15Defaults() {
+function applyFetchRecordsFrappe15Defaults({ onlyWhenUnset = false } = {}) {
 	if (props.readOnly || !props.node?.data) return;
 	if (mode.value !== "Fetch Records" || !isFrappe15.value) return;
-	if (![true, 1, "1"].includes(props.node.data.ignore_permissions)) {
+	const current = props.node.data.ignore_permissions;
+	if (onlyWhenUnset && current !== undefined && current !== null && current !== "") return;
+	if (![true, 1, "1"].includes(current)) {
 		props.node.data.ignore_permissions = 1;
 		store.mark_dirty();
 	}
