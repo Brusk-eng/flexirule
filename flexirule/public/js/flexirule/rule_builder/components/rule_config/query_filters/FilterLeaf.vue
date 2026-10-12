@@ -6,14 +6,13 @@
 		<div class="filter-row-main">
 			<div class="filter-col field-col">
 				<ComboBoxControl
-					:df="{ label: '', fieldtype: 'FieldPicker', reqd: 1 }"
+					:df="{ label: __('Field'), fieldtype: 'FieldPicker', reqd: 1 }"
 					:options="navigableFields.currentFields.value"
 					:doctype="doctype"
 					:modelValue="leaf.field || ''"
 					:read_only="readOnly"
-					:showValidation="showValidation"
+					:showValidation="validationVisible"
 					:trigger="'button'"
-					:hideLabel="true"
 					:navigable="true"
 					:navStack="navigableFields.navStack.value"
 					@navigate="navigableFields.handleNavigate"
@@ -24,8 +23,10 @@
 			<div class="filter-col operator-col">
 				<select
 					class="form-control input-xs"
+					:class="{ 'is-invalid': validationVisible && operatorInvalid }"
 					:value="leaf.operator"
-					:disabled="readOnly"
+					:disabled="readOnly || !leaf.field"
+					:aria-invalid="validationVisible && operatorInvalid"
 					@change="updateOperator"
 				>
 					<option v-for="op in operators" :key="op" :value="op">
@@ -51,7 +52,7 @@
 							:doc="store?.rule_doc"
 							:variableOptions="effectiveVariableOptions"
 							:disabled="readOnly"
-							:showValidation="showValidation"
+							:showValidation="validationVisible && (valueInvalid || isMissingBetweenValue(index - 1))"
 							@update:modelValue="(value) => updateBetween(index - 1, value)"
 						/>
 					</div>
@@ -69,7 +70,7 @@
 					:variableOptions="effectiveVariableOptions"
 					:disabled="readOnly"
 					:readOnly="readOnly"
-					:showValidation="showValidation"
+					:showValidation="validationVisible && valueInvalid"
 					@update:modelValue="updateValue"
 				/>
 			</div>
@@ -100,6 +101,8 @@ const effectiveVariableOptions = computed(
 );
 const leaf = computed(() => props.modelValue || {});
 const emptyValue = { mode: "static", value: "" };
+const hasInteracted = ref(false);
+const validationVisible = computed(() => props.showValidation || hasInteracted.value);
 // Portable Query Builder operators shared by Frappe 15 and 16.
 // REGEX is omitted: those release branches still render PyPika's unsupported "REGEX" SQL token.
 const BASE = ["=", "!=", "like", "not like", "in", "not in", ">", "<", ">=", "<=", "is"];
@@ -181,6 +184,39 @@ const operators = computed(() => {
 	if (field.value?.fieldtype === "Check") return result.filter((op) => op === "=");
 	return result.length ? result : ["="];
 });
+const operatorInvalid = computed(
+	() => !leaf.value.operator || !operators.value.includes(leaf.value.operator)
+);
+function isConfigured(value) {
+	if (Array.isArray(value)) return value.length > 0 && value.every(isConfigured);
+	if (value && typeof value === "object") {
+		if (Object.prototype.hasOwnProperty.call(value, "mode")) {
+			if (value.mode === "static") return !isEmpty(value.value);
+			return value.value !== undefined && value.value !== null && String(value.value).trim() !== "";
+		}
+		return Object.keys(value).length > 0;
+	}
+	return !isEmpty(value) && !(typeof value === "string" && value.trim() === "");
+}
+function isValidIsValue(value) {
+	if (value && typeof value === "object" && value.mode && value.mode !== "static") {
+		return isConfigured(value);
+	}
+	const raw = value && typeof value === "object" && value.mode === "static" ? value.value : value;
+	return ["set", "not set"].includes(String(raw ?? "").trim().toLowerCase());
+}
+const valueInvalid = computed(() => {
+	if (!leaf.value.field) return false;
+	if (operatorInvalid.value) return true;
+	if (leaf.value.operator === "Between") {
+		return !Array.isArray(leaf.value.value) || leaf.value.value.length < 2 || !isConfigured(leaf.value.value[0]) || !isConfigured(leaf.value.value[1]);
+	}
+	if (String(leaf.value.operator).toLowerCase() === "is") return !isValidIsValue(leaf.value.value);
+	return !isConfigured(leaf.value.value);
+});
+function isMissingBetweenValue(index) {
+	return !Array.isArray(leaf.value.value) || !isConfigured(leaf.value.value[index]);
+}
 const operatorLabel = (op) => {
 	if (field.value?.fieldtype === "Date" || field.value?.fieldtype === "Datetime")
 		return (
@@ -199,14 +235,21 @@ const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
 	() => leaf.value.field || ""
 );
-const updateValue = (value) => emit("update:modelValue", { ...leaf.value, value });
+const updateValue = (value) => {
+	hasInteracted.value = true;
+	emit("update:modelValue", { ...leaf.value, value });
+};
 function updateField(value) {
+	hasInteracted.value = true;
 	const next = { ...leaf.value, field: value };
 	const def = getFieldDef(value);
 	const allowed = getOperators(def);
 	if (!allowed.includes(next.operator)) next.operator = allowed[0] || "=";
-	if (next.operator === "Between" && !Array.isArray(next.value))
-		next.value = [{ ...emptyValue }, { ...emptyValue }];
+	if (String(leaf.value.field || "") !== String(value || "")) {
+		next.value = next.operator === "Between"
+			? [{ ...emptyValue }, { ...emptyValue }]
+			: { ...emptyValue };
+	}
 	emit("update:modelValue", next);
 	navigableFields.resetStack();
 }
@@ -218,6 +261,7 @@ function getOperators(def) {
 	return result.length ? result : ["="];
 }
 function updateOperator(event) {
+	hasInteracted.value = true;
 	const operator = event.target.value;
 	let value = leaf.value.value;
 	if (operator === "Between" && !Array.isArray(value))
@@ -227,6 +271,7 @@ function updateOperator(event) {
 	emit("update:modelValue", { ...leaf.value, operator, value });
 }
 function updateBetween(index, value) {
+	hasInteracted.value = true;
 	const values = Array.isArray(leaf.value.value)
 		? [...leaf.value.value]
 		: [{ ...emptyValue }, { ...emptyValue }];
@@ -261,6 +306,7 @@ const controlSchema = computed(() => {
 		? frappe.utils.deep_clone(field.value)
 		: { fieldtype: "Data", fieldname: "value" };
 	schema.label = "";
+	schema.reqd = String(leaf.value.operator).toLowerCase() === "is" ? 0 : 1;
 	schema.read_only = props.readOnly;
 	schema.fieldname = String(leaf.value.field || "value").replace(/^doc\./, "");
 	if (frappe.ui?.filter_utils?.set_fieldtype)
@@ -299,19 +345,16 @@ function isEmpty(value) {
 async function validate() {
 	const errors = [];
 	if (!leaf.value.field) errors.push(__("Filter field is required."));
-	if (!leaf.value.operator) errors.push(__("Filter operator is required."));
-	if (leaf.value.operator === "Between") {
-		if (
-			!Array.isArray(leaf.value.value) ||
-			leaf.value.value.length < 2 ||
-			isEmpty(leaf.value.value[0]?.value) ||
-			isEmpty(leaf.value.value[1]?.value)
-		)
+	if (!leaf.value.operator || operatorInvalid.value) {
+		errors.push(__("Choose a supported operator for the selected field."));
+	} else if (leaf.value.operator === "Between") {
+		if (!Array.isArray(leaf.value.value) || leaf.value.value.length < 2 || !isConfigured(leaf.value.value[0]) || !isConfigured(leaf.value.value[1])) {
 			errors.push(__("Both values are required for Between."));
-	} else if (leaf.value.operator !== "is") {
-		const value = leaf.value.value;
-		const empty = value?.mode === "static" ? isEmpty(value.value) : !value;
-		if (empty) errors.push(__("Filter value is required."));
+		}
+	} else if (String(leaf.value.operator).toLowerCase() === "is") {
+		if (!isValidIsValue(leaf.value.value)) errors.push(__("Choose Set or Not Set."));
+	} else if (!isConfigured(leaf.value.value)) {
+		errors.push(__("Filter value is required."));
 	}
 	return { valid: errors.length === 0, errors };
 }
