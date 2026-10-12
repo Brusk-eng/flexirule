@@ -104,6 +104,28 @@ const leaf = computed(() => props.modelValue || {});
 const emptyValue = { mode: "static", value: "" };
 const hasInteracted = ref(false);
 const validationVisible = computed(() => props.showValidation || hasInteracted.value);
+const labels = {
+	"=": __("Equals"),
+	"!=": __("Not Equals"),
+	like: __("Like"),
+	"not like": __("Not Like"),
+	in: __("In"),
+	"not in": __("Not In"),
+	">": __("Greater Than"),
+	"<": __("Less Than"),
+	">=": __("Greater Than Or Equal To"),
+	"<=": __("Less Than Or Equal To"),
+	is: __("Is"),
+	Between: __("Between"),
+	Timespan: __("Timespan"),
+	"starts with": __("Starts With"),
+	"ends with": __("Ends With"),
+	"descendants of": __("Descendants Of"),
+	"descendants of (inclusive)": __("Descendants Of (inclusive)"),
+	"not descendants of": __("Not Descendants Of"),
+	"ancestors of": __("Ancestors Of"),
+	"not ancestors of": __("Not Ancestors Of"),
+};
 const nestedSetOptions = () => ({
 	nestedSetDoctypes: frappe.boot?.nested_set_doctypes || [],
 	rootDoctype: props.doctype,
