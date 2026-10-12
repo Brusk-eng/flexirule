@@ -211,7 +211,7 @@
 			<i class="fa fa-info-circle mr-1"></i>
 			{{
 				__(
-					"Aggregate functions mixed with regular fields require Group By. Configure Group By under Retrieval Settings, or remove regular output fields."
+					"When aggregates and regular fields are combined, set Group By in Result limit and grouping. Otherwise, use aggregate-only output fields."
 				)
 			}}
 		</p>
@@ -219,14 +219,14 @@
 		<p v-if="shape === 'embedded_children'" class="output-fields-hint">
 			{{
 				__(
-					"Child selections are serialized as nested arrays. Use dotted child paths only when you intentionally want flat joined rows."
+					"Child selections return nested arrays for each parent record. Use dotted paths only when you want flat joined rows."
 				)
 			}}
 		</p>
 		<p class="output-fields-hint">
 			{{
 				__(
-					"Function expressions use native Frappe field syntax. Aggregate functions over child/link paths are not supported by the current backend contract."
+					"Functions use Frappe-style field syntax. Aggregate functions currently support fields on the selected DocType, not linked or child-table paths."
 				)
 			}}
 		</p>
