@@ -518,7 +518,9 @@ class QueryRecordsHandler(ActionHandler):
 			return [_("Reference DocType '{0}' does not exist").format(ref_dt)]
 
 		errors = []
-		ignore_permissions_value = getattr(action, "ignore_permissions", 0)
+		ignore_permissions_value = getattr(action, "ignore_permissions", None)
+		if ignore_permissions_value in (None, ""):
+			ignore_permissions_value = getattr(action, "skip_permissions", 0)
 		ignore_permissions_enabled = ignore_permissions_value in (True, 1, "1", "true", "True")
 		if not QUERY_CAPABILITIES.supports_ignore_permissions and not ignore_permissions_enabled:
 			errors.append(
