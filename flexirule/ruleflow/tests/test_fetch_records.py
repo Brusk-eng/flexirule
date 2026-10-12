@@ -588,6 +588,26 @@ class TestFetchRecords(FrappeTestCase):
 		self.assertEqual(result, [])
 		execute_query.assert_not_called()
 
+	def test_canonical_filter_validator_accepts_nested_set_operators_from_ui(self):
+		operators = (
+			"descendants of",
+			"descendants of (inclusive)",
+			"not descendants of",
+			"ancestors of",
+			"not ancestors of",
+		)
+		for operator in operators:
+			with self.subTest(operator=operator):
+				errors = self.handler._validate_canonical_fetch_filter_tree(
+					{
+						"type": "leaf",
+						"field": "name",
+						"operator": operator,
+						"value": {"mode": "static", "value": "ToDo-example"},
+					}
+				)
+				self.assertEqual(errors, [], msg=operator)
+
 	def test_fetch_records_rejects_child_table_aggregate_field(self):
 		errors = self.handler._validate_doctype_field_references(
 			"User", {"fields": ["count(roles.role) as role_count"]}
