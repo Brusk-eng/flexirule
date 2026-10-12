@@ -63,18 +63,40 @@ defineEmits(["add-leaf", "add-group", "add-collection", "remove"]);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	flex-wrap: wrap;
 	gap: var(--fxr-space-2);
-	margin-bottom: var(--fxr-space-2);
+	margin-bottom: var(--fxr-space-3);
 }
 .tree-collection__label,
 .tree-collection__actions {
 	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
 	gap: var(--fxr-space-1);
+}
+.tree-collection__actions .fxr-btn--icon {
+	border: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-surface);
+	color: var(--fxr-text-secondary);
+	transition: all var(--fxr-transition-fast);
+}
+.tree-collection__actions .fxr-btn--icon:hover,
+.tree-collection__actions .fxr-btn--icon:focus-visible {
+	border-color: var(--fxr-border-strong);
+	background: var(--fxr-surface-2);
+	color: var(--fxr-text-strong);
+}
+.tree-collection__actions .fxr-btn--icon.fxr-btn--danger:hover,
+.tree-collection__actions .fxr-btn--icon.fxr-btn--danger:focus-visible {
+	border-color: var(--fxr-border-danger);
+	background: var(--fxr-bg-danger);
+	color: var(--fxr-text-danger);
 }
 .tree-collection__children {
 	display: flex;
 	flex-direction: column;
 	gap: var(--fxr-space-2);
+	width: 100%;
+	min-width: 0;
 }
 </style>
