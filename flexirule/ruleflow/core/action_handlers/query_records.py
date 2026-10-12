@@ -35,6 +35,7 @@ from flexirule.ruleflow.core.action_handlers.base_contract import (
 	standard_trigger_overrides,
 )
 from flexirule.ruleflow.core.permissions import can_ignore_permissions
+from flexirule.ruleflow.utils.frappe_query_compat import QUERY_CAPABILITIES
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
@@ -509,6 +510,17 @@ class QueryRecordsHandler(ActionHandler):
 			return [_("Reference DocType '{0}' does not exist").format(ref_dt)]
 
 		errors = []
+		ignore_permissions_value = getattr(action, "ignore_permissions", 0)
+		ignore_permissions_enabled = ignore_permissions_value in (True, 1, "1", "true", "True")
+		if not QUERY_CAPABILITIES.supports_ignore_permissions and not ignore_permissions_enabled:
+			errors.append(
+				_(
+					"Fetch Records on this Frappe version cannot enforce record-level read permissions "
+					"through Query Builder. Enable Skip Permissions and provide an audit reason, or use "
+					"Query List for frappe.get_list permission behavior."
+				)
+			)
+
 		filters = config.get("filters")
 		if filters not in (None, "", []) and self._is_canonical_filter_tree(filters):
 			errors.extend(self._validate_canonical_fetch_filter_tree(filters))
