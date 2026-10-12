@@ -13,7 +13,7 @@ from inspect import signature
 
 import frappe
 from frappe.database.operator_map import OPERATOR_MAP
-from frappe.database.query import Engine
+from frappe.database.query import Engine, get_nested_set_hierarchy_result
 from frappe.query_builder import Criterion
 
 
@@ -87,38 +87,24 @@ def _contains_logical_filter_groups(value) -> bool:
 	return False
 
 
-def _nested_set_values(doctype: str, field: str, value, operator: str):
-	"""Resolve tree nodes using the hierarchy expansion used by Frappe 15's Query Builder."""
-	field_meta = frappe.get_meta(doctype).get_field(field)
-	reference_doctype = field_meta.options if field_meta else doctype
-
-	lft, rgt = frappe.db.get_value(reference_doctype, value, ["lft", "rgt"]) or (0, 0)
-	if operator in {"descendants of", "not descendants of", "descendants of (inclusive)"}:
-		nodes = frappe.get_all(
-			reference_doctype,
-			filters={"lft": [">", lft], "rgt": ["<", rgt]},
-			order_by="lft ASC",
-			pluck="name",
-		)
-		if operator == "descendants of (inclusive)":
-			nodes.append(value)
-	else:
-		nodes = frappe.get_all(
-			reference_doctype,
-			filters={"lft": ["<", lft], "rgt": [">", rgt]},
-			order_by="lft DESC",
-			pluck="name",
-		)
-
-	return nodes
+def _contains_nested_set_filter(value) -> bool:
+	"""Return True when a logical-filter tree contains a native nested-set operator leaf."""
+	if _is_legacy_filter_leaf(value):
+		operator = value[2] if len(value) == 4 else (value[1] if len(value) == 3 else None)
+		return isinstance(operator, str) and operator.casefold() in _NESTED_SET_OPERATORS
+	if not isinstance(value, list | tuple):
+		return False
+	return any(_contains_nested_set_filter(item) for item in value)
 
 
 def _criterion_for_nested_set_leaf(doctype: str, field: str, value, operator: str):
-	"""Compile a v15 hierarchy filter without changing its inclusive/exclusive semantics."""
-	nodes = _nested_set_values(doctype, field, value, operator)
+	"""Compile grouped tree filters through Frappe's own hierarchy resolver."""
+	field_meta = frappe.get_meta(doctype).get_field(field)
+	reference_doctype = field_meta.options if field_meta else doctype
+	nodes = get_nested_set_hierarchy_result(reference_doctype, value, operator)
 	comparison = "not in" if operator in {"not descendants of", "not ancestors of"} else "in"
-	# Match Frappe's empty-hierarchy sentinel, including for NOT IN filters.
-	return OPERATOR_MAP[comparison](frappe.qb.DocType(doctype)[field], tuple(nodes) or ("",))
+	# Match Engine._apply_filter's empty-hierarchy behavior.
+	return OPERATOR_MAP[comparison](frappe.qb.DocType(doctype)[field], nodes or ("",))
 
 
 def _criterion_for_leaf(doctype: str, leaf):
@@ -214,7 +200,16 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 
 	if native_permissions:
 		query_kwargs["ignore_permissions"] = ignore_permissions
-	elif _contains_logical_filter_groups(filters):
+
+	# Frappe 15 requires the adapter's legacy boolean-group compiler. Frappe 16
+	# parses regular groups natively, but nested-set operators are a separate
+	# operator family that its simple-condition classifier does not recognize.
+	# Compile only those Frappe 16 groups that include a tree operator, using
+	# Frappe's own hierarchy resolver to preserve native behavior.
+	compile_logical_groups = _contains_logical_filter_groups(filters) and (
+		not native_permissions or _contains_nested_set_filter(filters)
+	)
+	if compile_logical_groups:
 		try:
 			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
 		except ValueError as exc:
