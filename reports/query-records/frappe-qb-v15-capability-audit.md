@@ -303,7 +303,7 @@ This is a small, local feature-detection boundary based on the public method sig
 - The backend no longer injects a default limit or caps a configured limit/offset.
 - Explicit dynamic or static limits are still resolved and validated as non-negative integers before query execution.
 - An omitted limit is omitted from the Query Builder payload; the rule author controls whether to limit results. The UI may provide a suggested default in the future, but it is not an execution policy.
-- Zero-limit behavior is delegated to the installed Query Builder API rather than being reinterpreted by FlexiRule.
+- An explicitly configured limit of zero returns no rows. This preserves the rule author's intent because some legacy Query Builder implementations treat a falsey limit as if no limit were supplied. This semantic correction is not an implicit positive limit or a backend result cap.
 
 ### Acceptance and remaining verification
 
