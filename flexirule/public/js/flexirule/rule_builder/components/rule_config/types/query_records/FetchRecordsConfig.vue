@@ -38,28 +38,14 @@
 					</p>
 				</div>
 			</div>
-			<div class="result-shape-grid" role="group" :aria-label="__('Result shape')">
-				<button
-					v-for="shape in resultShapes"
-					:key="shape.value"
-					type="button"
-					class="result-shape-card"
-					:class="{ 'is-selected': localConfig.result_shape === shape.value }"
-					:aria-pressed="localConfig.result_shape === shape.value"
-					:disabled="readOnly"
-					@click="selectResultShape(shape.value)"
-				>
-					<span class="result-shape-icon"><i :class="shape.icon"></i></span>
-					<span class="result-shape-copy">
-						<strong>{{ shape.label }}</strong>
-						<small>{{ shape.description }}</small>
-					</span>
-					<i
-						v-if="localConfig.result_shape === shape.value"
-						class="fa fa-check-circle result-shape-check"
-					></i>
-				</button>
-			</div>
+			<SelectControl
+				fieldname="result_shape"
+				:df="resultShapeField"
+				:modelValue="localConfig.result_shape"
+				:read_only="readOnly"
+				:showValidation="showValidation"
+				@update:modelValue="selectResultShape"
+			/>
 		</div>
 
 		<div
@@ -147,28 +133,49 @@
 
 		<div class="sub-section section-subcard">
 			<h6>{{ __("Retrieval Settings") }}</h6>
+			<p class="section-description">
+				{{ __("Choose how many matching rows to return. Large or unlimited result sets can increase query time and memory use.") }}
+			</p>
 			<div class="query-doc-grid">
 				<div class="grid-item">
+					<SelectControl
+						:df="limitModeField"
+						:modelValue="localConfig.limit_mode"
+						:read_only="readOnly"
+						:showValidation="showValidation"
+						@update:modelValue="selectLimitMode"
+					/>
+				</div>
+				<div v-if="localConfig.limit_mode === 'custom'" class="grid-item">
 					<ControlFactory
 						:df="limitField"
 						:modelValue="localConfig.limit"
+						:showValidation="showValidation"
 						@update:modelValue="updateConfig('limit', $event)"
 					/>
 				</div>
-				<div class="grid-item">
+				<div v-if="localConfig.limit_mode !== 'first_match'" class="grid-item">
 					<ControlFactory
 						:df="offsetField"
 						:modelValue="localConfig.offset"
+						:showValidation="showValidation"
 						@update:modelValue="updateConfig('offset', $event)"
 					/>
 				</div>
-				<div class="grid-item">
+				<div v-if="showGroupBy" class="grid-item">
 					<ComboBoxControl
-						:df="{ label: __('Group By'), fieldtype: 'Autocomplete' }"
+						:df="groupByField"
+						:options="groupByNavigableFields.currentFields.value"
+						:doctype="doctype"
 						:modelValue="localConfig.group_by"
 						:get_query="getGroupByOptions"
 						:read_only="readOnly"
+						:showValidation="showValidation"
 						:showOnFocus="true"
+						:navigable="true"
+						:navStack="groupByNavigableFields.navStack.value"
+						@navigate="groupByNavigableFields.handleNavigate"
+						@back="groupByNavigableFields.handleBack"
 						@update:modelValue="updateConfig('group_by', $event)"
 					/>
 				</div>
@@ -186,6 +193,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import ControlFactory from "../../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../../controls/ComboBoxControl.vue";
+import SelectControl from "../../../../controls/SelectControl.vue";
 import { useNavigableFields } from "../../../../composables/useNavigableFields";
 import QueryFilterTree from "../../query_filters/QueryFilterTree.vue";
 import OutputFieldsEditor from "./OutputFieldsEditor.vue";
@@ -232,26 +240,58 @@ const resultShapes = [
 	{
 		value: "document_names",
 		label: __("Document names"),
-		description: __("One name field per result row"),
+		description: __("Return each matching record as a row containing only its document name."),
 		icon: "fa fa-list-ol",
 	},
 	{
 		value: "whole_documents",
 		label: __("Whole documents"),
-		description: __("All parent DocType fields"),
+		description: __("Return every field from each parent document. Use this when downstream steps need the full record."),
 		icon: "fa fa-file-text-o",
 	},
 	{
 		value: "selected_fields",
 		label: __("Selected fields"),
-		description: __("Choose fields, aliases, and supported functions"),
+		description: __("Return only the fields you select, with optional aliases and supported aggregate functions."),
 		icon: "fa fa-columns",
 	},
 	{
 		value: "embedded_children",
 		label: __("Embedded children"),
-		description: __("Return selected child fields as nested arrays"),
+		description: __("Return selected child-table fields as nested arrays inside each parent result."),
 		icon: "fa fa-sitemap",
+	},
+];
+const limitModes = [
+	{
+		value: "first_match",
+		label: __("First match (1 record)"),
+		description: __("Return only the first matching record."),
+		icon: "fa fa-bullseye",
+	},
+	{
+		value: "first_20",
+		label: __("First 20 records"),
+		description: __("Return up to the first 20 matching records."),
+		icon: "fa fa-list-ol",
+	},
+	{
+		value: "first_1000",
+		label: __("First 1,000 records"),
+		description: __("Return up to 1,000 matching records."),
+		icon: "fa fa-list",
+	},
+	{
+		value: "all",
+		label: __("All matching records"),
+		description: __("Do not apply a result limit. Large result sets may take longer and use more memory."),
+		icon: "fa fa-infinity",
+	},
+	{
+		value: "custom",
+		label: __("Custom limit"),
+		description: __("Set a specific maximum number of matching records."),
+		icon: "fa fa-sliders",
 	},
 ];
 const orderRows = ref(parseOrderBy(localConfig.order_by));
@@ -259,14 +299,52 @@ const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
 	() => orderRows.value[0]?.field || ""
 );
+const currentGroupByPath = computed(() => {
+	const parts = String(localConfig.group_by || "")
+		.split(",")
+		.map((part) => part.trim())
+		.filter(Boolean);
+	return parts[parts.length - 1] || "";
+});
+const groupByNavigableFields = useNavigableFields(
+	computed(() => props.doctype),
+	() => currentGroupByPath.value
+);
+const outputFieldRows = computed(() => parseOutputFields(localConfig.fields));
+const hasAggregateOutput = computed(() =>
+	outputFieldRows.value.some((row) => row.kind === "function")
+);
+const hasRegularOutput = computed(() =>
+	outputFieldRows.value.some((row) => ["field", "raw"].includes(row.kind))
+);
+const showGroupBy = computed(() => isCustomResultShape(localConfig.result_shape) && hasAggregateOutput.value);
+const groupByRequired = computed(() => showGroupBy.value && hasRegularOutput.value && !String(localConfig.group_by || "").trim());
 
+const resultShapeField = computed(() => ({
+	fieldname: "result_shape",
+	fieldtype: "Select",
+	label: __("Result Shape"),
+	reqd: 1,
+	read_only: props.readOnly,
+	options: resultShapes,
+	description: resultShapes.find((option) => option.value === localConfig.result_shape)?.description || __("Choose the structure returned by Fetch Records."),
+}));
+const limitModeField = computed(() => ({
+	fieldname: "limit_mode",
+	fieldtype: "Select",
+	label: __("Return Limit"),
+	reqd: 1,
+	read_only: props.readOnly,
+	options: limitModes,
+	description: limitModes.find((option) => option.value === localConfig.limit_mode)?.description || __("Choose how many matching rows to return."),
+}));
 const limitField = computed(() => ({
 	fieldname: "limit",
 	fieldtype: "Int",
-	label: __("Limit"),
-	reqd: 0,
+	label: __("Custom Limit"),
+	reqd: localConfig.limit_mode === "custom" ? 1 : 0,
 	read_only: props.readOnly,
-	description: __("Optional result limit. Leave blank to return all matching records."),
+	description: __("Maximum number of matching records to return. Enter a non-negative integer or a supported dynamic value."),
 }));
 
 const offsetField = computed(() => ({
@@ -275,7 +353,17 @@ const offsetField = computed(() => ({
 	label: __("Offset"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __("Number of matching records to skip."),
+	description: __("Skip this many matching records before applying the selected limit. Hidden for First Match."),
+}));
+const groupByField = computed(() => ({
+	fieldname: "group_by",
+	fieldtype: "FieldPicker",
+	label: __("Group By"),
+	reqd: groupByRequired.value ? 1 : 0,
+	read_only: props.readOnly,
+	description: groupByRequired.value
+		? __("Required when aggregate functions are mixed with regular output fields.")
+		: __("Group aggregate results by one or more fields. Only available for custom field result shapes with aggregate functions."),
 }));
 
 const distinctField = computed(() => ({
@@ -301,9 +389,27 @@ function normalizeConfig(value) {
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",
 		limit: source.limit ?? "",
+		limit_mode: inferLimitMode(source),
 		offset: source.offset ?? "",
 		distinct: !!source.distinct,
 	};
+}
+
+function inferLimitMode(source) {
+	const knownModes = new Set(limitModes.map((option) => option.value));
+	if (knownModes.has(source.limit_mode)) return source.limit_mode;
+
+	const limit = source.limit;
+	if (limit === null || limit === undefined || limit === "") return "all";
+	if (typeof limit === "string" && (limit.trim().startsWith("{") || limit.trim().startsWith("@"))) {
+		return "custom";
+	}
+	const numericLimit = Number(limit);
+	if (!Number.isInteger(numericLimit) || numericLimit < 0) return "custom";
+	if (numericLimit === 1) return "first_match";
+	if (numericLimit === 20) return "first_20";
+	if (numericLimit === 1000) return "first_1000";
+	return "custom";
 }
 
 function clone(value) {
@@ -356,7 +462,8 @@ function getGroupByOptions() {
 		.map((part) => part.trim())
 		.filter(Boolean);
 	const prefix = parts.length > 1 ? parts.slice(0, -1).join(", ") + ", " : "";
-	return navigableFields.currentFields.value.map((field) => ({
+	return groupByNavigableFields.currentFields.value.map((field) => ({
+		...field,
 		label: prefix + field.label,
 		value: prefix + field.value,
 	}));
@@ -366,6 +473,32 @@ function updateConfig(key, value) {
 	localConfig[key] = clone(value);
 	if (key === "fields" && isCustomResultShape(localConfig.result_shape)) {
 		customFieldsDraft.value[localConfig.result_shape] = getEditableFieldDraft(value);
+	}
+	emitConfig();
+}
+
+function selectLimitMode(mode) {
+	if (props.readOnly || !limitModes.some((option) => option.value === mode)) return;
+	localConfig.limit_mode = mode;
+	switch (mode) {
+		case "first_match":
+			localConfig.limit = 1;
+			localConfig.offset = "";
+			break;
+		case "first_20":
+			localConfig.limit = 20;
+			break;
+		case "first_1000":
+			localConfig.limit = 1000;
+			break;
+		case "all":
+			localConfig.limit = "";
+			break;
+		case "custom":
+			// Keep the previous numeric value as a useful starting point when switching to Custom.
+			break;
+		default:
+			return;
 	}
 	emitConfig();
 }
@@ -381,8 +514,10 @@ function selectResultShape(shape) {
 	localConfig.result_shape = shape;
 	if (shape === "document_names") {
 		localConfig.fields = ["name"];
+		localConfig.group_by = "";
 	} else if (shape === "whole_documents") {
 		localConfig.fields = "*";
+		localConfig.group_by = "";
 	} else {
 		const draft = customFieldsDraft.value[shape];
 		localConfig.fields = Array.isArray(draft) ? clone(draft) : [];
@@ -408,6 +543,7 @@ function emitConfig() {
 	if (!next.group_by) delete next.group_by;
 	if (next.limit === "" || next.limit === null || next.limit === undefined) delete next.limit;
 	if (next.offset === "" || next.offset === null || next.offset === undefined) delete next.offset;
+	if (!next.limit_mode) next.limit_mode = "all";
 	if (!next.distinct) delete next.distinct;
 	emit("update:modelValue", next);
 	emit("change", next);
@@ -436,22 +572,39 @@ async function validate() {
 		if (!outputResult.valid) errors.push(...outputResult.errors);
 	}
 
-	for (const [label, value] of [
-		[__("Limit"), localConfig.limit],
-		[__("Offset"), localConfig.offset],
-	]) {
-		if (value === "" || value === null || value === undefined) continue;
-		if (
-			typeof value === "string" &&
-			(value.trim().startsWith("{") || value.trim().startsWith("@"))
+	if (!limitModes.some((option) => option.value === localConfig.limit_mode)) {
+		errors.push(__("Choose a valid result limit option."));
+	}
+	if (localConfig.limit_mode === "custom") {
+		const value = localConfig.limit;
+		if (value === "" || value === null || value === undefined) {
+			errors.push(__("Custom Limit is required when Return Limit is set to Custom."));
+		} else if (
+			typeof value !== "string" ||
+			!(value.trim().startsWith("{") || value.trim().startsWith("@"))
 		) {
-			continue;
+			const parsed = Number(value);
+			if (!Number.isInteger(parsed) || parsed < 0) {
+				errors.push(__("Custom Limit must be a non-negative integer or a supported dynamic value."));
+			}
 		}
-		const parsed = Number(value);
-		if (!Number.isInteger(parsed) || parsed < 0) {
-			errors.push(__("{0} must be a non-negative integer.").format(label));
-			continue;
+	}
+	const offsetValue = localConfig.offset;
+	if (localConfig.limit_mode !== "first_match" && offsetValue !== "" && offsetValue !== null && offsetValue !== undefined) {
+		if (
+			typeof offsetValue === "string" &&
+			(offsetValue.trim().startsWith("{") || offsetValue.trim().startsWith("@"))
+		) {
+			// Dynamic offsets are checked again after server-side resolution.
+		} else {
+			const parsed = Number(offsetValue);
+			if (!Number.isInteger(parsed) || parsed < 0) {
+				errors.push(__("Offset must be a non-negative integer or a supported dynamic value."));
+			}
 		}
+	}
+	if (groupByRequired.value && !String(localConfig.group_by || "").trim()) {
+		errors.push(__("Group By is required when aggregate functions are mixed with regular output fields."));
 	}
 
 	return { valid: errors.length === 0, errors };
