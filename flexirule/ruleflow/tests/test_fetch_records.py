@@ -675,3 +675,28 @@ class TestFetchRecords(FrappeTestCase):
 					any(expected_error in error for error in errors),
 					f"Expected {expected_error!r} in validation errors: {errors}",
 				)
+
+	def test_legacy_query_api_uses_persisted_skip_permissions_flag(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.utils.frappe_query_compat import FrappeQueryCapabilities
+
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "ToDo",
+				"skip_permissions": 1,
+				"permission_audit_reason": "Validated integration use",
+				"config": frappe.as_json({}),
+			}
+		)
+		with patch(
+			"flexirule.ruleflow.core.action_handlers.query_records.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(supports_ignore_permissions=False),
+		):
+			errors = self.handler.validate_fetch_records(action, {})
+
+		self.assertFalse(
+			any("cannot enforce record-level read permissions" in error.lower() for error in errors),
+			f"The persisted skip_permissions flag should be honored: {errors}",
+		)
