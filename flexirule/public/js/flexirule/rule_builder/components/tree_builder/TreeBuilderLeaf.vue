@@ -48,7 +48,11 @@ const interactiveSelector = [
 	'[role="button"]',
 	'[role="combobox"]',
 	"[data-no-drag]",
+	".fxr-control",
+	".fxr-input-group",
 	".combobox-container",
+	".combobox-wrapper",
+	".flex-value-control",
 	".flex-value-control-button",
 	".form-control",
 ].join(", ");
