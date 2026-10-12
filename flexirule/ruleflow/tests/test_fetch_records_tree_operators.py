@@ -6,7 +6,6 @@ from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
-
 TREE_DOCTYPE = "Fetch Records Tree Test Node"
 
 
@@ -58,9 +57,9 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 	@classmethod
 	def _setup_tree_records(cls):
 		frappe.db.delete(TREE_DOCTYPE)
-		cls.root = frappe.get_doc(
-			{"doctype": TREE_DOCTYPE, "tree_label": "Root", "is_group": 1}
-		).insert(ignore_permissions=True)
+		cls.root = frappe.get_doc({"doctype": TREE_DOCTYPE, "tree_label": "Root", "is_group": 1}).insert(
+			ignore_permissions=True
+		)
 		cls.child_a = frappe.get_doc(
 			{
 				"doctype": TREE_DOCTYPE,
@@ -177,4 +176,3 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 						self.assertTrue(actual_names, "AND case should retain a matching hierarchy node")
 					else:
 						self.assertEqual(actual_names, hierarchy_names | {or_name})
-
