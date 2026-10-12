@@ -489,7 +489,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 					errors: list[str] = []
 					action = frappe._dict(
 						{
-							"ignore_permissions": 1,
+							"skip_permissions": 1,
 							"permission_audit_reason": reason,
 						}
 					)
@@ -509,7 +509,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			errors: list[str] = []
 			action = frappe._dict(
 				{
-					"ignore_permissions": 1,
+					"skip_permissions": 1,
 					"permission_audit_reason": "Approved service integration",
 				}
 			)
