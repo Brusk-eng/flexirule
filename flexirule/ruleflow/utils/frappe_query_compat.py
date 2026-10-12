@@ -13,8 +13,8 @@ from inspect import signature
 
 import frappe
 from frappe.database.operator_map import OPERATOR_MAP
-from frappe.database.utils import NestedSetHierarchy
 from frappe.database.query import Engine, get_nested_set_hierarchy_result
+from frappe.database.utils import NestedSetHierarchy
 from frappe.query_builder import Criterion
 
 _NESTED_SET_OPERATORS = frozenset(operator.casefold() for operator in NestedSetHierarchy)
