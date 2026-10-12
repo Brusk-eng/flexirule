@@ -530,8 +530,13 @@ class QueryRecordsHandler(ActionHandler):
 			)
 
 		filters = config.get("filters")
-		if filters not in (None, "", []) and self._is_canonical_filter_tree(filters):
-			errors.extend(self._validate_canonical_fetch_filter_tree(filters))
+		if filters not in (None, "", []):
+			if self._is_canonical_filter_tree(filters):
+				errors.extend(self._validate_canonical_fetch_filter_tree(filters))
+			elif isinstance(filters, dict) and (
+				"children" in filters or filters.get("type") in {"group", "leaf"}
+			):
+				errors.append(_("Filters must use a valid canonical filter tree."))
 		for key in ("limit", "offset"):
 			value = config.get(key)
 			if value in (None, "") or self._is_deferred_query_value(value):
@@ -841,6 +846,10 @@ class QueryRecordsHandler(ActionHandler):
 				)
 				if filter_errors:
 					frappe.throw("; ".join(filter_errors))
+			elif isinstance(config["filters"], dict) and (
+				"children" in config["filters"] or config["filters"].get("type") in {"group", "leaf"}
+			):
+				frappe.throw(_("Filters must use a valid canonical filter tree."))
 
 		kwargs = {}
 		if config.get("fields") not in (None, "", []):
