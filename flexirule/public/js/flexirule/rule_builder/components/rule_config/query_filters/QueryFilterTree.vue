@@ -122,7 +122,11 @@ async function validate() {
 		}
 		const instance = leafRefs.get(node.id);
 		if (typeof instance?.validate !== "function") {
-			errors.push(__("Filter leaf validation is unavailable. Reopen the rule configuration and try again."));
+			errors.push(
+				__(
+					"Filter leaf validation is unavailable. Reopen the rule configuration and try again."
+				)
+			);
 			return;
 		}
 		const result = await instance.validate();
