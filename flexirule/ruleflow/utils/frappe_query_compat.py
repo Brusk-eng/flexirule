@@ -4,8 +4,8 @@
 """Frappe Query Builder API adapter.
 
 Select the installed API contract once, when this module is imported. Fetch Records
-always executes through frappe.qb.get_query; this module only adapts the small
-syntax difference in legacy filter parsing and the permission keyword signature.
+always executes through frappe.qb.get_query; this module adapts legacy boolean
+filter groups, Frappe's separate nested-set operator family, and permission keywords.
 """
 
 from dataclasses import dataclass
