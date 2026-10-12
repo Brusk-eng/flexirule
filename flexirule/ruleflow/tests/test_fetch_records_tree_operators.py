@@ -133,41 +133,48 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 			"descendants of": (
 				self.root.name,
 				{self.child_a.name, self.grandchild_a.name, self.child_b.name},
+				self.child_a.name,
 				self.root.name,
 			),
 			"descendants of (inclusive)": (
 				self.root.name,
 				{self.root.name, self.child_a.name, self.grandchild_a.name, self.child_b.name},
+				self.root.name,
 				self.other_root.name,
 			),
 			"not descendants of": (
 				self.root.name,
 				{self.root.name, self.other_root.name},
+				self.other_root.name,
 				self.child_a.name,
 			),
 			"ancestors of": (
 				self.grandchild_a.name,
 				{self.root.name, self.child_a.name},
+				self.root.name,
 				self.child_b.name,
 			),
 			"not ancestors of": (
 				self.grandchild_a.name,
 				{self.grandchild_a.name, self.child_b.name, self.other_root.name},
+				self.grandchild_a.name,
 				self.root.name,
 			),
 		}
 
-		for operator, (target, hierarchy_names, disjoint_name) in cases.items():
+		for operator, (target, hierarchy_names, and_name, or_name) in cases.items():
 			for connector in ("and", "or"):
 				with self.subTest(operator=operator, connector=connector):
+					other_name = and_name if connector == "and" else or_name
 					filters = [
 						["name", operator, target],
 						connector,
-						["name", "=", disjoint_name],
+						["name", "=", other_name],
 					]
 					actual_names = self._run_filter(filters)
 					if connector == "and":
-						self.assertEqual(actual_names, hierarchy_names & {disjoint_name})
+						self.assertEqual(actual_names, hierarchy_names & {and_name})
+						self.assertTrue(actual_names, "AND case should retain a matching hierarchy node")
 					else:
-						self.assertEqual(actual_names, hierarchy_names | {disjoint_name})
+						self.assertEqual(actual_names, hierarchy_names | {or_name})
 
