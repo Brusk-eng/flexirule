@@ -24,6 +24,17 @@
 					:modelValue="node?.data?.ignore_permissions"
 					@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
 				/>
+				<div
+					v-if="mode === 'Fetch Records' && isFrappe15 && !!node?.data?.ignore_permissions"
+					class="alert alert-warning mb-0"
+					role="alert"
+				>
+					{{
+						__(
+							"Permissions are bypassed in Frappe 15. This Fetch Records action will execute without the normal permission checks on the queried records. Ensure that unrestricted access is intentional."
+						)
+					}}
+				</div>
 				<ControlFactory
 					v-if="!!node?.data?.ignore_permissions"
 					:ref="setControlRef"
@@ -575,6 +586,11 @@ import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 import { useUIStore } from "../../../stores/useUIStore";
 import { provideControlContext } from "../../../composables/useControlContext";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
+
+const isFrappe15 = computed(() => {
+	const version = frappe.boot?.versions?.frappe;
+	return typeof version === "string" && /^15(?:\\.|$)/.test(version);
+});
 
 const props = defineProps({
 	node: Object,
