@@ -24,10 +24,12 @@ const emit = defineEmits(["remove", "operator"]);
 const api = inject("treeBuilderContext", null);
 const dragOver = ref(false);
 const dropPosition = ref(null);
-const containerDragging = ref(false);
+const nodeDragging = ref(false);
 const kind = computed(() => props.node.type);
 const children = computed(() => props.node.children || []);
-const isDraggableContainer = computed(() => isGroupNode(props.node) || isCollectionNode(props.node));
+const isDraggableNode = computed(
+	() => isLeafNode(props.node) || isGroupNode(props.node) || isCollectionNode(props.node)
+);
 let dragOriginWasInteractive = false;
 const interactiveSelector = [
 	"button",
@@ -54,15 +56,17 @@ function rememberDragOrigin(e) {
 	dragOriginWasInteractive = target instanceof Element && Boolean(target.closest(interactiveSelector));
 }
 
-function startContainerDrag(e) {
-	if (props.readOnly || !isDraggableContainer.value || dragOriginWasInteractive) {
+function startNodeDrag(e) {
+	// Only the node whose draggable surface initiated this event may own the drag.
+	// Stop propagation so an ancestor group cannot replace a leaf's drag ID.
+	e.stopPropagation();
+	if (props.readOnly || !isDraggableNode.value || dragOriginWasInteractive) {
 		e.preventDefault();
-		e.stopPropagation();
 		dragOriginWasInteractive = false;
 		return;
 	}
-	e.stopPropagation();
-	containerDragging.value = true;
+
+	nodeDragging.value = true;
 	api?.beginDrag(props.node.id);
 	if (e.dataTransfer) {
 		e.dataTransfer.effectAllowed = "move";
@@ -70,9 +74,9 @@ function startContainerDrag(e) {
 	}
 }
 
-function endContainerDrag(e) {
+function endNodeDrag(e) {
 	e.stopPropagation();
-	containerDragging.value = false;
+	nodeDragging.value = false;
 	dragOriginWasInteractive = false;
 	api?.endDrag();
 }
@@ -139,12 +143,12 @@ function drop(e) {
 	<div
 		v-if="visibleNode(node)"
 		class="tree-node"
-		:draggable="!readOnly && isDraggableContainer"
+		:draggable="!readOnly && isDraggableNode"
 		@pointerdown.capture="rememberDragOrigin"
-		@dragstart="startContainerDrag"
-		@dragend="endContainerDrag"
+		@dragstart="startNodeDrag"
+		@dragend="endNodeDrag"
 		:class="{
-			'is-dragging': containerDragging,
+			'is-dragging': nodeDragging,
 			'drag-over': dragOver && dropPosition === 'inside',
 			'drop-before': dragOver && dropPosition === 'before',
 			'drop-after': dragOver && dropPosition === 'after',
