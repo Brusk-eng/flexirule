@@ -240,6 +240,16 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 				const doc = node.data;
 
+				const skipPermissions = doc.ignore_permissions ?? doc.skip_permissions;
+				if (
+					[true, 1, "1", "true", "True"].includes(skipPermissions) &&
+					!String(doc.permission_audit_reason ?? "").trim()
+				) {
+					errors.push(
+						`${label}: ${__("Permission Audit Reason is required when bypassing permissions.")}`
+					);
+				}
+
 				// Deep sync condition_json for validation if missing
 				if (doc.action_type === "Condition" && !doc.condition_json && doc.config) {
 					doc.condition_json = JSON.stringify(doc.config);
@@ -247,9 +257,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 				// Auto-populate hidden mandatory fields
 				if (["Document Action", "Assignment", "Notify"].includes(doc.action_type)) {
-					if (doc.action_type === "Document Action" && !doc.permission_audit_reason) {
-						doc.permission_audit_reason = "System Rule Execution";
-					}
 					if (!doc.reference_doctype) {
 						doc.reference_doctype = rule_doc.value?.document_type;
 					}
@@ -433,6 +440,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 						node.data?.skip_conditions !== undefined ? node.data.skip_conditions : 1,
 					ignore_permissions:
 						node.data?.ignore_permissions ?? node.data?.skip_permissions ?? 0,
+					permission_audit_reason: node.data?.permission_audit_reason ?? "",
 					next_step_if_true: resolveActionId(true_edge?.target),
 					next_step_if_false: resolveActionId(false_edge?.target),
 					input_source: node.data?.input_source,
