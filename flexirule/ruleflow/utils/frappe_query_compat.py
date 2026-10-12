@@ -17,6 +17,25 @@ from frappe.database.query import Engine
 from frappe.query_builder import Criterion
 
 
+_NESTED_SET_OPERATORS = frozenset(
+	{
+		"descendants of",
+		"descendants of (inclusive)",
+		"not descendants of",
+		"ancestors of",
+		"not ancestors of",
+	}
+)
+
+
+def _is_filter_operator(operator) -> bool:
+	"""Recognize normal operators and Frappe's separate nested-set operator family."""
+	if not isinstance(operator, str):
+		return False
+	operator = operator.casefold()
+	return operator in OPERATOR_MAP or operator in _NESTED_SET_OPERATORS
+
+
 @dataclass(frozen=True)
 class FrappeQueryCapabilities:
 	"""Capabilities of the installed Engine.get_query API."""
@@ -48,14 +67,9 @@ def _is_legacy_filter_leaf(value) -> bool:
 	if len(value) == 2:
 		return isinstance(value[0], str)
 	if len(value) == 3:
-		return isinstance(value[0], str) and isinstance(value[1], str) and value[1].casefold() in OPERATOR_MAP
+		return isinstance(value[0], str) and _is_filter_operator(value[1])
 	if len(value) == 4:
-		return (
-			isinstance(value[0], str)
-			and isinstance(value[1], str)
-			and isinstance(value[2], str)
-			and value[2].casefold() in OPERATOR_MAP
-		)
+		return isinstance(value[0], str) and isinstance(value[1], str) and _is_filter_operator(value[2])
 	return False
 
 
@@ -71,6 +85,40 @@ def _contains_logical_filter_groups(value) -> bool:
 		if _contains_logical_filter_groups(item):
 			return True
 	return False
+
+
+def _nested_set_values(doctype: str, field: str, value, operator: str):
+	"""Resolve tree nodes using the hierarchy expansion used by Frappe 15's Query Builder."""
+	field_meta = frappe.get_meta(doctype).get_field(field)
+	reference_doctype = field_meta.options if field_meta else doctype
+
+	lft, rgt = frappe.db.get_value(reference_doctype, value, ["lft", "rgt"]) or (0, 0)
+	if operator in {"descendants of", "not descendants of", "descendants of (inclusive)"}:
+		nodes = frappe.get_all(
+			reference_doctype,
+			filters={"lft": [">", lft], "rgt": ["<", rgt]},
+			order_by="lft ASC",
+			pluck="name",
+		)
+		if operator == "descendants of (inclusive)":
+			nodes.append(value)
+	else:
+		nodes = frappe.get_all(
+			reference_doctype,
+			filters={"lft": ["<", lft], "rgt": [">", rgt]},
+			order_by="lft DESC",
+			pluck="name",
+		)
+
+	return nodes
+
+
+def _criterion_for_nested_set_leaf(doctype: str, field: str, value, operator: str):
+	"""Compile a v15 hierarchy filter without changing its inclusive/exclusive semantics."""
+	nodes = _nested_set_values(doctype, field, value, operator)
+	comparison = "not in" if operator in {"not descendants of", "not ancestors of"} else "in"
+	# Match Frappe's empty-hierarchy sentinel, including for NOT IN filters.
+	return OPERATOR_MAP[comparison](frappe.qb.DocType(doctype)[field], tuple(nodes) or ("",))
 
 
 def _criterion_for_leaf(doctype: str, leaf):
@@ -94,6 +142,8 @@ def _criterion_for_leaf(doctype: str, leaf):
 		raise ValueError("Filter operator must be a string")
 
 	operator = operator.casefold()
+	if operator in _NESTED_SET_OPERATORS:
+		return _criterion_for_nested_set_leaf(doctype, field, value, operator)
 	if operator not in OPERATOR_MAP:
 		raise ValueError(f"Unsupported filter operator for Query Builder logical groups: {operator}")
 
@@ -169,8 +219,10 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
 		except ValueError as exc:
 			raise frappe.ValidationError(str(exc)) from exc
-	elif isinstance(filters, list | tuple) and _is_legacy_filter_leaf(filters):
-		# Frappe v15 treats a bare filter tuple as an iterable of individual values.
+
+	# Normalize a bare leaf on both API generations. Query Builder expects a list
+	# of filter rows, and canonical single-leaf trees can collapse to one tuple.
+	if not _contains_logical_filter_groups(filters) and isinstance(filters, list | tuple) and _is_legacy_filter_leaf(filters):
 		query_kwargs["filters"] = [list(filters)]
 
 	query = frappe.qb.get_query(doctype, **query_kwargs)
