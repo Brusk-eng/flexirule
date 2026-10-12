@@ -7,7 +7,7 @@
 					<p class="section-description">
 						{{
 							__(
-								"Build nested AND/OR filters. Groups are compiled as query criteria at runtime."
+								"Add conditions to narrow results. Leave the root group empty to match all records; each nested group must contain a condition."
 							)
 						}}
 					</p>
@@ -28,7 +28,7 @@
 		<div class="sub-section section-subcard">
 			<div class="section-heading result-shape-heading">
 				<div>
-					<h6>{{ __("1. Result shape") }}</h6>
+					<h6>{{ __("Result shape") }}</h6>
 					<p class="section-description">
 						{{
 							__(
@@ -53,7 +53,7 @@
 		>
 			<div class="section-heading">
 				<div>
-					<h6>{{ __("2. Output Fields") }}</h6>
+					<h6>{{ __("Output fields") }}</h6>
 					<p class="section-description">
 						{{
 							__(
@@ -76,7 +76,14 @@
 			/>
 		</div>
 		<div class="sub-section section-subcard">
-			<h6>{{ __("Order By") }}</h6>
+			<div class="section-heading">
+				<div>
+					<h6>{{ __("Sort results") }}</h6>
+					<p class="section-description">
+						{{ __("Choose one or more fields to decide which matching records appear first.") }}
+					</p>
+				</div>
+			</div>
 			<div class="table-rows">
 				<div v-for="(row, index) in orderRows" :key="row.id" class="order-row">
 					<ComboBoxControl
@@ -131,14 +138,18 @@
 		</div>
 
 		<div class="sub-section section-subcard">
-			<h6>{{ __("Retrieval Settings") }}</h6>
-			<p class="section-description">
-				{{
-					__(
-						"Choose how many matching rows to return. Large or unlimited result sets can increase query time and memory use."
-					)
-				}}
-			</p>
+			<div class="section-heading">
+				<div>
+					<h6>{{ __("Result limit and grouping") }}</h6>
+					<p class="section-description">
+						{{
+							__(
+								"Choose how many rows to return and how aggregate results are grouped. Returning all matches may increase query time and memory use."
+							)
+						}}
+					</p>
+				</div>
+			</div>
 			<div class="query-doc-grid">
 				<div class="grid-item">
 					<SelectControl
@@ -342,9 +353,7 @@ const resultShapeField = computed(() => ({
 	reqd: 1,
 	read_only: props.readOnly,
 	options: resultShapes,
-	description:
-		resultShapes.find((option) => option.value === localConfig.result_shape)?.description ||
-		__("Choose the structure returned by Fetch Records."),
+	description: __("Choose the row structure downstream steps will receive."),
 }));
 const limitModeField = computed(() => ({
 	fieldname: "limit_mode",
@@ -353,9 +362,7 @@ const limitModeField = computed(() => ({
 	reqd: 1,
 	read_only: props.readOnly,
 	options: limitModes,
-	description:
-		limitModes.find((option) => option.value === localConfig.limit_mode)?.description ||
-		__("Choose how many matching rows to return."),
+	description: __("Choose a preset, or choose Custom to enter your own maximum."),
 }));
 const limitField = computed(() => ({
 	fieldname: "limit",
@@ -364,7 +371,7 @@ const limitField = computed(() => ({
 	reqd: localConfig.limit_mode === "custom" ? 1 : 0,
 	read_only: props.readOnly,
 	description: __(
-		"Maximum number of matching records to return. Enter a non-negative integer or a supported dynamic value."
+		"Maximum matching rows to return. Use a non-negative integer or a supported dynamic value."
 	),
 }));
 
@@ -374,9 +381,7 @@ const offsetField = computed(() => ({
 	label: __("Offset"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __(
-		"Skip this many matching records before applying the selected limit. Hidden for First Match."
-	),
+	description: __("Skip this many matching rows before returning results."),
 }));
 const groupByField = computed(() => ({
 	fieldname: "group_by",
@@ -385,10 +390,8 @@ const groupByField = computed(() => ({
 	reqd: groupByRequired.value ? 1 : 0,
 	read_only: props.readOnly,
 	description: groupByRequired.value
-		? __("Required when aggregate functions are mixed with regular output fields.")
-		: __(
-				"Group aggregate results by one or more fields. Only available for custom field result shapes with aggregate functions."
-		  ),
+		? __("Required when you combine aggregate functions with regular fields.")
+		: __("Group aggregate results by fields, such as totals by customer."),
 }));
 
 const distinctField = computed(() => ({
@@ -396,7 +399,7 @@ const distinctField = computed(() => ({
 	fieldtype: "Check",
 	label: __("Deduplicate Rows (DISTINCT)"),
 	read_only: props.readOnly,
-	description: __("Return unique rows after joins and child-table traversal."),
+	description: __("Return unique result rows when joins produce duplicates."),
 }));
 
 function normalizeConfig(value) {
