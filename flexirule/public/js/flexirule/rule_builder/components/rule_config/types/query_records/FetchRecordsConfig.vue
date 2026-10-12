@@ -32,7 +32,7 @@
 					<p class="section-description">
 						{{
 							__(
-								"Choose the structure returned by Fetch Records. Output fields are configurable only for custom field shapes."
+								"Choose the row structure returned to later steps. Some shapes let you choose fields and calculations."
 							)
 						}}
 					</p>
@@ -57,7 +57,7 @@
 					<p class="section-description">
 						{{
 							__(
-								"Each row defines one output value. Fields, aliases, aggregate functions, and nested child selections are serialized into Frappe Query Builder field syntax."
+								"Choose the fields or calculations in each result. Add an alias to give a value a clear name for later steps."
 							)
 						}}
 					</p>
@@ -760,6 +760,13 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing-sm);
+}
+
+.fetch-records-config > .section-subcard {
+	padding: var(--fxr-space-4, var(--spacing-md));
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: var(--fxr-radius-lg, 8px);
+	background: var(--fxr-surface, var(--card-bg));
 }
 
 .section-heading {
