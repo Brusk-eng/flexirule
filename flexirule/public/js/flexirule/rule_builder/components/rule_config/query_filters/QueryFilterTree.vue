@@ -82,29 +82,57 @@ function updateLeaf(id, value) {
 	if (!props.readOnly && value) treeBuilderRef.value?.replaceNode(id, value);
 }
 async function validate() {
-	const structural = treeBuilderRef.value?.validate?.() || { valid: true, errors: [] };
-	const errors = [...(structural.errors || []).map((error) => error.message)];
-	const tree = treeBuilderRef.value?.getTree?.();
-
-	// The root can be empty (no filters means "match all"), but any nested group
-	// the user explicitly adds must contain at least one condition/group.
-	function validateNestedGroups(node, isRoot = false) {
-		if (!node || typeof node !== "object") return;
-		if (node.type === "group") {
-			if (!isRoot && Array.isArray(node.children) && node.children.length === 0) {
-				errors.push(__("Nested filter groups cannot be empty."));
-			}
-			if (Array.isArray(node.children)) {
-				node.children.forEach((child) => validateNestedGroups(child, false));
-			}
+	const errors = [];
+	if (typeof treeBuilderRef.value?.validate !== "function") {
+		errors.push(__("Filter tree structural validation is unavailable."));
+	} else {
+		const structural = treeBuilderRef.value.validate();
+		errors.push(...(structural.errors || []).map((error) => error.message));
+		if (!structural.valid && !(structural.errors || []).length) {
+			errors.push(__("The filter tree structure is invalid."));
 		}
 	}
-	validateNestedGroups(tree, true);
 
-	for (const instance of leafRefs.values()) {
-		const result = await instance?.validate?.();
-		if (!result?.valid && result.errors) errors.push(...result.errors);
+	const tree = treeBuilderRef.value?.getTree?.();
+	if (!tree || typeof tree !== "object") {
+		errors.push(__("Filter tree data is unavailable."));
 	}
+
+	// An empty root intentionally means "match all"; nested groups must contain
+	// at least one condition or group.
+	async function visit(node, isRoot = false) {
+		if (!node || typeof node !== "object") {
+			errors.push(__("Filter tree contains a malformed node."));
+			return;
+		}
+		if (node.type === "group") {
+			if (!Array.isArray(node.children)) {
+				errors.push(__("Filter group children must be a list."));
+				return;
+			}
+			if (!isRoot && node.children.length === 0) {
+				errors.push(__("Nested filter groups cannot be empty."));
+			}
+			for (const child of node.children) await visit(child, false);
+			return;
+		}
+		if (node.type !== "leaf") {
+			errors.push(__("Filter tree contains an unsupported node type."));
+			return;
+		}
+		const instance = leafRefs.get(node.id);
+		if (typeof instance?.validate !== "function") {
+			errors.push(__("Filter leaf validation is unavailable. Reopen the rule configuration and try again."));
+			return;
+		}
+		const result = await instance.validate();
+		if (!result?.valid) {
+			errors.push(...(result.errors || []));
+			if (!(result.errors || []).length) errors.push(__("A filter leaf is invalid."));
+		}
+	}
+	if (tree && typeof tree === "object") await visit(tree, true);
+
 	const uniqueErrors = [...new Set(errors)];
 	return { valid: uniqueErrors.length === 0, errors: uniqueErrors };
 }
