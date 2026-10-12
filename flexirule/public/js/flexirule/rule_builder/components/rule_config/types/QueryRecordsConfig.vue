@@ -19,7 +19,11 @@
 						description: __(
 							'Bypass read permissions for this action. Requires audit reason.'
 						),
-						read_only: readOnly || (mode === 'Fetch Records' && isFrappe15 && !!node?.data?.ignore_permissions),
+						read_only:
+							readOnly ||
+							(mode === 'Fetch Records' &&
+								isFrappe15 &&
+								!!node?.data?.ignore_permissions),
 					}"
 					:modelValue="node?.data?.ignore_permissions"
 					@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
