@@ -16,7 +16,6 @@ from frappe.database.operator_map import OPERATOR_MAP
 from frappe.database.query import Engine, get_nested_set_hierarchy_result
 from frappe.query_builder import Criterion
 
-
 _NESTED_SET_OPERATORS = frozenset(
 	{
 		"descendants of",
@@ -217,7 +216,11 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 
 	# Normalize a bare leaf on both API generations. Query Builder expects a list
 	# of filter rows, and canonical single-leaf trees can collapse to one tuple.
-	if not _contains_logical_filter_groups(filters) and isinstance(filters, list | tuple) and _is_legacy_filter_leaf(filters):
+	if (
+		not _contains_logical_filter_groups(filters)
+		and isinstance(filters, list | tuple)
+		and _is_legacy_filter_leaf(filters)
+	):
 		query_kwargs["filters"] = [list(filters)]
 
 	query = frappe.qb.get_query(doctype, **query_kwargs)
