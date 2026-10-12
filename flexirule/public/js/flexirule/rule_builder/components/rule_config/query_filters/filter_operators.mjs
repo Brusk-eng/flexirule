@@ -91,9 +91,7 @@ export function getFilterOperators(def, options = {}) {
 		(operator) => {
 			if (invalid.includes(operator)) return false;
 			// These aliases compile to LIKE and must not bypass type restrictions.
-			return !(
-				["starts with", "ends with"].includes(operator) && invalid.includes("like")
-			);
+			return !(["starts with", "ends with"].includes(operator) && invalid.includes("like"));
 		}
 	);
 
