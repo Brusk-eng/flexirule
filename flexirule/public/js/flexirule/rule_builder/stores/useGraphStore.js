@@ -1536,7 +1536,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					(actionTypeRaw === "Sub-Rule" ? getSubRuleName(effectiveConfig) : null),
 				skip_conditions: action.skip_conditions !== undefined ? action.skip_conditions : 1,
 				ignore_permissions: action.ignore_permissions ?? action.skip_permissions ?? 0,
-				permission_audit_reason: action.permission_audit_reason ?? "",
+				permission_audit_reason:
+					action.permission_audit_reason ?? effectiveConfig.permission_audit_reason ?? "",
 				next_step_if_true: action.next_step_if_true,
 				next_step_if_false: action.next_step_if_false,
 				input_source: action.input_source,
