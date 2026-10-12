@@ -358,6 +358,13 @@ class QueryRecordsHandler(ActionHandler):
 			},
 		]
 
+		if not QUERY_CAPABILITIES.supports_ignore_permissions:
+			# This default applies when the Fetch Records operation is created. Do not
+			# overwrite an explicitly saved false value when editing an existing rule.
+			contracts["Fetch Records"].action_overrides.append(
+				{"fieldname": "ignore_permissions", "default": 1}
+			)
+
 		for op in contracts.values():
 			op.action_overrides.extend(permission_overrides)
 
