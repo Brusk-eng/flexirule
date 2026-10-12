@@ -631,3 +631,47 @@ class TestFetchRecords(FrappeTestCase):
 			"User", {"fields": ["count(roles.role) as role_count"]}
 		)
 		self.assertTrue(any("child/link aggregates are unsupported" in error for error in errors))
+
+	def test_fetch_records_rejects_empty_and_malformed_filter_trees(self):
+		cases = [
+			(
+				{"type": "group", "operator": "and", "children": []},
+				"children must be a non-empty list",
+			),
+			(
+				{"type": "unknown", "operator": "and", "children": []},
+				"valid canonical filter tree",
+			),
+			(
+				{
+					"type": "group",
+					"operator": "and",
+					"children": [
+						{
+							"type": "leaf",
+							"field": "",
+							"operator": "=",
+							"value": {"mode": "static", "value": "Open"},
+						}
+					],
+				},
+				"field is required",
+			),
+		]
+
+		for filters, expected_error in cases:
+			with self.subTest(filters=filters):
+				action = frappe._dict(
+					{
+						"operation": "Fetch Records",
+						"reference_doctype": "ToDo",
+						"ignore_permissions": 1,
+						"permission_audit_reason": "Malformed filter validation test",
+						"config": frappe.as_json({"filters": filters}),
+					}
+				)
+				errors = self.handler.validate(action, {})
+				self.assertTrue(
+					any(expected_error in error for error in errors),
+					f"Expected {expected_error!r} in validation errors: {errors}",
+				)
