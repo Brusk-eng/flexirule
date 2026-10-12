@@ -121,7 +121,7 @@ def _compile_logical_filters(doctype: str, filters):
 	if len(connectors) > 1:
 		raise ValueError("Mixed AND/OR operators at the same level require an explicit nested filter group")
 
-	criteria = []
+	criteria: list[Criterion] = []
 	pending_operator = "and"
 	for item in filters:
 		if isinstance(item, str) and item.casefold() in {"and", "or"}:
