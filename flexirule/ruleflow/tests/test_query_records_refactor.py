@@ -486,7 +486,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		for action_type in ("Query Records", "Document Action", "Sub-Rule", "Notify"):
 			for reason in (None, "", "   "):
 				with self.subTest(action_type=action_type, reason=reason):
-					errors = []
+					errors: list[str] = []
 					action = frappe._dict(
 						{
 							"ignore_permissions": 1,
@@ -506,7 +506,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 						f"{action_type} bypass should reject audit reason {reason!r}",
 					)
 
-			errors = []
+			errors: list[str] = []
 			action = frappe._dict(
 				{
 					"ignore_permissions": 1,
