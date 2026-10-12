@@ -5,12 +5,12 @@
 This report separates three evidence categories that must not be conflated:
 
 1. **Native Frappe Query Builder characterization** — observations about the installed Frappe v15 `frappe.qb.get_query()` API and its SQL/runtime behavior. These characterize Frappe, not the correctness of FlexiRule's adapter.
-2. **Fetch Records integration evidence** — the latest CI runs for the reviewed head are green: [Server CI run 37973964507](https://github.com/Sendipad/flexirule/actions/runs/37973964507) and [Linters run 37973964439](https://github.com/Sendipad/flexirule/actions/runs/37973964439) completed successfully. The earlier run 37971338723 was red (531 tests, 10 failures, 1 error, 2 skipped) but was superseded by these successful runs. CI success confirms the configured jobs passed; it does not replace targeted assertions for edge cases that the suite may not cover.
+2. **Fetch Records integration evidence** — on commit 693971455c0752f45879cee82e91c635a2e07a27, both configured PR workflows (CI run 38182490923 and Linters run 38182491032) completed successfully. That CI workflow temporarily pinned esbuild for its two standalone frontend tests; .github/workflows/ci.yml was then restored in commit 47e4b5713c9b2e7dcf99a0d89cffc7478a9d8906, so the restored workflow's rerun is the evidence for the current head. CI success applies only to the exact commit and workflow definition that ran.
 3. **Existing-mode legacy regression tests** — `test_query_records_filters.py` also covers legacy tuple/list/dict normalization and established Query Records modes. Keep those compatibility guarantees separate from Fetch Records' new persisted contract.
 
 **Contract discrepancy at the reviewed head:** the intended Fetch Records contract is canonical `group`/`leaf` tree only, but `query_records.py` currently recursively calls `resolve_payload()` on the entire filter object and then invokes `_normalize_filters_for_backend()` for non-canonical list/dict filters. In addition, `test_03_legacy_tuple_and_list_filter_shapes` in `test_fetch_records_filter_tree_integration.py` explicitly expects Fetch Records to accept legacy filters. Both the implementation and that test conflict with the intended strict contract. Legacy normalization should remain available to established modes such as Query List/Get List; Fetch Records should validate and convert only canonical trees.
 
-**Latest CI evidence:** [Server CI run 37973964507](https://github.com/Sendipad/flexirule/actions/runs/37973964507) and [Linters run 37973964439](https://github.com/Sendipad/flexirule/actions/runs/37973964439) both completed successfully for the reviewed head. The earlier failed run 37971338723 is historical and superseded. Keep CI status distinct from the remaining design/test-coverage questions below.
+****CI evidence:** [CI run 38182490923](https://github.com/Sendipad/flexirule/actions/runs/38182490923) and [Linters run 38182491032](https://github.com/Sendipad/flexirule/actions/runs/38182491032) passed on commit 693971455c0752f45879cee82e91c635a2e07a27. Because .github/workflows/ci.yml was subsequently restored, verify the new head's runs before treating the restored workflow as green.
 
 ---
 
@@ -217,3 +217,96 @@ The factual audit findings establish clear contracts for the upcoming FlexiRule 
 14. **Permissions:** Perform permission checks explicitly via `Permission.check_permissions(query, user=rule_user)` in the backend handler.
 15. **Pypika Compilation Boundary:** Maintain the explicit architectural boundary:
     `FlexiRule UI Config -> Normalized JSON Specification -> FlexiRule Backend Compiler -> Pypika Criterion / Query -> frappe.qb.get_query() -> MariaDB`.
+
+
+## 16. Current Review-Fix Test Failure and Remediation (2026-10-11)
+
+The server CI log for the review-fix branch shows:
+
+- Command: bench --site test_site run-tests --app flexirule
+- Result: 543 tests run, one error, zero assertion failures, two skipped.
+- Error: test_fetch_records_delegates_native_qb_payload_and_permissions raised KeyError: 0 in Frappe's is_virtual_doctype lookup after the test reached frappe.get_list.
+
+Root cause: this test intends to assert the native frappe.qb.get_query payload, but it relied on environment-derived capability detection. On the Frappe v15 CI environment, native ignore_permissions support is absent, so the compatibility layer correctly chose the permission-aware frappe.get_list fallback. The test had mocked QB only, not the fallback path, and therefore unintentionally touched database metadata.
+
+Remediation pushed: the test now stubs QUERY_CAPABILITIES to represent the native-capability scenario and asserts the ignore_permissions=False argument explicitly. Separate compatibility tests continue to cover the v15 fallback. This is intended to make the test deterministic across Frappe versions without weakening production permission handling. Do not mark this item complete until the updated CI rerun passes.
+
+
+## 17. Latest CI Rerun: Normalized Filter Payload Assertion (2026-10-11)
+
+The server failure was a stale test expectation, not a runtime defect: root-DocType filter leaves are normalized before delegation, so the native frappe.qb.get_query payload uses three-item leaves such as ["enabled", "=", 1] and ["email", "like", "%@example.com"], connected by "or". The test was corrected to assert this payload. Both configured workflows passed on commit 693971455c0752f45879cee82e91c635a2e07a27; the CI workflow was subsequently restored in 47e4b5713c9b2e7dcf99a0d89cffc7478a9d8906, and that restored head still needs its own CI verification.
+
+### Recommendation: keep root-relative QB filters at the adapter boundary
+
+Do not globally remove the root DocType from FlexiRule's persisted filter representation just to mirror Frappe's native QB payload. Keep one stable, explicit Fetch Records filter-tree contract in the UI/configuration layer; validate each leaf against the selected root DocType and any supported link/child path; then normalize root-field leaves to [field, operator, value] only in the Frappe QB adapter. Preserve qualified paths where they carry meaning, and reject ambiguous or unsupported paths rather than silently stripping a prefix. This isolates Frappe-version-specific syntax from saved rules and avoids breaking existing Query Records modes that use legacy filter formats. Add contract tests for persisted tree -> validated internal representation -> QB payload, including root fields, linked/child paths, and literal values equal to "or".
+
+
+## 18. Independent source review and current acceptance status (2026-10-12)
+
+This section records an independent check of the framework API contracts and the current PR head. It intentionally separates source-level facts from integration behavior that still requires runtime tests.
+
+### Verified framework API facts
+
+- Frappe v15 source: `frappe/database/query.py`, `Engine.get_query` accepts `validate_filters`, `skip_locked`, and `wait` as keyword-only arguments; it does **not** declare `ignore_permissions`. Its `Engine.get_query` builds a Query Builder query and does not itself provide the Frappe 16 permission-aware contract.
+- Frappe v16 source: `frappe/database/query.py`, `Engine.get_query` declares `ignore_permissions: bool = True`, `ignore_user_permissions: bool = False`, `user`, `parent_doctype`, `reference_doctype`, and `or_filters`. It sets `self.apply_permissions = not ignore_permissions`. This confirms the permission flag's presence and the direction of its default, but not by itself every field/row permission behavior.
+- Frappe v15 boot information populates `bootinfo.versions` from installed app versions, including the `frappe` version. The Fetch Records editor's v15 warning uses this server-provided value and is conditional on both Fetch Records mode and the explicit bypass checkbox.
+
+### Findings matrix
+
+| Requirement | Current assessment | Evidence / remaining proof |
+|---|---|---|
+| v15 + bypass disabled | Implemented in adapter: uses `frappe.get_list`, with a fail-closed translation for supported filter structures | Source inspection confirms v15 QB lacks the flag. Full integration tests are still needed for row/field permission parity. |
+| v15 + bypass enabled | Implemented in adapter: uses QB without passing the unsupported keyword | Requires integration tests proving the action's existing server-side authorization/audit gate and unrestricted results. |
+| v16 + bypass disabled | Implemented by native QB delegation with `ignore_permissions=False` when detected | Framework source confirms API support; live Frappe 16 runtime integration remains required. |
+| v16 + bypass enabled | Implemented by native QB delegation with `ignore_permissions=True` when detected | Framework source confirms API support; live Frappe 16 runtime integration remains required. |
+| Missing/invalid bypass configuration | Existing `can_ignore_permissions` gate returns false for a missing/false flag and requires role authorization plus an audit reason for explicit bypass | Add adversarial handler-level tests for malformed values and verify every execution identity. |
+| v15 filter tree | Adapter preserves AND-only trees and one OR group expressible by `filters` + `or_filters`; unsupported OR shapes are rejected | Unit tests cover selected cases. Runtime coverage of operators, linked paths, date values, and empty/null groups is incomplete. |
+| Aggregation and field permissions | Root-field aggregates can flow through the permission-aware list path; child/link aggregate expressions are rejected by Fetch Records validation | Do not claim parity for filter/order/group field-level restrictions or all aggregate shapes until tested against both framework versions. |
+| UI warning | Added to the Query Records configuration UI; requires Fetch Records mode, Frappe 15 boot version, and enabled bypass | CI/linter run for the warning commit is pending at time of writing. No dedicated component-level behavior test has yet been demonstrated. |
+
+### Upstream Frappe 15 API proposal
+
+The smallest upstream-compatible improvement is to add an explicit, backwards-compatible permission-aware contract to Frappe 15's `frappe.qb.get_query` / `Engine.get_query`:
+
+1. Add keyword-only `ignore_permissions: bool = True` (preserving current unrestricted behavior for existing callers) and, if required for parity, an explicit effective `user` parameter.
+2. When `ignore_permissions=False`, apply the framework's existing native permission pipeline to the query before execution: DocType permission, row-level/user permission conditions, ownership and sharing restrictions, permission-query hooks, and permitted-field enforcement for selected fields and fields used by filters, ordering, grouping, and aggregates.
+3. Ensure permission constraints are applied **before** aggregation, grouping, distinct selection, limits, and offsets. Do not fetch unrestricted rows and post-filter them.
+4. Reuse the established framework permission machinery rather than introduce a second authorization implementation. Keep default behavior backwards-compatible, document which permission dimensions are guaranteed, and add tests for denied DocTypes, hidden rows, User Permissions, shares/ownership, query hooks, restricted fields, aggregates, and explicit user context.
+5. Define how native filters and `or_filters` compose, and reject query shapes for which the API cannot preserve semantics.
+
+This is a proposal only; no vendored Frappe source is changed by this PR.
+
+### Verification caveat
+
+The previous head's configured CI and linter workflows passed on `d61e679ada447cdca3cd08db6ad372aa9defd23b`. The warning change was committed afterward, so those earlier green runs do not verify the current head. The full Frappe/MariaDB authorization matrix and both-version integration suite must remain marked pending until the new head's CI and the required runtime tests establish those outcomes.
+
+## 19. Revised release decision — native Query Builder only (2026-10-12)
+
+This section supersedes the earlier recommendation in this report to use `frappe.get_list` as a Frappe 15 permission-aware fallback. After product review, compatibility between Fetch Records' native Query Builder filter tree and Frappe 15 permission enforcement is deferred until after the first production release and discussion with the Frappe team.
+
+### Execution contract for the first production release
+
+- **Fetch Records always executes through `frappe.qb.get_query`.** It does not switch to `frappe.get_list` or `frappe.get_all` based on permission mode. This avoids silently changing field parsing, joins, aggregate behavior, nested boolean semantics, and result shape between framework versions.
+- **Frappe 16+ (when the installed `Engine.get_query` signature exposes `ignore_permissions`):** pass the explicit permission flag to the native API. Permission behavior is owned by the installed framework implementation; validate it with integration tests for the exact supported versions.
+- **Frappe 15 (no native `ignore_permissions` API parameter):** Fetch Records cannot claim native per-record permission enforcement. The editor enables Skip Permissions by default and locks that setting for Fetch Records on Frappe 15. The backend rejects permission-sensitive Fetch Records calls rather than falling back to a different query API. The existing FlexiRule authorization policy and mandatory audit-reason check remain in force when the bypass is used.
+- **Permission-filtered reads on Frappe 15:** use the existing Query List mode (which uses `frappe.get_list`) until the upstream API question is resolved. This is an explicit product boundary, not a compatibility fallback hidden inside Fetch Records.
+- **Frappe 15 nested logical filters:** the adapter compiles supported root-DocType leaf groups to native Pypika `Criterion` objects and then calls `frappe.qb.get_query`. It rejects linked/child-field leaves inside those compiled groups rather than altering query meaning. Better parity is deferred, not inferred from this partial compiler.
+
+### API selection and initialization
+
+`detect_query_capabilities()` now inspects only the installed `Engine.get_query` method signature for the explicit `ignore_permissions` parameter, once when the adapter module is imported. Source-text inspection of `Engine.apply_filters` has been removed. A positive match enables passing the native keyword; an uninspectable signature fails closed by treating the permission parameter as unavailable. Fetch Records does not choose `frappe.get_list` as an alternative execution path.
+
+This is a small, local feature-detection boundary based on the public method signature, not a vendored copy of Frappe code and not a general promise of v15/v16 semantic parity.
+
+### Result limits
+
+- The backend no longer injects a default limit or caps a configured limit/offset.
+- Explicit dynamic or static limits are still resolved and validated as non-negative integers before query execution.
+- An omitted limit is omitted from the Query Builder payload; the rule author controls whether to limit results. The UI may provide a suggested default in the future, but it is not an execution policy.
+- An explicitly configured limit of zero returns no rows. This preserves the rule author's intent because some legacy Query Builder implementations treat a falsey limit as if no limit were supplied. This semantic correction is not an implicit positive limit or a backend result cap.
+
+### Acceptance and remaining verification
+
+This change intentionally removes the previous Frappe 15 `get_list` fallback and its promise of permission parity. It must not be described as enforcing normal record-level permissions on Frappe 15. The existing role and audit-reason governance for explicit permission bypass remains mandatory.
+
+CI and the Frappe/MariaDB integration suite must be rerun on the updated PR head. In particular, test: native permission flag forwarding where supported; v15 failure when bypass is not configured; v15 audited bypass dispatch; nested root-field groups and fail-closed linked/child groups; large dynamic limit/offset pass-through; omitted-limit pass-through; and regression behavior for all other Query Records modes.

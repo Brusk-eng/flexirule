@@ -2,17 +2,18 @@ import { ref, computed, watch } from "vue";
 import { useMetaStore } from "../stores/useMetaStore";
 
 /**
- * Composable to manage navigable field browsing for Query Records controls.
- * Transforms Frappe DocType metadata into generic ComboBox options with navigation support.
+ * Manage navigable field browsing for Query Records controls.
  *
- * @param {Ref<string>|Function|string} rootDoctype - Root DocType name (e.g., "Sales Invoice")
+ * Metadata requests can overlap when a DocType, selected path, or navigation
+ * target changes quickly. A monotonically increasing generation prevents any
+ * older request from overwriting state produced by a newer user action.
  */
 export function useNavigableFields(rootDoctype, selectedValue = null) {
 	const metaStore = useMetaStore();
-
 	const navStack = ref([]);
 	const currentFields = ref([]);
 	const loading = ref(false);
+	let requestGeneration = 0;
 
 	const rootDt = computed(() => {
 		if (typeof rootDoctype === "function") return rootDoctype();
@@ -35,41 +36,66 @@ export function useNavigableFields(rootDoctype, selectedValue = null) {
 		return navStack.value[navStack.value.length - 1];
 	});
 
-	async function loadCurrentContextFields() {
+	function isCurrentRequest(generation) {
+		return generation === requestGeneration;
+	}
+
+	function clearState(generation) {
+		if (!isCurrentRequest(generation)) return;
+		currentFields.value = [];
+		loading.value = false;
+	}
+
+	async function loadCurrentContextFields(generation = requestGeneration) {
 		const ctx = currentContext.value;
 		if (!ctx || !ctx.doctype) {
-			currentFields.value = [];
+			clearState(generation);
 			return;
 		}
 
-		loading.value = true;
+		if (isCurrentRequest(generation)) loading.value = true;
 		try {
 			await metaStore.fetch_metadata(ctx.doctype);
+			if (!isCurrentRequest(generation)) return;
+
+			const latestContext = currentContext.value;
+			if (
+				!latestContext ||
+				latestContext.doctype !== ctx.doctype ||
+				latestContext.pathPrefix !== ctx.pathPrefix
+			) {
+				return;
+			}
+
 			const rawFields = metaStore.doc_meta[ctx.doctype] || [];
-
 			const options = [];
-			for (const f of rawFields) {
-				const isLink = f.fieldtype === "Link" && f.options;
+			for (const field of rawFields) {
+				const isLink = field.fieldtype === "Link" && field.options;
 				const isTable =
-					(f.fieldtype === "Table" || f.fieldtype === "Table MultiSelect") && f.options;
+					(field.fieldtype === "Table" || field.fieldtype === "Table MultiSelect") &&
+					field.options;
 				const isNavigable = isLink || isTable;
-
-				const fieldPath = ctx.pathPrefix ? `${ctx.pathPrefix}.${f.fieldname}` : f.fieldname;
+				const fieldPath = ctx.pathPrefix
+					? `${ctx.pathPrefix}.${field.fieldname}`
+					: field.fieldname;
 
 				let navType = null;
 				if (isLink) navType = "link";
 				if (isTable) navType = "table";
 
-				const isSpecial = f.fieldname === "docstatus" || f.fieldname === "name" || f.is_std;
-				const rawLabel = f.original_label || f.label || f.fieldname;
+				const isSpecial =
+					field.fieldname === "docstatus" || field.fieldname === "name" || field.is_std;
+				const rawLabel = field.original_label || field.label || field.fieldname;
 				const translatedLabel = typeof window.__ === "function" ? __(rawLabel) : rawLabel;
 
 				options.push({
 					value: fieldPath,
-					label: `${translatedLabel} (${f.fieldname})`,
-					description: isNavigable ? `${f.fieldtype} → ${f.options}` : f.fieldtype || "",
-					fieldname: f.fieldname,
-					fieldtype: f.fieldtype,
+					label: `${translatedLabel} (${field.fieldname})`,
+					description: isNavigable
+						? `${field.fieldtype} → ${field.options}`
+						: field.fieldtype || "",
+					fieldname: field.fieldname,
+					fieldtype: field.fieldtype,
 					icon: isNavigable
 						? isLink
 							? "fa fa-link"
@@ -79,114 +105,110 @@ export function useNavigableFields(rootDoctype, selectedValue = null) {
 						: "fa fa-columns",
 					navigable: isNavigable,
 					navType,
-					targetDoctype: f.options,
+					targetDoctype: field.options,
 					raw: {
-						...f,
+						...field,
 						navigable: isNavigable,
 						navType,
-						targetDoctype: f.options,
+						targetDoctype: field.options,
 						fieldPath,
 					},
 				});
 			}
-
-			currentFields.value = options;
-		} catch (e) {
-			console.warn("useNavigableFields: Failed to load fields for context", ctx, e);
-			currentFields.value = [];
+			if (isCurrentRequest(generation)) currentFields.value = options;
+		} catch (error) {
+			if (isCurrentRequest(generation)) {
+				console.warn("useNavigableFields: Failed to load fields for context", ctx, error);
+				currentFields.value = [];
+			}
 		} finally {
-			loading.value = false;
+			if (isCurrentRequest(generation)) loading.value = false;
 		}
 	}
 
-	async function syncStackToValue(val) {
-		const dt = rootDt.value;
-		if (!dt) {
+	async function syncStackToValue(value) {
+		const generation = ++requestGeneration;
+		const doctype = rootDt.value;
+		if (!doctype) {
 			navStack.value = [];
-			currentFields.value = [];
+			clearState(generation);
 			return;
 		}
 
-		const valStr = String(val || "").trim();
-		if (!valStr || !valStr.includes(".")) {
-			navStack.value = [
-				{
-					doctype: dt,
-					fieldname: "",
-					label: dt,
-					pathPrefix: "",
-				},
-			];
-			await loadCurrentContextFields();
+		const valueString = String(value || "").trim();
+		const root = {
+			doctype,
+			fieldname: "",
+			label: doctype,
+			pathPrefix: "",
+		};
+		if (!valueString || !valueString.includes(".")) {
+			navStack.value = [root];
+			await loadCurrentContextFields(generation);
 			return;
 		}
 
-		const parts = valStr.split(".");
-		let currentDt = dt;
+		const parts = valueString.split(".");
+		let currentDoctype = doctype;
 		let prefix = "";
-		const stack = [
-			{
-				doctype: dt,
-				fieldname: "",
-				label: dt,
-				pathPrefix: "",
-			},
-		];
+		const stack = [root];
 
-		for (let i = 0; i < parts.length - 1; i++) {
-			const part = parts[i];
+		for (let index = 0; index < parts.length - 1; index += 1) {
+			if (!isCurrentRequest(generation)) return;
+			const part = parts[index];
 			try {
-				await metaStore.fetch_metadata(currentDt);
-				const rawFields = metaStore.doc_meta[currentDt] || [];
-				const matchField = rawFields.find((f) => f.fieldname === part);
+				await metaStore.fetch_metadata(currentDoctype);
+				if (!isCurrentRequest(generation)) return;
+				const rawFields = metaStore.doc_meta[currentDoctype] || [];
+				const matchField = rawFields.find((field) => field.fieldname === part);
+				if (!matchField || !matchField.options) break;
 
-				if (matchField && matchField.options) {
-					prefix = prefix ? `${prefix}.${part}` : part;
-					currentDt = matchField.options;
-					const rawLabel =
-						matchField.original_label || matchField.label || matchField.fieldname;
-					const label = typeof window.__ === "function" ? __(rawLabel) : rawLabel;
-					stack.push({
-						doctype: currentDt,
-						fieldname: part,
-						label,
-						pathPrefix: prefix,
-					});
-				} else {
-					break;
-				}
-			} catch (e) {
+				prefix = prefix ? `${prefix}.${part}` : part;
+				currentDoctype = matchField.options;
+				const rawLabel =
+					matchField.original_label || matchField.label || matchField.fieldname;
+				const label = typeof window.__ === "function" ? __(rawLabel) : rawLabel;
+				stack.push({
+					doctype: currentDoctype,
+					fieldname: part,
+					label,
+					pathPrefix: prefix,
+				});
+			} catch {
 				break;
 			}
 		}
 
+		if (!isCurrentRequest(generation)) return;
 		navStack.value = stack;
-		await loadCurrentContextFields();
+		await loadCurrentContextFields(generation);
 	}
 
 	async function resetStack() {
-		const dt = rootDt.value;
-		if (!dt) {
+		const generation = ++requestGeneration;
+		const doctype = rootDt.value;
+		if (!doctype) {
 			navStack.value = [];
-			currentFields.value = [];
+			clearState(generation);
 			return;
 		}
 
 		navStack.value = [
 			{
-				doctype: dt,
+				doctype,
 				fieldname: "",
-				label: dt,
+				label: doctype,
 				pathPrefix: "",
 			},
 		];
-		await loadCurrentContextFields();
+		await loadCurrentContextFields(generation);
 	}
 
 	async function handleNavigate(option) {
-		const raw = option.raw || option;
+		const raw = option?.raw || option;
 		if (!raw || !raw.navigable || !raw.targetDoctype) return;
 
+		const generation = ++requestGeneration;
 		const currentPrefix = currentContext.value?.pathPrefix || "";
 		const nextPrefix =
 			raw.fieldPath || (currentPrefix ? `${currentPrefix}.${raw.fieldname}` : raw.fieldname);
@@ -197,25 +219,23 @@ export function useNavigableFields(rootDoctype, selectedValue = null) {
 			label: raw.original_label || raw.label || raw.fieldname || raw.targetDoctype,
 			pathPrefix: nextPrefix,
 		});
-
-		await loadCurrentContextFields();
+		await loadCurrentContextFields(generation);
 	}
 
-	async function handleBack(idx) {
-		if (idx < 0 || idx >= navStack.value.length) return;
-		navStack.value = navStack.value.slice(0, idx + 1);
-		await loadCurrentContextFields();
+	async function handleBack(index) {
+		if (index < 0 || index >= navStack.value.length) return;
+		const generation = ++requestGeneration;
+		navStack.value = navStack.value.slice(0, index + 1);
+		await loadCurrentContextFields(generation);
 	}
 
 	watch(
 		() => [rootDt.value, targetValue.value],
-		async ([newDt, newVal]) => {
-			if (newDt) {
-				if (newVal && String(newVal).includes(".")) {
-					await syncStackToValue(newVal);
-				} else {
-					await resetStack();
-				}
+		async ([newDoctype, newValue]) => {
+			if (newDoctype && newValue && String(newValue).includes(".")) {
+				await syncStackToValue(newValue);
+			} else {
+				await resetStack();
 			}
 		},
 		{ immediate: true }

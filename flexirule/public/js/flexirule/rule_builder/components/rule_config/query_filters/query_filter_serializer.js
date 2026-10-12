@@ -84,11 +84,12 @@ function parse(value, defaultDoctype, path = []) {
 				current.children.push(node);
 				continue;
 			}
+			const previous = current.children.length === 1 ? current.children[0] : current;
 			current = {
 				id: stableId("group", path),
 				type: "group",
 				operator: pending,
-				children: [current, node],
+				children: [previous, node],
 			};
 		}
 		return (

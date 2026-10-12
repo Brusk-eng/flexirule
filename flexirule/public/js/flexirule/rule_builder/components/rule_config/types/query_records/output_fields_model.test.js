@@ -76,6 +76,24 @@ assert.ok(
 const commaDelimitedFields = parseOutputFields("name, status as status_label");
 assert.deepEqual(serializeOutputFields(commaDelimitedFields), ["name", "status as status_label"]);
 
+const commaDelimitedAggregates = parseOutputFields(
+	"count(name) as total_users, sum(grand_total) as total_value"
+);
+assert.deepEqual(
+	commaDelimitedAggregates.map((row) => row.kind),
+	["function", "function"]
+);
+assert.deepEqual(serializeOutputFields(commaDelimitedAggregates), [
+	"count(name) as total_users",
+	"sum(grand_total) as total_value",
+]);
+
+const nestedCommasStayInsideExpressions = parseOutputFields(
+	"first_name, concat(first_name, last_name) as full_name"
+);
+assert.equal(nestedCommasStayInsideExpressions.length, 2);
+assert.equal(nestedCommasStayInsideExpressions[1].kind, "raw");
+
 const aggregateOnlyRows = parseOutputFields(["count(name) as total_users"]);
 assert.deepEqual(validateOutputFields(aggregateOnlyRows, RESULT_SHAPES.selectedFields), []);
 

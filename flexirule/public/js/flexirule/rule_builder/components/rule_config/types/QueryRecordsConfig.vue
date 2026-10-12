@@ -19,11 +19,26 @@
 						description: __(
 							'Bypass read permissions for this action. Requires audit reason.'
 						),
-						read_only: readOnly,
+						read_only:
+							readOnly ||
+							(mode === 'Fetch Records' &&
+								isFrappe15 &&
+								!!node?.data?.ignore_permissions),
 					}"
 					:modelValue="node?.data?.ignore_permissions"
 					@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
 				/>
+				<div
+					v-if="mode === 'Fetch Records' && isFrappe15"
+					class="alert alert-warning mb-0"
+					role="alert"
+				>
+					{{
+						__(
+							"Frappe 15's Query Builder does not support the native permission-aware Fetch Records API. On this installation, Fetch Records requires Skip Permissions to be enabled and a permission audit reason. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
+						)
+					}}
+				</div>
 				<ControlFactory
 					v-if="!!node?.data?.ignore_permissions"
 					:ref="setControlRef"
@@ -576,6 +591,11 @@ import { useUIStore } from "../../../stores/useUIStore";
 import { provideControlContext } from "../../../composables/useControlContext";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 
+const isFrappe15 = computed(() => {
+	const version = frappe.boot?.versions?.frappe;
+	return typeof version === "string" && /^15(?:\.|$)/.test(version);
+});
+
 const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
@@ -779,6 +799,9 @@ onMounted(async () => {
 	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
+		// Do not silently elevate an existing saved action with an explicit false.
+		// New/migrated actions with no value receive the v15-safe UI default.
+		applyFetchRecordsFrappe15Defaults({ onlyWhenUnset: true });
 		if (mode.value === "Query Doc") {
 			await reconcile_query_doc_state();
 		} else if (reference_doctype.value) {
@@ -1362,6 +1385,17 @@ function update_action_key(key, value) {
 	props.node.data[key] = value;
 }
 
+function applyFetchRecordsFrappe15Defaults({ onlyWhenUnset = false } = {}) {
+	if (props.readOnly || !props.node?.data) return;
+	if (mode.value !== "Fetch Records" || !isFrappe15.value) return;
+	const current = props.node.data.ignore_permissions;
+	if (onlyWhenUnset && current !== undefined && current !== null && current !== "") return;
+	if (![true, 1, "1"].includes(current)) {
+		props.node.data.ignore_permissions = 1;
+		store.mark_dirty();
+	}
+}
+
 function update_fetch_records_config(value) {
 	const next = value && typeof value === "object" ? value : {};
 	Object.keys(config).forEach((key) => delete config[key]);
@@ -1413,6 +1447,8 @@ watch(
 				update_action_field("reference_docname", "");
 			}
 		}
+
+		applyFetchRecordsFrappe15Defaults();
 
 		if (newMode === "Query Report" && props.node?.data) {
 			if (props.node.data.reference_doctype !== "Report") {

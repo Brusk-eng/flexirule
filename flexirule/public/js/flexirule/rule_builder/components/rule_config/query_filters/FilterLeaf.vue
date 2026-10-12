@@ -100,6 +100,8 @@ const effectiveVariableOptions = computed(
 );
 const leaf = computed(() => props.modelValue || {});
 const emptyValue = { mode: "static", value: "" };
+// Portable Query Builder operators shared by Frappe 15 and 16.
+// REGEX is omitted: those release branches still render PyPika's unsupported "REGEX" SQL token.
 const BASE = ["=", "!=", "like", "not like", "in", "not in", ">", "<", ">=", "<=", "is"];
 const EXT = ["Between", "Timespan", "starts with", "ends with"];
 const NESTED = [
@@ -109,16 +111,30 @@ const NESTED = [
 	"ancestors of",
 	"not ancestors of",
 ];
+// Field-type restrictions are the intersection of the Frappe 15 and 16
+// standard filter UIs. This avoids offering an operator that disappears or is
+// invalid on one supported major version.
 const INVALID = {
 	Date: ["like", "not like"],
 	Datetime: ["like", "not like", "in", "not in", "=", "!="],
 	Data: ["Between", "Timespan"],
 	Time: ["Between", "Timespan"],
-	Select: ["like", "not like", "Between", "Timespan"],
+	Select: ["like", "not like", "Between", "Timespan", ">", "<", ">=", "<="],
 	Link: ["Between", "Timespan", ">", "<", ">=", "<="],
 	Currency: ["Between", "Timespan"],
-	Color: ["Between", "Timespan"],
+	Color: ["Between", "Timespan", ">", "<", ">=", "<="],
 	Float: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Int: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Percent: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Code: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"HTML Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Markdown Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Text Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Small Text": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Long Text": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	Text: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	Password: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
 };
 const labels = {
 	"=": __("Equals"),
@@ -142,17 +158,27 @@ const labels = {
 	"ancestors of": __("Ancestors Of"),
 	"not ancestors of": __("Not Ancestors Of"),
 };
+function supportsNestedSetOperators(def) {
+	const treeDoctypes = frappe.boot?.nested_set_doctypes || [];
+	if (def?.fieldtype === "Link" && treeDoctypes.includes(def.options)) return true;
+	// A Tree DocType's own name field can also use hierarchy operators.
+	return def?.fieldname === "name" && treeDoctypes.includes(props.doctype);
+}
+function getFieldTypeOperators(def) {
+	const invalid = INVALID[def?.original_type] || INVALID[def?.fieldtype] || [];
+	return [...BASE, ...EXT].filter((operator) => {
+		if (invalid.includes(operator)) return false;
+		// Starts With and Ends With are aliases for LIKE, so they inherit its
+		// field-type restriction instead of accidentally bypassing the blacklist.
+		return !(["starts with", "ends with"].includes(operator) && invalid.includes("like"));
+	});
+}
 const field = computed(() => getFieldDef(leaf.value.field));
 const operators = computed(() => {
-	const all = [...BASE, ...EXT];
-	const invalid = INVALID[field.value?.original_type] || INVALID[field.value?.fieldtype] || [];
-	const result = all.filter((op) => !invalid.includes(op));
-	if (
-		field.value?.fieldtype === "Link" &&
-		frappe.boot?.nested_set_doctypes?.includes(field.value.options)
-	)
+	const result = getFieldTypeOperators(field.value);
+	if (supportsNestedSetOperators(field.value))
 		result.push(...NESTED.filter((op) => !result.includes(op)));
-	if (field.value?.fieldtype === "Check") return result.filter((op) => op === "=" || op === "!=");
+	if (field.value?.fieldtype === "Check") return result.filter((op) => op === "=");
 	return result.length ? result : ["="];
 });
 const operatorLabel = (op) => {
@@ -185,10 +211,10 @@ function updateField(value) {
 	navigableFields.resetStack();
 }
 function getOperators(def) {
-	const invalid = INVALID[def?.original_type] || INVALID[def?.fieldtype] || [];
-	const result = [...BASE, ...EXT].filter((op) => !invalid.includes(op));
-	if (def?.fieldtype === "Link" && frappe.boot?.nested_set_doctypes?.includes(def.options))
+	const result = getFieldTypeOperators(def);
+	if (supportsNestedSetOperators(def))
 		result.push(...NESTED.filter((op) => !result.includes(op)));
+	if (def?.fieldtype === "Check") return result.filter((op) => op === "=");
 	return result.length ? result : ["="];
 }
 function updateOperator(event) {

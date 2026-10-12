@@ -266,7 +266,7 @@ const limitField = computed(() => ({
 	label: __("Limit"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __("Maximum number of records to return. Leave blank for the framework default."),
+	description: __("Optional result limit. Leave blank to return all matching records."),
 }));
 
 const offsetField = computed(() => ({
@@ -450,6 +450,7 @@ async function validate() {
 		const parsed = Number(value);
 		if (!Number.isInteger(parsed) || parsed < 0) {
 			errors.push(__("{0} must be a non-negative integer.").format(label));
+			continue;
 		}
 	}
 

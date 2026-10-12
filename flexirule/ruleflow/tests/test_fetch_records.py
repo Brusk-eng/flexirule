@@ -25,6 +25,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -50,6 +52,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -80,6 +84,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_eq = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -99,6 +105,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_in = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -140,6 +148,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json({"filters": filter_tree}),
 			}
@@ -198,6 +208,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json({"filters": filter_tree}),
 			}
@@ -225,6 +237,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "User",
 				"config": frappe.as_json(
 					{
@@ -252,6 +266,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -287,6 +303,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -314,9 +332,16 @@ class TestFetchRecords(FrappeTestCase):
 			}
 		)
 
+		from flexirule.ruleflow.utils.frappe_query_compat import QUERY_CAPABILITIES
+
+		expected_error = (
+			frappe.PermissionError
+			if QUERY_CAPABILITIES.supports_ignore_permissions
+			else frappe.ValidationError
+		)
 		frappe.set_user("Guest")
 		try:
-			with self.assertRaises(frappe.PermissionError):
+			with self.assertRaises(expected_error):
 				self.handler.execute(action_restricted, {}, None)
 		finally:
 			frappe.set_user("Administrator")
@@ -338,6 +363,8 @@ class TestFetchRecords(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -362,6 +389,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_bad_dt = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "NonExistentDocType",
 				"config": frappe.as_json({}),
 			}
@@ -373,6 +402,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_bad_field = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json({"fields": ["non_existent_column"]}),
 			}
@@ -384,6 +415,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_bad_limit = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json({"limit": -5}),
 			}
@@ -410,6 +443,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_starts = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -427,6 +462,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_ends = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -453,6 +490,8 @@ class TestFetchRecords(FrappeTestCase):
 		action_true = frappe._dict(
 			{
 				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
@@ -473,3 +512,122 @@ class TestFetchRecords(FrappeTestCase):
 		res_names = {r.get("name") for r in res_true}
 		self.assertEqual(res_names, {t_open.name})
 		self.assertNotIn(t_closed.name, res_names)
+
+	def test_dynamic_limit_is_not_capped_after_resolution(self):
+		from unittest.mock import patch
+
+		limit = 1_000_001
+		context = {"vars": {"max_count": limit}}
+		action = frappe._dict({"label": "Dynamic limit test"})
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.execute_query",
+			return_value=[],
+		) as execute_query:
+			self.handler._fetch_records(
+				reference_doctype="ToDo",
+				config={"limit": "{vars.max_count}"},
+				context=context,
+				action=action,
+				ignore_permissions=True,
+			)
+
+		self.assertEqual(execute_query.call_args.args[1]["limit"], limit)
+
+	def test_fetch_records_does_not_inject_a_backend_limit_default(self):
+		from unittest.mock import patch
+
+		action = frappe._dict({"label": "No default limit test"})
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.execute_query",
+			return_value=[],
+		) as execute_query:
+			self.handler._fetch_records(
+				reference_doctype="ToDo",
+				config={},
+				context={},
+				action=action,
+				ignore_permissions=True,
+			)
+
+		self.assertNotIn("limit", execute_query.call_args.args[1])
+
+	def test_resolved_output_field_is_validated_before_query_execution(self):
+		from unittest.mock import patch
+
+		action = frappe._dict({"label": "Dynamic field test"})
+		context = {"vars": {"output_field": "definitely_missing_field"}}
+		with patch("flexirule.ruleflow.utils.frappe_query_compat.execute_query") as execute_query:
+			with self.assertRaises(frappe.ValidationError):
+				self.handler._fetch_records(
+					reference_doctype="ToDo",
+					config={"fields": ["{vars.output_field}"]},
+					context=context,
+					action=action,
+					ignore_permissions=True,
+				)
+		execute_query.assert_not_called()
+
+	def test_validate_fetch_records_accepts_large_static_limit(self):
+		action = frappe._dict({"reference_doctype": "ToDo"})
+		errors = self.handler.validate_fetch_records(action, {"limit": 1_000_001})
+		self.assertFalse(any("cannot exceed" in error for error in errors))
+
+	def test_zero_limit_returns_no_rows_without_querying(self):
+		from unittest.mock import patch
+
+		action = frappe._dict({"label": "Zero limit test"})
+		with patch("flexirule.ruleflow.utils.frappe_query_compat.execute_query") as execute_query:
+			result = self.handler._fetch_records(
+				reference_doctype="ToDo",
+				config={"limit": 0},
+				context={},
+				action=action,
+				ignore_permissions=True,
+			)
+
+		self.assertEqual(result, [])
+		execute_query.assert_not_called()
+
+	def test_frappe15_fetch_records_contract_defaults_skip_permissions_for_new_actions(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.utils.frappe_query_compat import FrappeQueryCapabilities
+
+		with patch(
+			"flexirule.ruleflow.core.action_handlers.query_records.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(supports_ignore_permissions=False),
+		):
+			contract = self.handler.get_operation_contracts()["Fetch Records"]
+
+		permission_overrides = [
+			override
+			for override in contract.action_overrides
+			if override.get("fieldname") == "ignore_permissions"
+		]
+		self.assertTrue(any(override.get("default") == 1 for override in permission_overrides))
+
+	def test_canonical_filter_validator_accepts_nested_set_operators_from_ui(self):
+		operators = (
+			"descendants of",
+			"descendants of (inclusive)",
+			"not descendants of",
+			"ancestors of",
+			"not ancestors of",
+		)
+		for operator in operators:
+			with self.subTest(operator=operator):
+				errors = self.handler._validate_canonical_fetch_filter_tree(
+					{
+						"type": "leaf",
+						"field": "name",
+						"operator": operator,
+						"value": {"mode": "static", "value": "ToDo-example"},
+					}
+				)
+				self.assertEqual(errors, [], msg=operator)
+
+	def test_fetch_records_rejects_child_table_aggregate_field(self):
+		errors = self.handler._validate_doctype_field_references(
+			"User", {"fields": ["count(roles.role) as role_count"]}
+		)
+		self.assertTrue(any("child/link aggregates are unsupported" in error for error in errors))

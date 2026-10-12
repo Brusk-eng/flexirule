@@ -253,7 +253,6 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				"is_group": 0,
 			}
 		).insert(ignore_permissions=True)
-
 		frappe.db.commit()
 
 	# -------------------------------------------------------------------------

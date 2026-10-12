@@ -42,6 +42,33 @@ export function inferResultShape(fields, explicitShape) {
 	}
 	return RESULT_SHAPES.selectedFields;
 }
+function splitTopLevelExpressions(input) {
+	const parts = [];
+	let start = 0;
+	let depth = 0;
+	let quote = null;
+	let escaped = false;
+	for (let index = 0; index < input.length; index += 1) {
+		const char = input[index];
+		if (quote) {
+			if (escaped) escaped = false;
+			else if (char === "\\") escaped = true;
+			else if (char === quote) quote = null;
+			continue;
+		}
+		if (char === "'" || char === '"' || char === "`") quote = char;
+		else if (char === "(" || char === "[" || char === "{") depth += 1;
+		else if (char === ")" || char === "]" || char === "}") depth = Math.max(0, depth - 1);
+		else if (char === "," && depth === 0) {
+			const part = input.slice(start, index).trim();
+			if (part) parts.push(part);
+			start = index + 1;
+		}
+	}
+	const finalPart = input.slice(start).trim();
+	if (finalPart) parts.push(finalPart);
+	return parts;
+}
 function parseAlias(expression) {
 	const match = String(expression)
 		.trim()
@@ -97,12 +124,7 @@ export function parseOutputFields(value) {
 		list = value;
 	} else if (typeof value === "string" && value.trim()) {
 		const raw = value.trim();
-		if (raw === "*" || /[()]/.test(raw)) list = [raw];
-		else
-			list = raw
-				.split(",")
-				.map((part) => part.trim())
-				.filter(Boolean);
+		list = raw === "*" ? [raw] : splitTopLevelExpressions(raw);
 	} else {
 		list = [];
 	}
