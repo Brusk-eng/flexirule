@@ -240,11 +240,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 				const doc = node.data;
 
-				const skipPermissions = doc.ignore_permissions ?? doc.skip_permissions;
-				if (
-					[true, 1, "1", "true", "True"].includes(skipPermissions) &&
-					!String(doc.permission_audit_reason ?? "").trim()
-				) {
+				const skipPermissions = [doc.ignore_permissions, doc.skip_permissions].some(
+					(value) => [true, 1, "1", "true", "True"].includes(value)
+				);
+				if (skipPermissions && !String(doc.permission_audit_reason ?? "").trim()) {
 					errors.push(
 						`${label}: ${__(
 							"Permission Audit Reason is required when bypassing permissions."
