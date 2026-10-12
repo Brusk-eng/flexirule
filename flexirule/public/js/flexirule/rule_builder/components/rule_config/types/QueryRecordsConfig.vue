@@ -19,11 +19,26 @@
 						description: __(
 							'Bypass read permissions for this action. Requires audit reason.'
 						),
-						read_only: readOnly,
+						read_only:
+							readOnly ||
+							(mode === 'Fetch Records' &&
+								isFrappe15 &&
+								!!node?.data?.ignore_permissions),
 					}"
 					:modelValue="node?.data?.ignore_permissions"
 					@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
 				/>
+				<div
+					v-if="mode === 'Fetch Records' && isFrappe15"
+					class="alert alert-warning mb-0"
+					role="alert"
+				>
+					{{
+						__(
+							"Frappe 15's Query Builder does not support the native permission-aware Fetch Records API. On this installation, Fetch Records requires Skip Permissions to be enabled and a permission audit reason. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
+						)
+					}}
+				</div>
 				<ControlFactory
 					v-if="!!node?.data?.ignore_permissions"
 					:ref="setControlRef"
@@ -31,12 +46,28 @@
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
 						label: __('Permission Audit Reason'),
+						reqd: 1,
 						read_only: readOnly,
 					}"
 					:modelValue="node?.data?.permission_audit_reason"
+					:showValidation="showValidation"
 					@update:modelValue="(val) => update_action_key('permission_audit_reason', val)"
 				/>
 			</div>
+
+			<!-- Fetch Records uses the reusable TreeBuilder-backed filter editor. -->
+			<template v-if="mode === 'Fetch Records'">
+				<FetchRecordsConfig
+					ref="fetchRecordsConfigRef"
+					:modelValue="config"
+					:doctype="reference_doctype"
+					:readOnly="readOnly"
+					:showValidation="showValidation"
+					:nodeId="node?.id"
+					:variableOptions="variable_options"
+					@update:modelValue="update_fetch_records_config"
+				/>
+			</template>
 
 			<!-- Configuration based on selected Mode -->
 			<template v-if="mode === 'Query List'">
@@ -64,7 +95,7 @@
 							fieldname: 'fields',
 							placeholder: __('Select fields to fetch...'),
 						}"
-						:options="doctype_fields"
+						:options="navigableFields.currentFields.value"
 						:modelValue="config.fields || []"
 						:read_only="readOnly"
 						:hideLabel="true"
@@ -79,18 +110,27 @@
 							<ComboBoxControl
 								:ref="setControlRef"
 								:df="{ label: '', fieldtype: 'FieldPicker' }"
-								:options="doctype_fields"
+								:options="navigableFields.currentFields.value"
 								:doctype="reference_doctype"
 								:modelValue="row.field"
 								:read_only="readOnly"
 								:trigger="'button'"
 								:hideLabel="true"
+								:navigable="true"
+								:navStack="navigableFields.navStack.value"
+								@navigate="navigableFields.handleNavigate"
+								@back="navigableFields.handleBack"
 								class="flex-1"
 								:class="{
 									'border-warning':
 										row.field && !is_field_valid(row.field, doctype_fields),
 								}"
-								@update:modelValue="(val) => (row.field = val)"
+								@update:modelValue="
+									(val) => {
+										row.field = val;
+										navigableFields.resetStack();
+									}
+								"
 							/>
 							<select
 								class="form-control input-xs direction-select"
@@ -368,19 +408,26 @@
 									<ComboBoxControl
 										:ref="setControlRef"
 										:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
-										:options="doctype_fields"
+										:options="navigableFields.currentFields.value"
 										:doctype="reference_doctype"
 										:modelValue="config.field"
 										:read_only="readOnly"
 										:trigger="'button'"
 										:hideLabel="true"
+										:navigable="true"
+										:navStack="navigableFields.navStack.value"
+										@navigate="navigableFields.handleNavigate"
+										@back="navigableFields.handleBack"
 										:class="{
 											'border-warning':
 												config.field &&
 												!is_field_valid(config.field, doctype_fields),
 										}"
 										@update:modelValue="
-											(val) => update_config_key('field', val)
+											(val) => {
+												update_config_key('field', val);
+												navigableFields.resetStack();
+											}
 										"
 									/>
 									<i
@@ -403,12 +450,16 @@
 									<ComboBoxControl
 										:ref="setControlRef"
 										:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
-										:options="doctype_fields"
+										:options="navigableFields.currentFields.value"
 										:doctype="reference_doctype"
 										:modelValue="config.group_by_field"
 										:read_only="readOnly"
 										:trigger="'button'"
 										:hideLabel="true"
+										:navigable="true"
+										:navStack="navigableFields.navStack.value"
+										@navigate="navigableFields.handleNavigate"
+										@back="navigableFields.handleBack"
 										:class="{
 											'border-warning':
 												config.group_by_field &&
@@ -418,7 +469,10 @@
 												),
 										}"
 										@update:modelValue="
-											(val) => update_config_key('group_by_field', val)
+											(val) => {
+												update_config_key('group_by_field', val);
+												navigableFields.resetStack();
+											}
 										"
 									/>
 									<i
@@ -449,19 +503,26 @@
 									<ComboBoxControl
 										:ref="setControlRef"
 										:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
-										:options="doctype_fields"
+										:options="navigableFields.currentFields.value"
 										:doctype="reference_doctype"
 										:modelValue="config.agg_field"
 										:read_only="readOnly"
 										:trigger="'button'"
 										:hideLabel="true"
+										:navigable="true"
+										:navStack="navigableFields.navStack.value"
+										@navigate="navigableFields.handleNavigate"
+										@back="navigableFields.handleBack"
 										:class="{
 											'border-warning':
 												config.agg_field &&
 												!is_field_valid(config.agg_field, doctype_fields),
 										}"
 										@update:modelValue="
-											(val) => update_config_key('agg_field', val)
+											(val) => {
+												update_config_key('agg_field', val);
+												navigableFields.resetStack();
+											}
 										"
 									/>
 									<i
@@ -524,11 +585,18 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FilterGroup from "../FilterGroup.vue";
+import FetchRecordsConfig from "./query_records/FetchRecordsConfig.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 import { useUIStore } from "../../../stores/useUIStore";
 import { provideControlContext } from "../../../composables/useControlContext";
+import { useNavigableFields } from "../../../composables/useNavigableFields";
+
+const isFrappe15 = computed(() => {
+	const version = frappe.boot?.versions?.frappe;
+	return typeof version === "string" && /^15(?:\.|$)/.test(version);
+});
 
 const props = defineProps({
 	node: Object,
@@ -556,6 +624,11 @@ const {
 } = useActionConfig(props, {
 	fieldValueMode: "fieldname",
 });
+
+const navigableFields = useNavigableFields(
+	reference_doctype,
+	() => config.field || config.group_by_field || config.agg_field
+);
 const { getPolicyField } = useNodeConfigPolicy({
 	actionType: () => props.node?.data?.action_type || "Query Records",
 	operation: mode,
@@ -603,6 +676,7 @@ const is_single_doctype = ref(false);
 const is_child_table_target = ref(false);
 const showValidation = ref(false);
 const filterGroupRef = ref(null);
+const fetchRecordsConfigRef = ref(null);
 const controlRefs = ref([]);
 
 onBeforeUpdate(() => {
@@ -727,6 +801,9 @@ onMounted(async () => {
 	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
+		// Do not silently elevate an existing saved action with an explicit false.
+		// New/migrated actions with no value receive the v15-safe UI default.
+		applyFetchRecordsFrappe15Defaults({ onlyWhenUnset: true });
 		if (mode.value === "Query Doc") {
 			await reconcile_query_doc_state();
 		} else if (reference_doctype.value) {
@@ -1044,7 +1121,7 @@ const SYSTEM_FIELDS = [
 async function update_resolved_schema_local() {
 	if (!props.node?.data) return;
 
-	if (mode.value === "Query List" || mode.value === "Query Doc") {
+	if (["Fetch Records", "Query List", "Query Doc"].includes(mode.value)) {
 		const is_query_doc = mode.value === "Query Doc";
 		const fields = (config.fields || []).filter((f) => f);
 
@@ -1310,6 +1387,24 @@ function update_action_key(key, value) {
 	props.node.data[key] = value;
 }
 
+function applyFetchRecordsFrappe15Defaults({ onlyWhenUnset = false } = {}) {
+	if (props.readOnly || !props.node?.data) return;
+	if (mode.value !== "Fetch Records" || !isFrappe15.value) return;
+	const current = props.node.data.ignore_permissions;
+	if (onlyWhenUnset && current !== undefined && current !== null && current !== "") return;
+	if (![true, 1, "1"].includes(current)) {
+		props.node.data.ignore_permissions = 1;
+		store.mark_dirty();
+	}
+}
+
+function update_fetch_records_config(value) {
+	const next = value && typeof value === "object" ? value : {};
+	Object.keys(config).forEach((key) => delete config[key]);
+	Object.assign(config, next);
+	sync_local_config();
+}
+
 // Watch for operation changes directly to handle Report special case
 watch(
 	() => mode.value,
@@ -1326,8 +1421,16 @@ watch(
 					} else if (key === "docname" && newMode !== "Query Doc") {
 						delete config[key];
 					} else if (
-						["limit", "limit_type", "order_by", "fields"].includes(key) &&
-						newMode !== "Query List"
+						[
+							"limit",
+							"limit_type",
+							"order_by",
+							"fields",
+							"offset",
+							"distinct",
+							"group_by",
+						].includes(key) &&
+						!["Query List", "Fetch Records"].includes(newMode)
 					) {
 						delete config[key];
 					} else if (
@@ -1346,6 +1449,8 @@ watch(
 				update_action_field("reference_docname", "");
 			}
 		}
+
+		applyFetchRecordsFrappe15Defaults();
 
 		if (newMode === "Query Report" && props.node?.data) {
 			if (props.node.data.reference_doctype !== "Report") {
@@ -1712,8 +1817,13 @@ async function validate() {
 		if (!res.valid && res.errors) errors.push(...res.errors);
 	});
 
-	// 2. Validate filters if applicable for the current mode
-	if (filterGroupRef.value && typeof filterGroupRef.value.validate === "function") {
+	// 2. Validate filters for the active query editor.
+	if (mode.value === "Fetch Records") {
+		if (fetchRecordsConfigRef.value?.validate) {
+			const res = await fetchRecordsConfigRef.value.validate();
+			if (!res.valid) errors.push(...res.errors);
+		}
+	} else if (filterGroupRef.value && typeof filterGroupRef.value.validate === "function") {
 		const res = await filterGroupRef.value.validate();
 		if (!res.valid) errors.push(...res.errors);
 	}
@@ -1732,7 +1842,10 @@ async function validate() {
 	}
 
 	// 4. Permission Audit Reason (Global check, though child CheckControl should handle reqd)
-	if (props.node?.data?.ignore_permissions && !props.node?.data?.permission_audit_reason) {
+	if (
+		props.node?.data?.ignore_permissions &&
+		!String(props.node?.data?.permission_audit_reason ?? "").trim()
+	) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 	}
 
