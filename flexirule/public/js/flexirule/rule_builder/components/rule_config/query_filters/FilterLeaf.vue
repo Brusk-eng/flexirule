@@ -111,16 +111,30 @@ const NESTED = [
 	"ancestors of",
 	"not ancestors of",
 ];
+// Field-type restrictions are the intersection of the Frappe 15 and 16
+// standard filter UIs. This avoids offering an operator that disappears or is
+// invalid on one supported major version.
 const INVALID = {
 	Date: ["like", "not like"],
 	Datetime: ["like", "not like", "in", "not in", "=", "!="],
 	Data: ["Between", "Timespan"],
 	Time: ["Between", "Timespan"],
-	Select: ["like", "not like", "Between", "Timespan"],
+	Select: ["like", "not like", "Between", "Timespan", ">", "<", ">=", "<="],
 	Link: ["Between", "Timespan", ">", "<", ">=", "<="],
 	Currency: ["Between", "Timespan"],
-	Color: ["Between", "Timespan"],
+	Color: ["Between", "Timespan", ">", "<", ">=", "<="],
 	Float: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Int: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Percent: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Code: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"HTML Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Markdown Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Text Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Small Text": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Long Text": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	Text: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	Password: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
 };
 const labels = {
 	"=": __("Equals"),
@@ -157,7 +171,7 @@ const operators = computed(() => {
 	const result = all.filter((op) => !invalid.includes(op));
 	if (supportsNestedSetOperators(field.value))
 		result.push(...NESTED.filter((op) => !result.includes(op)));
-	if (field.value?.fieldtype === "Check") return result.filter((op) => op === "=" || op === "!=");
+	if (field.value?.fieldtype === "Check") return result.filter((op) => op === "=");
 	return result.length ? result : ["="];
 });
 const operatorLabel = (op) => {
@@ -194,7 +208,7 @@ function getOperators(def) {
 	const result = [...BASE, ...EXT].filter((op) => !invalid.includes(op));
 	if (supportsNestedSetOperators(def))
 		result.push(...NESTED.filter((op) => !result.includes(op)));
-	if (def?.fieldtype === "Check") return result.filter((op) => op === "=" || op === "!=");
+	if (def?.fieldtype === "Check") return result.filter((op) => op === "=");
 	return result.length ? result : ["="];
 }
 function updateOperator(event) {
