@@ -18,6 +18,8 @@ from typing import Any, ClassVar
 
 import frappe
 from frappe import _
+from frappe.database.operator_map import OPERATOR_MAP
+from frappe.database.utils import NestedSetHierarchy
 from frappe.utils import add_days, get_first_day, get_last_day, getdate, nowdate
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
@@ -547,16 +549,18 @@ class QueryRecordsHandler(ActionHandler):
 
 		return errors
 
+	# Keep the persisted Fetch Records contract portable across Frappe 15 and 16.
+	# The framework maps these to Query Builder operators on both supported versions.
 	_FETCH_RECORDS_OPERATORS: ClassVar[set[str]] = {
 		"=",
 		"!=",
-		"<>",
 		">",
 		">=",
 		"<",
 		"<=",
 		"like",
 		"not like",
+		"regex",
 		"in",
 		"not in",
 		"between",
@@ -564,12 +568,7 @@ class QueryRecordsHandler(ActionHandler):
 		"timespan",
 		"starts with",
 		"ends with",
-		"descendants of",
-		"descendants of (inclusive)",
-		"not descendants of",
-		"ancestors of",
-		"not ancestors of",
-	}
+	} | {operator.casefold() for operator in NestedSetHierarchy}
 
 	@staticmethod
 	def _is_deferred_query_value(value) -> bool:
@@ -1358,17 +1357,17 @@ class QueryRecordsHandler(ActionHandler):
 		return today, today
 
 	def _normalize_single_filter_operator(self, op, val):
-		"""Normalize UI operators to backend-safe operators/values."""
+		"""Normalize Fetch Records aliases case-insensitively to native Query Builder operators."""
 		if not isinstance(op, str):
 			return op, val
-		op = op.strip()
+		op = op.strip().casefold()
 		if op == "starts with":
 			return "like", f"{val}%"
 		if op == "ends with":
 			return "like", f"%{val}"
-		if op == "Between":
+		if op == "between":
 			return "between", val
-		if op == "Timespan":
+		if op == "timespan":
 			start, end = self._resolve_timespan_range(val)
 			return "between", [start, end]
 		return op, val
