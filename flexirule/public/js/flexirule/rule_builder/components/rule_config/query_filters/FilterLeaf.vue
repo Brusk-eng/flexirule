@@ -84,7 +84,7 @@ import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useStore } from "../../../stores";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
-import { getFieldType, getFilterOperators } from "./filter_operators.js";
+import { getFieldType, getFilterOperators } from "./filter_operators.mjs";
 
 const props = defineProps({
 	modelValue: { type: Object, required: true },
