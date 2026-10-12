@@ -172,6 +172,12 @@ function isValidIsValue(value) {
 		return isConfigured(value);
 	}
 	const raw = value && typeof value === "object" && value.mode === "static" ? value.value : value;
+	if (typeof raw === "string") {
+		const trimmed = raw.trim();
+		if (trimmed.startsWith("{") || trimmed.startsWith("@")) {
+			return true;
+		}
+	}
 	return ["set", "not set"].includes(
 		String(raw ?? "")
 			.trim()

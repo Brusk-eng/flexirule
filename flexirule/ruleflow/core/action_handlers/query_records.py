@@ -702,9 +702,13 @@ class QueryRecordsHandler(ActionHandler):
 			):
 				errors.append(_("{0}.value for Between must contain exactly two values").format(path))
 			if operator_name == "is" and (
-				not isinstance(static_value, str) or static_value.strip().casefold() not in {"set", "not set"}
+				not isinstance(static_value, str)
+				or (
+					static_value.strip().casefold() not in {"set", "not set"}
+					and not (static_value.strip().startswith("{") or static_value.strip().startswith("@"))
+				)
 			):
-				errors.append(_("{0}.value for Is must be 'set' or 'not set'").format(path))
+				errors.append(_("{0}.value for Is must be 'set' or 'not set' (or a dynamic expression)").format(path))
 			if operator_name in {"in", "not in"} and not isinstance(static_value, list | tuple | str):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(path))
 		return errors
@@ -726,9 +730,13 @@ class QueryRecordsHandler(ActionHandler):
 			if operator_name == "between" and not (isinstance(value, list | tuple) and len(value) == 2):
 				errors.append(_("{0}.value for Between must contain exactly two values").format(leaf_path))
 			elif operator_name == "is" and (
-				not isinstance(value, str) or value.strip().casefold() not in {"set", "not set"}
+				not isinstance(value, str)
+				or (
+					value.strip().casefold() not in {"set", "not set"}
+					and not (value.strip().startswith("{") or value.strip().startswith("@"))
+				)
 			):
-				errors.append(_("{0}.value for Is must be 'set' or 'not set'").format(leaf_path))
+				errors.append(_("{0}.value for Is must be 'set' or 'not set' (or a dynamic expression)").format(leaf_path))
 			elif operator_name in {"in", "not in"} and not isinstance(value, list | tuple | str):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(leaf_path))
 
@@ -1119,12 +1127,13 @@ class QueryRecordsHandler(ActionHandler):
 			if not isinstance(group_by, str):
 				errors.append(_("Group By must resolve to a string"))
 			else:
-				for field in self._split_fetch_field_expressions(group_by):
-					if self._is_plain_field_reference(field) and not self._doctype_has_field(
-						reference_doctype, field
+				for field_expr in self._split_fetch_field_expressions(group_by):
+					field_token = field_expr.split()[0].strip() if field_expr.split() else ""
+					if self._is_plain_field_reference(field_token) and not self._doctype_has_field(
+						reference_doctype, field_token
 					):
 						errors.append(
-							_("Group-by field '{0}' does not exist in {1}").format(field, reference_doctype)
+							_("Group-by field '{0}' does not exist in {1}").format(field_token, reference_doctype)
 						)
 
 		errors.extend(self._validate_filter_fields(reference_doctype, config.get("filters")))
