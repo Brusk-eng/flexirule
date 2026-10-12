@@ -26,6 +26,35 @@ const dragOver = ref(false);
 const dropPosition = ref(null);
 const kind = computed(() => props.node.type);
 const children = computed(() => props.node.children || []);
+const isDraggableContainer = computed(() => isGroupNode(props.node) || isCollectionNode(props.node));
+let dragOriginWasInteractive = false;
+const interactiveSelector = [
+	"button", "input", "select", "textarea", "option", "a",
+	'[contenteditable="true"]', '[role="button"]', '[role="combobox"]', "[data-no-drag]",
+].join(", ");
+
+function rememberDragOrigin(e) {
+	const target = e.target;
+	dragOriginWasInteractive = target instanceof Element && Boolean(target.closest(interactiveSelector));
+}
+
+function startContainerDrag(e) {
+	if (props.readOnly || !isDraggableContainer.value || dragOriginWasInteractive) {
+		e.preventDefault();
+		dragOriginWasInteractive = false;
+		return;
+	}
+	api?.beginDrag(props.node.id);
+	if (e.dataTransfer) {
+		e.dataTransfer.effectAllowed = "move";
+		e.dataTransfer.setData("text/plain", props.node.id || "");
+	}
+}
+
+function endContainerDrag() {
+	dragOriginWasInteractive = false;
+	api?.endDrag();
+}
 
 function getDropIntent(e) {
 	const rect = e.currentTarget.getBoundingClientRect();
@@ -89,6 +118,10 @@ function drop(e) {
 	<div
 		v-if="visibleNode(node)"
 		class="tree-node"
+		:draggable="!readOnly && isDraggableContainer"
+		@pointerdown.capture="rememberDragOrigin"
+		@dragstart="startContainerDrag"
+		@dragend="endContainerDrag"
 		:class="{
 			'drag-over': dragOver && dropPosition === 'inside',
 			'drop-before': dragOver && dropPosition === 'before',
