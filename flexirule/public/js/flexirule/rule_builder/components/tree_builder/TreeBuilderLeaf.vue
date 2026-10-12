@@ -6,7 +6,7 @@
 		<button
 			v-if="!readOnly"
 			type="button"
-			class="tree-leaf__remove"
+			class="fxr-btn fxr-btn--icon fxr-btn--danger tree-leaf__remove"
 			:title="__('Remove')"
 			@click="$emit('remove')"
 		>
@@ -27,18 +27,36 @@ defineEmits(["remove"]);
 <style scoped>
 .tree-leaf {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: minmax(0, 1fr) 32px;
 	gap: var(--fxr-space-2);
-	align-items: start;
+	align-items: stretch;
+	width: 100%;
+	min-width: 0;
+}
+.tree-leaf__content {
+	width: 100%;
+	min-width: 0;
 }
 .tree-leaf__remove {
+	display: inline-flex;
+	align-self: center;
+	align-items: center;
+	justify-content: center;
 	width: 30px;
-	height: 30px;
-	margin-top: 4px;
-	border: 0;
+	min-width: 30px;
+	height: var(--fxr-input-height);
+	margin: 0;
+	padding: 0;
+	border: 1px solid transparent;
+	border-radius: var(--fxr-radius-md);
 	background: transparent;
-	color: var(--fxr-text-danger, #ef4444);
-	border-radius: var(--fxr-radius-sm);
-	cursor: pointer;
+	color: var(--fxr-text-danger);
+	transition: background-color var(--fxr-transition-fast), border-color var(--fxr-transition-fast);
+}
+.tree-leaf__remove:hover,
+.tree-leaf__remove:focus-visible {
+	border-color: var(--fxr-border-danger);
+	background: var(--fxr-bg-danger);
+	color: var(--fxr-text-danger);
 }
 </style>

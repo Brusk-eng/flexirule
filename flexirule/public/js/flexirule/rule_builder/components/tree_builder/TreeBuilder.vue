@@ -127,9 +127,12 @@ function onRootDrop(e) {
 	e.preventDefault();
 	e.stopPropagation();
 	rootDragOver.value = false;
-	const draggedId = api.dragState.nodeId;
-	if (draggedId && api.canMove(draggedId, root.id)) api.dropNode(root.id);
-	else api.endDrag();
+	const draggedId = api.dragState.nodeId || e.dataTransfer?.getData("text/plain");
+	if (draggedId && api.canMove(draggedId, root.id)) {
+		if (api.dragState.nodeId) api.dropNode(root.id);
+		else api.moveNode(draggedId, root.id);
+	}
+	api.endDrag();
 }
 
 defineExpose({ ...api });
@@ -138,9 +141,11 @@ defineExpose({ ...api });
 .tree-builder {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-2);
+	gap: var(--fxr-space-3);
+	width: 100%;
+	min-width: 0;
 	padding: var(--fxr-space-3);
-	background: var(--fxr-bg-page);
+	background: var(--fxr-bg-card, var(--fxr-surface));
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
 }
@@ -161,23 +166,38 @@ defineExpose({ ...api });
 .logic-btn {
 	border: 0;
 	background: transparent;
-	padding: 4px 12px;
-	border-radius: var(--fxr-radius-md);
-	font-size: 11px;
-	font-weight: 800;
+	padding: 4px 10px;
+	border-radius: var(--fxr-radius-sm);
+	font-size: var(--fxr-text-xs);
+	font-weight: var(--fxr-weight-bold, 700);
+	color: var(--fxr-text-soft);
+	cursor: pointer;
+	transition: background-color var(--fxr-transition-fast), color var(--fxr-transition-fast);
+}
+.logic-btn:hover:not(.active):not(:disabled) {
+	background: var(--fxr-bg-muted);
+	color: var(--fxr-text-strong);
+}
+.logic-btn:disabled {
+	cursor: default;
+	opacity: 0.7;
 }
 .logic-btn.active {
 	background: var(--fxr-node-accent, var(--fxr-accent));
 	color: #fff;
+	box-shadow: var(--fxr-shadow-sm);
 }
 .tree-builder__content {
 	display: flex;
 	flex-direction: column;
 	gap: var(--fxr-space-2);
+	width: 100%;
+	min-width: 0;
 	min-height: 52px;
 	padding: 2px;
 	border-radius: var(--fxr-radius-md);
-	transition: background-color 120ms ease, box-shadow 120ms ease;
+	overflow: visible;
+	transition: background-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
 }
 .tree-builder__content--drop-target {
 	background: var(--fxr-node-accent-light, var(--fxr-accent-soft));
