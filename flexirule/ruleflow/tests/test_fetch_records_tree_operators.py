@@ -3,7 +3,9 @@
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.database.utils import NestedSetHierarchy
 
+from flexirule.ruleflow.core.action_handlers.query_records import QueryRecordsHandler
 from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
 TREE_DOCTYPE = "Fetch Records Tree Test Node"
@@ -88,6 +90,103 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 			{"doctype": TREE_DOCTYPE, "tree_label": "Other Root", "is_group": 1}
 		).insert(ignore_permissions=True)
 		frappe.db.commit()
+
+	def test_fetch_records_operator_contract_matches_portable_frappe_query_builder_operators(self):
+		handler = QueryRecordsHandler()
+		allowed = handler._FETCH_RECORDS_OPERATORS
+		shared_operators = {
+			"=",
+			"!=",
+			">",
+			">=",
+			"<",
+			"<=",
+			"like",
+			"not like",
+			"in",
+			"not in",
+			"between",
+			"is",
+			"timespan",
+			"starts with",
+			"ends with",
+		}
+
+		self.assertTrue(shared_operators.issubset(allowed))
+		self.assertTrue({op.casefold() for op in NestedSetHierarchy}.issubset(allowed))
+		# These entries are either invalid or version/dialect-specific in the upstream
+		# Query Builder, so they are deliberately not part of Fetch Records' portable contract.
+		for invalid_operator in ("<>", "regex", "ilike", "previous", "next"):
+			with self.subTest(operator=invalid_operator):
+				self.assertNotIn(invalid_operator, allowed)
+				errors = handler._validate_canonical_fetch_filter_tree(
+					{
+						"type": "leaf",
+						"field": "tree_label",
+						"operator": invalid_operator,
+						"value": {"mode": "static", "value": "Root"},
+					}
+				)
+				self.assertTrue(any("operator is not supported" in error for error in errors))
+
+	def test_is_operator_requires_native_set_value(self):
+		handler = QueryRecordsHandler()
+		for value in ("set", "not set", "SET", "Not Set"):
+			with self.subTest(value=value):
+				errors = handler._validate_canonical_fetch_filter_tree(
+					{
+						"type": "leaf",
+						"field": "tree_label",
+						"operator": "is",
+						"value": {"mode": "static", "value": value},
+					}
+				)
+				self.assertEqual(errors, [])
+
+		errors = handler._validate_canonical_fetch_filter_tree(
+			{
+				"type": "leaf",
+				"field": "tree_label",
+				"operator": "is",
+				"value": {"mode": "static", "value": "empty"},
+			}
+		)
+		self.assertTrue(any("must be 'set' or 'not set'" in error for error in errors))
+
+	def test_nested_set_operators_require_tree_doctype_context(self):
+		handler = QueryRecordsHandler()
+		invalid = handler._validate_canonical_fetch_filter_tree(
+			{
+				"type": "leaf",
+				"field": "name",
+				"operator": "descendants of",
+				"value": {"mode": "static", "value": "some-name"},
+			},
+			reference_doctype="ToDo",
+		)
+		self.assertTrue(any("requires a Tree DocType" in error for error in invalid))
+
+		valid_tree_name = handler._validate_canonical_fetch_filter_tree(
+			{
+				"type": "leaf",
+				"field": "name",
+				"operator": "descendants of",
+				"value": {"mode": "static", "value": self.root.name},
+			},
+			reference_doctype=TREE_DOCTYPE,
+		)
+		self.assertEqual(valid_tree_name, [])
+
+		valid_tree_link = handler._validate_canonical_fetch_filter_tree(
+			{
+				"type": "leaf",
+				"field": "parent_fetch_records_tree_test_node",
+				"operator": "ancestors of",
+				"value": {"mode": "static", "value": self.child_a.name},
+			},
+			reference_doctype=TREE_DOCTYPE,
+		)
+		self.assertEqual(valid_tree_link, [])
 
 	def _run_filter(self, filters):
 		rows = execute_query(
