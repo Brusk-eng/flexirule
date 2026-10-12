@@ -133,7 +133,11 @@
 		<div class="sub-section section-subcard">
 			<h6>{{ __("Retrieval Settings") }}</h6>
 			<p class="section-description">
-				{{ __("Choose how many matching rows to return. Large or unlimited result sets can increase query time and memory use.") }}
+				{{
+					__(
+						"Choose how many matching rows to return. Large or unlimited result sets can increase query time and memory use."
+					)
+				}}
 			</p>
 			<div class="query-doc-grid">
 				<div class="grid-item">
@@ -245,19 +249,25 @@ const resultShapes = [
 	{
 		value: "whole_documents",
 		label: __("Whole documents"),
-		description: __("Return every field from each parent document. Use this when downstream steps need the full record."),
+		description: __(
+			"Return every field from each parent document. Use this when downstream steps need the full record."
+		),
 		icon: "fa fa-file-text-o",
 	},
 	{
 		value: "selected_fields",
 		label: __("Selected fields"),
-		description: __("Return only the fields you select, with optional aliases and supported aggregate functions."),
+		description: __(
+			"Return only the fields you select, with optional aliases and supported aggregate functions."
+		),
 		icon: "fa fa-columns",
 	},
 	{
 		value: "embedded_children",
 		label: __("Embedded children"),
-		description: __("Return selected child-table fields as nested arrays inside each parent result."),
+		description: __(
+			"Return selected child-table fields as nested arrays inside each parent result."
+		),
 		icon: "fa fa-sitemap",
 	},
 ];
@@ -283,7 +293,9 @@ const limitModes = [
 	{
 		value: "all",
 		label: __("All matching records"),
-		description: __("Do not apply a result limit. Large result sets may take longer and use more memory."),
+		description: __(
+			"Do not apply a result limit. Large result sets may take longer and use more memory."
+		),
 		icon: "fa fa-infinity",
 	},
 	{
@@ -332,7 +344,7 @@ const resultShapeField = computed(() => ({
 	options: resultShapes,
 	description:
 		resultShapes.find((option) => option.value === localConfig.result_shape)?.description ||
-		__( "Choose the structure returned by Fetch Records." ),
+		__("Choose the structure returned by Fetch Records."),
 }));
 const limitModeField = computed(() => ({
 	fieldname: "limit_mode",
@@ -343,7 +355,7 @@ const limitModeField = computed(() => ({
 	options: limitModes,
 	description:
 		limitModes.find((option) => option.value === localConfig.limit_mode)?.description ||
-		__( "Choose how many matching rows to return." ),
+		__("Choose how many matching rows to return."),
 }));
 const limitField = computed(() => ({
 	fieldname: "limit",
@@ -351,7 +363,9 @@ const limitField = computed(() => ({
 	label: __("Custom Limit"),
 	reqd: localConfig.limit_mode === "custom" ? 1 : 0,
 	read_only: props.readOnly,
-	description: __("Maximum number of matching records to return. Enter a non-negative integer or a supported dynamic value."),
+	description: __(
+		"Maximum number of matching records to return. Enter a non-negative integer or a supported dynamic value."
+	),
 }));
 
 const offsetField = computed(() => ({
@@ -360,7 +374,9 @@ const offsetField = computed(() => ({
 	label: __("Offset"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __("Skip this many matching records before applying the selected limit. Hidden for First Match."),
+	description: __(
+		"Skip this many matching records before applying the selected limit. Hidden for First Match."
+	),
 }));
 const groupByField = computed(() => ({
 	fieldname: "group_by",
@@ -370,7 +386,9 @@ const groupByField = computed(() => ({
 	read_only: props.readOnly,
 	description: groupByRequired.value
 		? __("Required when aggregate functions are mixed with regular output fields.")
-		: __("Group aggregate results by one or more fields. Only available for custom field result shapes with aggregate functions."),
+		: __(
+			"Group aggregate results by one or more fields. Only available for custom field result shapes with aggregate functions."
+		),
 }));
 
 const distinctField = computed(() => ({
@@ -408,7 +426,10 @@ function inferLimitMode(source) {
 
 	const limit = source.limit;
 	if (limit === null || limit === undefined || limit === "") return "all";
-	if (typeof limit === "string" && (limit.trim().startsWith("{") || limit.trim().startsWith("@"))) {
+	if (
+		typeof limit === "string" &&
+		(limit.trim().startsWith("{") || limit.trim().startsWith("@"))
+	) {
 		return "custom";
 	}
 	const numericLimit = Number(limit);
@@ -574,7 +595,11 @@ watch(
 async function validate() {
 	const errors = [];
 	if (typeof filterTreeRef.value?.validate !== "function") {
-		errors.push(__("Filter tree validation is unavailable. Reopen the rule configuration and try again."));
+		errors.push(
+			__(
+				"Filter tree validation is unavailable. Reopen the rule configuration and try again."
+			)
+		);
 	} else {
 		const result = await filterTreeRef.value.validate();
 		errors.push(...(result.errors || []));
@@ -622,13 +647,17 @@ async function validate() {
 			const parsed = Number(offsetValue);
 			if (!Number.isInteger(parsed) || parsed < 0) {
 				errors.push(
-				__("Offset must be a non-negative integer or a supported dynamic value.")
-			);
+					__("Offset must be a non-negative integer or a supported dynamic value.")
+				);
 			}
 		}
 	}
 	if (groupByRequired.value && !String(localConfig.group_by || "").trim()) {
-		errors.push(__("Group By is required when aggregate functions are mixed with regular output fields."));
+		errors.push(
+			__(
+				"Group By is required when aggregate functions are mixed with regular output fields."
+			)
+		);
 	}
 
 	return { valid: errors.length === 0, errors };
