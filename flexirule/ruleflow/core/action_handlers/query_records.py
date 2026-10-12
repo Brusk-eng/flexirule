@@ -554,8 +554,6 @@ class QueryRecordsHandler(ActionHandler):
 		"not in",
 		"between",
 		"is",
-		"is set",
-		"is not set",
 		"timespan",
 		"starts with",
 		"ends with",
@@ -665,7 +663,7 @@ class QueryRecordsHandler(ActionHandler):
 		elif isinstance(value, dict) and value.get("mode") == "static":
 			operator_name = operator.strip().lower() if isinstance(operator, str) else ""
 			static_value = value.get("value")
-			if operator_name in {"between", "not between"} and not (
+			if operator_name == "between" and not (
 				isinstance(static_value, list | tuple) and len(static_value) == 2
 			):
 				errors.append(_("{0}.value for Between must contain exactly two values").format(path))
