@@ -316,8 +316,12 @@ const hasAggregateOutput = computed(() =>
 const hasRegularOutput = computed(() =>
 	outputFieldRows.value.some((row) => ["field", "raw"].includes(row.kind))
 );
-const showGroupBy = computed(() => isCustomResultShape(localConfig.result_shape) && hasAggregateOutput.value);
-const groupByRequired = computed(() => showGroupBy.value && hasRegularOutput.value && !String(localConfig.group_by || "").trim());
+const showGroupBy = computed(
+	() => isCustomResultShape(localConfig.result_shape) && hasAggregateOutput.value
+);
+const groupByRequired = computed(
+	() => showGroupBy.value && hasRegularOutput.value && !String(localConfig.group_by || "").trim()
+);
 
 const resultShapeField = computed(() => ({
 	fieldname: "result_shape",
@@ -326,7 +330,9 @@ const resultShapeField = computed(() => ({
 	reqd: 1,
 	read_only: props.readOnly,
 	options: resultShapes,
-	description: resultShapes.find((option) => option.value === localConfig.result_shape)?.description || __("Choose the structure returned by Fetch Records."),
+	description:
+		resultShapes.find((option) => option.value === localConfig.result_shape)?.description ||
+		__( "Choose the structure returned by Fetch Records." ),
 }));
 const limitModeField = computed(() => ({
 	fieldname: "limit_mode",
@@ -335,7 +341,9 @@ const limitModeField = computed(() => ({
 	reqd: 1,
 	read_only: props.readOnly,
 	options: limitModes,
-	description: limitModes.find((option) => option.value === localConfig.limit_mode)?.description || __("Choose how many matching rows to return."),
+	description:
+		limitModes.find((option) => option.value === localConfig.limit_mode)?.description ||
+		__( "Choose how many matching rows to return." ),
 }));
 const limitField = computed(() => ({
 	fieldname: "limit",
@@ -592,12 +600,19 @@ async function validate() {
 		) {
 			const parsed = Number(value);
 			if (!Number.isInteger(parsed) || parsed < 0) {
-				errors.push(__("Custom Limit must be a non-negative integer or a supported dynamic value."));
+				errors.push(
+					__("Custom Limit must be a non-negative integer or a supported dynamic value.")
+				);
 			}
 		}
 	}
 	const offsetValue = localConfig.offset;
-	if (localConfig.limit_mode !== "first_match" && offsetValue !== "" && offsetValue !== null && offsetValue !== undefined) {
+	if (
+		localConfig.limit_mode !== "first_match" &&
+		offsetValue !== "" &&
+		offsetValue !== null &&
+		offsetValue !== undefined
+	) {
 		if (
 			typeof offsetValue === "string" &&
 			(offsetValue.trim().startsWith("{") || offsetValue.trim().startsWith("@"))
@@ -606,7 +621,9 @@ async function validate() {
 		} else {
 			const parsed = Number(offsetValue);
 			if (!Number.isInteger(parsed) || parsed < 0) {
-				errors.push(__("Offset must be a non-negative integer or a supported dynamic value."));
+				errors.push(
+				__("Offset must be a non-negative integer or a supported dynamic value.")
+			);
 			}
 		}
 	}
