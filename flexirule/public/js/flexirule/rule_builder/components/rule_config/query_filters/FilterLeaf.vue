@@ -202,14 +202,20 @@ function isValidIsValue(value) {
 	if (value && typeof value === "object" && value.mode && value.mode !== "static") {
 		return isConfigured(value);
 	}
-	const raw = value && typeof value === "object" && value.mode === "static" ? value.value : value;
+	const raw =
+		value && typeof value === "object" && value.mode === "static" ? value.value : value;
 	return ["set", "not set"].includes(String(raw ?? "").trim().toLowerCase());
 }
 const valueInvalid = computed(() => {
 	if (!leaf.value.field) return false;
 	if (operatorInvalid.value) return true;
 	if (leaf.value.operator === "Between") {
-		return !Array.isArray(leaf.value.value) || leaf.value.value.length < 2 || !isConfigured(leaf.value.value[0]) || !isConfigured(leaf.value.value[1]);
+		return (
+			!Array.isArray(leaf.value.value) ||
+			leaf.value.value.length < 2 ||
+			!isConfigured(leaf.value.value[0]) ||
+			!isConfigured(leaf.value.value[1])
+		);
 	}
 	if (String(leaf.value.operator).toLowerCase() === "is") return !isValidIsValue(leaf.value.value);
 	return !isConfigured(leaf.value.value);
