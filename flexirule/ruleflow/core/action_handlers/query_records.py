@@ -528,9 +528,6 @@ class QueryRecordsHandler(ActionHandler):
 
 		return errors
 
-	MAX_FETCH_RECORDS_LIMIT: ClassVar[int] = 1000
-	MAX_FETCH_RECORDS_OFFSET: ClassVar[int] = 100_000
-
 	_FETCH_RECORDS_OPERATORS: ClassVar[set[str]] = {
 		"=",
 		"!=",
@@ -578,9 +575,6 @@ class QueryRecordsHandler(ActionHandler):
 			raise ValueError(_("{0} must be an integer").format(label))
 		if parsed < 0:
 			raise ValueError(_("{0} must be a non-negative integer").format(label))
-		maximum = self.MAX_FETCH_RECORDS_LIMIT if key == "limit" else self.MAX_FETCH_RECORDS_OFFSET
-		if parsed > maximum:
-			raise ValueError(_("{0} cannot exceed {1}").format(label, maximum))
 		return parsed
 
 	@staticmethod
@@ -723,10 +717,6 @@ class QueryRecordsHandler(ActionHandler):
 					value = self._normalize_filters_for_backend(value, reference_doctype)
 			kwargs[key] = value
 
-		# Frappe v15's Query Builder has no implicit result-page default. Always
-		# cap queries even when the user leaves Limit blank.
-		kwargs.setdefault("limit", self.MAX_FETCH_RECORDS_LIMIT)
-
 		# Validate the fully resolved payload, not only draft values in the UI.
 		validation_config = {
 			"fields": kwargs.get("fields"),
@@ -737,12 +727,6 @@ class QueryRecordsHandler(ActionHandler):
 		validation_errors = self._validate_doctype_field_references(reference_doctype, validation_config)
 		if validation_errors:
 			frappe.throw("; ".join(validation_errors))
-
-		# Query Builder v15 treats limit=0 as "no limit"; preserve intuitive
-		# semantics without accidentally turning a zero-row request into an
-		# unbounded query.
-		if kwargs.get("limit") == 0:
-			return []
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
