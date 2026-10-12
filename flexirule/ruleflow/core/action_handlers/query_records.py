@@ -18,7 +18,6 @@ from typing import Any, ClassVar
 
 import frappe
 from frappe import _
-from frappe.database.operator_map import OPERATOR_MAP
 from frappe.database.utils import NestedSetHierarchy
 from frappe.utils import add_days, get_first_day, get_last_day, getdate, nowdate
 
@@ -560,7 +559,6 @@ class QueryRecordsHandler(ActionHandler):
 		"<=",
 		"like",
 		"not like",
-		"regex",
 		"in",
 		"not in",
 		"between",
