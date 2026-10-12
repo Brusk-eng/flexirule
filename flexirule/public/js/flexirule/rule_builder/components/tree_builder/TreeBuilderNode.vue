@@ -60,9 +60,10 @@ function getDropIntent(e) {
 }
 
 function dragOverNode(e) {
-	if (props.readOnly || !api?.dragState?.nodeId) return;
+	const draggedId = api?.dragState?.nodeId || e.dataTransfer?.getData("text/plain");
+	if (props.readOnly || !draggedId) return;
 	const intent = getDropIntent(e);
-	if (!api.canMove(api.dragState.nodeId, intent.targetId)) {
+	if (!api?.canMove(draggedId, intent.targetId)) {
 		e.stopPropagation();
 		dragOver.value = false;
 		dropPosition.value = null;
@@ -136,95 +137,95 @@ function drop(e) {
 			<i class="fa fa-arrows"></i>
 		</button>
 		<div class="tree-node__body">
-		<TreeBuilderGroup
-			v-if="kind === 'group'"
-			:node="node"
-			:operators="groupOperators"
-			:operatorLabel="operatorLabel"
-			:readOnly="readOnly"
-			:allowGroups="allowGroups"
-			:allowCollections="allowCollections"
-			:collectionLabel="collectionLabel"
-			@operator="$emit('operator', $event)"
-			@add-leaf="api?.addLeaf(node.id)"
-			@add-group="api?.addGroup(node.id)"
-			@add-collection="api?.addCollection(node.id)"
-			@remove="$emit('remove')"
-		>
-			<template #children>
-				<TreeBuilderNode
-					v-for="(child, i) in children"
-					:key="child.id"
-					:node="child"
-					:index="i"
-					:parent="node"
-					:readOnly="readOnly"
-					:allowGroups="allowGroups"
-					:allowCollections="allowCollections"
-					:collectionLabel="collectionLabel"
-					:groupOperators="groupOperators"
-					:operatorLabel="operatorLabel"
-					:visibleNode="visibleNode"
-					@remove="api?.removeNode(child.id)"
-					@operator="api?.setOperator(child.id, $event)"
-				>
-					<template #default="p"><slot v-bind="p" /></template>
-					<template #collection="p"><slot name="collection" v-bind="p" /></template>
-				</TreeBuilderNode>
-			</template>
-		</TreeBuilderGroup>
+			<TreeBuilderGroup
+				v-if="kind === 'group'"
+				:node="node"
+				:operators="groupOperators"
+				:operatorLabel="operatorLabel"
+				:readOnly="readOnly"
+				:allowGroups="allowGroups"
+				:allowCollections="allowCollections"
+				:collectionLabel="collectionLabel"
+				@operator="$emit('operator', $event)"
+				@add-leaf="api?.addLeaf(node.id)"
+				@add-group="api?.addGroup(node.id)"
+				@add-collection="api?.addCollection(node.id)"
+				@remove="$emit('remove')"
+			>
+				<template #children>
+					<TreeBuilderNode
+						v-for="(child, i) in children"
+						:key="child.id"
+						:node="child"
+						:index="i"
+						:parent="node"
+						:readOnly="readOnly"
+						:allowGroups="allowGroups"
+						:allowCollections="allowCollections"
+						:collectionLabel="collectionLabel"
+						:groupOperators="groupOperators"
+						:operatorLabel="operatorLabel"
+						:visibleNode="visibleNode"
+						@remove="api?.removeNode(child.id)"
+						@operator="api?.setOperator(child.id, $event)"
+					>
+						<template #default="p"><slot v-bind="p" /></template>
+						<template #collection="p"><slot name="collection" v-bind="p" /></template>
+					</TreeBuilderNode>
+				</template>
+			</TreeBuilderGroup>
 
-		<TreeBuilderCollection
-			v-else-if="isCollectionNode(node)"
-			:node="node"
-			:label="collectionLabel"
-			:readOnly="readOnly"
-			:allowGroups="allowGroups"
-			:allowCollections="allowCollections"
-			@add-leaf="api?.addLeaf(node.id)"
-			@add-group="api?.addGroup(node.id)"
-			@add-collection="api?.addCollection(node.id)"
-			@remove="$emit('remove')"
-		>
-			<template #label="{ node: collectionNode }">
-				<slot name="collection" :node="collectionNode">
-					<strong>{{ collectionLabel }}</strong>
-				</slot>
-			</template>
-			<template #children>
-				<TreeBuilderNode
-					v-for="(child, i) in children"
-					:key="child.id"
-					:node="child"
-					:index="i"
-					:parent="node"
-					:readOnly="readOnly"
-					:allowGroups="allowGroups"
-					:allowCollections="allowCollections"
-					:collectionLabel="collectionLabel"
-					:groupOperators="groupOperators"
-					:operatorLabel="operatorLabel"
-					:visibleNode="visibleNode"
-					@remove="api?.removeNode(child.id)"
-					@operator="api?.setOperator(child.id, $event)"
-				>
-					<template #default="p"><slot v-bind="p" /></template>
-					<template #collection="p"><slot name="collection" v-bind="p" /></template>
-				</TreeBuilderNode>
-			</template>
-		</TreeBuilderCollection>
+			<TreeBuilderCollection
+				v-else-if="isCollectionNode(node)"
+				:node="node"
+				:label="collectionLabel"
+				:readOnly="readOnly"
+				:allowGroups="allowGroups"
+				:allowCollections="allowCollections"
+				@add-leaf="api?.addLeaf(node.id)"
+				@add-group="api?.addGroup(node.id)"
+				@add-collection="api?.addCollection(node.id)"
+				@remove="$emit('remove')"
+			>
+				<template #label="{ node: collectionNode }">
+					<slot name="collection" :node="collectionNode">
+						<strong>{{ collectionLabel }}</strong>
+					</slot>
+				</template>
+				<template #children>
+					<TreeBuilderNode
+						v-for="(child, i) in children"
+						:key="child.id"
+						:node="child"
+						:index="i"
+						:parent="node"
+						:readOnly="readOnly"
+						:allowGroups="allowGroups"
+						:allowCollections="allowCollections"
+						:collectionLabel="collectionLabel"
+						:groupOperators="groupOperators"
+						:operatorLabel="operatorLabel"
+						:visibleNode="visibleNode"
+						@remove="api?.removeNode(child.id)"
+						@operator="api?.setOperator(child.id, $event)"
+					>
+						<template #default="p"><slot v-bind="p" /></template>
+						<template #collection="p"><slot name="collection" v-bind="p" /></template>
+					</TreeBuilderNode>
+				</template>
+			</TreeBuilderCollection>
 
-		<TreeBuilderLeaf
-			v-else-if="isLeafNode(node)"
-			:node="node"
-			:context="{ path: [] }"
-			:index="index"
-			:parent="parent"
-			:readOnly="readOnly"
-			@remove="$emit('remove')"
-		>
-			<template #default="p"><slot v-bind="p" /></template>
-		</TreeBuilderLeaf>
+			<TreeBuilderLeaf
+				v-else-if="isLeafNode(node)"
+				:node="node"
+				:context="{ path: [] }"
+				:index="index"
+				:parent="parent"
+				:readOnly="readOnly"
+				@remove="$emit('remove')"
+			>
+				<template #default="p"><slot v-bind="p" /></template>
+			</TreeBuilderLeaf>
 		</div>
 	</div>
 </template>

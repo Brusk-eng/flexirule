@@ -7,11 +7,7 @@ import {
 } from "./filter_operators.mjs";
 
 const checkOperators = getFilterOperators({ fieldtype: "Check" });
-assert.deepEqual(
-	checkOperators,
-	["=", "!="],
-	"Check fields must expose Equals and Not Equals"
-);
+assert.deepEqual(checkOperators, ["=", "!="], "Check fields must expose Equals and Not Equals");
 
 const adaptedCheckOperators = getFilterOperators({
 	fieldtype: "Data",
