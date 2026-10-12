@@ -96,6 +96,45 @@ def _contains_nested_set_filter(value) -> bool:
 	return any(_contains_nested_set_filter(item) for item in value)
 
 
+def _expand_nested_set_filters(doctype: str, value):
+	"""Rewrite nested-set leaves to equivalent IN/NOT IN rows for Frappe 16's native group parser.
+
+	Frappe's native simple-filter parser recognizes nested-set operators, but the v16
+	boolean-group parser classifies simple conditions using OPERATOR_MAP and therefore
+	does not recognize this separate operator family. Use Frappe's own hierarchy
+	resolver and leave all ordinary conditions and the logical group shape intact,
+	so the native parser still performs normal field validation and permission checks.
+	"""
+	if _is_legacy_filter_leaf(value):
+		operator = value[2] if len(value) == 4 else (value[1] if len(value) == 3 else None)
+		if not isinstance(operator, str) or operator.casefold() not in _NESTED_SET_OPERATORS:
+			return value
+
+		if len(value) == 4:
+			filter_doctype, field, _, target = value
+		else:
+			filter_doctype, field, _, target = doctype, value[0], value[1], value[2]
+
+		lookup_meta = frappe.get_meta(filter_doctype)
+		if lookup_meta.has_field(field):
+			field_meta = lookup_meta.get_field(field)
+			reference_doctype = field_meta.options if field_meta else filter_doctype
+		else:
+			reference_doctype = filter_doctype
+
+		operator = operator.casefold()
+		nodes = get_nested_set_hierarchy_result(reference_doctype, target, operator)
+		comparison = "not in" if operator in {"not descendants of", "not ancestors of"} else "in"
+		nodes = nodes or ("",)
+		if len(value) == 4:
+			return [filter_doctype, field, comparison, nodes]
+		return [field, comparison, nodes]
+
+	if not isinstance(value, list | tuple):
+		return value
+	return [_expand_nested_set_filters(doctype, item) for item in value]
+
+
 def _criterion_for_nested_set_leaf(doctype: str, field: str, value, operator: str):
 	"""Compile grouped tree filters through Frappe's own hierarchy resolver."""
 	field_meta = frappe.get_meta(doctype).get_field(field)
@@ -199,16 +238,9 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 
 	if native_permissions:
 		query_kwargs["ignore_permissions"] = ignore_permissions
-
-	# Frappe 15 requires the adapter's legacy boolean-group compiler. Frappe 16
-	# parses regular groups natively, but nested-set operators are a separate
-	# operator family that its simple-condition classifier does not recognize.
-	# Compile only those Frappe 16 groups that include a tree operator, using
-	# Frappe's own hierarchy resolver to preserve native behavior.
-	compile_logical_groups = _contains_logical_filter_groups(filters) and (
-		not native_permissions or _contains_nested_set_filter(filters)
-	)
-	if compile_logical_groups:
+		if _contains_logical_filter_groups(filters) and _contains_nested_set_filter(filters):
+			query_kwargs["filters"] = _expand_nested_set_filters(doctype, filters)
+	elif _contains_logical_filter_groups(filters):
 		try:
 			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
 		except ValueError as exc:
