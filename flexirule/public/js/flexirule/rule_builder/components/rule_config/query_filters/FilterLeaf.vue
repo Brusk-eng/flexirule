@@ -52,7 +52,7 @@
 							:doc="store?.rule_doc"
 							:variableOptions="effectiveVariableOptions"
 							:disabled="readOnly"
-							:showValidation="validationVisible && (valueInvalid || isMissingBetweenValue(index - 1))"
+							:showValidation="validationVisible && isMissingBetweenValue(index - 1)"
 							@update:modelValue="(value) => updateBetween(index - 1, value)"
 						/>
 					</div>
@@ -192,7 +192,11 @@ function isConfigured(value) {
 	if (value && typeof value === "object") {
 		if (Object.prototype.hasOwnProperty.call(value, "mode")) {
 			if (value.mode === "static") return !isEmpty(value.value);
-			return value.value !== undefined && value.value !== null && String(value.value).trim() !== "";
+			return (
+				value.value !== undefined &&
+				value.value !== null &&
+				String(value.value).trim() !== ""
+			);
 		}
 		return Object.keys(value).length > 0;
 	}
@@ -202,9 +206,12 @@ function isValidIsValue(value) {
 	if (value && typeof value === "object" && value.mode && value.mode !== "static") {
 		return isConfigured(value);
 	}
-	const raw =
-		value && typeof value === "object" && value.mode === "static" ? value.value : value;
-	return ["set", "not set"].includes(String(raw ?? "").trim().toLowerCase());
+	const raw = value && typeof value === "object" && value.mode === "static" ? value.value : value;
+	return ["set", "not set"].includes(
+		String(raw ?? "")
+			.trim()
+			.toLowerCase()
+	);
 }
 const valueInvalid = computed(() => {
 	if (!leaf.value.field) return false;
@@ -217,7 +224,8 @@ const valueInvalid = computed(() => {
 			!isConfigured(leaf.value.value[1])
 		);
 	}
-	if (String(leaf.value.operator).toLowerCase() === "is") return !isValidIsValue(leaf.value.value);
+	if (String(leaf.value.operator).toLowerCase() === "is")
+		return !isValidIsValue(leaf.value.value);
 	return !isConfigured(leaf.value.value);
 });
 function isMissingBetweenValue(index) {
@@ -252,9 +260,10 @@ function updateField(value) {
 	const allowed = getOperators(def);
 	if (!allowed.includes(next.operator)) next.operator = allowed[0] || "=";
 	if (String(leaf.value.field || "") !== String(value || "")) {
-		next.value = next.operator === "Between"
-			? [{ ...emptyValue }, { ...emptyValue }]
-			: { ...emptyValue };
+		next.value =
+			next.operator === "Between"
+				? [{ ...emptyValue }, { ...emptyValue }]
+				: { ...emptyValue };
 	}
 	emit("update:modelValue", next);
 	navigableFields.resetStack();
@@ -354,7 +363,12 @@ async function validate() {
 	if (!leaf.value.operator || operatorInvalid.value) {
 		errors.push(__("Choose a supported operator for the selected field."));
 	} else if (leaf.value.operator === "Between") {
-		if (!Array.isArray(leaf.value.value) || leaf.value.value.length < 2 || !isConfigured(leaf.value.value[0]) || !isConfigured(leaf.value.value[1])) {
+		if (
+			!Array.isArray(leaf.value.value) ||
+			leaf.value.value.length < 2 ||
+			!isConfigured(leaf.value.value[0]) ||
+			!isConfigured(leaf.value.value[1])
+		) {
 			errors.push(__("Both values are required for Between."));
 		}
 	} else if (String(leaf.value.operator).toLowerCase() === "is") {
