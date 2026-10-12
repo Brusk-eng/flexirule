@@ -427,7 +427,6 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
 			FrappeQueryCapabilities(
 				supports_ignore_permissions=True,
-				supports_logical_filter_groups=True,
 			),
 		):
 			with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
