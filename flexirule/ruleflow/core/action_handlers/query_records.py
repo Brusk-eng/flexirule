@@ -713,7 +713,9 @@ class QueryRecordsHandler(ActionHandler):
 		def validate_leaf(field, operator, value, filter_doctype, leaf_path):
 			operator_name = operator.strip().casefold() if isinstance(operator, str) else ""
 			if operator_name not in self._FETCH_RECORDS_OPERATORS:
-				errors.append(_("{0}.operator '{1}' is not supported by Fetch Records").format(leaf_path, operator))
+				errors.append(
+					_("{0}.operator '{1}' is not supported by Fetch Records").format(leaf_path, operator)
+				)
 				return
 
 			if operator_name == "between" and not (isinstance(value, list | tuple) and len(value) == 2):
