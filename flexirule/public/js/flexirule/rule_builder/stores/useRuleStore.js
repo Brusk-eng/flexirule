@@ -246,7 +246,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					!String(doc.permission_audit_reason ?? "").trim()
 				) {
 					errors.push(
-							`${label}: ${__(
+						`${label}: ${__(
 							"Permission Audit Reason is required when bypassing permissions."
 						)}`
 					);
