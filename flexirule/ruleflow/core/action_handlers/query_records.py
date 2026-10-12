@@ -535,9 +535,7 @@ class QueryRecordsHandler(ActionHandler):
 		if filters not in (None, "", []):
 			if self._is_canonical_filter_tree(filters):
 				errors.extend(self._validate_canonical_fetch_filter_tree(filters))
-			elif isinstance(filters, dict) and (
-				"children" in filters or filters.get("type") in {"group", "leaf"}
-			):
+			elif isinstance(filters, dict) and ("children" in filters or "type" in filters):
 				errors.append(_("Filters must use a valid canonical filter tree."))
 		for key in ("limit", "offset"):
 			value = config.get(key)
@@ -849,7 +847,7 @@ class QueryRecordsHandler(ActionHandler):
 				if filter_errors:
 					frappe.throw("; ".join(filter_errors))
 			elif isinstance(config["filters"], dict) and (
-				"children" in config["filters"] or config["filters"].get("type") in {"group", "leaf"}
+				"children" in config["filters"] or "type" in config["filters"]
 			):
 				frappe.throw(_("Filters must use a valid canonical filter tree."))
 
