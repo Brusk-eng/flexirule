@@ -13,18 +13,11 @@ from inspect import signature
 
 import frappe
 from frappe.database.operator_map import OPERATOR_MAP
+from frappe.database.utils import NestedSetHierarchy
 from frappe.database.query import Engine, get_nested_set_hierarchy_result
 from frappe.query_builder import Criterion
 
-_NESTED_SET_OPERATORS = frozenset(
-	{
-		"descendants of",
-		"descendants of (inclusive)",
-		"not descendants of",
-		"ancestors of",
-		"not ancestors of",
-	}
-)
+_NESTED_SET_OPERATORS = frozenset(operator.casefold() for operator in NestedSetHierarchy)
 
 
 def _is_filter_operator(operator) -> bool:
@@ -32,7 +25,9 @@ def _is_filter_operator(operator) -> bool:
 	if not isinstance(operator, str):
 		return False
 	operator = operator.casefold()
-	return operator in OPERATOR_MAP or operator in _NESTED_SET_OPERATORS
+	# Frappe 15 stores the tree-operation tuple under the "nested_set" map key;
+	# that key is a registry entry, not itself a filter operator.
+	return (operator in OPERATOR_MAP and operator != "nested_set") or operator in _NESTED_SET_OPERATORS
 
 
 @dataclass(frozen=True)
