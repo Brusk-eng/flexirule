@@ -518,7 +518,9 @@ class QueryRecordsHandler(ActionHandler):
 			return [_("Reference DocType '{0}' does not exist").format(ref_dt)]
 
 		errors = []
-		ignore_permissions_value = getattr(action, "ignore_permissions", 0)
+		ignore_permissions_value = getattr(action, "ignore_permissions", None)
+		if ignore_permissions_value in (None, ""):
+			ignore_permissions_value = getattr(action, "skip_permissions", 0)
 		ignore_permissions_enabled = ignore_permissions_value in (True, 1, "1", "true", "True")
 		if not QUERY_CAPABILITIES.supports_ignore_permissions and not ignore_permissions_enabled:
 			errors.append(
@@ -530,8 +532,11 @@ class QueryRecordsHandler(ActionHandler):
 			)
 
 		filters = config.get("filters")
-		if filters not in (None, "", []) and self._is_canonical_filter_tree(filters):
-			errors.extend(self._validate_canonical_fetch_filter_tree(filters))
+		if filters not in (None, "", []):
+			if self._is_canonical_filter_tree(filters):
+				errors.extend(self._validate_canonical_fetch_filter_tree(filters))
+			elif isinstance(filters, dict) and ("children" in filters or "type" in filters):
+				errors.append(_("Filters must use a valid canonical filter tree."))
 		for key in ("limit", "offset"):
 			value = config.get(key)
 			if value in (None, "") or self._is_deferred_query_value(value):
@@ -697,9 +702,15 @@ class QueryRecordsHandler(ActionHandler):
 			):
 				errors.append(_("{0}.value for Between must contain exactly two values").format(path))
 			if operator_name == "is" and (
-				not isinstance(static_value, str) or static_value.strip().casefold() not in {"set", "not set"}
+				not isinstance(static_value, str)
+				or (
+					static_value.strip().casefold() not in {"set", "not set"}
+					and not (static_value.strip().startswith("{") or static_value.strip().startswith("@"))
+				)
 			):
-				errors.append(_("{0}.value for Is must be 'set' or 'not set'").format(path))
+				errors.append(
+					_("{0}.value for Is must be 'set' or 'not set' (or a dynamic expression)").format(path)
+				)
 			if operator_name in {"in", "not in"} and not isinstance(static_value, list | tuple | str):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(path))
 		return errors
@@ -721,9 +732,17 @@ class QueryRecordsHandler(ActionHandler):
 			if operator_name == "between" and not (isinstance(value, list | tuple) and len(value) == 2):
 				errors.append(_("{0}.value for Between must contain exactly two values").format(leaf_path))
 			elif operator_name == "is" and (
-				not isinstance(value, str) or value.strip().casefold() not in {"set", "not set"}
+				not isinstance(value, str)
+				or (
+					value.strip().casefold() not in {"set", "not set"}
+					and not (value.strip().startswith("{") or value.strip().startswith("@"))
+				)
 			):
-				errors.append(_("{0}.value for Is must be 'set' or 'not set'").format(leaf_path))
+				errors.append(
+					_("{0}.value for Is must be 'set' or 'not set' (or a dynamic expression)").format(
+						leaf_path
+					)
+				)
 			elif operator_name in {"in", "not in"} and not isinstance(value, list | tuple | str):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(leaf_path))
 
@@ -841,6 +860,10 @@ class QueryRecordsHandler(ActionHandler):
 				)
 				if filter_errors:
 					frappe.throw("; ".join(filter_errors))
+			elif isinstance(config["filters"], dict) and (
+				"children" in config["filters"] or "type" in config["filters"]
+			):
+				frappe.throw(_("Filters must use a valid canonical filter tree."))
 
 		kwargs = {}
 		if config.get("fields") not in (None, "", []):
@@ -1110,12 +1133,15 @@ class QueryRecordsHandler(ActionHandler):
 			if not isinstance(group_by, str):
 				errors.append(_("Group By must resolve to a string"))
 			else:
-				for field in self._split_fetch_field_expressions(group_by):
-					if self._is_plain_field_reference(field) and not self._doctype_has_field(
-						reference_doctype, field
+				for field_expr in self._split_fetch_field_expressions(group_by):
+					field_token = field_expr.split()[0].strip() if field_expr.split() else ""
+					if self._is_plain_field_reference(field_token) and not self._doctype_has_field(
+						reference_doctype, field_token
 					):
 						errors.append(
-							_("Group-by field '{0}' does not exist in {1}").format(field, reference_doctype)
+							_("Group-by field '{0}' does not exist in {1}").format(
+								field_token, reference_doctype
+							)
 						)
 
 		errors.extend(self._validate_filter_fields(reference_doctype, config.get("filters")))

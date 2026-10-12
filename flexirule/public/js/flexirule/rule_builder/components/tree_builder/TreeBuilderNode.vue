@@ -24,15 +24,62 @@ const emit = defineEmits(["remove", "operator"]);
 const api = inject("treeBuilderContext", null);
 const dragOver = ref(false);
 const dropPosition = ref(null);
+const nodeDragging = ref(false);
 const kind = computed(() => props.node.type);
 const children = computed(() => props.node.children || []);
+const isDraggableNode = computed(
+	() => isLeafNode(props.node) || isGroupNode(props.node) || isCollectionNode(props.node)
+);
+let dragOriginWasInteractive = false;
+const interactiveSelector = [
+	"button",
+	"input",
+	"select",
+	"textarea",
+	"option",
+	"a",
+	'[contenteditable="true"]',
+	'[role="button"]',
+	'[role="combobox"]',
+	"[data-no-drag]",
+	".fxr-control",
+	".fxr-input-group",
+	".combobox-container",
+	".combobox-wrapper",
+	".flex-value-control",
+	".flex-value-control-button",
+	".form-control",
+].join(", ");
 
-function dragStart(e) {
-	if (props.readOnly) return;
+function rememberDragOrigin(e) {
+	const target = e.target;
+	dragOriginWasInteractive =
+		target instanceof Element && Boolean(target.closest(interactiveSelector));
+}
+
+function startNodeDrag(e) {
+	// Only the node whose draggable surface initiated this event may own the drag.
+	// Stop propagation so an ancestor group cannot replace a leaf's drag ID.
 	e.stopPropagation();
+	if (props.readOnly || !isDraggableNode.value || dragOriginWasInteractive) {
+		e.preventDefault();
+		dragOriginWasInteractive = false;
+		return;
+	}
+
+	nodeDragging.value = true;
 	api?.beginDrag(props.node.id);
-	e.dataTransfer.effectAllowed = "move";
-	e.dataTransfer.setData("text/plain", props.node.id || "");
+	if (e.dataTransfer) {
+		e.dataTransfer.effectAllowed = "move";
+		e.dataTransfer.setData("text/plain", props.node.id || "");
+	}
+}
+
+function endNodeDrag(e) {
+	e.stopPropagation();
+	nodeDragging.value = false;
+	dragOriginWasInteractive = false;
+	api?.endDrag();
 }
 
 function getDropIntent(e) {
@@ -53,9 +100,10 @@ function getDropIntent(e) {
 }
 
 function dragOverNode(e) {
-	if (props.readOnly || !api?.dragState?.nodeId) return;
+	const draggedId = api?.dragState?.nodeId || e.dataTransfer?.getData("text/plain");
+	if (props.readOnly || !draggedId) return;
 	const intent = getDropIntent(e);
-	if (!api.canMove(api.dragState.nodeId, intent.targetId)) {
+	if (!api?.canMove(draggedId, intent.targetId)) {
 		e.stopPropagation();
 		dragOver.value = false;
 		dropPosition.value = null;
@@ -64,6 +112,7 @@ function dragOverNode(e) {
 
 	e.preventDefault();
 	e.stopPropagation();
+	if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 	dragOver.value = true;
 	dropPosition.value = intent.visualPosition;
 }
@@ -76,24 +125,18 @@ function dragLeave(e) {
 	dropPosition.value = null;
 }
 
-function dragEnd(e) {
-	e.stopPropagation();
-	dragOver.value = false;
-	dropPosition.value = null;
-	api?.endDrag();
-}
-
 function drop(e) {
 	e.preventDefault();
 	e.stopPropagation();
 	const intent = getDropIntent(e);
+	const draggedId = api?.dragState?.nodeId || e.dataTransfer?.getData("text/plain");
 	dragOver.value = false;
 	dropPosition.value = null;
-	if (api?.dragState?.nodeId && api.canMove(api.dragState.nodeId, intent.targetId)) {
-		api.dropNode(intent.targetId, intent.position);
-	} else {
-		api?.endDrag();
+	if (draggedId && api?.canMove(draggedId, intent.targetId)) {
+		if (api.dragState?.nodeId) api.dropNode(intent.targetId, intent.position);
+		else api.moveNode(draggedId, intent.targetId, intent.position);
 	}
+	api?.endDrag();
 }
 </script>
 
@@ -101,114 +144,130 @@ function drop(e) {
 	<div
 		v-if="visibleNode(node)"
 		class="tree-node"
+		:draggable="!readOnly && isDraggableNode"
+		@pointerdown.capture="rememberDragOrigin"
+		@dragstart="startNodeDrag"
+		@dragend="endNodeDrag"
 		:class="{
+			'is-dragging': nodeDragging,
 			'drag-over': dragOver && dropPosition === 'inside',
 			'drop-before': dragOver && dropPosition === 'before',
 			'drop-after': dragOver && dropPosition === 'after',
 		}"
-		draggable="true"
-		@dragstart="dragStart"
-		@dragend="dragEnd"
 		@dragover="dragOverNode"
 		@dragleave="dragLeave"
 		@drop="drop"
 	>
-		<TreeBuilderGroup
-			v-if="kind === 'group'"
-			:node="node"
-			:operators="groupOperators"
-			:operatorLabel="operatorLabel"
-			:readOnly="readOnly"
-			:allowGroups="allowGroups"
-			:allowCollections="allowCollections"
-			:collectionLabel="collectionLabel"
-			@operator="$emit('operator', $event)"
-			@add-leaf="api?.addLeaf(node.id)"
-			@add-group="api?.addGroup(node.id)"
-			@add-collection="api?.addCollection(node.id)"
-			@remove="$emit('remove')"
-		>
-			<template #children>
-				<TreeBuilderNode
-					v-for="(child, i) in children"
-					:key="child.id"
-					:node="child"
-					:index="i"
-					:parent="node"
-					:readOnly="readOnly"
-					:allowGroups="allowGroups"
-					:allowCollections="allowCollections"
-					:collectionLabel="collectionLabel"
-					:groupOperators="groupOperators"
-					:operatorLabel="operatorLabel"
-					:visibleNode="visibleNode"
-					@remove="api?.removeNode(child.id)"
-					@operator="api?.setOperator(child.id, $event)"
-				>
-					<template #default="p"><slot v-bind="p" /></template>
-					<template #collection="p"><slot name="collection" v-bind="p" /></template>
-				</TreeBuilderNode>
-			</template>
-		</TreeBuilderGroup>
+		<div class="tree-node__body">
+			<TreeBuilderGroup
+				v-if="kind === 'group'"
+				:node="node"
+				:operators="groupOperators"
+				:operatorLabel="operatorLabel"
+				:readOnly="readOnly"
+				:allowGroups="allowGroups"
+				:allowCollections="allowCollections"
+				:collectionLabel="collectionLabel"
+				@operator="$emit('operator', $event)"
+				@add-leaf="api?.addLeaf(node.id)"
+				@add-group="api?.addGroup(node.id)"
+				@add-collection="api?.addCollection(node.id)"
+				@remove="$emit('remove')"
+			>
+				<template #children>
+					<TreeBuilderNode
+						v-for="(child, i) in children"
+						:key="child.id"
+						:node="child"
+						:index="i"
+						:parent="node"
+						:readOnly="readOnly"
+						:allowGroups="allowGroups"
+						:allowCollections="allowCollections"
+						:collectionLabel="collectionLabel"
+						:groupOperators="groupOperators"
+						:operatorLabel="operatorLabel"
+						:visibleNode="visibleNode"
+						@remove="api?.removeNode(child.id)"
+						@operator="api?.setOperator(child.id, $event)"
+					>
+						<template #default="p"><slot v-bind="p" /></template>
+						<template #collection="p"><slot name="collection" v-bind="p" /></template>
+					</TreeBuilderNode>
+				</template>
+			</TreeBuilderGroup>
 
-		<TreeBuilderCollection
-			v-else-if="isCollectionNode(node)"
-			:node="node"
-			:label="collectionLabel"
-			:readOnly="readOnly"
-			:allowGroups="allowGroups"
-			:allowCollections="allowCollections"
-			@add-leaf="api?.addLeaf(node.id)"
-			@add-group="api?.addGroup(node.id)"
-			@add-collection="api?.addCollection(node.id)"
-			@remove="$emit('remove')"
-		>
-			<template #label="{ node: collectionNode }">
-				<slot name="collection" :node="collectionNode">
-					<strong>{{ collectionLabel }}</strong>
-				</slot>
-			</template>
-			<template #children>
-				<TreeBuilderNode
-					v-for="(child, i) in children"
-					:key="child.id"
-					:node="child"
-					:index="i"
-					:parent="node"
-					:readOnly="readOnly"
-					:allowGroups="allowGroups"
-					:allowCollections="allowCollections"
-					:collectionLabel="collectionLabel"
-					:groupOperators="groupOperators"
-					:operatorLabel="operatorLabel"
-					:visibleNode="visibleNode"
-					@remove="api?.removeNode(child.id)"
-					@operator="api?.setOperator(child.id, $event)"
-				>
-					<template #default="p"><slot v-bind="p" /></template>
-					<template #collection="p"><slot name="collection" v-bind="p" /></template>
-				</TreeBuilderNode>
-			</template>
-		</TreeBuilderCollection>
+			<TreeBuilderCollection
+				v-else-if="isCollectionNode(node)"
+				:node="node"
+				:label="collectionLabel"
+				:readOnly="readOnly"
+				:allowGroups="allowGroups"
+				:allowCollections="allowCollections"
+				@add-leaf="api?.addLeaf(node.id)"
+				@add-group="api?.addGroup(node.id)"
+				@add-collection="api?.addCollection(node.id)"
+				@remove="$emit('remove')"
+			>
+				<template #label="{ node: collectionNode }">
+					<slot name="collection" :node="collectionNode">
+						<strong>{{ collectionLabel }}</strong>
+					</slot>
+				</template>
+				<template #children>
+					<TreeBuilderNode
+						v-for="(child, i) in children"
+						:key="child.id"
+						:node="child"
+						:index="i"
+						:parent="node"
+						:readOnly="readOnly"
+						:allowGroups="allowGroups"
+						:allowCollections="allowCollections"
+						:collectionLabel="collectionLabel"
+						:groupOperators="groupOperators"
+						:operatorLabel="operatorLabel"
+						:visibleNode="visibleNode"
+						@remove="api?.removeNode(child.id)"
+						@operator="api?.setOperator(child.id, $event)"
+					>
+						<template #default="p"><slot v-bind="p" /></template>
+						<template #collection="p"><slot name="collection" v-bind="p" /></template>
+					</TreeBuilderNode>
+				</template>
+			</TreeBuilderCollection>
 
-		<TreeBuilderLeaf
-			v-else-if="isLeafNode(node)"
-			:node="node"
-			:context="{ path: [] }"
-			:index="index"
-			:parent="parent"
-			:readOnly="readOnly"
-			@remove="$emit('remove')"
-		>
-			<template #default="p"><slot v-bind="p" /></template>
-		</TreeBuilderLeaf>
+			<TreeBuilderLeaf
+				v-else-if="isLeafNode(node)"
+				:node="node"
+				:context="{ path: [] }"
+				:index="index"
+				:parent="parent"
+				:readOnly="readOnly"
+				@remove="$emit('remove')"
+			>
+				<template #default="p"><slot v-bind="p" /></template>
+			</TreeBuilderLeaf>
+		</div>
 	</div>
 </template>
 
 <style scoped>
 .tree-node {
 	position: relative;
+	width: 100%;
 	min-width: 0;
+}
+.tree-node__body {
+	min-width: 0;
+	width: 100%;
+}
+.tree-node[draggable="true"] {
+	cursor: grab;
+}
+.tree-node.is-dragging {
+	cursor: grabbing;
+	opacity: 0.82;
 }
 .tree-node.drag-over {
 	background: var(--fxr-node-accent-light, var(--fxr-accent-soft));

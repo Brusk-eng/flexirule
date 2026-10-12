@@ -267,6 +267,30 @@ def _validate_action_contracts(
 	errors: list[str],
 	mode: str = "full",
 ) -> None:
+	# A permission bypass always needs a meaningful, persisted audit reason.
+	permission_flag_values = (
+		_safe_get(action, "ignore_permissions", 0),
+		_safe_get(action, "skip_permissions", 0),
+	)
+	permission_bypass_enabled = any(
+		value is True
+		or value == 1
+		or (isinstance(value, str) and value.strip().lower() in {"1", "true", "yes"})
+		for value in permission_flag_values
+	)
+	if permission_bypass_enabled:
+		reason = _safe_get(action, "permission_audit_reason")
+		if not isinstance(reason, str) or not reason.strip():
+			config_data = _parse_json_value(_safe_get(action, "config"), {})
+			if isinstance(config_data, Mapping):
+				reason = config_data.get("permission_audit_reason")
+		if not isinstance(reason, str) or not reason.strip():
+			errors.append(
+				_("Action '{0}' must provide a Permission Audit Reason when bypassing permissions.").format(
+					action_label
+				)
+			)
+
 	contract = get_contract(action_type)
 	operation = _safe_get(action, "operation")
 	operation_metadata = operation_metadata or {}

@@ -5,15 +5,18 @@
 	<div v-else class="filter-row">
 		<div class="filter-row-main">
 			<div class="filter-col field-col">
+				<label class="filter-col-label">
+					{{ __("Field") }} <span class="filter-required">*</span>
+				</label>
 				<ComboBoxControl
 					:df="{ label: '', fieldtype: 'FieldPicker', reqd: 1 }"
 					:options="navigableFields.currentFields.value"
 					:doctype="doctype"
 					:modelValue="leaf.field || ''"
 					:read_only="readOnly"
-					:showValidation="showValidation"
-					:trigger="'button'"
 					:hideLabel="true"
+					:showValidation="validationVisible"
+					trigger="button"
 					:navigable="true"
 					:navStack="navigableFields.navStack.value"
 					@navigate="navigableFields.handleNavigate"
@@ -22,18 +25,22 @@
 				/>
 			</div>
 			<div class="filter-col operator-col">
-				<select
-					class="form-control input-xs"
-					:value="leaf.operator"
-					:disabled="readOnly"
-					@change="updateOperator"
-				>
-					<option v-for="op in operators" :key="op" :value="op">
-						{{ operatorLabel(op) }}
-					</option>
-				</select>
+				<label class="filter-col-label">
+					{{ __("Operator") }} <span class="filter-required">*</span>
+				</label>
+				<SelectControl
+					:df="operatorField"
+					:modelValue="leaf.operator"
+					:read_only="readOnly || !leaf.field"
+					:hideLabel="true"
+					:showValidation="validationVisible && operatorInvalid"
+					@update:modelValue="updateOperator"
+				/>
 			</div>
 			<div class="filter-col value-col">
+				<label class="filter-col-label">
+					{{ __("Value") }} <span class="filter-required">*</span>
+				</label>
 				<template v-if="leaf.operator === 'Between'">
 					<div class="dual-value-wrapper">
 						<FlexValueControl
@@ -51,7 +58,7 @@
 							:doc="store?.rule_doc"
 							:variableOptions="effectiveVariableOptions"
 							:disabled="readOnly"
-							:showValidation="showValidation"
+							:showValidation="validationVisible && isMissingBetweenValue(index - 1)"
 							@update:modelValue="(value) => updateBetween(index - 1, value)"
 						/>
 					</div>
@@ -69,20 +76,21 @@
 					:variableOptions="effectiveVariableOptions"
 					:disabled="readOnly"
 					:readOnly="readOnly"
-					:showValidation="showValidation"
+					:showValidation="validationVisible && valueInvalid"
 					@update:modelValue="updateValue"
 				/>
 			</div>
 		</div>
 	</div>
 </template>
-
 <script setup>
 import { computed, inject, ref } from "vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
+import SelectControl from "../../../controls/SelectControl.vue";
 import { useStore } from "../../../stores";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
+import { getFieldType, getFilterOperators } from "./filter_operators.mjs";
 
 const props = defineProps({
 	modelValue: { type: Object, required: true },
@@ -100,42 +108,8 @@ const effectiveVariableOptions = computed(
 );
 const leaf = computed(() => props.modelValue || {});
 const emptyValue = { mode: "static", value: "" };
-// Portable Query Builder operators shared by Frappe 15 and 16.
-// REGEX is omitted: those release branches still render PyPika's unsupported "REGEX" SQL token.
-const BASE = ["=", "!=", "like", "not like", "in", "not in", ">", "<", ">=", "<=", "is"];
-const EXT = ["Between", "Timespan", "starts with", "ends with"];
-const NESTED = [
-	"descendants of",
-	"descendants of (inclusive)",
-	"not descendants of",
-	"ancestors of",
-	"not ancestors of",
-];
-// Field-type restrictions are the intersection of the Frappe 15 and 16
-// standard filter UIs. This avoids offering an operator that disappears or is
-// invalid on one supported major version.
-const INVALID = {
-	Date: ["like", "not like"],
-	Datetime: ["like", "not like", "in", "not in", "=", "!="],
-	Data: ["Between", "Timespan"],
-	Time: ["Between", "Timespan"],
-	Select: ["like", "not like", "Between", "Timespan", ">", "<", ">=", "<="],
-	Link: ["Between", "Timespan", ">", "<", ">=", "<="],
-	Currency: ["Between", "Timespan"],
-	Color: ["Between", "Timespan", ">", "<", ">=", "<="],
-	Float: ["like", "not like", "Between", "in", "not in", "Timespan"],
-	Int: ["like", "not like", "Between", "in", "not in", "Timespan"],
-	Percent: ["like", "not like", "Between", "in", "not in", "Timespan"],
-	Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
-	Code: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	"HTML Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	"Markdown Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	"Text Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	"Small Text": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	"Long Text": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	Text: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	Password: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-};
+const hasInteracted = ref(false);
+const validationVisible = computed(() => props.showValidation || hasInteracted.value);
 const labels = {
 	"=": __("Equals"),
 	"!=": __("Not Equals"),
@@ -158,31 +132,78 @@ const labels = {
 	"ancestors of": __("Ancestors Of"),
 	"not ancestors of": __("Not Ancestors Of"),
 };
-function supportsNestedSetOperators(def) {
-	const treeDoctypes = frappe.boot?.nested_set_doctypes || [];
-	if (def?.fieldtype === "Link" && treeDoctypes.includes(def.options)) return true;
-	// A Tree DocType's own name field can also use hierarchy operators.
-	return def?.fieldname === "name" && treeDoctypes.includes(props.doctype);
-}
-function getFieldTypeOperators(def) {
-	const invalid = INVALID[def?.original_type] || INVALID[def?.fieldtype] || [];
-	return [...BASE, ...EXT].filter((operator) => {
-		if (invalid.includes(operator)) return false;
-		// Starts With and Ends With are aliases for LIKE, so they inherit its
-		// field-type restriction instead of accidentally bypassing the blacklist.
-		return !(["starts with", "ends with"].includes(operator) && invalid.includes("like"));
-	});
-}
-const field = computed(() => getFieldDef(leaf.value.field));
-const operators = computed(() => {
-	const result = getFieldTypeOperators(field.value);
-	if (supportsNestedSetOperators(field.value))
-		result.push(...NESTED.filter((op) => !result.includes(op)));
-	if (field.value?.fieldtype === "Check") return result.filter((op) => op === "=");
-	return result.length ? result : ["="];
+const nestedSetOptions = () => ({
+	nestedSetDoctypes: frappe.boot?.nested_set_doctypes || [],
+	rootDoctype: props.doctype,
 });
+const field = computed(() => getFieldDef(leaf.value.field));
+const operators = computed(() => getFilterOperators(field.value, nestedSetOptions()));
+const operatorField = computed(() => ({
+	fieldname: "operator",
+	fieldtype: "Select",
+	label: __("Operator"),
+	reqd: 1,
+	read_only: props.readOnly || !leaf.value.field,
+	options: operators.value.map((operator) => ({
+		label: operatorLabel(operator),
+		value: operator,
+	})),
+}));
+const operatorInvalid = computed(
+	() => !leaf.value.operator || !operators.value.includes(leaf.value.operator)
+);
+function isConfigured(value) {
+	if (Array.isArray(value)) return value.length > 0 && value.every(isConfigured);
+	if (value && typeof value === "object") {
+		if (Object.prototype.hasOwnProperty.call(value, "mode")) {
+			if (value.mode === "static") return !isEmpty(value.value);
+			return (
+				value.value !== undefined &&
+				value.value !== null &&
+				String(value.value).trim() !== ""
+			);
+		}
+		return Object.keys(value).length > 0;
+	}
+	return !isEmpty(value) && !(typeof value === "string" && value.trim() === "");
+}
+function isValidIsValue(value) {
+	if (value && typeof value === "object" && value.mode && value.mode !== "static") {
+		return isConfigured(value);
+	}
+	const raw = value && typeof value === "object" && value.mode === "static" ? value.value : value;
+	if (typeof raw === "string") {
+		const trimmed = raw.trim();
+		if (trimmed.startsWith("{") || trimmed.startsWith("@")) {
+			return true;
+		}
+	}
+	return ["set", "not set"].includes(
+		String(raw ?? "")
+			.trim()
+			.toLowerCase()
+	);
+}
+const valueInvalid = computed(() => {
+	if (!leaf.value.field) return false;
+	if (operatorInvalid.value) return true;
+	if (leaf.value.operator === "Between") {
+		return (
+			!Array.isArray(leaf.value.value) ||
+			leaf.value.value.length < 2 ||
+			!isConfigured(leaf.value.value[0]) ||
+			!isConfigured(leaf.value.value[1])
+		);
+	}
+	if (String(leaf.value.operator).toLowerCase() === "is")
+		return !isValidIsValue(leaf.value.value);
+	return !isConfigured(leaf.value.value);
+});
+function isMissingBetweenValue(index) {
+	return !Array.isArray(leaf.value.value) || !isConfigured(leaf.value.value[index]);
+}
 const operatorLabel = (op) => {
-	if (field.value?.fieldtype === "Date" || field.value?.fieldtype === "Datetime")
+	if (["Date", "Datetime"].includes(getFieldType(field.value)))
 		return (
 			{
 				"<": __("Before"),
@@ -199,26 +220,32 @@ const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
 	() => leaf.value.field || ""
 );
-const updateValue = (value) => emit("update:modelValue", { ...leaf.value, value });
+const updateValue = (value) => {
+	hasInteracted.value = true;
+	emit("update:modelValue", { ...leaf.value, value });
+};
 function updateField(value) {
+	hasInteracted.value = true;
 	const next = { ...leaf.value, field: value };
 	const def = getFieldDef(value);
 	const allowed = getOperators(def);
 	if (!allowed.includes(next.operator)) next.operator = allowed[0] || "=";
-	if (next.operator === "Between" && !Array.isArray(next.value))
-		next.value = [{ ...emptyValue }, { ...emptyValue }];
+	if (String(leaf.value.field || "") !== String(value || "")) {
+		next.value =
+			next.operator === "Between"
+				? [{ ...emptyValue }, { ...emptyValue }]
+				: { ...emptyValue };
+	}
+	// useNavigableFields watches the selected path and resolves metadata in its Link/Table
+	// context. Resetting to the root here discards nested field metadata and can leave the
+	// operator options and value control mapped to the wrong field type.
 	emit("update:modelValue", next);
-	navigableFields.resetStack();
 }
 function getOperators(def) {
-	const result = getFieldTypeOperators(def);
-	if (supportsNestedSetOperators(def))
-		result.push(...NESTED.filter((op) => !result.includes(op)));
-	if (def?.fieldtype === "Check") return result.filter((op) => op === "=");
-	return result.length ? result : ["="];
+	return getFilterOperators(def, nestedSetOptions());
 }
-function updateOperator(event) {
-	const operator = event.target.value;
+function updateOperator(operator) {
+	hasInteracted.value = true;
 	let value = leaf.value.value;
 	if (operator === "Between" && !Array.isArray(value))
 		value = [{ ...emptyValue }, { ...emptyValue }];
@@ -227,6 +254,7 @@ function updateOperator(event) {
 	emit("update:modelValue", { ...leaf.value, operator, value });
 }
 function updateBetween(index, value) {
+	hasInteracted.value = true;
 	const values = Array.isArray(leaf.value.value)
 		? [...leaf.value.value]
 		: [{ ...emptyValue }, { ...emptyValue }];
@@ -249,18 +277,26 @@ function getFieldDef(fieldname) {
 		return { fieldname, value: fieldname, fieldtype: "Datetime", label: fieldname };
 	if (fieldname === "docstatus")
 		return { fieldname, value: fieldname, fieldtype: "Int", label: "Docstatus" };
+	// Use the picker entry first so nested Link/Table paths keep the metadata
+	// for the context in which the user selected the field.
+	const pickerField = navigableFields.currentFields.value.find(
+		(item) => item.value === fieldname
+	);
+	if (pickerField) return { ...(pickerField.raw || {}), ...pickerField, value: fieldname };
+
 	const raw = String(fieldname).replace(/^doc\./, "");
 	if (frappe.meta?.has_field?.(props.doctype, raw)) {
 		const df = frappe.meta.get_docfield(props.doctype, raw);
 		return df ? { ...df, value: fieldname } : null;
 	}
-	return navigableFields.currentFields.value.find((item) => item.value === fieldname) || null;
+	return null;
 }
 const controlSchema = computed(() => {
 	let schema = field.value
 		? frappe.utils.deep_clone(field.value)
 		: { fieldtype: "Data", fieldname: "value" };
 	schema.label = "";
+	schema.reqd = String(leaf.value.operator).toLowerCase() === "is" ? 0 : 1;
 	schema.read_only = props.readOnly;
 	schema.fieldname = String(leaf.value.field || "value").replace(/^doc\./, "");
 	if (frappe.ui?.filter_utils?.set_fieldtype)
@@ -271,7 +307,7 @@ const controlSchema = computed(() => {
 	)
 		schema.fieldtype = field.value.fieldtype;
 	if (["in", "not in"].includes(String(leaf.value.operator).toLowerCase())) {
-		if (field.value?.fieldtype === "Link") {
+		if (getFieldType(field.value) === "Link") {
 			schema.fieldtype = "MultiSelectList";
 			schema.options = field.value.options;
 			schema.get_data = async (txt) =>
@@ -280,7 +316,7 @@ const controlSchema = computed(() => {
 					txt: txt || "",
 					page_length: 40,
 				});
-		} else if (field.value?.fieldtype === "Select") {
+		} else if (getFieldType(field.value) === "Select") {
 			schema.fieldtype = "MultiSelectList";
 			schema.options =
 				typeof field.value.options === "string"
@@ -299,19 +335,21 @@ function isEmpty(value) {
 async function validate() {
 	const errors = [];
 	if (!leaf.value.field) errors.push(__("Filter field is required."));
-	if (!leaf.value.operator) errors.push(__("Filter operator is required."));
-	if (leaf.value.operator === "Between") {
+	if (!leaf.value.operator || operatorInvalid.value) {
+		errors.push(__("Choose a supported operator for the selected field."));
+	} else if (leaf.value.operator === "Between") {
 		if (
 			!Array.isArray(leaf.value.value) ||
 			leaf.value.value.length < 2 ||
-			isEmpty(leaf.value.value[0]?.value) ||
-			isEmpty(leaf.value.value[1]?.value)
-		)
+			!isConfigured(leaf.value.value[0]) ||
+			!isConfigured(leaf.value.value[1])
+		) {
 			errors.push(__("Both values are required for Between."));
-	} else if (leaf.value.operator !== "is") {
-		const value = leaf.value.value;
-		const empty = value?.mode === "static" ? isEmpty(value.value) : !value;
-		if (empty) errors.push(__("Filter value is required."));
+		}
+	} else if (String(leaf.value.operator).toLowerCase() === "is") {
+		if (!isValidIsValue(leaf.value.value)) errors.push(__("Choose Set or Not Set."));
+	} else if (!isConfigured(leaf.value.value)) {
+		errors.push(__("Filter value is required."));
 	}
 	return { valid: errors.length === 0, errors };
 }
@@ -321,54 +359,92 @@ defineExpose({ validate });
 <style scoped>
 .filter-row {
 	width: 100%;
-	background: var(--fxr-bg-input);
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-sm);
-	padding: 4px var(--spacing-md);
+	min-width: 0;
+	box-sizing: border-box;
+	padding: var(--fxr-space-2) var(--fxr-space-3);
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
+}
+.filter-row:hover {
+	border-color: var(--fxr-border-strong);
 }
 .filter-row-main {
-	display: flex;
-	gap: var(--spacing-md);
-	align-items: center;
-	width: 100%;
-}
-.field-col {
-	flex: 0 0 220px;
-	min-width: 120px;
-}
-.operator-col {
-	flex: 0 0 130px;
-}
-.value-col {
-	flex: 1;
-	min-width: 0;
-}
-.dual-value-wrapper {
-	display: flex;
-	align-items: center;
+	display: grid;
+	grid-template-columns: minmax(170px, 1.2fr) minmax(118px, 0.8fr) minmax(180px, 1.5fr);
 	gap: var(--fxr-space-3);
+	align-items: start;
 	width: 100%;
-}
-.dual-value-wrapper > * {
-	flex: 1;
 	min-width: 0;
 }
-.filter-row :deep(.form-control) {
+.filter-col {
+	min-width: 0;
+}
+.filter-col-label {
+	display: block;
+	min-height: 15px;
+	margin: 0 0 var(--fxr-space-1);
+	color: var(--fxr-text-secondary);
+	font-size: var(--fxr-text-xs);
+	font-weight: var(--fxr-weight-semibold, 600);
+	line-height: 1.25;
+}
+.filter-required {
+	color: var(--fxr-text-danger);
+}
+.filter-col :deep(.fxr-control),
+.filter-col :deep(.combobox-container),
+.filter-col :deep(.combobox-wrapper),
+.filter-col :deep(.flex-value-control),
+.filter-col :deep(.flex-value-control-button) {
+	display: block;
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+}
+.filter-col :deep(.combobox-button-trigger),
+.filter-col :deep(.flex-value-control-button),
+.filter-col :deep(.form-control) {
+	width: 100%;
+	min-width: 0;
 	height: var(--fxr-input-height) !important;
+	min-height: var(--fxr-input-height);
+	box-sizing: border-box;
 	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x) !important;
 	font-size: var(--fxr-input-font-size) !important;
 	border-radius: var(--fxr-radius-md) !important;
 }
-@media (max-width: 920px) {
+.filter-col :deep(.combobox-input-group) {
+	width: 100%;
+	min-width: 0;
+}
+.dual-value-wrapper {
+	display: flex;
+	align-items: stretch;
+	gap: var(--fxr-space-2);
+	width: 100%;
+	min-width: 0;
+}
+.dual-value-wrapper > * {
+	flex: 1 1 0;
+	width: 0;
+	min-width: 0;
+}
+@media (max-width: 700px) {
 	.filter-row-main {
-		flex-wrap: wrap;
-	}
-	.field-col,
-	.operator-col {
-		flex: 1 1 200px;
+		grid-template-columns: minmax(0, 1fr) minmax(110px, 0.8fr);
 	}
 	.value-col {
-		flex: 1 1 100%;
+		grid-column: 1 / -1;
+	}
+}
+@media (max-width: 480px) {
+	.filter-row-main {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.value-col {
+		grid-column: auto;
 	}
 }
 </style>

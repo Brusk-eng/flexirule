@@ -61,6 +61,8 @@ defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 </script>
 <style scoped>
 .tree-group {
+	width: 100%;
+	min-width: 0;
 	padding: var(--fxr-space-3);
 	background: var(--fxr-bg-hover);
 	border: 1px solid var(--fxr-border-subtle);
@@ -68,31 +70,66 @@ defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 }
 .tree-group__header {
 	display: flex;
+	align-items: center;
 	justify-content: space-between;
+	flex-wrap: wrap;
 	gap: var(--fxr-space-2);
-	margin-bottom: var(--fxr-space-2);
+	margin-bottom: var(--fxr-space-3);
 }
 .tree-group__logic,
 .tree-group__actions {
 	display: flex;
+	flex-wrap: wrap;
 	gap: var(--fxr-space-1);
 	align-items: center;
+}
+.tree-group__actions .fxr-btn--icon {
+	border: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-surface);
+	color: var(--fxr-text-secondary);
+	transition: all var(--fxr-transition-fast);
+}
+.tree-group__actions .fxr-btn--icon:hover,
+.tree-group__actions .fxr-btn--icon:focus-visible {
+	border-color: var(--fxr-border-strong);
+	background: var(--fxr-surface-2);
+	color: var(--fxr-text-strong);
+}
+.tree-group__actions .fxr-btn--icon.fxr-btn--danger:hover,
+.tree-group__actions .fxr-btn--icon.fxr-btn--danger:focus-visible {
+	border-color: var(--fxr-border-danger);
+	background: var(--fxr-bg-danger);
+	color: var(--fxr-text-danger);
 }
 .logic-btn {
 	border: 0;
 	background: transparent;
-	padding: 3px 9px;
+	padding: 4px 10px;
 	border-radius: var(--fxr-radius-sm);
-	font-size: 10px;
-	font-weight: 800;
+	font-size: var(--fxr-text-xs);
+	font-weight: var(--fxr-weight-bold, 700);
+	color: var(--fxr-text-soft);
+	cursor: pointer;
+	transition: background-color var(--fxr-transition-fast), color var(--fxr-transition-fast);
+}
+.logic-btn:hover:not(.active):not(:disabled) {
+	background: var(--fxr-bg-muted);
+	color: var(--fxr-text-strong);
+}
+.logic-btn:disabled {
+	cursor: default;
+	opacity: 0.7;
 }
 .logic-btn.active {
 	background: var(--fxr-node-accent, var(--fxr-accent));
 	color: #fff;
+	box-shadow: var(--fxr-shadow-sm);
 }
 .tree-group__children {
 	display: flex;
 	flex-direction: column;
 	gap: var(--fxr-space-2);
+	width: 100%;
+	min-width: 0;
 }
 </style>

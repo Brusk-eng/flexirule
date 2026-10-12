@@ -44,6 +44,7 @@ const options = computed(() => {
 		// Array of objects with label/value
 		else if (Array.isArray(opts)) {
 			finalOptions = opts.map((opt) => ({
+				...opt,
 				label: __(opt.label || opt.value),
 				value: opt.value,
 			}));

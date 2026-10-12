@@ -46,9 +46,11 @@
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
 						label: __('Permission Audit Reason'),
+						reqd: 1,
 						read_only: readOnly,
 					}"
 					:modelValue="node?.data?.permission_audit_reason"
+					:showValidation="showValidation"
 					@update:modelValue="(val) => update_action_key('permission_audit_reason', val)"
 				/>
 			</div>
@@ -1840,7 +1842,10 @@ async function validate() {
 	}
 
 	// 4. Permission Audit Reason (Global check, though child CheckControl should handle reqd)
-	if (props.node?.data?.ignore_permissions && !props.node?.data?.permission_audit_reason) {
+	if (
+		props.node?.data?.ignore_permissions &&
+		!String(props.node?.data?.permission_audit_reason ?? "").trim()
+	) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 	}
 

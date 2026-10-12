@@ -552,7 +552,10 @@ async function validate() {
 	}
 
 	// 3. Permission Audit Reason (Global check)
-	if (props.node?.data?.ignore_permissions && !props.node?.data?.permission_audit_reason) {
+	if (
+		props.node?.data?.ignore_permissions &&
+		!String(props.node?.data?.permission_audit_reason ?? "").trim()
+	) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 	}
 
