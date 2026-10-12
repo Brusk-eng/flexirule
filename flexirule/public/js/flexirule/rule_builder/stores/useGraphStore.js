@@ -1536,6 +1536,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					(actionTypeRaw === "Sub-Rule" ? getSubRuleName(effectiveConfig) : null),
 				skip_conditions: action.skip_conditions !== undefined ? action.skip_conditions : 1,
 				ignore_permissions: action.ignore_permissions ?? action.skip_permissions ?? 0,
+				permission_audit_reason: action.permission_audit_reason ?? "",
 				next_step_if_true: action.next_step_if_true,
 				next_step_if_false: action.next_step_if_false,
 				input_source: action.input_source,
@@ -1852,13 +1853,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			if (newNode.data) {
 				newNode.data.action_id = getUniqueActionId(generateShortId());
 				newNode.data.name = null; // Clear backend name to force new record
-				// Ensure mandatory fields are at least present
-				if (
-					newNode.data.action_type === "Document Action" &&
-					!newNode.data.permission_audit_reason
-				) {
-					newNode.data.permission_audit_reason = "System Rule Execution";
-				}
 			}
 
 			// Shift position relative to paste point
