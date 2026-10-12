@@ -231,12 +231,19 @@ function getFieldDef(fieldname) {
 		return { fieldname, value: fieldname, fieldtype: "Datetime", label: fieldname };
 	if (fieldname === "docstatus")
 		return { fieldname, value: fieldname, fieldtype: "Int", label: "Docstatus" };
+	// Use the picker entry first so nested Link/Table paths keep the metadata
+	// for the context in which the user selected the field.
+	const pickerField = navigableFields.currentFields.value.find(
+		(item) => item.value === fieldname
+	);
+	if (pickerField) return { ...(pickerField.raw || {}), ...pickerField, value: fieldname };
+
 	const raw = String(fieldname).replace(/^doc\./, "");
 	if (frappe.meta?.has_field?.(props.doctype, raw)) {
 		const df = frappe.meta.get_docfield(props.doctype, raw);
 		return df ? { ...df, value: fieldname } : null;
 	}
-	return navigableFields.currentFields.value.find((item) => item.value === fieldname) || null;
+	return null;
 }
 const controlSchema = computed(() => {
 	let schema = field.value
