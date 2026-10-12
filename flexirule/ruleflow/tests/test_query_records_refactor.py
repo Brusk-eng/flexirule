@@ -479,3 +479,49 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			self.assertIs(get_query.call_args.kwargs["ignore_permissions"], True)
 		else:
 			self.assertNotIn("ignore_permissions", get_query.call_args.kwargs)
+
+	def test_permission_bypass_requires_a_nonblank_audit_reason_for_every_action_type(self):
+		from flexirule.ruleflow.core.validation_service import _validate_action_contracts
+
+		for action_type in ("Query Records", "Document Action", "Sub-Rule", "Notify"):
+			for reason in (None, "", "   "):
+				with self.subTest(action_type=action_type, reason=reason):
+					errors = []
+					action = frappe._dict(
+						{
+							"ignore_permissions": 1,
+							"permission_audit_reason": reason,
+						}
+					)
+					_validate_action_contracts(
+						action,
+						action_type,
+						action_type,
+						{},
+						errors,
+						mode="draft",
+					)
+					self.assertTrue(
+						any("Permission Audit Reason" in error for error in errors),
+						f"{action_type} bypass should reject audit reason {reason!r}",
+					)
+
+			errors = []
+			action = frappe._dict(
+				{
+					"ignore_permissions": 1,
+					"permission_audit_reason": "Approved service integration",
+				}
+			)
+			_validate_action_contracts(
+				action,
+				action_type,
+				action_type,
+				{},
+				errors,
+				mode="draft",
+			)
+			self.assertFalse(
+				any("Permission Audit Reason" in error for error in errors),
+				f"{action_type} should accept a meaningful audit reason",
+			)
