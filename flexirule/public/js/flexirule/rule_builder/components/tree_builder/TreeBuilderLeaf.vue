@@ -15,8 +15,6 @@
 	</div>
 </template>
 <script setup>
-
-
 const props = defineProps({
 	node: { type: Object, required: true },
 	context: { type: Object, default: () => ({ scopes: [], path: [] }) },
@@ -25,8 +23,6 @@ const props = defineProps({
 	readOnly: Boolean,
 });
 defineEmits(["remove"]);
-
-
 </script>
 <style scoped>
 .tree-leaf {

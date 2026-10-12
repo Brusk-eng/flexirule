@@ -53,7 +53,8 @@ const interactiveSelector = [
 
 function rememberDragOrigin(e) {
 	const target = e.target;
-	dragOriginWasInteractive = target instanceof Element && Boolean(target.closest(interactiveSelector));
+	dragOriginWasInteractive =
+		target instanceof Element && Boolean(target.closest(interactiveSelector));
 }
 
 function startNodeDrag(e) {
