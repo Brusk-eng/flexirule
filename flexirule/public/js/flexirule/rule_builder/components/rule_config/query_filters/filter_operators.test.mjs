@@ -7,7 +7,11 @@ import {
 } from "./filter_operators.mjs";
 
 const checkOperators = getFilterOperators({ fieldtype: "Check" });
-assert.deepEqual(checkOperators, ["="], "Check fields must expose only Equals");
+assert.deepEqual(
+	checkOperators,
+	["=", "!="],
+	"Check fields must expose Equals and Not Equals"
+);
 
 const adaptedCheckOperators = getFilterOperators({
 	fieldtype: "Data",
@@ -15,8 +19,8 @@ const adaptedCheckOperators = getFilterOperators({
 });
 assert.deepEqual(
 	adaptedCheckOperators,
-	["="],
-	"Check fields must remain equality-only if their input control was adapted"
+	["=", "!="],
+	"Check fields must retain equality and inequality when their input control is adapted"
 );
 
 const treeLink = { fieldname: "parent_warehouse", fieldtype: "Link", options: "Warehouse" };

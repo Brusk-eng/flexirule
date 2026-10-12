@@ -82,9 +82,9 @@ export function supportsNestedSetOperators(def, { nestedSetDoctypes = [], rootDo
 export function getFilterOperators(def, options = {}) {
 	const fieldType = getFieldType(def);
 
-	// Frappe's native filter map permits equality only for Check fields.
+	// Check values are boolean-like; both equality and inequality are meaningful.
 	// Check fields may carry original_type even when a value control adapts fieldtype.
-	if (hasFieldType(def, "Check")) return ["="];
+	if (hasFieldType(def, "Check")) return ["=", "!="];
 
 	const invalid = INVALID_OPERATORS_BY_FIELD_TYPE[fieldType] || [];
 	const operators = [...BASE_FILTER_OPERATORS, ...EXTENDED_FILTER_OPERATORS].filter(

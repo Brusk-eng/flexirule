@@ -5,14 +5,18 @@
 	<div v-else class="filter-row">
 		<div class="filter-row-main">
 			<div class="filter-col field-col">
+				<label class="filter-col-label">
+					{{ __("Field") }} <span class="filter-required">*</span>
+				</label>
 				<ComboBoxControl
-					:df="{ label: __('Field'), fieldtype: 'FieldPicker', reqd: 1 }"
+					:df="{ label: '', fieldtype: 'FieldPicker', reqd: 1 }"
 					:options="navigableFields.currentFields.value"
 					:doctype="doctype"
 					:modelValue="leaf.field || ''"
 					:read_only="readOnly"
+					:hideLabel="true"
 					:showValidation="validationVisible"
-					:trigger="'button'"
+					trigger="button"
 					:navigable="true"
 					:navStack="navigableFields.navStack.value"
 					@navigate="navigableFields.handleNavigate"
@@ -21,6 +25,9 @@
 				/>
 			</div>
 			<div class="filter-col operator-col">
+				<label class="filter-col-label">
+					{{ __("Operator") }} <span class="filter-required">*</span>
+				</label>
 				<SelectControl
 					:df="operatorField"
 					:modelValue="leaf.operator"
@@ -31,6 +38,9 @@
 				/>
 			</div>
 			<div class="filter-col value-col">
+				<label class="filter-col-label">
+					{{ __("Value") }} <span class="filter-required">*</span>
+				</label>
 				<template v-if="leaf.operator === 'Between'">
 					<div class="dual-value-wrapper">
 						<FlexValueControl
@@ -53,6 +63,26 @@
 						/>
 					</div>
 				</template>
+				<FlexValueControl
+					v-else
+					:modelValue="leaf.value"
+					:context="{
+						df: controlSchema,
+						operator: leaf.operator,
+						referenceDoctype: doctype,
+					}"
+					:engine="store"
+					:doc="store?.rule_doc"
+					:variableOptions="effectiveVariableOptions"
+					:disabled="readOnly"
+					:readOnly="readOnly"
+					:showValidation="validationVisible && valueInvalid"
+					@update:modelValue="updateValue"
+				/>
+			</div>
+		</div>
+	</div>
+</template>
 				<FlexValueControl
 					v-else
 					:modelValue="leaf.value"
@@ -221,8 +251,10 @@ function updateField(value) {
 				? [{ ...emptyValue }, { ...emptyValue }]
 				: { ...emptyValue };
 	}
+	// useNavigableFields watches the selected path and resolves metadata in its Link/Table
+	// context. Resetting to the root here discards nested field metadata and can leave the
+	// operator options and value control mapped to the wrong field type.
 	emit("update:modelValue", next);
-	navigableFields.resetStack();
 }
 function getOperators(def) {
 	return getFilterOperators(def, nestedSetOptions());
@@ -342,54 +374,92 @@ defineExpose({ validate });
 <style scoped>
 .filter-row {
 	width: 100%;
-	background: var(--fxr-bg-input);
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-sm);
-	padding: 4px var(--spacing-md);
+	min-width: 0;
+	box-sizing: border-box;
+	padding: var(--fxr-space-2) var(--fxr-space-3);
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
+}
+.filter-row:hover {
+	border-color: var(--fxr-border-strong);
 }
 .filter-row-main {
-	display: flex;
-	gap: var(--spacing-md);
-	align-items: center;
-	width: 100%;
-}
-.field-col {
-	flex: 0 0 220px;
-	min-width: 120px;
-}
-.operator-col {
-	flex: 0 0 130px;
-}
-.value-col {
-	flex: 1;
-	min-width: 0;
-}
-.dual-value-wrapper {
-	display: flex;
-	align-items: center;
+	display: grid;
+	grid-template-columns: minmax(170px, 1.2fr) minmax(118px, 0.8fr) minmax(180px, 1.5fr);
 	gap: var(--fxr-space-3);
+	align-items: start;
 	width: 100%;
-}
-.dual-value-wrapper > * {
-	flex: 1;
 	min-width: 0;
 }
-.filter-row :deep(.form-control) {
+.filter-col {
+	min-width: 0;
+}
+.filter-col-label {
+	display: block;
+	min-height: 15px;
+	margin: 0 0 var(--fxr-space-1);
+	color: var(--fxr-text-secondary);
+	font-size: var(--fxr-text-xs);
+	font-weight: var(--fxr-weight-semibold, 600);
+	line-height: 1.25;
+}
+.filter-required {
+	color: var(--fxr-text-danger);
+}
+.filter-col :deep(.fxr-control),
+.filter-col :deep(.combobox-container),
+.filter-col :deep(.combobox-wrapper),
+.filter-col :deep(.flex-value-control),
+.filter-col :deep(.flex-value-control-button) {
+	display: block;
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+}
+.filter-col :deep(.combobox-button-trigger),
+.filter-col :deep(.flex-value-control-button),
+.filter-col :deep(.form-control) {
+	width: 100%;
+	min-width: 0;
 	height: var(--fxr-input-height) !important;
+	min-height: var(--fxr-input-height);
+	box-sizing: border-box;
 	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x) !important;
 	font-size: var(--fxr-input-font-size) !important;
 	border-radius: var(--fxr-radius-md) !important;
 }
-@media (max-width: 920px) {
+.filter-col :deep(.combobox-input-group) {
+	width: 100%;
+	min-width: 0;
+}
+.dual-value-wrapper {
+	display: flex;
+	align-items: stretch;
+	gap: var(--fxr-space-2);
+	width: 100%;
+	min-width: 0;
+}
+.dual-value-wrapper > * {
+	flex: 1 1 0;
+	width: 0;
+	min-width: 0;
+}
+@media (max-width: 700px) {
 	.filter-row-main {
-		flex-wrap: wrap;
-	}
-	.field-col,
-	.operator-col {
-		flex: 1 1 200px;
+		grid-template-columns: minmax(0, 1fr) minmax(110px, 0.8fr);
 	}
 	.value-col {
-		flex: 1 1 100%;
+		grid-column: 1 / -1;
+	}
+}
+@media (max-width: 480px) {
+	.filter-row-main {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.value-col {
+		grid-column: auto;
 	}
 }
 </style>
