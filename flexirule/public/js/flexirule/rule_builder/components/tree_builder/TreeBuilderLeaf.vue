@@ -64,6 +64,7 @@ function rememberDragOrigin(event) {
 }
 
 function startDrag(event) {
+	event.stopPropagation();
 	if (props.readOnly || dragOriginWasInteractive) {
 		event.preventDefault();
 		dragOriginWasInteractive = false;
@@ -78,7 +79,8 @@ function startDrag(event) {
 	}
 }
 
-function endDrag() {
+function endDrag(event) {
+	event.stopPropagation();
 	dragging.value = false;
 	dragOriginWasInteractive = false;
 	api?.endDrag();

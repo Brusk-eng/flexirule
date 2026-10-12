@@ -29,8 +29,23 @@ const children = computed(() => props.node.children || []);
 const isDraggableContainer = computed(() => isGroupNode(props.node) || isCollectionNode(props.node));
 let dragOriginWasInteractive = false;
 const interactiveSelector = [
-	"button", "input", "select", "textarea", "option", "a",
-	'[contenteditable="true"]', '[role="button"]', '[role="combobox"]', "[data-no-drag]",
+	"button",
+	"input",
+	"select",
+	"textarea",
+	"option",
+	"a",
+	'[contenteditable="true"]',
+	'[role="button"]',
+	'[role="combobox"]',
+	"[data-no-drag]",
+	".fxr-control",
+	".fxr-input-group",
+	".combobox-container",
+	".combobox-wrapper",
+	".flex-value-control",
+	".flex-value-control-button",
+	".form-control",
 ].join(", ");
 
 function rememberDragOrigin(e) {
@@ -41,9 +56,11 @@ function rememberDragOrigin(e) {
 function startContainerDrag(e) {
 	if (props.readOnly || !isDraggableContainer.value || dragOriginWasInteractive) {
 		e.preventDefault();
+		e.stopPropagation();
 		dragOriginWasInteractive = false;
 		return;
 	}
+	e.stopPropagation();
 	api?.beginDrag(props.node.id);
 	if (e.dataTransfer) {
 		e.dataTransfer.effectAllowed = "move";
@@ -51,7 +68,8 @@ function startContainerDrag(e) {
 	}
 }
 
-function endContainerDrag() {
+function endContainerDrag(e) {
+	e.stopPropagation();
 	dragOriginWasInteractive = false;
 	api?.endDrag();
 }
