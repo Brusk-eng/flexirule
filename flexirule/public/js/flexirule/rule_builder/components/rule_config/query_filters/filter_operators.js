@@ -64,9 +64,16 @@ function containsDoctype(doctypes, candidate) {
 	});
 }
 
+function hasFieldType(def, expectedType) {
+	return [def?.fieldtype, def?.original_type].some(
+		(fieldType) => String(fieldType || "").trim() === expectedType
+	);
+}
+
 export function supportsNestedSetOperators(def, { nestedSetDoctypes = [], rootDoctype = "" } = {}) {
-	const fieldType = getFieldType(def);
-	if (fieldType === "Link" && containsDoctype(nestedSetDoctypes, def?.options)) return true;
+	if (hasFieldType(def, "Link") && containsDoctype(nestedSetDoctypes, def?.options)) {
+		return true;
+	}
 
 	// The name field identifies a node in the selected Tree DocType itself.
 	return def?.fieldname === "name" && containsDoctype(nestedSetDoctypes, rootDoctype);
@@ -76,8 +83,8 @@ export function getFilterOperators(def, options = {}) {
 	const fieldType = getFieldType(def);
 
 	// Frappe's native filter map permits equality only for Check fields.
-	// Check fields may carry original_type when another control adapts fieldtype.
-	if (fieldType === "Check") return ["="];
+	// Check fields may carry original_type even when a value control adapts fieldtype.
+	if (hasFieldType(def, "Check")) return ["="];
 
 	const invalid = INVALID_OPERATORS_BY_FIELD_TYPE[fieldType] || [];
 	const operators = [...BASE_FILTER_OPERATORS, ...EXTENDED_FILTER_OPERATORS].filter(
