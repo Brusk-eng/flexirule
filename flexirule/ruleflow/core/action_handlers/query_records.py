@@ -626,7 +626,9 @@ class QueryRecordsHandler(ActionHandler):
 			parts.append(last)
 		return parts
 
-	def _validate_canonical_fetch_filter_tree(self, node, path="filters") -> list[str]:
+	def _validate_canonical_fetch_filter_tree(
+		self, node, path="filters", reference_doctype: str | None = None
+	) -> list[str]:
 		"""Validate Fetch Records' persisted tree contract; never accept legacy filter shapes."""
 		errors = []
 		if not isinstance(node, dict):
@@ -642,7 +644,9 @@ class QueryRecordsHandler(ActionHandler):
 			else:
 				for index, child in enumerate(children):
 					errors.extend(
-						self._validate_canonical_fetch_filter_tree(child, f"{path}.children[{index}]")
+						self._validate_canonical_fetch_filter_tree(
+							child, f"{path}.children[{index}]", reference_doctype
+						)
 					)
 			return errors
 		if node_type != "leaf":
@@ -651,8 +655,29 @@ class QueryRecordsHandler(ActionHandler):
 		if not isinstance(field, str) or not field.strip():
 			errors.append(_("{0}.field is required").format(path))
 		operator = node.get("operator")
-		if not isinstance(operator, str) or operator.strip().lower() not in self._FETCH_RECORDS_OPERATORS:
+		operator_name = operator.strip().casefold() if isinstance(operator, str) else ""
+		if operator_name not in self._FETCH_RECORDS_OPERATORS:
 			errors.append(_("{0}.operator is not supported").format(path))
+		elif reference_doctype and operator_name in {op.casefold() for op in NestedSetHierarchy}:
+			filter_doctype = node.get("doctype") or reference_doctype
+			tree_target = False
+			try:
+				filter_meta = frappe.get_meta(filter_doctype)
+				field_meta = filter_meta.get_field(field) if isinstance(field, str) else None
+				if field_meta and field_meta.fieldtype == "Link" and field_meta.options:
+					target_meta = frappe.get_meta(field_meta.options)
+					tree_target = target_meta.has_field("lft") and target_meta.has_field("rgt")
+				elif filter_doctype == reference_doctype and field == "name":
+					tree_target = filter_meta.has_field("lft") and filter_meta.has_field("rgt")
+			except Exception:
+				# The ordinary field/DocType validator reports invalid references below.
+				tree_target = False
+			if not tree_target:
+				errors.append(
+					_("{0}.operator '{1}' requires a Tree DocType name field or a Link to a Tree DocType").format(
+						path, operator
+					)
+				)
 		value = node.get("value")
 		if "value" not in node:
 			errors.append(_("{0}.value is required (use null for an explicit NULL)").format(path))
@@ -671,6 +696,10 @@ class QueryRecordsHandler(ActionHandler):
 				isinstance(static_value, list | tuple) and len(static_value) == 2
 			):
 				errors.append(_("{0}.value for Between must contain exactly two values").format(path))
+			if operator_name == "is" and (
+				not isinstance(static_value, str) or static_value.strip().casefold() not in {"set", "not set"}
+			):
+				errors.append(_("{0}.value for Is must be 'set' or 'not set'").format(path))
 			if operator_name in {"in", "not in"} and not isinstance(static_value, list | tuple | str):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(path))
 		return errors
@@ -699,7 +728,9 @@ class QueryRecordsHandler(ActionHandler):
 
 		if config.get("filters") not in (None, "", []):
 			if self._is_canonical_filter_tree(config["filters"]):
-				filter_errors = self._validate_canonical_fetch_filter_tree(config["filters"])
+				filter_errors = self._validate_canonical_fetch_filter_tree(
+					config["filters"], reference_doctype=reference_doctype
+				)
 				if filter_errors:
 					frappe.throw("; ".join(filter_errors))
 
