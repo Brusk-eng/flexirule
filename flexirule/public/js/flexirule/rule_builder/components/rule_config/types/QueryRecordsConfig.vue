@@ -25,7 +25,9 @@
 					@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
 				/>
 				<div
-					v-if="mode === 'Fetch Records' && isFrappe15 && !!node?.data?.ignore_permissions"
+					v-if="
+						mode === 'Fetch Records' && isFrappe15 && !!node?.data?.ignore_permissions
+					"
 					class="alert alert-warning mb-0"
 					role="alert"
 				>
