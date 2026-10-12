@@ -212,3 +212,16 @@ The next CI run narrowed the remaining failure to the native Query Builder deleg
 ### Recommended next step for filter representation
 
 Keep the persisted Fetch Records filter tree independent of Frappe's version-specific payload format. Normalize only root-DocType field leaves at the QB adapter boundary, after validation has resolved the actual field DocType/path. Do not globally remove the root DocType from saved filter data or from legacy Query Records filters. Add explicit tests for root fields, linked/child paths, and operator/value literals to prove that only the native payload is normalized.
+
+## 12. Revised release decision (2026-10-12)
+
+This section supersedes the earlier report statements that Fetch Records uses a Frappe 15 `frappe.get_list` fallback or has a backend-enforced 1,000-row ceiling.
+
+- Fetch Records always executes through `frappe.qb.get_query`; permission configuration does not switch it to `frappe.get_list`.
+- The installed `Engine.get_query` signature is inspected once at module initialization. When it declares `ignore_permissions`, FlexiRule passes the requested flag to the native API. When the signature does not declare that parameter (Frappe 15), a permission-sensitive Fetch Records operation is rejected. The UI enables Skip Permissions by default and prevents disabling it for this mode/version combination. An explicit bypass still goes through FlexiRule's existing authorized-role and mandatory audit-reason checks.
+- This does **not** mean Fetch Records on Frappe 15 enforces per-record read permissions. Use Query List for reads that require `frappe.get_list` permission behavior until an upstream-compatible Query Builder permission contract is available.
+- The v15 nested filter adapter translates supported root-DocType AND/OR groups into native Pypika criteria before invoking Query Builder. Linked/child-field leaves inside such groups fail closed. This is a known limitation for the first production release; it is not a substitute for native nested-filter support.
+- No default result limit or fixed maximum limit/offset is imposed by the backend. Explicit values remain validated as non-negative integers after dynamic resolution. When limit is omitted, FlexiRule omits it from the Query Builder request. An optional UI default can be considered separately.
+- No Frappe framework source was modified in this PR. The proposal for native v15 permission support remains an upstream discussion item.
+
+The changes require fresh CI and Frappe/MariaDB verification on the current PR head. Prior workflow results do not validate these commits. Do not claim v15 row-level permission parity or production acceptance until the relevant integration evidence exists.
