@@ -740,6 +740,11 @@ class QueryRecordsHandler(ActionHandler):
 		if validation_errors:
 			frappe.throw("; ".join(validation_errors))
 
+		# A configured LIMIT 0 means the rule author requested zero rows. Some
+		# legacy Query Builder implementations treat a falsey limit as omitted.
+		if kwargs.get("limit") == 0:
+			return []
+
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
 		return execute_query(
