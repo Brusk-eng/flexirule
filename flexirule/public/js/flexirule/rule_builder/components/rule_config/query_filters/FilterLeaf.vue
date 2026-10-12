@@ -164,11 +164,18 @@ function supportsNestedSetOperators(def) {
 	// A Tree DocType's own name field can also use hierarchy operators.
 	return def?.fieldname === "name" && treeDoctypes.includes(props.doctype);
 }
+function getFieldTypeOperators(def) {
+	const invalid = INVALID[def?.original_type] || INVALID[def?.fieldtype] || [];
+	return [...BASE, ...EXT].filter((operator) => {
+		if (invalid.includes(operator)) return false;
+		// Starts With and Ends With are aliases for LIKE, so they inherit its
+		// field-type restriction instead of accidentally bypassing the blacklist.
+		return !(["starts with", "ends with"].includes(operator) && invalid.includes("like"));
+	});
+}
 const field = computed(() => getFieldDef(leaf.value.field));
 const operators = computed(() => {
-	const all = [...BASE, ...EXT];
-	const invalid = INVALID[field.value?.original_type] || INVALID[field.value?.fieldtype] || [];
-	const result = all.filter((op) => !invalid.includes(op));
+	const result = getFieldTypeOperators(field.value);
 	if (supportsNestedSetOperators(field.value))
 		result.push(...NESTED.filter((op) => !result.includes(op)));
 	if (field.value?.fieldtype === "Check") return result.filter((op) => op === "=");
@@ -204,8 +211,7 @@ function updateField(value) {
 	navigableFields.resetStack();
 }
 function getOperators(def) {
-	const invalid = INVALID[def?.original_type] || INVALID[def?.fieldtype] || [];
-	const result = [...BASE, ...EXT].filter((op) => !invalid.includes(op));
+	const result = getFieldTypeOperators(def);
 	if (supportsNestedSetOperators(def))
 		result.push(...NESTED.filter((op) => !result.includes(op)));
 	if (def?.fieldtype === "Check") return result.filter((op) => op === "=");
