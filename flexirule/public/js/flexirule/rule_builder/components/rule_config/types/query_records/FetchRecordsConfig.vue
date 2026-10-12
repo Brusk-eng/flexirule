@@ -387,8 +387,8 @@ const groupByField = computed(() => ({
 	description: groupByRequired.value
 		? __("Required when aggregate functions are mixed with regular output fields.")
 		: __(
-			"Group aggregate results by one or more fields. Only available for custom field result shapes with aggregate functions."
-		),
+				"Group aggregate results by one or more fields. Only available for custom field result shapes with aggregate functions."
+		  ),
 }));
 
 const distinctField = computed(() => ({
