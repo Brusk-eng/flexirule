@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe.database.operator_map import OPERATOR_MAP
 from frappe.database.utils import NestedSetHierarchy
 from frappe.tests.utils import FrappeTestCase
 
@@ -94,7 +95,7 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 	def test_fetch_records_operator_contract_matches_portable_frappe_query_builder_operators(self):
 		handler = QueryRecordsHandler()
 		allowed = handler._FETCH_RECORDS_OPERATORS
-		shared_operators = {
+		native_portable_operators = {
 			"=",
 			"!=",
 			">",
@@ -108,15 +109,18 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 			"between",
 			"is",
 			"timespan",
-			"starts with",
-			"ends with",
 		}
+		flexirule_aliases = {"starts with", "ends with"}
 
-		self.assertTrue(shared_operators.issubset(allowed))
+		# These assertions run inside each installed-version CI job, comparing the
+		# Fetch Records contract to the actual Frappe source imported by that runtime.
+		self.assertTrue(native_portable_operators.issubset(OPERATOR_MAP))
+		self.assertTrue(native_portable_operators.issubset(allowed))
+		self.assertTrue(flexirule_aliases.issubset(allowed))
 		self.assertTrue({op.casefold() for op in NestedSetHierarchy}.issubset(allowed))
 		# These entries are either invalid or version/dialect-specific in the upstream
 		# Query Builder, so they are deliberately not part of Fetch Records' portable contract.
-		for invalid_operator in ("<>", "regex", "ilike", "previous", "next"):
+		for invalid_operator in ("<>", "regex", "ilike", "previous", "next", "nested_set"):
 			with self.subTest(operator=invalid_operator):
 				self.assertNotIn(invalid_operator, allowed)
 				errors = handler._validate_canonical_fetch_filter_tree(
