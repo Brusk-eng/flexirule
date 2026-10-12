@@ -21,18 +21,14 @@
 				/>
 			</div>
 			<div class="filter-col operator-col">
-				<select
-					class="form-control input-xs"
-					:class="{ 'is-invalid': validationVisible && operatorInvalid }"
-					:value="leaf.operator"
-					:disabled="readOnly || !leaf.field"
-					:aria-invalid="validationVisible && operatorInvalid"
-					@change="updateOperator"
-				>
-					<option v-for="op in operators" :key="op" :value="op">
-						{{ operatorLabel(op) }}
-					</option>
-				</select>
+				<SelectControl
+					:df="operatorField"
+					:modelValue="leaf.operator"
+					:read_only="readOnly || !leaf.field"
+					:hideLabel="true"
+					:showValidation="validationVisible && operatorInvalid"
+					@update:modelValue="updateOperator"
+				/>
 			</div>
 			<div class="filter-col value-col">
 				<template v-if="leaf.operator === 'Between'">
@@ -82,6 +78,7 @@
 import { computed, inject, ref } from "vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
+import SelectControl from "../../../controls/SelectControl.vue";
 import { useStore } from "../../../stores";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 import { getFieldType, getFilterOperators } from "./filter_operators.mjs";
@@ -132,6 +129,17 @@ const nestedSetOptions = () => ({
 });
 const field = computed(() => getFieldDef(leaf.value.field));
 const operators = computed(() => getFilterOperators(field.value, nestedSetOptions()));
+const operatorField = computed(() => ({
+	fieldname: "operator",
+	fieldtype: "Select",
+	label: __("Operator"),
+	reqd: 1,
+	read_only: props.readOnly || !leaf.value.field,
+	options: operators.value.map((operator) => ({
+		label: operatorLabel(operator),
+		value: operator,
+	})),
+}));
 const operatorInvalid = computed(
 	() => !leaf.value.operator || !operators.value.includes(leaf.value.operator)
 );
@@ -219,9 +227,8 @@ function updateField(value) {
 function getOperators(def) {
 	return getFilterOperators(def, nestedSetOptions());
 }
-function updateOperator(event) {
+function updateOperator(operator) {
 	hasInteracted.value = true;
-	const operator = event.target.value;
 	let value = leaf.value.value;
 	if (operator === "Between" && !Array.isArray(value))
 		value = [{ ...emptyValue }, { ...emptyValue }];
