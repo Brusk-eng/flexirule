@@ -506,7 +506,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 						f"{action_type} bypass should reject audit reason {reason!r}",
 					)
 
-			errors: list[str] = []
+			errors = []
 			action = frappe._dict(
 				{
 					"skip_permissions": 1,
