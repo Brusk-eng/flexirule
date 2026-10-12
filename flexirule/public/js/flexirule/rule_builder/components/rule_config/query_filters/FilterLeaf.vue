@@ -144,15 +144,18 @@ const labels = {
 	"ancestors of": __("Ancestors Of"),
 	"not ancestors of": __("Not Ancestors Of"),
 };
+function supportsNestedSetOperators(def) {
+	const treeDoctypes = frappe.boot?.nested_set_doctypes || [];
+	if (def?.fieldtype === "Link" && treeDoctypes.includes(def.options)) return true;
+	// A Tree DocType's own name field can also use hierarchy operators.
+	return def?.fieldname === "name" && treeDoctypes.includes(props.doctype);
+}
 const field = computed(() => getFieldDef(leaf.value.field));
 const operators = computed(() => {
 	const all = [...BASE, ...EXT];
 	const invalid = INVALID[field.value?.original_type] || INVALID[field.value?.fieldtype] || [];
 	const result = all.filter((op) => !invalid.includes(op));
-	if (
-		field.value?.fieldtype === "Link" &&
-		frappe.boot?.nested_set_doctypes?.includes(field.value.options)
-	)
+	if (supportsNestedSetOperators(field.value))
 		result.push(...NESTED.filter((op) => !result.includes(op)));
 	if (field.value?.fieldtype === "Check") return result.filter((op) => op === "=" || op === "!=");
 	return result.length ? result : ["="];
@@ -189,7 +192,7 @@ function updateField(value) {
 function getOperators(def) {
 	const invalid = INVALID[def?.original_type] || INVALID[def?.fieldtype] || [];
 	const result = [...BASE, ...EXT].filter((op) => !invalid.includes(op));
-	if (def?.fieldtype === "Link" && frappe.boot?.nested_set_doctypes?.includes(def.options))
+	if (supportsNestedSetOperators(def))
 		result.push(...NESTED.filter((op) => !result.includes(op)));
 	if (def?.fieldtype === "Check") return result.filter((op) => op === "=" || op === "!=");
 	return result.length ? result : ["="];
