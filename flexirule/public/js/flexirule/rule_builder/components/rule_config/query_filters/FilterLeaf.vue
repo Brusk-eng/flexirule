@@ -83,27 +83,6 @@
 		</div>
 	</div>
 </template>
-				<FlexValueControl
-					v-else
-					:modelValue="leaf.value"
-					:context="{
-						df: controlSchema,
-						operator: leaf.operator,
-						referenceDoctype: doctype,
-					}"
-					:engine="store"
-					:doc="store?.rule_doc"
-					:variableOptions="effectiveVariableOptions"
-					:disabled="readOnly"
-					:readOnly="readOnly"
-					:showValidation="validationVisible && valueInvalid"
-					@update:modelValue="updateValue"
-				/>
-			</div>
-		</div>
-	</div>
-</template>
-
 <script setup>
 import { computed, inject, ref } from "vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
