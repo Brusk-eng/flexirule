@@ -708,7 +708,9 @@ class QueryRecordsHandler(ActionHandler):
 					and not (static_value.strip().startswith("{") or static_value.strip().startswith("@"))
 				)
 			):
-				errors.append(_("{0}.value for Is must be 'set' or 'not set' (or a dynamic expression)").format(path))
+				errors.append(
+					_("{0}.value for Is must be 'set' or 'not set' (or a dynamic expression)").format(path)
+				)
 			if operator_name in {"in", "not in"} and not isinstance(static_value, list | tuple | str):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(path))
 		return errors
@@ -736,7 +738,11 @@ class QueryRecordsHandler(ActionHandler):
 					and not (value.strip().startswith("{") or value.strip().startswith("@"))
 				)
 			):
-				errors.append(_("{0}.value for Is must be 'set' or 'not set' (or a dynamic expression)").format(leaf_path))
+				errors.append(
+					_("{0}.value for Is must be 'set' or 'not set' (or a dynamic expression)").format(
+						leaf_path
+					)
+				)
 			elif operator_name in {"in", "not in"} and not isinstance(value, list | tuple | str):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(leaf_path))
 
@@ -1133,7 +1139,9 @@ class QueryRecordsHandler(ActionHandler):
 						reference_doctype, field_token
 					):
 						errors.append(
-							_("Group-by field '{0}' does not exist in {1}").format(field_token, reference_doctype)
+							_("Group-by field '{0}' does not exist in {1}").format(
+								field_token, reference_doctype
+							)
 						)
 
 		errors.extend(self._validate_filter_fields(reference_doctype, config.get("filters")))

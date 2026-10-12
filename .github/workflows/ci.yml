@@ -133,7 +133,7 @@ jobs:
               working-directory: /home/runner/frappe-bench/apps/flexirule
               run: |
                   set -e
-                  npx --no-install eslint --ext .js,.vue flexirule/public/js
+                  npx --no-install eslint flexirule/public/js
                   node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.test.mjs
 
     tests:

@@ -13,12 +13,7 @@ const compat = new FlatCompat({
 
 export default [
 	{
-		ignores: [
-			"**/dist/**",
-			"**/node_modules/**",
-			"**/coverage/**",
-			"**/.vitest-cache/**",
-		],
+		ignores: ["**/dist/**", "**/node_modules/**", "**/coverage/**", "**/.vitest-cache/**"],
 	},
 	...compat.config({
 		env: {
@@ -34,20 +29,20 @@ export default [
 		},
 		extends: ["eslint:recommended"],
 		rules: {
-			"indent": "off",
+			indent: "off",
 			"brace-style": "off",
 			"no-mixed-spaces-and-tabs": "off",
 			"no-useless-escape": "off",
 			"space-unary-ops": [
 				"error",
 				{
-					"words": true,
+					words: true,
 				},
 			],
 			"linebreak-style": "off",
-			"quotes": ["off"],
-			"semi": "off",
-			"camelcase": "off",
+			quotes: ["off"],
+			semi: "off",
+			camelcase: "off",
 			"no-unused-vars": "off",
 			"no-console": ["warn"],
 			"no-extra-boolean-cast": ["off"],
