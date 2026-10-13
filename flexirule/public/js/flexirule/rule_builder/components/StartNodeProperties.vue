@@ -222,7 +222,7 @@ onMounted(async () => {
 		<!-- Rule Info -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Rule Name") }}</label>
-			<input class="form-control" type="text" disabled :value="rule_name" />
+			<input class="fxr-input" type="text" disabled :value="rule_name" />
 		</div>
 
 		<!-- Trigger Type -->
@@ -324,7 +324,7 @@ onMounted(async () => {
 			<label class="control-label">{{ __("Max Execution Time (seconds)") }}</label>
 			<input
 				type="number"
-				class="form-control"
+				class="fxr-input"
 				:value="nodeData?.max_execution_time"
 				:disabled="readOnly"
 				@change="update_field('max_execution_time', Number($event.target.value))"
