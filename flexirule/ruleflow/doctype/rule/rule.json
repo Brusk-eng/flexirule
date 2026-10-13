@@ -8,6 +8,10 @@
   "rule_name",
   "is_active",
   "exposed_as_subrule",
+  "section_break_subrule_interface",
+  "input_schema",
+  "column_break_subrule_interface",
+  "output_schema",
   "priority",
   "column_break_1",
   "trigger_type",
@@ -281,6 +285,35 @@
    "fieldname": "exposed_as_subrule",
    "fieldtype": "Check",
    "label": "Exposed As Sub-Rule"
+  },
+  {
+   "fieldname": "section_break_subrule_interface",
+   "fieldtype": "Section Break",
+   "label": "Sub-Rule Interface",
+   "collapsible": 1,
+   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
+   "description": "Define the callable Rule's public input and output contract."
+  },
+  {
+   "fieldname": "input_schema",
+   "fieldtype": "Code",
+   "label": "Input Schema (JSON)",
+   "options": "JSON",
+   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
+   "description": "JSON array of input fields: fieldname, label, fieldtype, options, reqd (0/1), and optional default/description. Required inputs must be supplied by Sub-Rule callers."
+  },
+  {
+   "fieldname": "column_break_subrule_interface",
+   "fieldtype": "Column Break",
+   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule"
+  },
+  {
+   "fieldname": "output_schema",
+   "fieldtype": "Code",
+   "label": "Output Schema (JSON)",
+   "options": "JSON",
+   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
+   "description": "JSON array of public outputs: fieldname, label, fieldtype, reqd (0/1), optional source and nested children. Every declared top-level output must be produced by the Rule."
   },
   {
    "fieldname": "settings",

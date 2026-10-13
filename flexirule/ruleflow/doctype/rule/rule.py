@@ -33,6 +33,8 @@ class Rule(Document):
 		document_type: DF.Link | None
 		execution_mode: DF.Literal["Synchronous", "Asynchronous"]
 		exposed_as_subrule: DF.Check
+		input_schema: DF.Code | None
+		output_schema: DF.Code | None
 		is_active: DF.Check
 		last_error: DF.Text | None
 		max_execution_time: DF.Int
