@@ -611,6 +611,7 @@ import {
 	inferResultShape,
 	parseOutputFields,
 } from "./query_records/output_fields_model.js";
+import { normalizeResolvedOutputSchema } from "../../../../utils/output_schema.js";
 
 const isFrappe15 = computed(() => {
 	const version = frappe.boot?.versions?.frappe;
@@ -1155,7 +1156,19 @@ async function update_fetch_records_schema_local() {
 	if (!targetDoctype || is_doctype_dynamic.value) {
 		applySchema(
 			is_doctype_dynamic.value
-				? [{ label: __("Dynamic Object"), fieldname: "doc", fieldtype: "JSON" }]
+				? [
+						{
+							label: __("Dynamic Object"),
+							fieldname: "doc",
+							fieldtype: "JSON",
+							reqd: 0,
+							source: {
+								kind: "dynamic",
+								fieldname: "doc",
+								expression: "doctype_name",
+							},
+						},
+					]
 				: []
 		);
 		return;
@@ -1165,13 +1178,27 @@ async function update_fetch_records_schema_local() {
 	if (isStale() || !meta) return;
 
 	const fieldInfoByPath = {};
-	const toSchemaField = (field, fieldname = field.fieldname, label = field.label) => ({
-		fieldname,
-		label: label || fieldname,
-		fieldtype: field.fieldtype || "Data",
-		options: field.options,
-		mandatory: field.reqd || 0,
-	});
+	const toSchemaField = (field, fieldname = field.fieldname, label = field.label) => {
+		const sourceFieldname = String(fieldname || field.fieldname || "");
+		const sourceKind = sourceFieldname.includes(".")
+			? "child_field"
+			: SYSTEM_FIELDS.some((item) => item.fieldname === sourceFieldname)
+				? "system"
+				: "field";
+		return {
+			fieldname: sourceFieldname,
+			label: label || sourceFieldname,
+			fieldtype: field.fieldtype || "Data",
+			...(field.options ? { options: field.options } : {}),
+			reqd: Number(field.reqd) === 1 ? 1 : 0,
+			source: field.source || {
+				kind: sourceKind,
+				fieldname: sourceFieldname,
+				expression: sourceFieldname,
+				...(sourceKind === "child_field" ? { table_fieldname: sourceFieldname.split(".", 1)[0] } : {}),
+			},
+		};
+	};
 	for (const field of meta.fields || []) {
 		if (field.fieldname) fieldInfoByPath[field.fieldname] = toSchemaField(field);
 	}
@@ -1241,7 +1268,7 @@ async function update_fetch_records_schema_local() {
 
 function set_resolved_output_schema(schema) {
 	if (!props.node?.data) return;
-	const next = Array.isArray(schema) ? schema : [];
+	const next = normalizeResolvedOutputSchema(Array.isArray(schema) ? schema : []);
 	let current = props.node.data.resolved_output_schema;
 	if (typeof current === "string") {
 		try {
@@ -1272,7 +1299,7 @@ async function update_resolved_schema_local() {
 		const fields = (config.fields || []).filter((f) => f);
 
 		if (!is_query_doc && !fields.length) {
-			props.node.data.resolved_output_schema = [];
+			set_resolved_output_schema([]);
 			return;
 		}
 
@@ -1280,9 +1307,15 @@ async function update_resolved_schema_local() {
 		const target_doctype = reference_doctype.value;
 		if (!target_doctype || is_doctype_dynamic.value) {
 			if (is_doctype_dynamic.value) {
-				props.node.data.resolved_output_schema = [
-					{ label: __("Dynamic Object"), fieldname: "doc", fieldtype: "JSON" },
-				];
+				set_resolved_output_schema([
+					{
+						label: __("Dynamic Object"),
+						fieldname: "doc",
+						fieldtype: "JSON",
+						reqd: 0,
+						source: { kind: "dynamic", fieldname: "doc", expression: "doctype_name" },
+					},
+				]);
 			}
 			return;
 		}
@@ -1310,7 +1343,9 @@ async function update_resolved_schema_local() {
 							label: `${table_df.label}: ${df.label}`,
 							fieldname: f,
 							fieldtype: df.fieldtype,
-							options: df.options,
+							...(df.options ? { options: df.options } : {}),
+							reqd: Number(df.reqd) === 1 ? 1 : 0,
+							source: { kind: "child_field", table_fieldname: table, fieldname: field, expression: f },
 						});
 					}
 				}
@@ -1329,7 +1364,14 @@ async function update_resolved_schema_local() {
 										label: `${df.label}: ${cf.label}`,
 										fieldname: `${df.fieldname}.${cf.fieldname}`,
 										fieldtype: cf.fieldtype,
-										options: cf.options,
+										...(cf.options ? { options: cf.options } : {}),
+										reqd: Number(cf.reqd) === 1 ? 1 : 0,
+										source: {
+										kind: "child_field",
+										table_fieldname: df.fieldname,
+										fieldname: cf.fieldname,
+										expression: `${df.fieldname}.${cf.fieldname}`,
+									},
 									});
 								}
 							});
@@ -1339,15 +1381,20 @@ async function update_resolved_schema_local() {
 							label: df.label,
 							fieldname: f,
 							fieldtype: df.fieldtype,
-							options: df.options,
+							...(df.options ? { options: df.options } : {}),
+							reqd: Number(df.reqd) === 1 ? 1 : 0,
+							source: {
+								kind: SYSTEM_FIELDS.some((item) => item.fieldname === f) ? "system" : "field",
+								fieldname: f,
+								expression: f,
+							},
 						});
 					}
 				}
 			}
 		}
 
-		props.node.data.resolved_output_schema = schema;
-		store.mark_dirty();
+		set_resolved_output_schema(schema);
 	} else if (mode.value === "Query Report" && props.node?.data?.reference_docname) {
 		await update_report_columns();
 	}
@@ -1387,19 +1434,30 @@ async function update_report_columns() {
 					return {
 						label: parts[0],
 						fieldname: parts[0],
-						fieldtype: fieldtype,
-						options: options,
+						fieldtype,
+						options,
+						reqd: 0,
+						source: {
+							kind: "report",
+							fieldname: parts[0],
+							expression: parts[0],
+						},
 					};
 				}
 				return {
 					label: c.label || c.fieldname,
-					fieldname: c.fieldname,
+					fieldname: c.fieldname || c.label,
 					fieldtype: c.fieldtype || "Data",
-					options: c.options,
+					...(c.options ? { options: c.options } : {}),
+					reqd: Number(c.reqd ?? c.mandatory) === 1 ? 1 : 0,
+					source: c.source || {
+						kind: "report",
+						fieldname: c.fieldname || c.label,
+						expression: c.fieldname || c.label,
+					},
 				};
 			});
-			props.node.data.resolved_output_schema = schema;
-			store.mark_dirty();
+			set_resolved_output_schema(schema);
 		}
 	} catch (e) {
 		console.warn("Failed to update report columns", e);
@@ -1849,7 +1907,7 @@ async function test_query() {
 				// rows: empty queries and aggregate results must keep their schema.
 				await update_fetch_records_schema_local();
 			} else {
-				props.node.data.resolved_output_schema = res.message.schema || [];
+				set_resolved_output_schema(res.message.schema || []);
 			}
 			test_status.value = __("Success");
 
@@ -1884,7 +1942,7 @@ const debounced_schema_update = flexirule.utils.debounce(async function update_r
 			const current = JSON.stringify(props.node.data.resolved_output_schema || []);
 			const next = JSON.stringify(res.message.schema || []);
 			if (current !== next) {
-				props.node.data.resolved_output_schema = res.message.schema;
+				set_resolved_output_schema(res.message.schema);
 
 				const isDraft = !store.nodes.some((n) => n === props.node);
 				if (!isDraft) {

@@ -26,6 +26,7 @@ import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { getConditionPayload } from "../utils/condition_payload";
 import { generateShortId } from "../utils/schema_utils.js";
 import { deepClone } from "../utils/serialization.js";
+import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
 
 export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Core graph state ──
@@ -1339,6 +1340,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			normalized.return_type = null;
 			normalized.resolved_output_schema = null;
 		} else {
+			normalized.resolved_output_schema = normalizeResolvedOutputSchema(normalized.resolved_output_schema);
 			if (
 				normalized.return_type &&
 				allowedReturnTypes.length &&
@@ -1547,7 +1549,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				reference_docname: action.reference_docname,
 				mutation_mode: action.mutation_mode,
 				return_type: action.return_type,
-				resolved_output_schema: safeParse(action.resolved_output_schema),
+				resolved_output_schema: normalizeResolvedOutputSchema(safeParse(action.resolved_output_schema)),
 				input_mapping: effectiveConfig.input_mapping || null,
 				output_mapping: effectiveConfig.output_mapping || null,
 			};

@@ -7,6 +7,7 @@ import {
 	serializeOutputFields,
 	validateOutputFields,
 } from "./output_fields_model.js";
+import { normalizeResolvedOutputSchema } from "../../../../../utils/output_schema.js";
 
 assert.equal(inferResultShape(undefined), RESULT_SHAPES.documentNames);
 assert.equal(inferResultShape("*"), RESULT_SHAPES.wholeDocuments);
@@ -122,34 +123,73 @@ const aliasedSchema = buildResolvedOutputSchema({
 	shape: RESULT_SHAPES.selectedFields,
 	fields: ["voucher_type as reference_doctype", "title", "count(name) as totals"],
 	fieldInfoByPath: {
-		voucher_type: { label: "Voucher Type", fieldtype: "Select" },
-		title: { label: "Title", fieldtype: "Data" },
-		name: { label: "ID (name)", fieldtype: "Data" },
+		voucher_type: { label: "Voucher Type", fieldtype: "Select", reqd: 1 },
+		title: { label: "Title", fieldtype: "Data", reqd: 0 },
+		name: { label: "ID (name)", fieldtype: "Data", reqd: 0 },
 	},
 });
 assert.deepEqual(
-	aliasedSchema.map(({ fieldname, label, fieldtype }) => ({ fieldname, label, fieldtype })),
+	aliasedSchema.map(({ fieldname, label, fieldtype, reqd }) => ({ fieldname, label, fieldtype, reqd })),
 	[
-		{ fieldname: "reference_doctype", label: "Reference Doctype", fieldtype: "Select" },
-		{ fieldname: "title", label: "Title", fieldtype: "Data" },
-		{ fieldname: "totals", label: "Totals", fieldtype: "Int" },
+		{ fieldname: "reference_doctype", label: "Reference Doctype", fieldtype: "Select", reqd: 1 },
+		{ fieldname: "title", label: "Title", fieldtype: "Data", reqd: 0 },
+		{ fieldname: "totals", label: "Totals", fieldtype: "Int", reqd: 0 },
 	]
 );
+assert.deepEqual(aliasedSchema[0].source, {
+	kind: "field",
+	fieldname: "voucher_type",
+	expression: "voucher_type as reference_doctype",
+});
+assert.deepEqual(aliasedSchema[2].source, {
+	kind: "aggregate",
+	function: "count",
+	fieldname: "name",
+	expression: "count(name) as totals",
+});
 
 const wholeDocumentSchema = buildResolvedOutputSchema({
 	shape: RESULT_SHAPES.wholeDocuments,
 	wholeDocumentFields: [
-		{ fieldname: "title", label: "Title", fieldtype: "Data" },
-		{ fieldname: "status", label: "Status", fieldtype: "Select" },
+		{
+			fieldname: "title",
+			label: "Title",
+			fieldtype: "Data",
+			reqd: 1,
+			source: { kind: "field", fieldname: "title", expression: "title" },
+		},
+		{ fieldname: "status", label: "Status", fieldtype: "Select", reqd: 0 },
 	],
 	systemFields: [
-		{ fieldname: "name", label: "ID (name)", fieldtype: "Data" },
+		{
+			fieldname: "name",
+			label: "ID (name)",
+			fieldtype: "Data",
+			reqd: 0,
+			source: { kind: "system", fieldname: "name", expression: "name" },
+		},
 		{ fieldname: "owner", label: "Created By (owner)", fieldtype: "Link", options: "User" },
 	],
 });
 assert.deepEqual(
 	wholeDocumentSchema.map((field) => field.fieldname),
 	["title", "status", "name", "owner"]
+);
+assert.equal(wholeDocumentSchema[0].reqd, 1);
+assert.deepEqual(wholeDocumentSchema[0].source, { kind: "field", fieldname: "title", expression: "title" });
+assert.equal(wholeDocumentSchema[2].reqd, 0);
+assert.deepEqual(wholeDocumentSchema[2].source, { kind: "system", fieldname: "name", expression: "name" });
+assert.deepEqual(
+	normalizeResolvedOutputSchema([
+		{ fieldname: "legacy_key", fieldtype: "Data", mandatory: 1, source: { kind: "field" } },
+		{ fieldname: "optional_key", fieldtype: "Int", mandatory: 0 },
+		{ fieldname: "canonical_key", fieldtype: "Data", reqd: 1 },
+	]),
+	[
+		{ fieldname: "legacy_key", fieldtype: "Data", source: { kind: "field" }, reqd: 1 },
+		{ fieldname: "optional_key", fieldtype: "Int", reqd: 0 },
+		{ fieldname: "canonical_key", fieldtype: "Data", reqd: 1 },
+	]
 );
 
 console.log("output fields model tests passed");

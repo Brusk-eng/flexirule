@@ -144,7 +144,7 @@
 					<ControlFactory
 						:df="resolvedSchemaField"
 						:modelValue="serializeSchema(node.data?.resolved_output_schema)"
-						@update:modelValue="updateField('resolved_output_schema', $event)"
+						@update:modelValue="updateResolvedSchema"
 					/>
 				</div>
 			</div>
@@ -157,6 +157,7 @@ import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
+import { normalizeResolvedOutputSchema } from "../../../utils/output_schema.js";
 import {
 	applyOutputPolicyDefaults,
 	getContract,
@@ -341,9 +342,9 @@ const resolvedSchemaField = {
 
 const detectedKeys = computed(() => {
 	const schema = props.node?.data?.resolved_output_schema;
-	if (Array.isArray(schema)) return schema;
+	if (Array.isArray(schema)) return normalizeResolvedOutputSchema(schema);
 	try {
-		return typeof schema === "string" ? JSON.parse(schema) : [];
+		return normalizeResolvedOutputSchema(typeof schema === "string" ? JSON.parse(schema) : []);
 	} catch (e) {
 		return [];
 	}
@@ -351,12 +352,17 @@ const detectedKeys = computed(() => {
 
 function serializeSchema(val) {
 	if (!val) return "[]";
-	if (typeof val === "string") return val;
+	const normalized = normalizeResolvedOutputSchema(val);
+	if (typeof normalized === "string") return normalized;
 	try {
-		return JSON.stringify(val, null, 2);
+		return JSON.stringify(normalized, null, 2);
 	} catch (e) {
 		return "[]";
 	}
+}
+
+function updateResolvedSchema(value) {
+	updateField("resolved_output_schema", normalizeResolvedOutputSchema(value));
 }
 
 // -- Mapping Logic --

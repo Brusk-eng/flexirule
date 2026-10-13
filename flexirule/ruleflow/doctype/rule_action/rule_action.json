@@ -290,7 +290,7 @@
   },
   {
    "depends_on": "eval:doc.return_type || doc.resolved_output_schema",
-   "description": "Return keys schema: [{\"fieldname\": \"field_name\",fieldtype\":\"\",options\":\"\",\"label\":\"Field Label\"}]\nWhen return Type is Boolen then value will be assign to Return Variable Name",
+   "description": "Resolved output schema fields use label, fieldname (actual result key), fieldtype, optional options, reqd (Frappe-style requiredness metadata), and optional source provenance: {kind, fieldname?, table_fieldname?, function?, expression?}. source does not affect runtime values. Legacy mandatory is normalized to reqd.\nWhen return Type is Boolean, the value is assigned to Return Variable Name.",
    "fieldname": "resolved_output_schema",
    "fieldtype": "Code",
    "label": "Result Fields",
