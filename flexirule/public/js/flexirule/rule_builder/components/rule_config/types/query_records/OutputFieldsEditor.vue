@@ -138,7 +138,9 @@
 					<div v-else-if="row.kind === 'literal'" class="output-literal-controls">
 						<div class="output-field-controls">
 							<div class="output-field-control">
-								<label class="output-field-label">{{ __("Output field name") }}</label>
+								<label class="output-field-label">{{
+									__("Output field name")
+								}}</label>
 								<input
 									class="form-control"
 									:value="row.fieldname"
@@ -165,19 +167,30 @@
 									:disabled="readOnly"
 									@change="updateRowValue(row, 'fieldtype', $event.target.value)"
 								>
-									<option v-for="type in literalFieldTypes" :key="type.value" :value="type.value">
+									<option
+										v-for="type in literalFieldTypes"
+										:key="type.value"
+										:value="type.value"
+									>
 										{{ type.label }}
 									</option>
 								</select>
 							</div>
 						</div>
-						<div v-if="['Link', 'Select'].includes(row.fieldtype)" class="output-field-control">
+						<div
+							v-if="['Link', 'Select'].includes(row.fieldtype)"
+							class="output-field-control"
+						>
 							<label class="output-field-label">{{ __("Options") }}</label>
 							<input
 								class="form-control"
 								:value="row.options || ''"
 								:disabled="readOnly"
-								:placeholder="row.fieldtype === 'Link' ? __('Customer') : __('Option A / Option B')"
+								:placeholder="
+									row.fieldtype === 'Link'
+										? __('Customer')
+										: __('Option A / Option B')
+								"
 								@input="updateRowValue(row, 'options', $event.target.value)"
 							/>
 						</div>

@@ -438,10 +438,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 	}
 	const outputNames = new Set();
 	if (!list.length) errors.push("Add at least one output field.");
-	if (
-		list.some((row) => row.kind === "literal") &&
-		!list.some((row) => row.kind !== "literal")
-	) {
+	if (list.some((row) => row.kind === "literal") && !list.some((row) => row.kind !== "literal")) {
 		errors.push("Literal columns must be paired with at least one source field or aggregate.");
 	}
 	if (shape === RESULT_SHAPES.embeddedChildren && !list.some((row) => row.kind === "child")) {
@@ -494,7 +491,20 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			}
 			if (!String(row.label ?? "").trim()) errors.push(prefix + "enter a label.");
 			const fieldtype = String(row.fieldtype || "Data");
-			if (!["Data", "Int", "Float", "Currency", "Check", "Date", "Datetime", "Time", "Link", "Select"].includes(fieldtype)) {
+			if (
+				![
+					"Data",
+					"Int",
+					"Float",
+					"Currency",
+					"Check",
+					"Date",
+					"Datetime",
+					"Time",
+					"Link",
+					"Select",
+				].includes(fieldtype)
+			) {
 				errors.push(prefix + "choose a supported output field type.");
 			}
 			if (["Link", "Select"].includes(fieldtype) && !String(row.options || "").trim()) {

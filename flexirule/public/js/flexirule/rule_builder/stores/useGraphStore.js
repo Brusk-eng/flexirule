@@ -423,7 +423,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 						});
 					};
 					addSchemaFields(schema, root);
-
 				} else if (
 					ACTION_TYPES_WITH_RETURN_SCHEMA.has(data.action_type) &&
 					data.reference_doctype &&

@@ -302,7 +302,10 @@ const literalColumns = [
 	},
 	"count(name) as issued_count",
 ];
-assert.deepEqual(parseOutputFields(literalColumns).map((row) => row.kind), ["literal", "function"]);
+assert.deepEqual(
+	parseOutputFields(literalColumns).map((row) => row.kind),
+	["literal", "function"]
+);
 assert.deepEqual(serializeOutputFields(parseOutputFields(literalColumns)), literalColumns);
 assert.deepEqual(
 	buildResolvedOutputSchema({
@@ -335,7 +338,10 @@ assert.deepEqual(
 		},
 	]
 );
-assert.equal(validateOutputFields(parseOutputFields(literalColumns), RESULT_SHAPES.selectedFields).length, 0);
+assert.equal(
+	validateOutputFields(parseOutputFields(literalColumns), RESULT_SHAPES.selectedFields).length,
+	0
+);
 assert.ok(
 	validateOutputFields(
 		parseOutputFields([

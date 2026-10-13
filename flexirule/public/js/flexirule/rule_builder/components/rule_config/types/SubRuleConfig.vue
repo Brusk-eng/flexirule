@@ -51,8 +51,15 @@
 				<strong>{{ __("Sub-Rule interface needs attention") }}</strong>
 				<div v-for="error in contractErrors" :key="error">{{ error }}</div>
 			</div>
-			<div v-else-if="subRuleContract && !subRuleContract.input_schema_declared" class="alert alert-light py-2 px-3 small mb-3">
-				{{ __("This Sub-Rule uses inferred legacy inputs. Declaring an Input Schema on the target Rule makes the interface explicit and validates mappings against it.") }}
+			<div
+				v-else-if="subRuleContract && !subRuleContract.input_schema_declared"
+				class="alert alert-light py-2 px-3 small mb-3"
+			>
+				{{
+					__(
+						"This Sub-Rule uses inferred legacy inputs. Declaring an Input Schema on the target Rule makes the interface explicit and validates mappings against it."
+					)
+				}}
 			</div>
 
 			<div class="sub-section section-subcard">
@@ -115,10 +122,22 @@
 								@change="sync_local_config"
 							>
 								<option value="">{{ __("Select Sub-Rule input") }}</option>
-								<option v-for="target in inputTargetOptions" :key="target.fieldname" :value="target.fieldname">
+								<option
+									v-for="target in inputTargetOptions"
+									:key="target.fieldname"
+									:value="target.fieldname"
+								>
 									{{ target.label }} ({{ target.fieldname }})
 								</option>
-								<option v-if="row.target && !inputTargetOptions.some((target) => target.fieldname === row.target)" :value="row.target">
+								<option
+									v-if="
+										row.target &&
+										!inputTargetOptions.some(
+											(target) => target.fieldname === row.target
+										)
+									"
+									:value="row.target"
+								>
 									{{ row.target }} — {{ __("not declared by target") }}
 								</option>
 							</select>
@@ -330,7 +349,10 @@ async function validate() {
 			);
 		}
 		const missingRequired = [...declaredInputs.values()]
-			.filter((field) => field.reqd && field.default == null && !mappedTargets.has(field.fieldname))
+			.filter(
+				(field) =>
+					field.reqd && field.default == null && !mappedTargets.has(field.fieldname)
+			)
 			.map((field) => field.fieldname);
 		if (missingRequired.length) {
 			errors.push(
