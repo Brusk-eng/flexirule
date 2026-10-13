@@ -6,30 +6,7 @@ export const RESULT_SHAPES = Object.freeze({
 });
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
-const ALIAS_PATTERN = /^[a-z_][a-z0-9_]*$/;
-
-/**
- * Normalize an output alias with Frappe's own scrubber when available.
- * Keep a predictable fallback for unit tests that run without the Frappe UI.
- */
-export function scrubOutputAlias(value) {
-	const raw = String(value ?? "").trim();
-	if (!raw) return "";
-	const camelSeparated = raw.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
-	let scrubbed = camelSeparated;
-	if (typeof frappe !== "undefined" && typeof frappe.scrub === "function") {
-		scrubbed = frappe.scrub(camelSeparated);
-	}
-	scrubbed = String(scrubbed ?? camelSeparated)
-		.normalize("NFKD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.replace(/[^A-Za-z0-9_]+/g, "_")
-		.replace(/_+/g, "_")
-		.replace(/^_+|_+$/g, "")
-		.toLowerCase();
-	if (/^\d/.test(scrubbed)) scrubbed = "_" + scrubbed;
-	return scrubbed;
-}
+const ALIAS_PATTERN = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
 
 function humanizeAlias(value) {
 	return String(value ?? "")
@@ -103,9 +80,9 @@ function splitTopLevelExpressions(input) {
 function parseAlias(expression) {
 	const match = String(expression)
 		.trim()
-		.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+		.match(/^(.+?)\s+as\s+(.+)$/i);
 	if (!match) return { expression: String(expression).trim(), alias: "" };
-	return { expression: match[1].trim(), alias: scrubOutputAlias(match[2]) };
+	return { expression: match[1].trim(), alias: match[2].trim() };
 }
 function createRow(kind, index, values = {}) {
 	return {
@@ -175,7 +152,7 @@ export function parseOutputFields(value) {
 					createRow("function", index++, {
 						functionName: aggregateKey.toLowerCase(),
 						field: String(item[aggregateKey] ?? ""),
-						alias: scrubOutputAlias(item.as ?? ""),
+						alias: String(item.as ?? "").trim(),
 						originalValue: clone(item),
 					})
 				);
@@ -206,13 +183,13 @@ export function serializeOutputFields(rows) {
 	return (Array.isArray(rows) ? rows : []).map((row) => {
 		if (row.kind === "field") {
 			const field = String(row.field ?? "").trim();
-			const alias = scrubOutputAlias(row.alias);
+			const alias = String(row.alias ?? "").trim();
 			return field && alias ? field + " as " + alias : field;
 		}
 		if (row.kind === "function") {
 			const fn = String(row.functionName ?? "count").toLowerCase();
 			const field = String(row.field ?? "").trim();
-			const alias = scrubOutputAlias(row.alias);
+			const alias = String(row.alias ?? "").trim();
 			const expression = fn + "(" + field + ")";
 			return alias ? expression + " as " + alias : expression;
 		}
@@ -291,7 +268,7 @@ export function buildResolvedOutputSchema({
 			const source = String(row.field ?? "").trim();
 			if (!source) continue;
 			const info = sourceInfo(source);
-			const alias = scrubOutputAlias(row.alias);
+			const alias = String(row.alias ?? "").trim();
 			add({
 				...info,
 				fieldname: alias || source,
@@ -300,7 +277,7 @@ export function buildResolvedOutputSchema({
 		} else if (row.kind === "function") {
 			const source = String(row.field ?? "").trim();
 			const fn = String(row.functionName ?? "count").toLowerCase();
-			const alias = scrubOutputAlias(row.alias);
+			const alias = String(row.alias ?? "").trim();
 			if (!source || !alias) continue;
 			const info = sourceInfo(source);
 			const numericType = [
@@ -348,8 +325,8 @@ export function buildResolvedOutputSchema({
 		} else if (row.kind === "raw") {
 			const expression = String(row.expression ?? "").trim();
 			if (!expression) continue;
-			const match = expression.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
-			const alias = match ? scrubOutputAlias(match[2]) : "";
+			const match = expression.match(/^(.+?)\s+as\s+(.+)$/i);
+			const alias = match ? match[2].trim() : "";
 			const fieldname = alias || expression;
 			add({
 				fieldname,
@@ -421,7 +398,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 				if (row.kind !== "function") {
 					errors.push(
 						prefix +
-							"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
+							"alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words."
 					);
 				}
 			} else if (aliases.has(alias)) {
