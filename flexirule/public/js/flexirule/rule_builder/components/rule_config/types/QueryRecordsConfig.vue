@@ -1139,12 +1139,21 @@ const SYSTEM_FIELDS = [
  * "whole_documents" shape is represented by fields="*" rather than an empty
  * field list.
  */
+let fetch_records_schema_request_id = 0;
+
 async function update_fetch_records_schema_local() {
+	const requestId = ++fetch_records_schema_request_id;
+	const isStale = () =>
+		requestId !== fetch_records_schema_request_id || mode.value !== "Fetch Records";
+	const applySchema = (schema) => {
+		if (!isStale()) set_resolved_output_schema(schema);
+	};
+
 	if (!props.node?.data) return;
 
 	const targetDoctype = reference_doctype.value;
 	if (!targetDoctype || is_doctype_dynamic.value) {
-		set_resolved_output_schema(
+		applySchema(
 			is_doctype_dynamic.value
 				? [{ label: __("Dynamic Object"), fieldname: "doc", fieldtype: "JSON" }]
 				: []
@@ -1153,7 +1162,7 @@ async function update_fetch_records_schema_local() {
 	}
 
 	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
-	if (!meta) return;
+	if (isStale() || !meta) return;
 
 	const fieldInfoByPath = {};
 	const toSchemaField = (field, fieldname = field.fieldname, label = field.label) => ({
@@ -1184,12 +1193,14 @@ async function update_fetch_records_schema_local() {
 	}
 
 	for (const path of paths) {
+		if (isStale()) return;
 		if (!path.includes(".")) continue;
 		const [rootName, nestedName] = path.split(".", 2);
 		const rootField = (meta.fields || []).find((field) => field.fieldname === rootName);
 		if (!rootField?.options || !nestedName) continue;
 		try {
 			const relatedMeta = await flexirule.utils.get_doctype_meta(rootField.options);
+			if (isStale()) return;
 			const nestedField = (relatedMeta?.fields || []).find(
 				(field) => field.fieldname === nestedName
 			);
@@ -1225,7 +1236,7 @@ async function update_fetch_records_schema_local() {
 		wholeDocumentFields,
 		systemFields: SYSTEM_FIELDS.map((field) => toSchemaField(field)),
 	});
-	set_resolved_output_schema(schema);
+	applySchema(schema);
 }
 
 function set_resolved_output_schema(schema) {
