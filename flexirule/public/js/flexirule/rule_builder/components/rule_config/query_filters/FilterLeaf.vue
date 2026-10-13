@@ -2,11 +2,7 @@
 	<div v-if="!doctype" class="text-muted small p-2">
 		{{ __("Select a DocType to configure filters.") }}
 	</div>
-	<div
-		v-else
-		class="filter-row"
-		:class="{ 'is-invalid': validationVisible && leafInvalid }"
-	>
+	<div v-else class="filter-row" :class="{ 'is-invalid': validationVisible && leafInvalid }">
 		<div class="filter-row-main">
 			<div class="filter-col field-col">
 				<label class="filter-col-label">
@@ -169,8 +165,7 @@ function isConfigured(value) {
 						raw.length > 0 &&
 						raw.every(
 							(item) =>
-								!isEmpty(item) &&
-								!(typeof item === "string" && item.trim() === "")
+								!isEmpty(item) && !(typeof item === "string" && item.trim() === "")
 						)
 					);
 				}
