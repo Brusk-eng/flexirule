@@ -1197,7 +1197,8 @@ async function update_fetch_records_schema_local() {
 				fieldInfoByPath[path] = toSchemaField(
 					nestedField,
 					path,
-					(rootField.label || rootName) + ": " +
+					(rootField.label || rootName) +
+						": " +
 						(nestedField.label || nestedField.fieldname)
 				);
 			}
