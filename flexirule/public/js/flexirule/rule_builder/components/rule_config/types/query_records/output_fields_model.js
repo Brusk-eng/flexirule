@@ -318,12 +318,12 @@ export function buildResolvedOutputSchema({
 					fn === "count"
 						? "Int"
 						: fn === "avg"
-							? "Float"
-							: ["min", "max"].includes(fn)
-								? info.fieldtype || "Data"
-								: numericType
-									? info.fieldtype
-									: "Float",
+						? "Float"
+						: ["min", "max"].includes(fn)
+							? info.fieldtype || "Data"
+							: numericType
+								? info.fieldtype
+								: "Float",
 				mandatory: 0,
 			});
 		} else if (row.kind === "child") {
