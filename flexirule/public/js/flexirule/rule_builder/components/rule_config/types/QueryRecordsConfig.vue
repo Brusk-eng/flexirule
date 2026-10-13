@@ -806,9 +806,9 @@ onMounted(async () => {
 	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
-		// Do not silently elevate an existing saved action with an explicit false.
-		// New/migrated actions with no value receive the v15-safe UI default.
-		applyFetchRecordsFrappe15Defaults({ onlyWhenUnset: true });
+		// Enforce the Frappe 15 Fetch Records permission-bypass requirement after
+		// loading the saved action; the node data remains the source of truth.
+		applyFetchRecordsFrappe15Defaults();
 		if (mode.value === "Query Doc") {
 			await reconcile_query_doc_state();
 		} else if (reference_doctype.value) {
@@ -1519,13 +1519,13 @@ function update_action_key(key, value) {
 	props.node.data[key] = value;
 }
 
-function applyFetchRecordsFrappe15Defaults({ onlyWhenUnset = true } = {}) {
+function applyFetchRecordsFrappe15Defaults() {
 	if (props.readOnly || !props.node?.data) return;
 	if (mode.value !== "Fetch Records" || !isFrappe15.value) return;
 	const current = props.node.data.ignore_permissions;
-	// A saved false value is a deliberate choice and must survive mode switches.
-	// Only supply the v15 default when the document has no value at all.
-	if (onlyWhenUnset && current !== undefined && current !== null && current !== "") return;
+	// Frappe 15's Fetch Records Query Builder path cannot provide the expected
+	// permission-aware read behavior. This mode must use the audited bypass;
+	// keep the value in node data so the control and save pipeline share state.
 	if (![true, 1, "1"].includes(current)) {
 		props.node.data.ignore_permissions = 1;
 		store.mark_dirty();
