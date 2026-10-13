@@ -47,10 +47,19 @@
 						<SelectControl
 							v-if="!readOnly"
 							class="assign-type-select"
-							:df="{ fieldtype: 'Select', options: ['Value', 'Variable', 'Expression'], reqd: 1 }"
+							:df="{
+								fieldtype: 'Select',
+								options: ['Value', 'Variable', 'Expression'],
+								reqd: 1,
+							}"
 							:modelValue="assignToType"
 							:hideLabel="true"
-							@update:modelValue="(val) => { assignToType = val; onAssignToTypeChange(); }"
+							@update:modelValue="
+								(val) => {
+									assignToType = val;
+									onAssignToTypeChange();
+								}
+							"
 						/>
 					</div>
 					<ControlFactory

@@ -102,7 +102,22 @@
 						v-else-if="row.kind === 'function'"
 						class="output-field-controls output-function-controls"
 					>
-						<SelectControl class="form-control output-function-select" :df="{ fieldtype: 'Select', label: '', options: aggregateFunctions, reqd: 1 }" :modelValue="row.functionName" :read_only="readOnly" :hideLabel="true" :aria-label="__('Aggregate function')" @update:modelValue="(value) => updateRowValue(row, 'functionName', value)" />
+						<SelectControl
+							class="form-control output-function-select"
+							:df="{
+								fieldtype: 'Select',
+								label: '',
+								options: aggregateFunctions,
+								reqd: 1,
+							}"
+							:modelValue="row.functionName"
+							:read_only="readOnly"
+							:hideLabel="true"
+							:aria-label="__('Aggregate function')"
+							@update:modelValue="
+								(value) => updateRowValue(row, 'functionName', value)
+							"
+						/>
 						<OutputFieldPicker
 							:doctype="doctype"
 							:modelValue="row.field"
@@ -124,7 +139,14 @@
 					<div v-else-if="row.kind === 'child'" class="output-child-controls">
 						<div class="output-child-table">
 							<label class="output-field-label">{{ __("Child table") }}</label>
-							<SelectControl class="form-control" :df="{ fieldtype: 'Select', label: '', options: childTableOptions }" :modelValue="row.tableField" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => changeChildTable(row, value)" />
+							<SelectControl
+								class="form-control"
+								:df="{ fieldtype: 'Select', label: '', options: childTableOptions }"
+								:modelValue="row.tableField"
+								:read_only="readOnly"
+								:hideLabel="true"
+								@update:modelValue="(value) => changeChildTable(row, value)"
+							/>
 						</div>
 						<div class="output-child-fields">
 							<label class="output-field-label">{{ __("Child fields") }}</label>

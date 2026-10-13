@@ -290,13 +290,48 @@ onMounted(fetchChildMeta);
 			<!-- Logic -->
 			<div class="header-col" style="width: 100px">
 				<label class="fxr-label">{{ __("Match") }}</label>
-				<SelectControl class="fxr-select" :df="{ fieldtype: 'Select', label: '', options: [{ label: 'Any', value: 'any' }, { label: 'All', value: 'all' }, { label: 'None', value: 'none' }], reqd: 1 }" :modelValue="node.op" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => (node.op = value)" />
+				<SelectControl
+					class="fxr-select"
+					:df="{
+						fieldtype: 'Select',
+						label: '',
+						options: [
+							{ label: 'Any', value: 'any' },
+							{ label: 'All', value: 'all' },
+							{ label: 'None', value: 'none' },
+						],
+						reqd: 1,
+					}"
+					:modelValue="node.op"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="(value) => (node.op = value)"
+				/>
 			</div>
 
 			<!-- Table -->
 			<div class="header-col flex-grow-1">
 				<label class="fxr-label">{{ __("Table") }}</label>
-				<SelectControl class="fxr-select" :df="{ fieldtype: 'Select', label: '', options: tableFields.map((field) => ({ label: field.label, value: field.value })) }" :modelValue="node.collection" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => { node.collection = value; fetchChildMeta(); }" />
+				<SelectControl
+					class="fxr-select"
+					:df="{
+						fieldtype: 'Select',
+						label: '',
+						options: tableFields.map((field) => ({
+							label: field.label,
+							value: field.value,
+						})),
+					}"
+					:modelValue="node.collection"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="
+						(value) => {
+							node.collection = value;
+							fetchChildMeta();
+						}
+					"
+				/>
 			</div>
 
 			<!-- Alias -->

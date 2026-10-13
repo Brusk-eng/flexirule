@@ -228,7 +228,13 @@ onMounted(async () => {
 		<!-- Trigger Type -->
 		<div class="form-group" :class="{ 'has-error': showValidation && !nodeData?.trigger_type }">
 			<label class="control-label">{{ __("Trigger Type") }}</label>
-			<SelectControl :df="{ fieldtype: 'Select', label: '', options: trigger_type_options, reqd: 1 }" :modelValue="nodeData?.trigger_type" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => update_field('trigger_type', value)" />
+			<SelectControl
+				:df="{ fieldtype: 'Select', label: '', options: trigger_type_options, reqd: 1 }"
+				:modelValue="nodeData?.trigger_type"
+				:read_only="readOnly"
+				:hideLabel="true"
+				@update:modelValue="(value) => update_field('trigger_type', value)"
+			/>
 			<div v-if="trigger_type_description" class="description text-muted mt-1">
 				{{ __(trigger_type_description) }}
 			</div>
@@ -265,7 +271,13 @@ onMounted(async () => {
 		<!-- Trigger Event -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Trigger Event") }}</label>
-			<SelectControl :df="{ fieldtype: 'Select', label: '', options: trigger_event_options }" :modelValue="nodeData?.trigger_event" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => update_field('trigger_event', value)" />
+			<SelectControl
+				:df="{ fieldtype: 'Select', label: '', options: trigger_event_options }"
+				:modelValue="nodeData?.trigger_event"
+				:read_only="readOnly"
+				:hideLabel="true"
+				@update:modelValue="(value) => update_field('trigger_event', value)"
+			/>
 		</div>
 
 		<!-- Entry Condition (Execution Gate) -->
@@ -307,7 +319,13 @@ onMounted(async () => {
 		<!-- Priority -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Priority") }}</label>
-			<SelectControl :df="{ fieldtype: 'Select', label: '', options: priority_options, reqd: 1 }" :modelValue="nodeData?.priority" :read_only="readOnly || is_manual_trigger" :hideLabel="true" @update:modelValue="(value) => update_field('priority', value)" />
+			<SelectControl
+				:df="{ fieldtype: 'Select', label: '', options: priority_options, reqd: 1 }"
+				:modelValue="nodeData?.priority"
+				:read_only="readOnly || is_manual_trigger"
+				:hideLabel="true"
+				@update:modelValue="(value) => update_field('priority', value)"
+			/>
 			<div v-if="is_manual_trigger" class="description text-muted mt-1">
 				{{ __("Manual trigger rules must use priority 0.") }}
 			</div>
@@ -316,7 +334,18 @@ onMounted(async () => {
 		<!-- Execution Mode -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Execution Mode") }}</label>
-			<SelectControl :df="{ fieldtype: 'Select', label: '', options: ['Synchronous', 'Asynchronous'], reqd: 1 }" :modelValue="nodeData?.execution_mode" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => update_field('execution_mode', value)" />
+			<SelectControl
+				:df="{
+					fieldtype: 'Select',
+					label: '',
+					options: ['Synchronous', 'Asynchronous'],
+					reqd: 1,
+				}"
+				:modelValue="nodeData?.execution_mode"
+				:read_only="readOnly"
+				:hideLabel="true"
+				@update:modelValue="(value) => update_field('execution_mode', value)"
+			/>
 		</div>
 
 		<!-- Max Execution Time -->

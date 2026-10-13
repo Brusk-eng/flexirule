@@ -65,7 +65,21 @@
 
 					<!-- Operator -->
 					<div class="filter-col operator-col">
-						<SelectControl class="form-control input-xs" :df="{ fieldtype: 'Select', label: '', options: getOperatorsForField(getFieldDef(row.field, row.doctype)).map((op) => ({ label: getOperatorLabel(op, row), value: op })), reqd: 1 }" :modelValue="row.operator" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => updateRow(idx, { operator: value })" />
+						<SelectControl
+							class="form-control input-xs"
+							:df="{
+								fieldtype: 'Select',
+								label: '',
+								options: getOperatorsForField(
+									getFieldDef(row.field, row.doctype)
+								).map((op) => ({ label: getOperatorLabel(op, row), value: op })),
+								reqd: 1,
+							}"
+							:modelValue="row.operator"
+							:read_only="readOnly"
+							:hideLabel="true"
+							@update:modelValue="(value) => updateRow(idx, { operator: value })"
+						/>
 					</div>
 
 					<!-- Value / Expression -->

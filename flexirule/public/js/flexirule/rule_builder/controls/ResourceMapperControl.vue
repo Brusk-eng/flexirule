@@ -46,7 +46,21 @@
 		<div v-if="ui.copy_same_fields" class="rm-exclude-section">
 			<label class="rm-label-sm">{{ __("Exclude Fields") }}</label>
 			<div class="rm-exclude-row">
-				<SelectControl class="fxr-select" :df="{ fieldtype: 'Select', label: '', options: scalarTargetOptions.map((field) => ({ label: field.label || field.value, value: field.value })) }" :modelValue="pendingExcludeField" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => (pendingExcludeField = value)" />
+				<SelectControl
+					class="fxr-select"
+					:df="{
+						fieldtype: 'Select',
+						label: '',
+						options: scalarTargetOptions.map((field) => ({
+							label: field.label || field.value,
+							value: field.value,
+						})),
+					}"
+					:modelValue="pendingExcludeField"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="(value) => (pendingExcludeField = value)"
+				/>
 				<button v-if="!readOnly" class="fxr-btn fxr-btn--sm" @click="addExcludedField">
 					{{ __("Add") }}
 				</button>
@@ -220,7 +234,24 @@
 
 				<!-- Source Type -->
 				<div class="rm-cell rm-cell-type">
-					<SelectControl class="fxr-select" :class="{ 'has-error': showValidation && !row.source_type }" :df="{ fieldtype: 'Select', label: '', options: [{ label: 'Path', value: 'path' }, { label: 'Expr', value: 'expr' }, { label: 'Static', value: 'literal' }], reqd: 1 }" :modelValue="row.source_type" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => (row.source_type = value)" />
+					<SelectControl
+						class="fxr-select"
+						:class="{ 'has-error': showValidation && !row.source_type }"
+						:df="{
+							fieldtype: 'Select',
+							label: '',
+							options: [
+								{ label: 'Path', value: 'path' },
+								{ label: 'Expr', value: 'expr' },
+								{ label: 'Static', value: 'literal' },
+							],
+							reqd: 1,
+						}"
+						:modelValue="row.source_type"
+						:read_only="readOnly"
+						:hideLabel="true"
+						@update:modelValue="(value) => (row.source_type = value)"
+					/>
 				</div>
 
 				<!-- Source Value -->
@@ -334,7 +365,21 @@
 							@change="toggleSelectTable(tIdx)"
 							style="margin-top: 5px"
 						/>
-						<SelectControl class="fxr-select" :df="{ fieldtype: 'Select', label: '', options: tableTargetOptions.map((table) => ({ label: table.label, value: table.value })) }" :modelValue="table.target_table" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => (table.target_table = value)" />
+						<SelectControl
+							class="fxr-select"
+							:df="{
+								fieldtype: 'Select',
+								label: '',
+								options: tableTargetOptions.map((table) => ({
+									label: table.label,
+									value: table.value,
+								})),
+							}"
+							:modelValue="table.target_table"
+							:read_only="readOnly"
+							:hideLabel="true"
+							@update:modelValue="(value) => (table.target_table = value)"
+						/>
 
 						<input
 							class="fxr-input"
@@ -522,7 +567,20 @@
 							/>
 						</div>
 						<div class="rm-cell rm-cell-target">
-							<SelectControl class="fxr-select" :df="{ fieldtype: 'Select', label: '', options: getChildFieldOptions(table.target_table).map((field) => ({ label: field.label, value: field.value })) }" :modelValue="row.target" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => (row.target = value)" />
+							<SelectControl
+								class="fxr-select"
+								:df="{
+									fieldtype: 'Select',
+									label: '',
+									options: getChildFieldOptions(table.target_table).map(
+										(field) => ({ label: field.label, value: field.value })
+									),
+								}"
+								:modelValue="row.target"
+								:read_only="readOnly"
+								:hideLabel="true"
+								@update:modelValue="(value) => (row.target = value)"
+							/>
 						</div>
 
 						<div class="rm-cell rm-cell-arrow">
@@ -530,7 +588,23 @@
 						</div>
 
 						<div class="rm-cell rm-cell-type">
-							<SelectControl class="fxr-select" :df="{ fieldtype: 'Select', label: '', options: [{ label: 'Path', value: 'path' }, { label: 'Expr', value: 'expr' }, { label: 'Static', value: 'literal' }], reqd: 1 }" :modelValue="row.source_type" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => (row.source_type = value)" />
+							<SelectControl
+								class="fxr-select"
+								:df="{
+									fieldtype: 'Select',
+									label: '',
+									options: [
+										{ label: 'Path', value: 'path' },
+										{ label: 'Expr', value: 'expr' },
+										{ label: 'Static', value: 'literal' },
+									],
+									reqd: 1,
+								}"
+								:modelValue="row.source_type"
+								:read_only="readOnly"
+								:hideLabel="true"
+								@update:modelValue="(value) => (row.source_type = value)"
+							/>
 						</div>
 
 						<div class="rm-cell rm-cell-source">

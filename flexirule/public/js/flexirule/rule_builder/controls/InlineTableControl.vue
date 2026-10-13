@@ -235,7 +235,25 @@ defineExpose({ validate });
 							:data-label="__(col.label)"
 						>
 							<!-- Select with dynamic options -->
-							<SelectControl v-if="col.fieldtype === 'Select'" class="input-custom" :df="{ fieldtype: 'Select', label: '', options: getFieldOptions(col, idx).map((opt) => typeof opt === 'object' ? { label: opt.label || opt.value, value: opt.value } : { label: opt, value: opt }) }" :modelValue="row[col.fieldname]" :read_only="read_only" :hideLabel="true" @update:modelValue="(value) => updateCell(idx, col.fieldname, value)" />
+							<SelectControl
+								v-if="col.fieldtype === 'Select'"
+								class="input-custom"
+								:df="{
+									fieldtype: 'Select',
+									label: '',
+									options: getFieldOptions(col, idx).map((opt) =>
+										typeof opt === 'object'
+											? { label: opt.label || opt.value, value: opt.value }
+											: { label: opt, value: opt }
+									),
+								}"
+								:modelValue="row[col.fieldname]"
+								:read_only="read_only"
+								:hideLabel="true"
+								@update:modelValue="
+									(value) => updateCell(idx, col.fieldname, value)
+								"
+							/>
 
 							<!-- DocField (Autocomplete) -->
 							<div

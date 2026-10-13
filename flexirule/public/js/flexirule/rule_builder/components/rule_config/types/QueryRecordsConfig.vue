@@ -132,7 +132,27 @@
 									}
 								"
 							/>
-							<SelectControl class="form-control input-xs direction-select" :df="{ fieldtype: 'Select', label: '', options: [{ label: 'ASC', value: 'asc' }, { label: 'DESC', value: 'desc' }], reqd: 1 }" :modelValue="row.direction" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => { row.direction = value; sync_local_config(); }" />
+							<SelectControl
+								class="form-control input-xs direction-select"
+								:df="{
+									fieldtype: 'Select',
+									label: '',
+									options: [
+										{ label: 'ASC', value: 'asc' },
+										{ label: 'DESC', value: 'desc' },
+									],
+									reqd: 1,
+								}"
+								:modelValue="row.direction"
+								:read_only="readOnly"
+								:hideLabel="true"
+								@update:modelValue="
+									(value) => {
+										row.direction = value;
+										sync_local_config();
+									}
+								"
+							/>
 							<button
 								v-if="!readOnly"
 								class="btn btn-xs btn-link text-danger remove-sort-btn"

@@ -57,7 +57,14 @@
 				/>
 				<SelectControl
 					class="input-sm mb-1"
-					:df="{ fieldtype: 'Select', options: availableNodes.map((node) => ({ label: node.label, value: node.id })), reqd: 1 }"
+					:df="{
+						fieldtype: 'Select',
+						options: availableNodes.map((node) => ({
+							label: node.label,
+							value: node.id,
+						})),
+						reqd: 1,
+					}"
 					:modelValue="newCaseTarget"
 					:hideLabel="true"
 					@update:modelValue="(val) => (newCaseTarget = val)"
