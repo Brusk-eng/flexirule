@@ -230,7 +230,13 @@ export function buildResolvedOutputSchema({
 	const seen = new Set();
 	const flag = (value) => {
 		if (value === true || value === 1) return 1;
-		return ["1", "true", "yes"].includes(String(value ?? "").trim().toLowerCase()) ? 1 : 0;
+		return ["1", "true", "yes"].includes(
+			String(value ?? "")
+				.trim()
+				.toLowerCase()
+		)
+			? 1
+			: 0;
 	};
 	const add = (field) => {
 		if (!field?.fieldname || seen.has(field.fieldname)) return;
@@ -241,7 +247,9 @@ export function buildResolvedOutputSchema({
 			fieldtype: field.fieldtype || "Data",
 			...(field.options ? { options: field.options } : {}),
 			reqd: flag(field.reqd ?? field.mandatory ?? 0),
-			...(field.source && typeof field.source === "object" ? { source: clone(field.source) } : {}),
+			...(field.source && typeof field.source === "object"
+				? { source: clone(field.source) }
+				: {}),
 		});
 	};
 	const sourceInfo = (path) =>

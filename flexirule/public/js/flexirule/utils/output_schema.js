@@ -8,7 +8,13 @@
  */
 function normalizeFlag(value) {
 	if (value === true || value === 1) return 1;
-	return ["1", "true", "yes"].includes(String(value ?? "").trim().toLowerCase()) ? 1 : 0;
+	return ["1", "true", "yes"].includes(
+		String(value ?? "")
+			.trim()
+			.toLowerCase()
+	)
+		? 1
+		: 0;
 }
 
 export function normalizeResolvedOutputSchema(value) {
