@@ -2,7 +2,7 @@
 	<div class="context-picker">
 		<input
 			type="text"
-			class="form-control form-control-sm"
+			class="fxr-input"
 			:value="modelValue"
 			@input="$emit('update:modelValue', $event.target.value)"
 			@dragover.prevent
