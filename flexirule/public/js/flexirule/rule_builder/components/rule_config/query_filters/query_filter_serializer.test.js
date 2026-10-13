@@ -129,4 +129,3 @@ assert.deepEqual(
 	staticListPayload
 );
 console.log("static list query filter persistence tests passed");
-
