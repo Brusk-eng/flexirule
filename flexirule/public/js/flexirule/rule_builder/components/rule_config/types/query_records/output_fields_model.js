@@ -22,12 +22,12 @@ export function scrubOutputAlias(value) {
 	}
 	scrubbed = String(scrubbed ?? camelSeparated)
 		.normalize("NFKD")
-		.replace(/[\\u0300-\\u036f]/g, "")
+		.replace(/[\u0300-\u036f]/g, "")
 		.replace(/[^A-Za-z0-9_]+/g, "_")
 		.replace(/_+/g, "_")
 		.replace(/^_+|_+$/g, "")
 		.toLowerCase();
-	if (/^\\d/.test(scrubbed)) scrubbed = "_" + scrubbed;
+	if (/^\d/.test(scrubbed)) scrubbed = "_" + scrubbed;
 	return scrubbed;
 }
 
@@ -335,7 +335,7 @@ export function buildResolvedOutputSchema({
 		} else if (row.kind === "raw") {
 			const expression = String(row.expression ?? "").trim();
 			if (!expression) continue;
-			const match = expression.match(/^(.+?)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+			const match = expression.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
 			const alias = match ? scrubOutputAlias(match[2]) : "";
 			const fieldname = alias || expression;
 			add({
