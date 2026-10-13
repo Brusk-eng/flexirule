@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import ComboBoxControl from "./ComboBoxControl.vue";
+import SelectControl from "./SelectControl.vue";
 /**
  * InlineTableControl - Repeatable rows with columns
  * Supports per-field hooks: get_options, onchange
@@ -234,22 +235,7 @@ defineExpose({ validate });
 							:data-label="__(col.label)"
 						>
 							<!-- Select with dynamic options -->
-							<select
-								v-if="col.fieldtype === 'Select'"
-								class="input-custom"
-								:value="row[col.fieldname]"
-								@change="updateCell(idx, col.fieldname, $event.target.value)"
-								:disabled="read_only"
-							>
-								<option value="">{{ __("Select...") }}</option>
-								<option
-									v-for="opt in getFieldOptions(col, idx)"
-									:key="typeof opt === 'object' ? opt.value : opt"
-									:value="typeof opt === 'object' ? opt.value : opt"
-								>
-									{{ __(typeof opt === "object" ? opt.label : opt) }}
-								</option>
-							</select>
+							<SelectControl v-if="col.fieldtype === 'Select'" class="input-custom" :df="{ fieldtype: 'Select', label: '', options: getFieldOptions(col, idx).map((opt) => typeof opt === 'object' ? { label: opt.label || opt.value, value: opt.value } : { label: opt, value: opt }) }" :modelValue="row[col.fieldname]" :read_only="read_only" :hideLabel="true" @update:modelValue="(value) => updateCell(idx, col.fieldname, value)" />
 
 							<!-- DocField (Autocomplete) -->
 							<div
