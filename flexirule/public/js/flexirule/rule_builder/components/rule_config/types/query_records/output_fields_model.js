@@ -456,7 +456,10 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 				);
 			}
 			if (fieldAlias && !ALIAS_PATTERN.test(fieldAlias)) {
-				errors.push(prefix + "alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words.");
+				errors.push(
+					prefix +
+						"alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words."
+				);
 			}
 		} else if (row.kind === "function") {
 			const fn = String(row.functionName ?? "").toLowerCase();
