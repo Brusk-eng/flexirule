@@ -592,6 +592,11 @@ import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 import { useUIStore } from "../../../stores/useUIStore";
 import { provideControlContext } from "../../../composables/useControlContext";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
+import {
+	buildResolvedOutputSchema,
+	inferResultShape,
+	parseOutputFields,
+} from "./query_records/output_fields_model.js";
 
 const isFrappe15 = computed(() => {
 	const version = frappe.boot?.versions?.frappe;
@@ -1115,13 +1120,128 @@ const SYSTEM_FIELDS = [
 ];
 
 /**
+ * Build the output schema for Fetch Records from its result shape. Unlike
+ * Query List, Fetch Records supports aliases and aggregate expressions, and the
+ * "whole_documents" shape is represented by fields="*" rather than an empty
+ * field list.
+ */
+async function update_fetch_records_schema_local() {
+	if (!props.node?.data) return;
+
+	const targetDoctype = reference_doctype.value;
+	if (!targetDoctype || is_doctype_dynamic.value) {
+		set_resolved_output_schema(
+			is_doctype_dynamic.value
+				? [{ label: __("Dynamic Object"), fieldname: "doc", fieldtype: "JSON" }]
+				: []
+		);
+		return;
+	}
+
+	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
+	if (!meta) return;
+
+	const fieldInfoByPath = {};
+	const toSchemaField = (field, fieldname = field.fieldname, label = field.label) => ({
+		fieldname,
+		label: label || fieldname,
+		fieldtype: field.fieldtype || "Data",
+		options: field.options,
+		mandatory: field.reqd || 0,
+	});
+	for (const field of meta.fields || []) {
+		if (field.fieldname) fieldInfoByPath[field.fieldname] = toSchemaField(field);
+	}
+	for (const field of SYSTEM_FIELDS) {
+		if (field.fieldname) fieldInfoByPath[field.fieldname] = toSchemaField(field);
+	}
+
+	const rows = parseOutputFields(config.fields);
+	const paths = new Set();
+	for (const row of rows) {
+		if (row.kind === "field" || row.kind === "function") {
+			if (row.field) paths.add(String(row.field));
+		} else if (row.kind === "child" && row.tableField) {
+			paths.add(String(row.tableField));
+			for (const childField of row.fields || []) {
+				paths.add(String(row.tableField) + "." + String(childField));
+			}
+		}
+	}
+
+	for (const path of paths) {
+		if (!path.includes(".")) continue;
+		const [rootName, nestedName] = path.split(".", 2);
+		const rootField = (meta.fields || []).find((field) => field.fieldname === rootName);
+		if (!rootField?.options || !nestedName) continue;
+		try {
+			const relatedMeta = await flexirule.utils.get_doctype_meta(rootField.options);
+			const nestedField = (relatedMeta?.fields || []).find(
+				(field) => field.fieldname === nestedName
+			);
+			if (nestedField) {
+				fieldInfoByPath[path] = toSchemaField(
+					nestedField,
+					path,
+					(rootField.label || rootName) + ": " +
+						(nestedField.label || nestedField.fieldname)
+				);
+			}
+		} catch (error) {
+			// Unknown or dynamic related metadata falls back to Data in the schema helper.
+		}
+	}
+
+	const noValueTypes = frappe.model?.no_value_type || frappe.model?.no_value_fields || [];
+	const wholeDocumentFields = (meta.fields || [])
+		.filter(
+			(field) =>
+				field.fieldname &&
+				!noValueTypes.includes(field.fieldtype) &&
+				!["Table", "Table MultiSelect"].includes(field.fieldtype)
+		)
+		.map((field) => toSchemaField(field));
+
+	const shape = inferResultShape(config.fields, config.result_shape);
+	const schema = buildResolvedOutputSchema({
+		shape,
+		fields: config.fields,
+		fieldInfoByPath,
+		wholeDocumentFields,
+		systemFields: SYSTEM_FIELDS.map((field) => toSchemaField(field)),
+	});
+	set_resolved_output_schema(schema);
+}
+
+function set_resolved_output_schema(schema) {
+	if (!props.node?.data) return;
+	const next = Array.isArray(schema) ? schema : [];
+	let current = props.node.data.resolved_output_schema;
+	if (typeof current === "string") {
+		try {
+			current = JSON.parse(current);
+		} catch (error) {
+			current = [];
+		}
+	}
+	if (JSON.stringify(current || []) === JSON.stringify(next)) return;
+	props.node.data.resolved_output_schema = next;
+	const isDraft = !store.nodes.some((node) => node === props.node);
+	if (!isDraft) store.mark_dirty();
+}
+
+/**
  * Local metadata-based schema detection.
  * Provides instant feedback for Query List and Query Doc modes.
  */
 async function update_resolved_schema_local() {
 	if (!props.node?.data) return;
+	if (mode.value === "Fetch Records") {
+		await update_fetch_records_schema_local();
+		return;
+	}
 
-	if (["Fetch Records", "Query List", "Query Doc"].includes(mode.value)) {
+	if (["Query List", "Query Doc"].includes(mode.value)) {
 		const is_query_doc = mode.value === "Query Doc";
 		const fields = (config.fields || []).filter((f) => f);
 
@@ -1387,10 +1507,12 @@ function update_action_key(key, value) {
 	props.node.data[key] = value;
 }
 
-function applyFetchRecordsFrappe15Defaults({ onlyWhenUnset = false } = {}) {
+function applyFetchRecordsFrappe15Defaults({ onlyWhenUnset = true } = {}) {
 	if (props.readOnly || !props.node?.data) return;
 	if (mode.value !== "Fetch Records" || !isFrappe15.value) return;
 	const current = props.node.data.ignore_permissions;
+	// A saved false value is a deliberate choice and must survive mode switches.
+	// Only supply the v15 default when the document has no value at all.
 	if (onlyWhenUnset && current !== undefined && current !== null && current !== "") return;
 	if (![true, 1, "1"].includes(current)) {
 		props.node.data.ignore_permissions = 1;
@@ -1710,7 +1832,10 @@ async function test_query() {
 }
 
 const debounced_schema_update = flexirule.utils.debounce(async function update_resolved_schema() {
-	if (!props.node?.data) return;
+	// Fetch Records has an immediate metadata-based schema for all result shapes.
+	// A sample execution can return [] when there are no matching rows and must
+	// not erase that schema.
+	if (!props.node?.data || mode.value === "Fetch Records") return;
 	try {
 		const res = await frappe.call({
 			method: "flexirule.ruleflow.api.test_action_query",
