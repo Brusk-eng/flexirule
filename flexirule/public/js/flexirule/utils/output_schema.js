@@ -26,10 +26,11 @@ export function normalizeResolvedOutputSchema(value) {
 
 	return schema.map((field) => {
 		if (!field || typeof field !== "object" || Array.isArray(field)) return field;
-		const { mandatory, ...canonicalField } = field;
+		const canonicalField = { ...field };
+		delete canonicalField.mandatory;
 		return {
 			...canonicalField,
-			reqd: normalizeFlag(field.reqd ?? mandatory ?? 0),
+			reqd: normalizeFlag(field.reqd ?? field.mandatory ?? 0),
 		};
 	});
 }
