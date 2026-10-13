@@ -5,7 +5,7 @@
 		:class="{
 			'is-compact': compact,
 			'is-disabled': disabled || isReadOnly,
-			'has-error': showValidation && !isValid,
+			'has-error': invalid || (showValidation && !isValid),
 		}"
 		v-fxr-fieldname="context?.df?.fieldname || fieldname || null"
 		@keydown.capture="onStaticKeydown"
@@ -365,6 +365,7 @@ const props = defineProps({
 	engine: { type: Object, default: null },
 	doc: { type: Object, default: null },
 	showValidation: { type: Boolean, default: false },
+	invalid: { type: Boolean, default: false },
 	/**
 	 * Structured context:
 	 * {
@@ -933,6 +934,18 @@ const isValid = computed(() => {
 	if (!props.context?.df?.reqd) return true;
 	const struct = coerceStructuredValue(serialize());
 	if (struct.mode === "static") {
+		if (Array.isArray(struct.value)) {
+			return (
+				struct.value.length > 0 &&
+				struct.value.every(
+					(value) =>
+						value !== undefined &&
+						value !== null &&
+						!(typeof value === "string" && value.trim() === "")
+				)
+			);
+		}
+		if (typeof struct.value === "string") return struct.value.trim() !== "";
 		return struct.value !== undefined && struct.value !== null && struct.value !== "";
 	}
 	if (struct.mode === "variable") return !!struct.value;
@@ -1670,5 +1683,16 @@ onBeforeUnmount(() => {
 	min-height: 200px;
 	font-family: monospace;
 	font-size: 12px;
+}
+
+/* Keep the visible shell in an error state even when nested static controls
+   * intentionally have their own borders removed. */
+.fvc-wrap.has-error .fvc-main-field {
+	border-color: var(--fxr-border-danger, var(--fxr-text-danger)) !important;
+	box-shadow: 0 0 0 1px var(--fxr-border-danger, var(--fxr-text-danger)) !important;
+}
+.fvc-wrap.has-error .fvc-main-field:focus-within {
+	border-color: var(--fxr-border-danger, var(--fxr-text-danger)) !important;
+	box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
 }
 </style>
