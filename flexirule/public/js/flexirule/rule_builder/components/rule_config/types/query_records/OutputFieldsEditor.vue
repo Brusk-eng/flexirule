@@ -102,21 +102,7 @@
 						v-else-if="row.kind === 'function'"
 						class="output-field-controls output-function-controls"
 					>
-						<select
-							class="form-control output-function-select"
-							:value="row.functionName"
-							:disabled="readOnly"
-							:aria-label="__('Aggregate function')"
-							@change="updateRowValue(row, 'functionName', $event.target.value)"
-						>
-							<option
-								v-for="fn in aggregateFunctions"
-								:key="fn.value"
-								:value="fn.value"
-							>
-								{{ fn.label }}
-							</option>
-						</select>
+						<SelectControl class="form-control output-function-select" :df="{ fieldtype: 'Select', label: '', options: aggregateFunctions, reqd: 1 }" :modelValue="row.functionName" :read_only="readOnly" :hideLabel="true" :aria-label="__('Aggregate function')" @update:modelValue="(value) => updateRowValue(row, 'functionName', value)" />
 						<OutputFieldPicker
 							:doctype="doctype"
 							:modelValue="row.field"
@@ -138,21 +124,7 @@
 					<div v-else-if="row.kind === 'child'" class="output-child-controls">
 						<div class="output-child-table">
 							<label class="output-field-label">{{ __("Child table") }}</label>
-							<select
-								class="form-control"
-								:value="row.tableField"
-								:disabled="readOnly"
-								@change="changeChildTable(row, $event.target.value)"
-							>
-								<option value="">{{ __("Select a child table...") }}</option>
-								<option
-									v-for="option in childTableOptions"
-									:key="option.value"
-									:value="option.value"
-								>
-									{{ option.label }}
-								</option>
-							</select>
+							<SelectControl class="form-control" :df="{ fieldtype: 'Select', label: '', options: childTableOptions }" :modelValue="row.tableField" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => changeChildTable(row, value)" />
 						</div>
 						<div class="output-child-fields">
 							<label class="output-field-label">{{ __("Child fields") }}</label>
@@ -242,6 +214,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import MultiSelectList from "../../../../controls/MultiSelectList.vue";
+import SelectControl from "../../../../controls/SelectControl.vue";
 import { useMetaStore } from "../../../../stores/useMetaStore";
 import {
 	AGGREGATE_FUNCTIONS,
