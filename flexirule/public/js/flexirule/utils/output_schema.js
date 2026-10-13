@@ -1,10 +1,10 @@
 /**
  * Normalize metadata for Rule Action.resolved_output_schema.
  *
- * Frappe names requiredness \`reqd\`. Legacy \`mandatory\` values are accepted when
+ * Frappe names requiredness `reqd`. Legacy `mandatory` values are accepted when
  * loading old schemas, then removed from the canonical representation.
- * Every canonical field has a provenance object with a \`kind\`. Missing lineage
- * is marked \`unknown\` unless a calling context can identify it as \`manual\`.
+ * Every canonical field has a provenance object with a `kind`. Missing lineage
+ * is marked `unknown` unless a calling context can identify it as `manual`.
  * Metadata never changes runtime result values or output-key validation.
  */
 function normalizeFlag(value) {
