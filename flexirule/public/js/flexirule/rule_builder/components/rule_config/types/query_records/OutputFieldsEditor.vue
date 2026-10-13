@@ -94,7 +94,7 @@
 							:disabled="readOnly"
 							:placeholder="__('Output alias (optional)')"
 							:aria-label="__('Output alias (optional)')"
-							@input="updateRowValue(row, 'alias', $event.target.value)"
+							@input="normalizeAlias(row, $event.target.value)"
 						/>
 					</div>
 
@@ -240,6 +240,7 @@ import SelectControl from "../../../../controls/SelectControl.vue";
 import { useMetaStore } from "../../../../stores/useMetaStore";
 import {
 	AGGREGATE_FUNCTIONS,
+	scrubOutputAlias,
 	parseOutputFields,
 	serializeOutputFields,
 	validateOutputFields,
@@ -296,15 +297,54 @@ function newId() {
 	return "output-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
 
-function rowTitle(row) {
-	if (row.kind === "field") return row.alias || row.field || __("Output field");
-	if (row.kind === "function") {
-		return (
-			row.alias ||
-			(row.functionName || "count").toUpperCase() + "(" + (row.field || "?") + ")"
-		);
+function fieldInfo(fieldPath) {
+	const path = String(fieldPath || "").trim();
+	if (!path) return { label: "", fieldname: "" };
+	const parts = path.split(".");
+	const rootField = parentFields.value.find((field) => field.fieldname === parts[0]);
+	if (parts.length > 1 && rootField?.options) {
+		const relatedFields = metaStore.doc_meta[rootField.options] || [];
+		const relatedField = relatedFields.find((field) => field.fieldname === parts[1]);
+		if (relatedField) {
+			return {
+				...relatedField,
+				label: (rootField.label || rootField.fieldname) + ": " +
+					(relatedField.original_label || relatedField.label || relatedField.fieldname),
+				fieldname: path,
+			};
+		}
 	}
-	if (row.kind === "child") return row.tableField || __("Embedded child selection");
+	if (rootField) return rootField;
+	const systemLabels = {
+		name: "ID (name)",
+		owner: "Created By (owner)",
+		creation: "Created On (creation)",
+		modified: "Modified On (modified)",
+		modified_by: "Modified By (modified_by)",
+		docstatus: "Document Status (docstatus)",
+	};
+	return { fieldname: path, label: systemLabels[path] || path, fieldtype: "Data" };
+}
+
+function humanizeAlias(alias) {
+	return String(alias || "")
+		.split("_")
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+}
+
+function rowTitle(row) {
+	if (row.kind === "field") {
+		return fieldInfo(row.field).label || row.alias || row.field || __("Output field");
+	}
+	if (row.kind === "function") {
+		const fn = (row.functionName || "count").toUpperCase();
+		return row.alias ? humanizeAlias(row.alias) + " (" + fn + ")" : fn + "(" + (fieldInfo(row.field).label || row.field || "?") + ")";
+	}
+	if (row.kind === "child") {
+		return fieldInfo(row.tableField).label || __("Embedded child selection");
+	}
 	return row.expression || __("Advanced field expression");
 }
 
@@ -312,23 +352,21 @@ function rowDescription(row) {
 	if (row.kind === "field") {
 		const source = row.field
 			? (row.field.includes(".") ? __("Related field") : __("Parent field")) +
-			  " · " +
-			  row.field
+			  " · " + (fieldInfo(row.field).label || row.field) + " (" + row.field + ")"
 			: __("Choose a field");
 		return row.alias ? source + " · " + __("Output alias") + ": " + row.alias : source;
 	}
 	if (row.kind === "function") {
-		const expression =
-			(row.functionName || "count").toUpperCase() + "(" + (row.field || "?") + ")";
-		return (
-			__("Function") +
-			" · " +
-			expression +
-			(row.alias ? " · " + __("Output alias") + ": " + row.alias : "")
-		);
+		const fn = (row.functionName || "count").toUpperCase();
+		const source = fieldInfo(row.field).label || row.field || "?";
+		return __("Function") + " · " + fn + "(" + source + ")" +
+			(row.field ? " (" + row.field + ")" : "") +
+			(row.alias ? " · " + __("Output alias") + ": " + row.alias : "");
 	}
 	if (row.kind === "child") {
-		const fields = Array.isArray(row.fields) ? row.fields.join(", ") : "";
+		const fields = Array.isArray(row.fields)
+			? row.fields.map((field) => fieldInfo(row.tableField + "." + field).label || field).join(", ")
+			: "";
 		return fields ? __("Child fields") + " · " + fields : __("Select child fields");
 	}
 	return __("Advanced native field expression");
@@ -346,8 +384,28 @@ function emitRows() {
 
 function updateRowValue(row, key, value) {
 	if (props.readOnly) return;
-	row[key] = value;
+	row[key] = key === "alias" ? scrubOutputAlias(value) : value;
+	if (key === "field" && String(value || "").includes(".")) {
+		ensureMetadataForPath(value);
+	}
 	emitRows();
+}
+
+function normalizeAlias(row, value) {
+	if (props.readOnly) return;
+	row.alias = scrubOutputAlias(value);
+	emitRows();
+}
+
+async function ensureMetadataForPath(fieldPath) {
+	const rootName = String(fieldPath || "").split(".")[0];
+	const rootField = parentFields.value.find((field) => field.fieldname === rootName);
+	if (!rootField?.options) return;
+	try {
+		await metaStore.fetch_metadata(rootField.options);
+	} catch (error) {
+		console.warn("OutputFieldsEditor: failed to load related field metadata", error);
+	}
 }
 
 function updateRaw(row, value) {
@@ -448,7 +506,13 @@ async function refreshMetadata() {
 	try {
 		await metaStore.fetch_metadata(props.doctype);
 		for (const row of rows.value) {
-			if (row.kind === "child") await loadChildFieldOptions(row);
+			if (row.kind === "child") {
+				await loadChildFieldOptions(row);
+				continue;
+			}
+			if (row.field && String(row.field).includes(".")) {
+				await ensureMetadataForPath(row.field);
+			}
 		}
 	} catch (error) {
 		console.warn("OutputFieldsEditor: failed to load DocType fields", error);
