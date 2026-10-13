@@ -107,9 +107,9 @@ assert.equal(scrubOutputAlias("Total-Count"), "total_count");
 const aliasedSchema = buildResolvedOutputSchema({
 	shape: RESULT_SHAPES.selectedFields,
 	fields: [
-		"voucher_type as Reference Doctype",
+		"voucher_type as reference_doctype",
 		"title",
-		"count(name) as Totals",
+		"count(name) as totals",
 	],
 	fieldInfoByPath: {
 		voucher_type: { label: "Voucher Type", fieldtype: "Select" },
