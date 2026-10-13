@@ -603,9 +603,7 @@ onMounted(async () => {
 	border-radius: 4px;
 	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
 }
-</style>
 
-<style scoped>
 .description-input {
 	min-height: 4rem;
 	line-height: 1.4;
