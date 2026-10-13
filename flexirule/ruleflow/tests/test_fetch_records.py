@@ -101,6 +101,7 @@ class TestFetchRecords(FrappeTestCase):
 		]
 		action = frappe._dict(
 			{
+				"name": f"test-fetch-literal-{prefix}",
 				"operation": "Fetch Records",
 				"ignore_permissions": 1,
 				"permission_audit_reason": "Automated test query",
@@ -125,6 +126,7 @@ class TestFetchRecords(FrappeTestCase):
 		frappe.get_doc({"doctype": "ToDo", "description": prefix}).insert(ignore_permissions=True)
 		action = frappe._dict(
 			{
+				"name": f"test-fetch-literal-int-{prefix}",
 				"operation": "Fetch Records",
 				"ignore_permissions": 1,
 				"permission_audit_reason": "Automated test query",
