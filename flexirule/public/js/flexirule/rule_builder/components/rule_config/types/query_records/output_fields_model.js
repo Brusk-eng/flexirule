@@ -6,7 +6,38 @@ export const RESULT_SHAPES = Object.freeze({
 });
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
-const ALIAS_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ALIAS_PATTERN = /^[a-z_][a-z0-9_]*$/;
+
+/**
+ * Normalize an output alias with Frappe's own scrubber when available.
+ * Keep a predictable fallback for unit tests that run without the Frappe UI.
+ */
+export function scrubOutputAlias(value) {
+	const raw = String(value ?? "").trim();
+	if (!raw) return "";
+	const camelSeparated = raw.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
+	let scrubbed = camelSeparated;
+	if (typeof frappe !== "undefined" && typeof frappe.scrub === "function") {
+		scrubbed = frappe.scrub(camelSeparated);
+	}
+	scrubbed = String(scrubbed ?? camelSeparated)
+		.normalize("NFKD")
+		.replace(/[\\u0300-\\u036f]/g, "")
+		.replace(/[^A-Za-z0-9_]+/g, "_")
+		.replace(/_+/g, "_")
+		.replace(/^_+|_+$/g, "")
+		.toLowerCase();
+	if (/^\\d/.test(scrubbed)) scrubbed = "_" + scrubbed;
+	return scrubbed;
+}
+
+function humanizeAlias(value) {
+	return String(value ?? "")
+		.split("_")
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+}
 function clone(value) {
 	if (value === undefined) return undefined;
 	return JSON.parse(JSON.stringify(value));
@@ -74,7 +105,7 @@ function parseAlias(expression) {
 		.trim()
 		.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
 	if (!match) return { expression: String(expression).trim(), alias: "" };
-	return { expression: match[1].trim(), alias: match[2] };
+	return { expression: match[1].trim(), alias: scrubOutputAlias(match[2]) };
 }
 function createRow(kind, index, values = {}) {
 	return {
@@ -144,7 +175,7 @@ export function parseOutputFields(value) {
 					createRow("function", index++, {
 						functionName: aggregateKey.toLowerCase(),
 						field: String(item[aggregateKey] ?? ""),
-						alias: String(item.as ?? ""),
+						alias: scrubOutputAlias(item.as ?? ""),
 						originalValue: clone(item),
 					})
 				);
@@ -175,13 +206,13 @@ export function serializeOutputFields(rows) {
 	return (Array.isArray(rows) ? rows : []).map((row) => {
 		if (row.kind === "field") {
 			const field = String(row.field ?? "").trim();
-			const alias = String(row.alias ?? "").trim();
+			const alias = scrubOutputAlias(row.alias);
 			return field && alias ? field + " as " + alias : field;
 		}
 		if (row.kind === "function") {
 			const fn = String(row.functionName ?? "count").toLowerCase();
 			const field = String(row.field ?? "").trim();
-			const alias = String(row.alias ?? "").trim();
+			const alias = scrubOutputAlias(row.alias);
 			const expression = fn + "(" + field + ")";
 			return alias ? expression + " as " + alias : expression;
 		}
@@ -201,6 +232,122 @@ export function serializeOutputFields(rows) {
 		return clone(row.originalValue !== undefined ? row.originalValue : row.expression);
 	});
 }
+/**
+ * Build the output schema from Fetch Records' configured result shape and field
+ * grammar. The caller supplies metadata keyed by field path, so aliases and
+ * aggregate expressions are mapped to their actual result keys before schema
+ * propagation to downstream actions.
+ */
+export function buildResolvedOutputSchema({
+	shape,
+	fields,
+	fieldInfoByPath = {},
+	wholeDocumentFields = [],
+	systemFields = [],
+}) {
+	const lookup = (path) => {
+		if (fieldInfoByPath instanceof Map) return fieldInfoByPath.get(path);
+		return fieldInfoByPath?.[path];
+	};
+	const schema = [];
+	const seen = new Set();
+	const add = (field) => {
+		if (!field?.fieldname || seen.has(field.fieldname)) return;
+		seen.add(field.fieldname);
+		schema.push({
+			label: field.label || field.fieldname,
+			fieldname: field.fieldname,
+			fieldtype: field.fieldtype || "Data",
+			...(field.options ? { options: field.options } : {}),
+			...(field.mandatory !== undefined ? { mandatory: field.mandatory } : {}),
+		});
+	};
+	const sourceInfo = (path) => lookup(String(path ?? "").trim()) || {
+		fieldname: path,
+		label: path,
+		fieldtype: "Data",
+	};
+	const aliasLabel = (alias) => humanizeAlias(alias);
+
+	if (shape === RESULT_SHAPES.documentNames) {
+		add(lookup("name") || {
+			fieldname: "name",
+			label: "ID (name)",
+			fieldtype: "Data",
+		});
+		return schema;
+	}
+	if (shape === RESULT_SHAPES.wholeDocuments) {
+		for (const field of wholeDocumentFields || []) add(field);
+		for (const field of systemFields || []) add(field);
+		return schema;
+	}
+
+	for (const row of parseOutputFields(fields)) {
+		if (row.kind === "field") {
+			const source = String(row.field ?? "").trim();
+			if (!source) continue;
+			const info = sourceInfo(source);
+			const alias = scrubOutputAlias(row.alias);
+			add({
+				...info,
+				fieldname: alias || source,
+				label: alias ? aliasLabel(alias) : (info.label || source),
+			});
+		} else if (row.kind === "function") {
+			const source = String(row.field ?? "").trim();
+			const fn = String(row.functionName ?? "count").toLowerCase();
+			const alias = scrubOutputAlias(row.alias);
+			if (!source || !alias) continue;
+			const info = sourceInfo(source);
+			const numericType = ["Currency", "Float", "Int", "Percent", "Rating", "Duration"].includes(
+				info.fieldtype
+			);
+			add({
+				fieldname: alias,
+				label: aliasLabel(alias),
+				fieldtype:
+					fn === "count" ? "Int" :
+					fn === "avg" ? "Float" :
+					["min", "max"].includes(fn) ? (info.fieldtype || "Data") :
+					numericType ? info.fieldtype : "Float",
+				mandatory: 0,
+			});
+		} else if (row.kind === "child") {
+			const tableField = String(row.tableField ?? "").trim();
+			if (!tableField) continue;
+			const tableInfo = sourceInfo(tableField);
+			add({
+				fieldname: tableField,
+				label: tableInfo.label || tableField,
+				fieldtype: "Table",
+				options: tableInfo.options,
+			});
+			for (const childField of Array.isArray(row.fields) ? row.fields : []) {
+				const path = tableField + "." + childField;
+				const info = sourceInfo(path);
+				add({
+					...info,
+					fieldname: path,
+					label: (tableInfo.label || tableField) + ": " + (info.label || childField),
+				});
+			}
+		} else if (row.kind === "raw") {
+			const expression = String(row.expression ?? "").trim();
+			if (!expression) continue;
+			const match = expression.match(/^(.+?)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+			const alias = match ? scrubOutputAlias(match[2]) : "";
+			const fieldname = alias || expression;
+			add({
+				fieldname,
+				label: alias ? aliasLabel(alias) : expression,
+				fieldtype: "Data",
+			});
+		}
+	}
+	return schema;
+}
+
 export function validateOutputFields(rows, shape, groupBy = "") {
 	const errors = [];
 	const list = Array.isArray(rows) ? rows : [];
@@ -244,7 +391,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			else if (!ALIAS_PATTERN.test(alias)) {
 				errors.push(
 					prefix +
-						"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
+						"alias must be lowercase snake_case and contain only letters, numbers, and underscores."
 				);
 			}
 		} else if (row.kind === "child") {
