@@ -2,7 +2,11 @@
 	<div v-if="!doctype" class="text-muted small p-2">
 		{{ __("Select a DocType to configure filters.") }}
 	</div>
-	<div v-else class="filter-row">
+	<div
+		v-else
+		class="filter-row"
+		:class="{ 'is-invalid': validationVisible && leafInvalid }"
+	>
 		<div class="filter-row-main">
 			<div class="filter-col field-col">
 				<label class="filter-col-label">
@@ -59,6 +63,7 @@
 							:variableOptions="effectiveVariableOptions"
 							:disabled="readOnly"
 							:showValidation="validationVisible && isMissingBetweenValue(index - 1)"
+							:invalid="validationVisible && isMissingBetweenValue(index - 1)"
 							@update:modelValue="(value) => updateBetween(index - 1, value)"
 						/>
 					</div>
@@ -77,6 +82,7 @@
 					:disabled="readOnly"
 					:readOnly="readOnly"
 					:showValidation="validationVisible && valueInvalid"
+					:invalid="validationVisible && valueInvalid"
 					@update:modelValue="updateValue"
 				/>
 			</div>
@@ -156,7 +162,20 @@ function isConfigured(value) {
 	if (Array.isArray(value)) return value.length > 0 && value.every(isConfigured);
 	if (value && typeof value === "object") {
 		if (Object.prototype.hasOwnProperty.call(value, "mode")) {
-			if (value.mode === "static") return !isEmpty(value.value);
+			if (value.mode === "static") {
+				const raw = value.value;
+				if (Array.isArray(raw)) {
+					return (
+						raw.length > 0 &&
+						raw.every(
+							(item) =>
+								!isEmpty(item) &&
+								!(typeof item === "string" && item.trim() === "")
+						)
+					);
+				}
+				return !isEmpty(raw) && !(typeof raw === "string" && raw.trim() === "");
+			}
 			return (
 				value.value !== undefined &&
 				value.value !== null &&
@@ -202,6 +221,10 @@ const valueInvalid = computed(() => {
 function isMissingBetweenValue(index) {
 	return !Array.isArray(leaf.value.value) || !isConfigured(leaf.value.value[index]);
 }
+const leafInvalid = computed(
+	() => !leaf.value.field || operatorInvalid.value || valueInvalid.value
+);
+
 const operatorLabel = (op) => {
 	if (["Date", "Datetime"].includes(getFieldType(field.value)))
 		return (
@@ -369,6 +392,11 @@ defineExpose({ validate });
 }
 .filter-row:hover {
 	border-color: var(--fxr-border-strong);
+}
+.filter-row.is-invalid {
+	border-color: var(--fxr-border-danger, var(--fxr-text-danger)) !important;
+	background: var(--fxr-danger-soft);
+	box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
 }
 .filter-row-main {
 	display: grid;
