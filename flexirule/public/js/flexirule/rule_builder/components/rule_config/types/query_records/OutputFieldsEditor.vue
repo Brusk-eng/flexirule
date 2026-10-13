@@ -94,7 +94,7 @@
 							:disabled="readOnly"
 							:placeholder="__('Output alias (optional)')"
 							:aria-label="__('Output alias (optional)')"
-							@input="normalizeAlias(row, $event.target.value)"
+							@input="updateRowValue(row, 'alias', $event.target.value)"
 						/>
 					</div>
 
@@ -240,7 +240,6 @@ import SelectControl from "../../../../controls/SelectControl.vue";
 import { useMetaStore } from "../../../../stores/useMetaStore";
 import {
 	AGGREGATE_FUNCTIONS,
-	scrubOutputAlias,
 	parseOutputFields,
 	serializeOutputFields,
 	validateOutputFields,
@@ -401,16 +400,10 @@ function emitRows() {
 
 function updateRowValue(row, key, value) {
 	if (props.readOnly) return;
-	row[key] = key === "alias" ? scrubOutputAlias(value) : value;
+	row[key] = value;
 	if (key === "field" && String(value || "").includes(".")) {
 		ensureMetadataForPath(value);
 	}
-	emitRows();
-}
-
-function normalizeAlias(row, value) {
-	if (props.readOnly) return;
-	row.alias = scrubOutputAlias(value);
 	emitRows();
 }
 
