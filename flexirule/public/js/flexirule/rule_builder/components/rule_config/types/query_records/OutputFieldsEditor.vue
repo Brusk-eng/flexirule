@@ -171,6 +171,16 @@
 								</select>
 							</div>
 						</div>
+						<div v-if="['Link', 'Select'].includes(row.fieldtype)" class="output-field-control">
+							<label class="output-field-label">{{ __("Options") }}</label>
+							<input
+								class="form-control"
+								:value="row.options || ''"
+								:disabled="readOnly"
+								:placeholder="row.fieldtype === 'Link' ? __('Customer') : __('Option A / Option B')"
+								@input="updateRowValue(row, 'options', $event.target.value)"
+							/>
+						</div>
 						<div class="output-field-control">
 							<label class="output-field-label">{{ __("Value") }}</label>
 							<FlexValueControl
@@ -352,7 +362,6 @@ const literalFieldTypes = [
 	{ value: "Time", label: __("Time") },
 	{ value: "Link", label: __("Link") },
 	{ value: "Select", label: __("Select") },
-	{ value: "JSON", label: __("JSON") },
 ];
 
 const parentFields = computed(() => metaStore.doc_meta[props.doctype] || []);

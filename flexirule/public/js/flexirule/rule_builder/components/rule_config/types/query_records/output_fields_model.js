@@ -493,8 +493,12 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 				errors.push(prefix + "output field name must be lowercase snake_case.");
 			}
 			if (!String(row.label ?? "").trim()) errors.push(prefix + "enter a label.");
-			if (!["Data", "Int", "Float", "Currency", "Check", "Date", "Datetime", "Time", "Link", "Select", "JSON"].includes(String(row.fieldtype || "Data"))) {
+			const fieldtype = String(row.fieldtype || "Data");
+			if (!["Data", "Int", "Float", "Currency", "Check", "Date", "Datetime", "Time", "Link", "Select"].includes(fieldtype)) {
 				errors.push(prefix + "choose a supported output field type.");
+			}
+			if (["Link", "Select"].includes(fieldtype) && !String(row.options || "").trim()) {
+				errors.push(prefix + "enter Options for this field type.");
 			}
 			const valueSpec = row.value_spec;
 			if (

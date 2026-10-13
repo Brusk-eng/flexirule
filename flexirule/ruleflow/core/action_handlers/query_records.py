@@ -848,6 +848,8 @@ class QueryRecordsHandler(ActionHandler):
 		"""Return known output keys for collisions between query fields and literal columns."""
 		if fields in (None, "", []):
 			return {"name"}
+		if isinstance(fields, list | tuple) and len(fields) == 1 and fields[0] == "*":
+			fields = "*"
 		if isinstance(fields, str):
 			if fields.strip() == "*":
 				meta = frappe.get_meta(reference_doctype)
@@ -873,7 +875,7 @@ class QueryRecordsHandler(ActionHandler):
 		for field in fields if isinstance(fields, list | tuple) else []:
 			if isinstance(field, str):
 				expression = field.strip()
-				alias_match = re.match(r"^.+?\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)$", expression, re.IGNORECASE)
+				alias_match = re.match(r"^.+?\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$", expression, re.IGNORECASE)
 				if alias_match:
 					result_names.add(alias_match.group(1))
 				elif self._is_plain_field_reference(expression):
@@ -910,7 +912,6 @@ class QueryRecordsHandler(ActionHandler):
 			"Time",
 			"Link",
 			"Select",
-			"JSON",
 		}
 		valid_modes = {"static", "variable", "resolver", "expression"}
 		for index, column in enumerate(literal_columns, start=1):
@@ -929,22 +930,58 @@ class QueryRecordsHandler(ActionHandler):
 			fieldtype = str(column.get("fieldtype") or "Data")
 			if fieldtype not in allowed_fieldtypes:
 				errors.append(_("{0} uses unsupported field type '{1}'").format(label, fieldtype))
+			if fieldtype in {"Link", "Select"} and not str(column.get("options") or "").strip():
+				errors.append(_("{0} requires Options for field type '{1}'").format(label, fieldtype))
 			value_spec = column.get("value_spec")
 			if not isinstance(value_spec, dict) or str(value_spec.get("mode") or "").lower() not in valid_modes:
 				errors.append(_("{0} must contain a supported FlexValue value_spec").format(label))
 		return errors
+
+	def _coerce_fetch_literal_value(self, value, fieldtype: str, fieldname: str):
+		"""Coerce scalar FlexValue results to the declared output field type."""
+		if value is None:
+			return None
+		if fieldtype in {"Data", "Link", "Select", "Date", "Datetime", "Time"}:
+			return str(value)
+		if fieldtype == "Int":
+			if value == "":
+				return None
+			try:
+				return int(value)
+			except (TypeError, ValueError):
+				frappe.throw(_("Literal column '{0}' must resolve to an integer").format(fieldname))
+		if fieldtype in {"Float", "Currency"}:
+			if value == "":
+				return None
+			try:
+				return float(value)
+			except (TypeError, ValueError):
+				frappe.throw(_("Literal column '{0}' must resolve to a number").format(fieldname))
+		if fieldtype == "Check":
+			if isinstance(value, bool):
+				return int(value)
+			if value in (0, 1):
+				return int(value)
+			if isinstance(value, str) and value.strip().lower() in {"1", "true", "yes", "on"}:
+				return 1
+			if isinstance(value, str) and value.strip().lower() in {"0", "false", "no", "off"}:
+				return 0
+			frappe.throw(_("Literal column '{0}' must resolve to a boolean value").format(fieldname))
+		return value
 
 	def _resolve_fetch_literal_columns(self, literal_columns: list, resolve_payload, action_label: str):
 		"""Resolve configured FlexValue specs once for this query execution."""
 		resolved = []
 		for index, column in enumerate(literal_columns, start=1):
 			fieldname = str(column.get("fieldname") or "").strip()
+			fieldtype = str(column.get("fieldtype") or "Data")
 			value_spec = column.get("value_spec") or {"mode": "static", "value": column.get("value", "")}
 			value = resolve_payload(value_spec, f"{action_label}.literal_columns[{index}].value_spec")
 			if isinstance(value, (dict, list, tuple, set)):
 				frappe.throw(
 					_("Literal column '{0}' must resolve to a scalar value, not a collection").format(fieldname)
 				)
+			value = self._coerce_fetch_literal_value(value, fieldtype, fieldname)
 			resolved.append((fieldname, value))
 		return resolved
 
@@ -1062,9 +1099,6 @@ class QueryRecordsHandler(ActionHandler):
 
 		# A configured LIMIT 0 means the rule author requested zero rows. Some
 		# legacy Query Builder implementations treat a falsey limit as omitted.
-		if kwargs.get("limit") == 0:
-			return []
-
 		if kwargs.get("limit") == 0:
 			return []
 

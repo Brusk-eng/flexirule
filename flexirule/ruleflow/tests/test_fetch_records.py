@@ -120,6 +120,36 @@ class TestFetchRecords(FrappeTestCase):
 		self.assertEqual({row["party_kind"] for row in result}, {"Customer"})
 		self.assertTrue(all(row.get("name") for row in result))
 
+	def test_literal_integer_column_coerces_to_integer(self):
+		prefix = f"FetchLiteralInt_{random_string(5)}"
+		frappe.get_doc({"doctype": "ToDo", "description": prefix}).insert(ignore_permissions=True)
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"fields": [
+							"name",
+							{
+								"kind": "literal",
+								"fieldname": "source_count",
+								"label": "Source Count",
+								"fieldtype": "Int",
+								"value_spec": {"mode": "static", "value": "3"},
+							},
+						],
+						"filters": [["ToDo", "description", "=", prefix]],
+					}
+				),
+			}
+		)
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertEqual(result[0]["source_count"], 3)
+		self.assertIsInstance(result[0]["source_count"], int)
+
 	def test_literal_column_cannot_overwrite_selected_field(self):
 		action = frappe._dict(
 			{
