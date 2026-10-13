@@ -1168,7 +1168,7 @@ async function update_fetch_records_schema_local() {
 								expression: "doctype_name",
 							},
 						},
-					]
+				  ]
 				: []
 		);
 		return;
@@ -1183,8 +1183,8 @@ async function update_fetch_records_schema_local() {
 		const sourceKind = sourceFieldname.includes(".")
 			? "child_field"
 			: SYSTEM_FIELDS.some((item) => item.fieldname === sourceFieldname)
-				? "system"
-				: "field";
+			? "system"
+			: "field";
 		return {
 			fieldname: sourceFieldname,
 			label: label || sourceFieldname,
@@ -1195,7 +1195,9 @@ async function update_fetch_records_schema_local() {
 				kind: sourceKind,
 				fieldname: sourceFieldname,
 				expression: sourceFieldname,
-				...(sourceKind === "child_field" ? { table_fieldname: sourceFieldname.split(".", 1)[0] } : {}),
+				...(sourceKind === "child_field"
+					? { table_fieldname: sourceFieldname.split(".", 1)[0] }
+					: {}),
 			},
 		};
 	};
@@ -1345,7 +1347,12 @@ async function update_resolved_schema_local() {
 							fieldtype: df.fieldtype,
 							...(df.options ? { options: df.options } : {}),
 							reqd: Number(df.reqd) === 1 ? 1 : 0,
-							source: { kind: "child_field", table_fieldname: table, fieldname: field, expression: f },
+							source: {
+								kind: "child_field",
+								table_fieldname: table,
+								fieldname: field,
+								expression: f,
+							},
 						});
 					}
 				}
@@ -1367,11 +1374,11 @@ async function update_resolved_schema_local() {
 										...(cf.options ? { options: cf.options } : {}),
 										reqd: Number(cf.reqd) === 1 ? 1 : 0,
 										source: {
-										kind: "child_field",
-										table_fieldname: df.fieldname,
-										fieldname: cf.fieldname,
-										expression: `${df.fieldname}.${cf.fieldname}`,
-									},
+											kind: "child_field",
+											table_fieldname: df.fieldname,
+											fieldname: cf.fieldname,
+											expression: `${df.fieldname}.${cf.fieldname}`,
+										},
 									});
 								}
 							});
@@ -1384,7 +1391,9 @@ async function update_resolved_schema_local() {
 							...(df.options ? { options: df.options } : {}),
 							reqd: Number(df.reqd) === 1 ? 1 : 0,
 							source: {
-								kind: SYSTEM_FIELDS.some((item) => item.fieldname === f) ? "system" : "field",
+								kind: SYSTEM_FIELDS.some((item) => item.fieldname === f)
+									? "system"
+									: "field",
 								fieldname: f,
 								expression: f,
 							},

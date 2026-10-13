@@ -450,7 +450,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					reference_docname: node.data?.reference_docname,
 					mutation_mode: node.data?.mutation_mode,
 					return_type: node.data?.return_type,
-					resolved_output_schema: serializeField(normalizeResolvedOutputSchema(node.data?.resolved_output_schema)),
+					resolved_output_schema: serializeField(
+						normalizeResolvedOutputSchema(node.data?.resolved_output_schema)
+					),
 				};
 			});
 

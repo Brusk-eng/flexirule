@@ -129,9 +129,19 @@ const aliasedSchema = buildResolvedOutputSchema({
 	},
 });
 assert.deepEqual(
-	aliasedSchema.map(({ fieldname, label, fieldtype, reqd }) => ({ fieldname, label, fieldtype, reqd })),
+	aliasedSchema.map(({ fieldname, label, fieldtype, reqd }) => ({
+		fieldname,
+		label,
+		fieldtype,
+		reqd,
+	})),
 	[
-		{ fieldname: "reference_doctype", label: "Reference Doctype", fieldtype: "Select", reqd: 1 },
+		{
+			fieldname: "reference_doctype",
+			label: "Reference Doctype",
+			fieldtype: "Select",
+			reqd: 1,
+		},
 		{ fieldname: "title", label: "Title", fieldtype: "Data", reqd: 0 },
 		{ fieldname: "totals", label: "Totals", fieldtype: "Int", reqd: 0 },
 	]
@@ -176,9 +186,17 @@ assert.deepEqual(
 	["title", "status", "name", "owner"]
 );
 assert.equal(wholeDocumentSchema[0].reqd, 1);
-assert.deepEqual(wholeDocumentSchema[0].source, { kind: "field", fieldname: "title", expression: "title" });
+assert.deepEqual(wholeDocumentSchema[0].source, {
+	kind: "field",
+	fieldname: "title",
+	expression: "title",
+});
 assert.equal(wholeDocumentSchema[2].reqd, 0);
-assert.deepEqual(wholeDocumentSchema[2].source, { kind: "system", fieldname: "name", expression: "name" });
+assert.deepEqual(wholeDocumentSchema[2].source, {
+	kind: "system",
+	fieldname: "name",
+	expression: "name",
+});
 assert.deepEqual(
 	normalizeResolvedOutputSchema([
 		{ fieldname: "legacy_key", fieldtype: "Data", mandatory: 1, source: { kind: "field" } },

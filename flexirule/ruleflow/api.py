@@ -78,6 +78,7 @@ LAYOUT_FIELDTYPES = [
 	"Heading",
 ]
 
+
 def _output_schema_source(
 	kind: str,
 	fieldname: str | None = None,
@@ -1091,7 +1092,9 @@ def test_action_query(
 									"fieldtype": df.fieldtype,
 									"options": df.options,
 									"reqd": _reqd_flag(df.reqd),
-									"source": _output_schema_source("field", fieldname=df.fieldname, expression=df.fieldname),
+									"source": _output_schema_source(
+									"field", fieldname=df.fieldname, expression=df.fieldname
+									),
 								}
 							)
 					# Add system fields
@@ -1103,7 +1106,9 @@ def test_action_query(
 								"fieldtype": sf.get("fieldtype", "Data"),
 								"options": sf.get("options"),
 								"reqd": 0,
-								"source": _output_schema_source("system", fieldname=sf["value"], expression=sf["value"]),
+								"source": _output_schema_source(
+									"system", fieldname=sf["value"], expression=sf["value"]
+								),
 							}
 						)
 				else:
@@ -1137,7 +1142,9 @@ def test_action_query(
 								"options": df.options if df else None,
 								"reqd": _reqd_flag(df.reqd) if df and hasattr(df, "reqd") else 0,
 								"source": _output_schema_source(
-									"child_field" if "." in f else ("system" if f in system_fields else "field"),
+									"child_field"
+									if "." in f
+									else ("system" if f in system_fields else "field"),
 									fieldname=f,
 									expression=f,
 									table_fieldname=f.split(".", 1)[0] if "." in f else None,
@@ -1192,7 +1199,8 @@ def test_action_query(
 									"fieldtype": c.get("fieldtype") or "Data",
 									"options": c.get("options"),
 									"reqd": _reqd_flag(c.get("reqd", c.get("mandatory", 0))),
-									"source": c.get("source") or _output_schema_source(
+									"source": c.get("source")
+									or _output_schema_source(
 										"report",
 										fieldname=c.get("fieldname") or c.get("label"),
 										expression=c.get("fieldname") or c.get("label"),
