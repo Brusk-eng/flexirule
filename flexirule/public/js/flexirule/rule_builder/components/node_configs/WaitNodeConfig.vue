@@ -2,14 +2,14 @@
 	<div class="wait-node-config">
 		<div class="form-row">
 			<div
-				class="form-group col-md-6"
+				class="form-group col-md-6 fxr-control"
 				:class="{ 'has-error': showValidation && getJsonConfig('value', 1) <= 0 }"
 				v-fxr-fieldname="'config.value'"
 			>
-				<label class="small text-muted">{{ __("Delay Value") }}</label>
+				<label class="fxr-label">{{ __("Delay Value") }}</label>
 				<input
 					type="number"
-					class="form-control"
+					class="fxr-input"
 					:value="getJsonConfig('value', 1)"
 					@input="$emit('update-field', 'value', parseFloat($event.target.value))"
 				/>
@@ -17,18 +17,14 @@
 					{{ __("Delay must be greater than 0") }}
 				</div>
 			</div>
-			<div class="form-group col-md-6" v-fxr-fieldname="'config.unit'">
-				<label class="small text-muted">{{ __("Unit") }}</label>
-				<select
-					class="form-control"
-					:value="getJsonConfig('unit', 'Minutes')"
-					@change="$emit('update-field', 'unit', $event.target.value)"
-				>
-					<option value="Seconds">{{ __("Seconds") }}</option>
-					<option value="Minutes">{{ __("Minutes") }}</option>
-					<option value="Hours">{{ __("Hours") }}</option>
-					<option value="Days">{{ __("Days") }}</option>
-				</select>
+			<div class="form-group col-md-6 fxr-control" v-fxr-fieldname="'config.unit'">
+				<label class="fxr-label">{{ __("Unit") }}</label>
+				<SelectControl
+					:df="{ fieldtype: 'Select', options: ['Seconds', 'Minutes', 'Hours', 'Days'] }"
+					:modelValue="getJsonConfig('unit', 'Minutes')"
+					:hideLabel="true"
+					@update:modelValue="(val) => $emit('update-field', 'unit', val)"
+				/>
 			</div>
 		</div>
 		<div class="alert alert-info py-2 px-3 small mt-2">
@@ -39,6 +35,7 @@
 </template>
 
 <script setup>
+import SelectControl from "../../controls/SelectControl.vue";
 const props = defineProps({
 	nodeData: Object,
 	showValidation: { type: Boolean, default: false },

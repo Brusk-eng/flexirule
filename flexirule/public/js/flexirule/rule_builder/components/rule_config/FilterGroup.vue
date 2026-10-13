@@ -65,22 +65,21 @@
 
 					<!-- Operator -->
 					<div class="filter-col operator-col">
-						<select
+						<SelectControl
 							class="form-control input-xs"
-							:value="row.operator"
-							:disabled="readOnly"
-							@change="(e) => updateRow(idx, { operator: e.target.value })"
-						>
-							<option
-								v-for="op in getOperatorsForField(
+							:df="{
+								fieldtype: 'Select',
+								label: '',
+								options: getOperatorsForField(
 									getFieldDef(row.field, row.doctype)
-								)"
-								:key="op"
-								:value="op"
-							>
-								{{ getOperatorLabel(op, row) }}
-							</option>
-						</select>
+								).map((op) => ({ label: getOperatorLabel(op, row), value: op })),
+								reqd: 1,
+							}"
+							:modelValue="row.operator"
+							:read_only="readOnly"
+							:hideLabel="true"
+							@update:modelValue="(value) => updateRow(idx, { operator: value })"
+						/>
 					</div>
 
 					<!-- Value / Expression -->
@@ -186,6 +185,7 @@
 import { ref, computed, watch, onMounted, inject, nextTick } from "vue";
 import { reactive } from "vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts.js";

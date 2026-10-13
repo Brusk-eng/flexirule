@@ -8,6 +8,7 @@
 import { computed, ref, watch, onMounted } from "vue";
 import { useStore, useRuleStore } from "../stores";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";
+import SelectControl from "../controls/SelectControl.vue";
 import ControlFactory from "../controls/ControlFactory.vue";
 import { getTriggerTypeContract } from "../../core/contracts.js";
 
@@ -221,22 +222,19 @@ onMounted(async () => {
 		<!-- Rule Info -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Rule Name") }}</label>
-			<input class="form-control" type="text" disabled :value="rule_name" />
+			<input class="fxr-input" type="text" disabled :value="rule_name" />
 		</div>
 
 		<!-- Trigger Type -->
 		<div class="form-group" :class="{ 'has-error': showValidation && !nodeData?.trigger_type }">
 			<label class="control-label">{{ __("Trigger Type") }}</label>
-			<select
-				class="form-control"
-				:value="nodeData?.trigger_type"
-				:disabled="readOnly"
-				@change="update_field('trigger_type', $event.target.value)"
-			>
-				<option v-for="opt in trigger_type_options" :key="opt" :value="opt">
-					{{ __(opt) }}
-				</option>
-			</select>
+			<SelectControl
+				:df="{ fieldtype: 'Select', label: '', options: trigger_type_options, reqd: 1 }"
+				:modelValue="nodeData?.trigger_type"
+				:read_only="readOnly"
+				:hideLabel="true"
+				@update:modelValue="(value) => update_field('trigger_type', value)"
+			/>
 			<div v-if="trigger_type_description" class="description text-muted mt-1">
 				{{ __(trigger_type_description) }}
 			</div>
@@ -273,16 +271,13 @@ onMounted(async () => {
 		<!-- Trigger Event -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Trigger Event") }}</label>
-			<select
-				class="form-control"
-				:value="nodeData?.trigger_event"
-				@change="update_field('trigger_event', $event.target.value)"
-				:disabled="readOnly"
-			>
-				<option v-for="opt in trigger_event_options" :key="opt" :value="opt">
-					{{ opt }}
-				</option>
-			</select>
+			<SelectControl
+				:df="{ fieldtype: 'Select', label: '', options: trigger_event_options }"
+				:modelValue="nodeData?.trigger_event"
+				:read_only="readOnly"
+				:hideLabel="true"
+				@update:modelValue="(value) => update_field('trigger_event', value)"
+			/>
 		</div>
 
 		<!-- Entry Condition (Execution Gate) -->
@@ -324,16 +319,13 @@ onMounted(async () => {
 		<!-- Priority -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Priority") }}</label>
-			<select
-				class="form-control"
-				:value="nodeData?.priority"
-				@change="update_field('priority', $event.target.value)"
-				:disabled="readOnly || is_manual_trigger"
-			>
-				<option v-for="opt in priority_options" :key="opt" :value="opt">
-					{{ opt }}
-				</option>
-			</select>
+			<SelectControl
+				:df="{ fieldtype: 'Select', label: '', options: priority_options, reqd: 1 }"
+				:modelValue="nodeData?.priority"
+				:read_only="readOnly || is_manual_trigger"
+				:hideLabel="true"
+				@update:modelValue="(value) => update_field('priority', value)"
+			/>
 			<div v-if="is_manual_trigger" class="description text-muted mt-1">
 				{{ __("Manual trigger rules must use priority 0.") }}
 			</div>
@@ -342,15 +334,18 @@ onMounted(async () => {
 		<!-- Execution Mode -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Execution Mode") }}</label>
-			<select
-				class="form-control"
-				:value="nodeData?.execution_mode"
-				@change="update_field('execution_mode', $event.target.value)"
-				:disabled="readOnly"
-			>
-				<option value="Synchronous">{{ __("Synchronous") }}</option>
-				<option value="Asynchronous">{{ __("Asynchronous") }}</option>
-			</select>
+			<SelectControl
+				:df="{
+					fieldtype: 'Select',
+					label: '',
+					options: ['Synchronous', 'Asynchronous'],
+					reqd: 1,
+				}"
+				:modelValue="nodeData?.execution_mode"
+				:read_only="readOnly"
+				:hideLabel="true"
+				@update:modelValue="(value) => update_field('execution_mode', value)"
+			/>
 		</div>
 
 		<!-- Max Execution Time -->
@@ -358,7 +353,7 @@ onMounted(async () => {
 			<label class="control-label">{{ __("Max Execution Time (seconds)") }}</label>
 			<input
 				type="number"
-				class="form-control"
+				class="fxr-input"
 				:value="nodeData?.max_execution_time"
 				:disabled="readOnly"
 				@change="update_field('max_execution_time', Number($event.target.value))"
@@ -391,7 +386,7 @@ onMounted(async () => {
 		<div class="form-group">
 			<label class="control-label">{{ __("Description") }}</label>
 			<textarea
-				class="form-control"
+				class="fxr-input description-input"
 				rows="2"
 				:disabled="readOnly"
 				:value="nodeData?.description"
@@ -504,14 +499,6 @@ onMounted(async () => {
 
 .description {
 	font-size: 11px;
-}
-
-.form-control {
-	width: 100%;
-	padding: 6px 10px;
-	border: 1px solid var(--border-color);
-	border-radius: 4px;
-	font-size: 13px;
 }
 
 .text-mono {
@@ -644,5 +631,11 @@ onMounted(async () => {
 	background: var(--fxr-surface, #ffffff);
 	border-radius: 4px;
 	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
+}
+
+.description-input {
+	min-height: 4rem;
+	line-height: 1.4;
+	resize: vertical;
 }
 </style>

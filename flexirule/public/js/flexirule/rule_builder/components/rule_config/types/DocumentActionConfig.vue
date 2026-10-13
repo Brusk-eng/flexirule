@@ -44,16 +44,23 @@
 				<div class="assign-to-group">
 					<div class="d-flex align-items-center gap-2 mb-1">
 						<label class="control-label small mb-0">{{ __("Assigned To") }}</label>
-						<select
+						<SelectControl
 							v-if="!readOnly"
-							class="form-control input-xs assign-type-select"
-							v-model="assignToType"
-							@change="onAssignToTypeChange"
-						>
-							<option value="Value">{{ __("Value") }}</option>
-							<option value="Variable">{{ __("Variable") }}</option>
-							<option value="Expression">{{ __("Expression") }}</option>
-						</select>
+							class="assign-type-select"
+							:df="{
+								fieldtype: 'Select',
+								options: ['Value', 'Variable', 'Expression'],
+								reqd: 1,
+							}"
+							:modelValue="assignToType"
+							:hideLabel="true"
+							@update:modelValue="
+								(val) => {
+									assignToType = val;
+									onAssignToTypeChange();
+								}
+							"
+						/>
 					</div>
 					<ControlFactory
 						v-if="assignToType === 'Value'"
@@ -187,6 +194,7 @@ import { computed, ref, watch, onMounted, onBeforeUpdate } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
+import SelectControl from "../../../controls/SelectControl.vue";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ResourceMapperControl from "../../../controls/ResourceMapperControl.vue";
 import TransformControl from "../../../controls/TransformControl.vue";

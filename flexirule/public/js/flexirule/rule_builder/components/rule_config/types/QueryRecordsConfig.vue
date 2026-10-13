@@ -10,34 +10,43 @@
 		<div v-else class="config-container">
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
-				<ControlFactory
-					:ref="setControlRef"
-					:df="{
-						fieldname: 'ignore_permissions',
-						fieldtype: 'Check',
-						label: __('Skip Permissions'),
-						description: __(
-							'Bypass read permissions for this action. Requires audit reason.'
-						),
-						read_only:
-							readOnly ||
-							(mode === 'Fetch Records' &&
-								isFrappe15 &&
-								!!node?.data?.ignore_permissions),
-					}"
-					:modelValue="node?.data?.ignore_permissions"
-					@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
-				/>
-				<div
-					v-if="mode === 'Fetch Records' && isFrappe15"
-					class="alert alert-warning mb-0"
-					role="alert"
-				>
-					{{
-						__(
-							"Frappe 15's Query Builder does not support the native permission-aware Fetch Records API. On this installation, Fetch Records requires Skip Permissions to be enabled and a permission audit reason. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
-						)
-					}}
+				<div class="permission-control-row">
+					<ControlFactory
+						:ref="setControlRef"
+						:df="{
+							fieldname: 'ignore_permissions',
+							fieldtype: 'Check',
+							label: __('Skip Permissions'),
+							description: __(
+								'Bypass read permissions for this action. Requires audit reason.'
+							),
+							read_only:
+								readOnly ||
+								(mode === 'Fetch Records' &&
+									isFrappe15 &&
+									!!node?.data?.ignore_permissions),
+						}"
+						:modelValue="node?.data?.ignore_permissions"
+						@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
+					/>
+					<div
+						v-if="mode === 'Fetch Records' && isFrappe15"
+						class="fetch-records-permission-notice"
+						role="note"
+					>
+						<i class="fa fa-info-circle" aria-hidden="true"></i>
+						<span>{{ __("Required on Frappe 15.") }}</span>
+						<details class="permission-notice-details">
+							<summary>{{ __("Details") }}</summary>
+							<p>
+								{{
+									__(
+										"Frappe 15's Query Builder does not provide the native permission-aware Fetch Records API. Enable Skip Permissions and provide an audit reason. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
+									)
+								}}
+							</p>
+						</details>
+					</div>
 				</div>
 				<ControlFactory
 					v-if="!!node?.data?.ignore_permissions"
@@ -132,14 +141,27 @@
 									}
 								"
 							/>
-							<select
+							<SelectControl
 								class="form-control input-xs direction-select"
-								v-model="row.direction"
-								:disabled="readOnly"
-							>
-								<option value="asc">{{ __("ASC") }}</option>
-								<option value="desc">{{ __("DESC") }}</option>
-							</select>
+								:df="{
+									fieldtype: 'Select',
+									label: '',
+									options: [
+										{ label: 'ASC', value: 'asc' },
+										{ label: 'DESC', value: 'desc' },
+									],
+									reqd: 1,
+								}"
+								:modelValue="row.direction"
+								:read_only="readOnly"
+								:hideLabel="true"
+								@update:modelValue="
+									(value) => {
+										row.direction = value;
+										sync_local_config();
+									}
+								"
+							/>
 							<button
 								v-if="!readOnly"
 								class="btn btn-xs btn-link text-danger remove-sort-btn"
@@ -584,6 +606,7 @@ import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
+import SelectControl from "../../../controls/SelectControl.vue";
 import FilterGroup from "../FilterGroup.vue";
 import FetchRecordsConfig from "./query_records/FetchRecordsConfig.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
@@ -2068,6 +2091,55 @@ defineExpose({
 </script>
 
 <style scoped>
+.permission-control-row {
+	display: flex;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	column-gap: var(--fxr-space-2, 8px);
+}
+.permission-control-row > :first-child {
+	flex: 1 1 240px;
+	min-width: 0;
+}
+.fetch-records-permission-notice {
+	display: inline-flex;
+	align-items: center;
+	flex: 0 1 auto;
+	gap: 4px;
+	margin-top: 4px;
+	color: var(--fxr-warning-text, #875b00);
+	font-size: var(--fxr-text-xs, 11px);
+	line-height: 1.35;
+}
+.fetch-records-permission-notice > i {
+	flex: 0 0 auto;
+}
+.permission-notice-details {
+	position: relative;
+	font-size: inherit;
+}
+.permission-notice-details summary {
+	cursor: pointer;
+	white-space: nowrap;
+	font-weight: 600;
+}
+.permission-notice-details p {
+	position: absolute;
+	z-index: 5;
+	top: 100%;
+	right: 0;
+	width: min(320px, 75vw);
+	margin: 5px 0 0;
+	padding: 8px 10px;
+	border: 1px solid var(--fxr-border-color, #d1d5db);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: var(--fxr-surface, #fff);
+	color: var(--fxr-text-color, #374151);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+	white-space: normal;
+	font-size: var(--fxr-text-sm, 12px);
+	line-height: 1.45;
+}
 /* ─── QueryRecordsConfig – Unified Design ─── */
 .query-config {
 	display: flex;

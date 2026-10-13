@@ -1,5 +1,3 @@
-import { normalizeResolvedOutputField } from "../../../../../utils/output_schema.js";
-
 export const RESULT_SHAPES = Object.freeze({
 	documentNames: "document_names",
 	wholeDocuments: "whole_documents",
@@ -8,15 +6,7 @@ export const RESULT_SHAPES = Object.freeze({
 });
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
-const ALIAS_PATTERN = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
-
-function humanizeAlias(value) {
-	return String(value ?? "")
-		.split("_")
-		.filter(Boolean)
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(" ");
-}
+const ALIAS_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 function clone(value) {
 	if (value === undefined) return undefined;
 	return JSON.parse(JSON.stringify(value));
@@ -82,9 +72,9 @@ function splitTopLevelExpressions(input) {
 function parseAlias(expression) {
 	const match = String(expression)
 		.trim()
-		.match(/^(.+?)\s+as\s+(.+)$/i);
+		.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
 	if (!match) return { expression: String(expression).trim(), alias: "" };
-	return { expression: match[1].trim(), alias: match[2].trim() };
+	return { expression: match[1].trim(), alias: match[2] };
 }
 function createRow(kind, index, values = {}) {
 	return {
@@ -170,7 +160,7 @@ export function parseOutputFields(value) {
 					createRow("function", index++, {
 						functionName: aggregateKey.toLowerCase(),
 						field: String(item[aggregateKey] ?? ""),
-						alias: String(item.as ?? "").trim(),
+						alias: String(item.as ?? ""),
 						originalValue: clone(item),
 					})
 				);
@@ -457,7 +447,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 				);
 			}
 			if (fieldAlias && !ALIAS_PATTERN.test(fieldAlias)) {
-				errors.push(prefix + "alias must be lowercase snake_case.");
+				errors.push(prefix + "alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words.");
 			}
 		} else if (row.kind === "function") {
 			const fn = String(row.functionName ?? "").toLowerCase();
@@ -475,7 +465,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			else if (!ALIAS_PATTERN.test(alias)) {
 				errors.push(
 					prefix +
-						"alias must be lowercase snake_case and contain only letters, numbers, and underscores."
+						"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
 				);
 			}
 		} else if (row.kind === "child") {

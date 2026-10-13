@@ -4,6 +4,7 @@ import { computed, inject, onMounted, provide, reactive, ref, watch } from "vue"
  * CollectionUI - Child table iterator editor
  */
 import ConditionNode from "./ConditionNode.vue";
+import SelectControl from "../../controls/SelectControl.vue";
 import { useStore } from "../../stores";
 
 const props = defineProps({
@@ -289,27 +290,48 @@ onMounted(fetchChildMeta);
 			<!-- Logic -->
 			<div class="header-col" style="width: 100px">
 				<label class="fxr-label">{{ __("Match") }}</label>
-				<select v-model="node.op" class="fxr-select" :disabled="readOnly">
-					<option value="any">{{ __("Any") }}</option>
-					<option value="all">{{ __("All") }}</option>
-					<option value="none">{{ __("None") }}</option>
-				</select>
+				<SelectControl
+					class="fxr-select"
+					:df="{
+						fieldtype: 'Select',
+						label: '',
+						options: [
+							{ label: 'Any', value: 'any' },
+							{ label: 'All', value: 'all' },
+							{ label: 'None', value: 'none' },
+						],
+						reqd: 1,
+					}"
+					:modelValue="node.op"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="(value) => (node.op = value)"
+				/>
 			</div>
 
 			<!-- Table -->
 			<div class="header-col flex-grow-1">
 				<label class="fxr-label">{{ __("Table") }}</label>
-				<select
-					v-model="node.collection"
+				<SelectControl
 					class="fxr-select"
-					@change="fetchChildMeta"
-					:disabled="readOnly"
-				>
-					<option value="">{{ __("Select table...") }}</option>
-					<option v-for="f in tableFields" :key="f.value" :value="f.value">
-						{{ f.label }}
-					</option>
-				</select>
+					:df="{
+						fieldtype: 'Select',
+						label: '',
+						options: tableFields.map((field) => ({
+							label: field.label,
+							value: field.value,
+						})),
+					}"
+					:modelValue="node.collection"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="
+						(value) => {
+							node.collection = value;
+							fetchChildMeta();
+						}
+					"
+				/>
 			</div>
 
 			<!-- Alias -->

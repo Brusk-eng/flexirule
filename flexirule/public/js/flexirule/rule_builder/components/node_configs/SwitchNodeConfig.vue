@@ -1,13 +1,13 @@
 <template>
 	<div class="switch-node-config">
 		<div
-			class="form-group"
+			class="form-group fxr-control"
 			:class="{ 'has-error': showValidation && !getJsonConfig('expression') }"
 			v-fxr-fieldname="'config.expression'"
 		>
-			<label>{{ __("Switch Expression (Python)") }}</label>
+			<label class="fxr-label">{{ __("Switch Expression (Python)") }}</label>
 			<textarea
-				class="form-control"
+				class="fxr-input switch-expression-input"
 				rows="2"
 				:value="getJsonConfig('expression')"
 				@input="$emit('update-json-config', 'expression', $event.target.value)"
@@ -19,11 +19,11 @@
 		</div>
 
 		<div
-			class="form-group"
+			class="form-group fxr-control"
 			:class="{ 'has-error': showValidation && Object.keys(cases).length === 0 }"
 			v-fxr-fieldname="'config.cases'"
 		>
-			<label>{{ __("Cases") }}</label>
+			<label class="fxr-label">{{ __("Cases") }}</label>
 			<div
 				v-if="showValidation && Object.keys(cases).length === 0"
 				class="fxr-error-msg mb-2"
@@ -51,16 +51,24 @@
 			<div class="add-case mt-2 p-2 border rounded">
 				<input
 					type="text"
-					class="form-control input-sm mb-1"
+					class="fxr-input mb-1"
 					v-model="newCaseValue"
 					:placeholder="__('Value (e.g. \'Active\')')"
 				/>
-				<select class="form-control input-sm mb-1" v-model="newCaseTarget">
-					<option value="" disabled>{{ __("Select Target Node") }}</option>
-					<option v-for="node in availableNodes" :key="node.id" :value="node.id">
-						{{ node.label }}
-					</option>
-				</select>
+				<SelectControl
+					class="input-sm mb-1"
+					:df="{
+						fieldtype: 'Select',
+						options: availableNodes.map((node) => ({
+							label: node.label,
+							value: node.id,
+						})),
+						reqd: 1,
+					}"
+					:modelValue="newCaseTarget"
+					:hideLabel="true"
+					@update:modelValue="(val) => (newCaseTarget = val)"
+				/>
 				<button
 					class="btn btn-xs btn-default w-100"
 					@click="addSwitchCase"
@@ -75,6 +83,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import SelectControl from "../../controls/SelectControl.vue";
 const props = defineProps({
 	nodeData: Object,
 	availableNodes: { type: Array, default: () => [] },
@@ -129,3 +138,11 @@ function validate() {
 
 defineExpose({ validate });
 </script>
+
+<style scoped>
+.switch-expression-input {
+	min-height: 4rem;
+	line-height: 1.4;
+	resize: vertical;
+}
+</style>
