@@ -55,12 +55,13 @@
 					v-model="newCaseValue"
 					:placeholder="__('Value (e.g. \'Active\')')"
 				/>
-				<select class="form-control input-sm mb-1" v-model="newCaseTarget">
-					<option value="" disabled>{{ __("Select Target Node") }}</option>
-					<option v-for="node in availableNodes" :key="node.id" :value="node.id">
-						{{ node.label }}
-					</option>
-				</select>
+				<SelectControl
+					class="input-sm mb-1"
+					:df="{ fieldtype: 'Select', options: availableNodes.map((node) => ({ label: node.label, value: node.id })), reqd: 1 }"
+					:modelValue="newCaseTarget"
+					:hideLabel="true"
+					@update:modelValue="(val) => (newCaseTarget = val)"
+				/>
 				<button
 					class="btn btn-xs btn-default w-100"
 					@click="addSwitchCase"
@@ -75,6 +76,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import SelectControl from "../controls/SelectControl.vue";
 const props = defineProps({
 	nodeData: Object,
 	availableNodes: { type: Array, default: () => [] },
