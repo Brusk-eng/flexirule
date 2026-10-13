@@ -46,20 +46,17 @@
 				@update:modelValue="selectResultShape"
 			/>
 
-			<div
-				v-if="isCustomResultShape(localConfig.result_shape)"
-				class="output-fields-section"
-			>
+			<div v-if="isCustomResultShape(localConfig.result_shape)" class="output-fields-section">
 				<div class="section-heading">
 					<div>
-					<h6>{{ __("Output fields") }}</h6>
-					<p class="section-description">
-						{{
-							__(
-								"Choose fields or calculations for each result. Aliases provide clear field names for later steps."
-							)
-						}}
-					</p>
+						<h6>{{ __("Output fields") }}</h6>
+						<p class="section-description">
+							{{
+								__(
+									"Choose fields or calculations for each result. Aliases provide clear field names for later steps."
+								)
+							}}
+						</p>
 					</div>
 					<span class="output-fields-badge">{{ __("Syntax-aware editor") }}</span>
 				</div>
