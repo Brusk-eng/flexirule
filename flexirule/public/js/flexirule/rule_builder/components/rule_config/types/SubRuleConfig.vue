@@ -44,6 +44,16 @@
 				<i class="fa fa-info-circle"></i>
 				{{ __("Configuring Sub-Rule: {0}").replace("{0}", node.data.rule) }}
 			</div>
+			<div v-if="contractLoading" class="alert alert-secondary py-2 px-3 small mb-3">
+				<i class="fa fa-spinner fa-spin"></i> {{ __("Loading Sub-Rule interface...") }}
+			</div>
+			<div v-else-if="contractErrors.length" class="alert alert-warning py-2 px-3 small mb-3">
+				<strong>{{ __("Sub-Rule interface needs attention") }}</strong>
+				<div v-for="error in contractErrors" :key="error">{{ error }}</div>
+			</div>
+			<div v-else-if="subRuleContract && !subRuleContract.input_schema_declared" class="alert alert-light py-2 px-3 small mb-3">
+				{{ __("This Sub-Rule uses inferred legacy inputs. Declaring an Input Schema on the target Rule makes the interface explicit and validates mappings against it.") }}
+			</div>
 
 			<div class="sub-section section-subcard">
 				<div class="d-flex justify-content-between align-items-center mb-2">
@@ -97,7 +107,23 @@
 						</div>
 						<div class="mapping-cell">
 							<label class="small text-muted mb-1">{{ __("Sub-Rule Param") }}</label>
+							<select
+								v-if="hasInputTargetOptions"
+								class="form-control form-control-sm"
+								v-model="row.target"
+								:disabled="read_only"
+								@change="sync_local_config"
+							>
+								<option value="">{{ __("Select Sub-Rule input") }}</option>
+								<option v-for="target in inputTargetOptions" :key="target.fieldname" :value="target.fieldname">
+									{{ target.label }} ({{ target.fieldname }})
+								</option>
+								<option v-if="row.target && !inputTargetOptions.some((target) => target.fieldname === row.target)" :value="row.target">
+									{{ row.target }} — {{ __("not declared by target") }}
+								</option>
+							</select>
 							<input
+								v-else
 								type="text"
 								class="form-control form-control-sm"
 								v-model="row.target"
@@ -161,6 +187,10 @@ const emit = defineEmits(["update:field"]);
 const mapping_rows = ref([]);
 const view = ref("list");
 const controlRefs = ref([]);
+const subRuleContract = ref(null);
+const contractLoading = ref(false);
+const contractErrors = ref([]);
+let contractRequestId = 0;
 
 onBeforeUpdate(() => {
 	controlRefs.value = [];
@@ -179,16 +209,34 @@ const source_schema = computed(() => {
 	}));
 });
 
-const target_schema = computed(() => {
-	// For now, we use existing targets as the schema.
-	// In the future, we should fetch actual sub-rule params.
-	const targets = mapping_rows.value.map((r) => r.target).filter(Boolean);
-	return [...new Set(targets)].map((t) => ({
-		label: t,
-		value: t,
-		fieldtype: "Data",
-	}));
+const inputTargetOptions = computed(() => {
+	const declared = Array.isArray(subRuleContract.value?.input_schema)
+		? subRuleContract.value.input_schema
+		: [];
+	const existingTargets = mapping_rows.value.map((row) => row.target).filter(Boolean);
+	const seen = new Set(declared.map((field) => field.fieldname));
+	return [
+		...declared,
+		...existingTargets
+			.filter((target) => !seen.has(target))
+			.map((fieldname) => ({
+				fieldname,
+				label: `${fieldname} (${__("legacy mapping")})`,
+				fieldtype: "Data",
+				reqd: 0,
+			})),
+	];
 });
+const hasInputTargetOptions = computed(
+	() => inputTargetOptions.value.length > 0 || !!subRuleContract.value?.input_schema_declared
+);
+const target_schema = computed(() =>
+	inputTargetOptions.value.map((field) => ({
+		label: field.label || field.fieldname,
+		value: field.fieldname,
+		fieldtype: field.fieldtype || "Data",
+	}))
+);
 
 const visual_mappings = computed(() => {
 	return mapping_rows.value.map((r) => ({
@@ -267,6 +315,33 @@ function load_local_config() {
 async function validate() {
 	const errors = [];
 
+	if (subRuleContract.value?.input_schema_declared) {
+		const declaredInputs = new Map(
+			(subRuleContract.value.input_schema || []).map((field) => [field.fieldname, field])
+		);
+		const mappedTargets = new Set(mapping_rows.value.map((row) => row.target).filter(Boolean));
+		const unknownTargets = [...mappedTargets].filter((target) => !declaredInputs.has(target));
+		if (unknownTargets.length) {
+			errors.push(
+				__("Mappings target inputs not declared by the selected Sub-Rule: {0}").replace(
+					"{0}",
+					unknownTargets.join(", ")
+				)
+			);
+		}
+		const missingRequired = [...declaredInputs.values()]
+			.filter((field) => field.reqd && field.default == null && !mappedTargets.has(field.fieldname))
+			.map((field) => field.fieldname);
+		if (missingRequired.length) {
+			errors.push(
+				__("Required Sub-Rule inputs are not mapped: {0}").replace(
+					"{0}",
+					missingRequired.join(", ")
+				)
+			);
+		}
+	}
+
 	// 1. Core Control Validation (Aggregated)
 	const results = await Promise.all(
 		(controlRefs.value || []).map((ctrl) => {
@@ -301,19 +376,49 @@ async function validate() {
 	return { valid: errors.length === 0, errors };
 }
 
+async function load_sub_rule_contract(ruleName) {
+	const requestId = ++contractRequestId;
+	if (!ruleName) {
+		subRuleContract.value = null;
+		contractErrors.value = [];
+		contractLoading.value = false;
+		return;
+	}
+
+	contractLoading.value = true;
+	contractErrors.value = [];
+	try {
+		const response = await frappe.call({
+			method: "flexirule.ruleflow.api.get_sub_rule_contract",
+			args: { rule_name: ruleName },
+		});
+		if (requestId !== contractRequestId) return;
+		const contract = response.message || null;
+		subRuleContract.value = contract;
+		contractErrors.value = contract?.errors || [];
+		if (Array.isArray(contract?.output_schema)) {
+			emit("update:field", "resolved_output_schema", contract.output_schema);
+		}
+	} catch (error) {
+		if (requestId !== contractRequestId) return;
+		subRuleContract.value = null;
+		contractErrors.value = [error?.message || __("Unable to load Sub-Rule interface.")];
+	} finally {
+		if (requestId === contractRequestId) contractLoading.value = false;
+	}
+}
+
 watch(
 	() => props.node.data.rule,
-	(newRule) => {
-		if (newRule) {
-			store.fetch_available_rules();
-		}
-	}
+	async (newRule) => {
+		if (!store.available_rules.length) await store.fetch_available_rules();
+		await load_sub_rule_contract(newRule);
+	},
+	{ immediate: true }
 );
 
 onMounted(() => {
-	if (!store.available_rules.length) {
-		store.fetch_available_rules();
-	}
+	if (!store.available_rules.length) store.fetch_available_rules();
 	load_local_config();
 });
 

@@ -265,4 +265,30 @@ assert.deepEqual(normalizeResolvedOutputSchema([{ fieldname: "empty_source", sou
 	{ fieldname: "empty_source", reqd: 0, source: { kind: "unknown" } },
 ]);
 
+assert.deepEqual(
+	normalizeResolvedOutputSchema([
+		{
+			fieldname: "summary",
+			fieldtype: "Table",
+			children: [{ fieldname: "count", fieldtype: "Int" }],
+		},
+	]),
+	[
+		{
+			fieldname: "summary",
+			fieldtype: "Table",
+			reqd: 0,
+			source: { kind: "unknown" },
+			children: [
+				{
+					fieldname: "count",
+					fieldtype: "Int",
+					reqd: 0,
+					source: { kind: "unknown" },
+				},
+			],
+		},
+	]
+);
+
 console.log("output fields model tests passed");
