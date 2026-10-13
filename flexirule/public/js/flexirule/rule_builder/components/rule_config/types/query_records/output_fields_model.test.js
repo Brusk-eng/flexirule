@@ -238,7 +238,11 @@ assert.deepEqual(
 	normalizeResolvedOutputSchema(
 		[
 			{ fieldname: "edited_key", fieldtype: "Data" },
-			{ fieldname: "known_key", fieldtype: "Data", source: { kind: "field", fieldname: "title" } },
+			{
+				fieldname: "known_key",
+				fieldtype: "Data",
+				source: { kind: "field", fieldname: "title" },
+			},
 		],
 		{ fallbackSourceKind: "manual" }
 	),
@@ -257,9 +261,8 @@ assert.deepEqual(
 		},
 	]
 );
-assert.deepEqual(
-	normalizeResolvedOutputSchema([{ fieldname: "empty_source", source: {} }]),
-	[{ fieldname: "empty_source", reqd: 0, source: { kind: "unknown" } }]
-);
+assert.deepEqual(normalizeResolvedOutputSchema([{ fieldname: "empty_source", source: {} }]), [
+	{ fieldname: "empty_source", reqd: 0, source: { kind: "unknown" } },
+]);
 
 console.log("output fields model tests passed");
