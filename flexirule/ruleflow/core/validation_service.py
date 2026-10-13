@@ -914,9 +914,7 @@ def _validate_sub_rule_input_mapping(action, errors: list[str], target_rule_over
 		}
 	elif isinstance(input_mapping, Mapping):
 		mapped_vars = {
-			str(target).strip()
-			for target in input_mapping
-			if target is not None and str(target).strip()
+			str(target).strip() for target in input_mapping if target is not None and str(target).strip()
 		}
 	else:
 		input_mapping = []
