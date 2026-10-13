@@ -9,7 +9,7 @@ export const RESULT_SHAPES = Object.freeze({
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
 const ALIAS_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-function humanizeAlias(value) {
+export function humanizeAlias(value) {
 	return String(value ?? "")
 		.split("_")
 		.filter(Boolean)
