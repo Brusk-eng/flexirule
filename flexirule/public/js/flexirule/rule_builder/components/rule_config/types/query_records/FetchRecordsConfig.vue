@@ -111,15 +111,7 @@
 							}
 						"
 					/>
-					<select
-						v-model="row.direction"
-						class="form-control direction-select"
-						:disabled="readOnly"
-						@change="syncOrderBy"
-					>
-						<option value="asc">{{ __("ASC") }}</option>
-						<option value="desc">{{ __("DESC") }}</option>
-					</select>
+					<SelectControl class="form-control direction-select" :df="{ fieldtype: 'Select', label: '', options: [{ label: 'ASC', value: 'asc' }, { label: 'DESC', value: 'desc' }], reqd: 1 }" :modelValue="row.direction" :read_only="readOnly" :hideLabel="true" @update:modelValue="(value) => { row.direction = value; syncOrderBy(); }" />
 					<button
 						v-if="!readOnly"
 						type="button"
