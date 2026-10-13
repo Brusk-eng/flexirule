@@ -324,6 +324,7 @@ import SelectControl from "../../../../controls/SelectControl.vue";
 import { useMetaStore } from "../../../../stores/useMetaStore";
 import {
 	AGGREGATE_FUNCTIONS,
+	humanizeAlias,
 	parseOutputFields,
 	serializeOutputFields,
 	validateOutputFields,
