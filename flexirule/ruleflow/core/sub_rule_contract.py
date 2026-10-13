@@ -92,7 +92,9 @@ def _parse_schema(raw: Any, schema_label: str, *, output: bool = False, default_
 					if output:
 						source = child.get("source")
 						source = dict(source) if isinstance(source, Mapping) else {}
-						source["kind"] = str(source.get("kind") or default_source_kind).strip() or default_source_kind
+						source["kind"] = (
+							str(source.get("kind") or default_source_kind).strip() or default_source_kind
+						)
 						child_item["source"] = source
 					child_fields.append(child_item)
 				item["children"] = child_fields
@@ -222,16 +224,20 @@ def _inferred_output_schema(rule_doc) -> list[dict[str, Any]]:
 				if isinstance(definition, str):
 					name, label, fieldtype = definition, definition, "Data"
 				elif isinstance(definition, Mapping):
-					name = definition.get("fieldname") or definition.get("name")
-					label = definition.get("label") or name
-					fieldtype = definition.get("fieldtype") or definition.get("type") or "Data"
+					name = str(definition.get("fieldname") or definition.get("name") or "").strip()
+					label = str(definition.get("label") or name)
+					fieldtype = str(definition.get("fieldtype") or definition.get("type") or "Data")
 				else:
 					continue
 				add_output(
 					name,
 					label=label,
 					fieldtype=fieldtype,
-					source={"action_id": action_id, "action_type": action_type, "process": _get(action, "process_name")},
+					source={
+						"action_id": action_id,
+						"action_type": action_type,
+						"process": _get(action, "process_name"),
+					},
 				)
 
 		if action_type == "Assignment":
@@ -255,9 +261,7 @@ def get_sub_rule_contract(rule_doc) -> dict[str, Any]:
 	"""Return the public schema for a callable Rule, inferring a legacy contract where absent."""
 	raw_inputs = _get(rule_doc, "input_schema")
 	raw_outputs = _get(rule_doc, "output_schema")
-	input_schema, input_errors, input_declared = _parse_schema(
-		raw_inputs, "Input Schema", output=False
-	)
+	input_schema, input_errors, input_declared = _parse_schema(raw_inputs, "Input Schema", output=False)
 	output_schema, output_errors, output_declared = _parse_schema(
 		raw_outputs, "Output Schema", output=True, default_source_kind="manual"
 	)
@@ -276,7 +280,9 @@ def get_sub_rule_contract(rule_doc) -> dict[str, Any]:
 		undeclared = sorted(required_names - declared_names)
 		if undeclared:
 			errors.append(
-				"Input Schema does not declare variables required by this Rule: " + ", ".join(undeclared) + "."
+				"Input Schema does not declare variables required by this Rule: "
+				+ ", ".join(undeclared)
+				+ "."
 			)
 
 	if output_declared:

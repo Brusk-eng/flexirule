@@ -73,12 +73,12 @@ class TestFetchRecords(FrappeTestCase):
 
 	def test_literal_column_adds_static_and_dynamic_values(self):
 		prefix = f"FetchLiteral_{random_string(5)}"
-		frappe.get_doc(
-			{"doctype": "ToDo", "description": f"{prefix}_static", "status": "Open"}
-		).insert(ignore_permissions=True)
-		frappe.get_doc(
-			{"doctype": "ToDo", "description": f"{prefix}_dynamic", "status": "Open"}
-		).insert(ignore_permissions=True)
+		frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_static", "status": "Open"}).insert(
+			ignore_permissions=True
+		)
+		frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_dynamic", "status": "Open"}).insert(
+			ignore_permissions=True
+		)
 
 		fields = [
 			"name",

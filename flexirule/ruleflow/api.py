@@ -117,13 +117,13 @@ def get_sub_rule_contract(rule_name: str):
 		exposed_only=True,
 	)
 	if not resolved_name:
-		frappe.throw(
-			_("Rule '{0}' is not an active, exposed Callable Event Rule.").format(rule_name)
-		)
+		frappe.throw(_("Rule '{0}' is not an active, exposed Callable Event Rule.").format(rule_name))
 
 	target_rule = frappe.get_doc("Rule", resolved_name)
 	if not frappe.has_permission("Rule", "read", doc=target_rule):
-		frappe.throw(_("You do not have permission to inspect this Sub-Rule interface."), frappe.PermissionError)
+		frappe.throw(
+			_("You do not have permission to inspect this Sub-Rule interface."), frappe.PermissionError
+		)
 
 	contract = resolve_contract(target_rule)
 	contract["resolved_rule_name"] = resolved_name

@@ -903,13 +903,23 @@ def _validate_sub_rule_input_mapping(action, errors: list[str], target_rule_over
 	required_vars = _get_required_variables_for_rule(target_rule)
 	config = _parse_json_value(action.config, {})
 	input_mapping = config.get("input_mapping", [])
+	mapped_vars: set[str] = set()
 	if isinstance(input_mapping, list):
-		mapped_vars = {m.get("target") for m in input_mapping if isinstance(m, Mapping) and m.get("target")}
+		mapped_vars = {
+			str(mapping.get("target")).strip()
+			for mapping in input_mapping
+			if isinstance(mapping, Mapping)
+			and mapping.get("target") is not None
+			and str(mapping.get("target")).strip()
+		}
 	elif isinstance(input_mapping, Mapping):
-		mapped_vars = {target for target in input_mapping if target}
+		mapped_vars = {
+			str(target).strip()
+			for target in input_mapping
+			if target is not None and str(target).strip()
+		}
 	else:
 		input_mapping = []
-		mapped_vars = set()
 
 	raw_input_schema = _safe_get(target_rule, "input_schema")
 	input_schema_declared = raw_input_schema is not None and raw_input_schema != ""
@@ -918,9 +928,9 @@ def _validate_sub_rule_input_mapping(action, errors: list[str], target_rule_over
 
 		target_contract = get_sub_rule_contract(target_rule)
 		declared_inputs = {
-			field.get("fieldname"): field
+			str(field.get("fieldname")): field
 			for field in target_contract.get("input_schema", [])
-			if field.get("fieldname")
+			if isinstance(field.get("fieldname"), str) and field.get("fieldname")
 		}
 		undeclared = sorted(set(required_vars) - set(declared_inputs))
 		if undeclared:
