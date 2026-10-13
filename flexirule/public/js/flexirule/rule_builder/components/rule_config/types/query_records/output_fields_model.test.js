@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import {
 	buildResolvedOutputSchema,
 	inferResultShape,
-	scrubOutputAlias,
 	parseOutputFields,
 	RESULT_SHAPES,
 	serializeOutputFields,
@@ -99,9 +98,25 @@ assert.equal(nestedCommasStayInsideExpressions[1].kind, "raw");
 const aggregateOnlyRows = parseOutputFields(["count(name) as total_users"]);
 assert.deepEqual(validateOutputFields(aggregateOnlyRows, RESULT_SHAPES.selectedFields), []);
 
-assert.equal(scrubOutputAlias("Reference Doctype"), "reference_doctype");
-assert.equal(scrubOutputAlias("totalCount"), "total_count");
-assert.equal(scrubOutputAlias("Total-Count"), "total_count");
+// Alias editing must preserve exactly what the user types; validation, not
+// live normalization, decides whether the alias is snake_case.
+const trailingUnderscoreAlias = parseOutputFields(["title as reference_"]);
+assert.equal(trailingUnderscoreAlias[0].alias, "reference_");
+assert.deepEqual(serializeOutputFields(trailingUnderscoreAlias), ["title as reference_"]);
+assert.ok(
+	validateOutputFields(trailingUnderscoreAlias, RESULT_SHAPES.selectedFields).some((error) =>
+		error.includes("snake_case")
+	)
+);
+
+const invalidSpacedAlias = parseOutputFields(["title as Reference Doctype"]);
+assert.equal(invalidSpacedAlias[0].alias, "Reference Doctype");
+assert.deepEqual(serializeOutputFields(invalidSpacedAlias), ["title as Reference Doctype"]);
+assert.ok(
+	validateOutputFields(invalidSpacedAlias, RESULT_SHAPES.selectedFields).some((error) =>
+		error.includes("snake_case")
+	)
+);
 
 const aliasedSchema = buildResolvedOutputSchema({
 	shape: RESULT_SHAPES.selectedFields,
