@@ -74,16 +74,6 @@
 					@update:modelValue="updateConfig('fields', $event)"
 				/>
 			</div>
-			<OutputFieldsEditor
-				ref="outputFieldsRef"
-				:doctype="doctype"
-				:modelValue="localConfig.fields || []"
-				:shape="localConfig.result_shape"
-				:groupBy="localConfig.group_by"
-				:readOnly="readOnly"
-				:showValidation="showValidation"
-				@update:modelValue="updateConfig('fields', $event)"
-			/>
 		</div>
 		<div class="sub-section section-subcard">
 			<div class="section-heading">
