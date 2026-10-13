@@ -271,10 +271,7 @@ def _has_resolved_output_schema(value) -> bool:
 	if isinstance(schema, Mapping):
 		return bool(schema.get("fields") or schema.get("properties"))
 	if isinstance(schema, list | tuple):
-		return any(
-			isinstance(field, Mapping) and not _is_empty(field.get("fieldname"))
-			for field in schema
-		)
+		return any(isinstance(field, Mapping) and not _is_empty(field.get("fieldname")) for field in schema)
 	return False
 
 
@@ -395,12 +392,12 @@ def _validate_action_contracts(
 	supports_return_schema = bool(
 		effective_policy.get("supports_return_schema", contract.get("supports_return_schema", False))
 	)
-	has_resolved_output_schema = _has_resolved_output_schema(
-		_safe_get(action, "resolved_output_schema")
-	)
-	if supports_return_schema and (
-		(show_return_type and not _is_empty(return_type)) or has_resolved_output_schema
-	) and _is_empty(_safe_get(action, "return_variable")):
+	has_resolved_output_schema = _has_resolved_output_schema(_safe_get(action, "resolved_output_schema"))
+	if (
+		supports_return_schema
+		and ((show_return_type and not _is_empty(return_type)) or has_resolved_output_schema)
+		and _is_empty(_safe_get(action, "return_variable"))
+	):
 		errors.append(
 			_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
 				action_label, action_type
