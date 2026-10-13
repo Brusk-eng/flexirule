@@ -76,7 +76,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import SelectControl from "../controls/SelectControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
 const props = defineProps({
 	nodeData: Object,
 	availableNodes: { type: Array, default: () => [] },
