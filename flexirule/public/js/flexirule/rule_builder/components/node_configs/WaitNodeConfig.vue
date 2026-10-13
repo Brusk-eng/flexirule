@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import SelectControl from "../controls/SelectControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
 const props = defineProps({
 	nodeData: Object,
 	showValidation: { type: Boolean, default: false },
