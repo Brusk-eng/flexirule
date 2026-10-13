@@ -56,6 +56,7 @@ class ProcessHandler(ActionHandler):
 				"Full Document",
 			],
 			show_return_type=True,
+			supports_return_schema=True,
 			require_return_type=False,
 			node_type="process",
 			category="Processes",

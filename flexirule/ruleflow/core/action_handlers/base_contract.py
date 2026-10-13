@@ -53,6 +53,7 @@ class ActionContract:
 		allowed_return_types: list[str] | None = None,
 		default_return_type: str | None = None,
 		show_return_type: bool | None = None,
+		supports_return_schema: bool = False,
 		require_return_type: bool = False,
 		show_return_variable: bool | None = None,
 		require_return_variable: bool = False,
@@ -84,6 +85,7 @@ class ActionContract:
 		self.allowed_return_types = allowed_return_types
 		self.default_return_type = default_return_type
 		self.show_return_type = show_return_type
+		self.supports_return_schema = supports_return_schema
 		self.require_return_type = require_return_type
 		self.show_return_variable = show_return_variable
 		self.require_return_variable = require_return_variable
@@ -137,6 +139,8 @@ class ActionContract:
 			d["default_return_type"] = self.default_return_type
 		if self.show_return_type is not None:
 			d["show_return_type"] = self.show_return_type
+		if self.supports_return_schema:
+			d["supports_return_schema"] = True
 		if self.require_return_type:
 			d["require_return_type"] = self.require_return_type
 		if self.show_return_variable is not None:

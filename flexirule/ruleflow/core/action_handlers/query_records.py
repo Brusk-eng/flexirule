@@ -82,6 +82,7 @@ class QueryRecordsHandler(ActionHandler):
 			],
 			default_return_type="List of Records",
 			show_return_type=True,
+			supports_return_schema=True,
 			require_return_type=False,
 			mandatory_fields={
 				"Exist Record": ["reference_doctype"],
@@ -109,6 +110,7 @@ class QueryRecordsHandler(ActionHandler):
 					"field_labels": {"return_type": "Record Output Type"},
 				},
 				"Exist Record": {
+					"supports_return_schema": False,
 					"allowed_return_types": ["Yes / No"],
 					"default_return_type": "Yes / No",
 					"show_return_type": False,
@@ -123,6 +125,7 @@ class QueryRecordsHandler(ActionHandler):
 					"field_labels": {"return_type": "Report Output Type"},
 				},
 				"Count": {
+					"supports_return_schema": False,
 					"allowed_return_types": ["List of Values"],
 					"default_return_type": "List of Values",
 					"show_return_type": False,
@@ -130,6 +133,7 @@ class QueryRecordsHandler(ActionHandler):
 					"field_labels": {"return_type": "Metric Output Type"},
 				},
 				"Sum": {
+					"supports_return_schema": False,
 					"allowed_return_types": ["List of Values"],
 					"default_return_type": "List of Values",
 					"show_return_type": False,
@@ -137,6 +141,7 @@ class QueryRecordsHandler(ActionHandler):
 					"field_labels": {"return_type": "Metric Output Type"},
 				},
 				"Average": {
+					"supports_return_schema": False,
 					"allowed_return_types": ["List of Values"],
 					"default_return_type": "List of Values",
 					"show_return_type": False,
@@ -144,6 +149,7 @@ class QueryRecordsHandler(ActionHandler):
 					"field_labels": {"return_type": "Metric Output Type"},
 				},
 				"Min": {
+					"supports_return_schema": False,
 					"allowed_return_types": ["List of Values"],
 					"default_return_type": "List of Values",
 					"show_return_type": False,
@@ -151,6 +157,7 @@ class QueryRecordsHandler(ActionHandler):
 					"field_labels": {"return_type": "Metric Output Type"},
 				},
 				"Max": {
+					"supports_return_schema": False,
 					"allowed_return_types": ["List of Values"],
 					"default_return_type": "List of Values",
 					"show_return_type": False,

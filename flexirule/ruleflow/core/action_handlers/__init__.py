@@ -66,6 +66,7 @@ class ActionHandler(ABC):
 			"default_return_type": contract.default_return_type,
 			"field_labels": dict(contract.field_labels or {}),
 			"show_return_type": contract.show_return_type,
+			"supports_return_schema": contract.supports_return_schema,
 			"require_return_type": contract.require_return_type,
 			"show_return_variable": contract.show_return_variable,
 			"require_return_variable": contract.require_return_variable,
@@ -85,6 +86,8 @@ class ActionHandler(ABC):
 					policy["default_return_type"] = op_policy["default_return_type"]
 				if op_policy.get("show_return_type") is not None:
 					policy["show_return_type"] = op_policy.get("show_return_type")
+				if op_policy.get("supports_return_schema") is not None:
+					policy["supports_return_schema"] = bool(op_policy.get("supports_return_schema"))
 				if op_policy.get("require_return_type") is not None:
 					policy["require_return_type"] = op_policy.get("require_return_type")
 				if op_policy.get("show_return_variable") is not None:

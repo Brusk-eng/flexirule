@@ -113,6 +113,7 @@ class SubRuleHandler(ActionHandler):
 			],
 			default_return_type="Single Record",
 			show_return_type=True,
+			supports_return_schema=True,
 			require_return_type=False,
 			node_type="sub-rule",
 			category="Control Flow",

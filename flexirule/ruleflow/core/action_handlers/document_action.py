@@ -67,6 +67,7 @@ class DocumentActionHandler(ActionHandler):
 			],
 			default_return_type="Single Record",
 			show_return_type=True,
+			supports_return_schema=True,
 			require_return_type=False,
 			operation_policies={
 				"Create New": {
@@ -86,6 +87,7 @@ class DocumentActionHandler(ActionHandler):
 					"field_labels": {"return_type": "Updated Document Output"},
 				},
 				"Delete Record": {
+					"supports_return_schema": False,
 					"allowed_return_types": ["Yes / No"],
 					"default_return_type": "Yes / No",
 					"allowed_mutations": ["Set Context Variable"],
