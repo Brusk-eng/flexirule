@@ -1832,7 +1832,13 @@ async function test_query() {
 		});
 
 		if (res.message) {
-			props.node.data.resolved_output_schema = res.message.schema || [];
+			if (mode.value === "Fetch Records") {
+				// Fetch Records' configured result shape is more reliable than sample
+				// rows: empty queries and aggregate results must keep their schema.
+				await update_fetch_records_schema_local();
+			} else {
+				props.node.data.resolved_output_schema = res.message.schema || [];
+			}
 			test_status.value = __("Success");
 
 			const isDraft = !store.nodes.some((n) => n === props.node);
