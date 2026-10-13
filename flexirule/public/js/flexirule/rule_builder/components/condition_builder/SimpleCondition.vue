@@ -6,6 +6,7 @@
 import ControlFactory from "../../controls/ControlFactory.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
 import { useMetaStore } from "../../stores/useMetaStore";
 import { inject, ref, computed, watch } from "vue";
 
@@ -361,11 +362,14 @@ watch(
 
 			<!-- Operator -->
 			<div class="condition-col operator-col">
-				<select v-model="node.op" class="fxr-select operator-select" :disabled="readOnly">
-					<option v-for="op in operators" :key="op.value" :value="op.value">
-						{{ op.label }}
-					</option>
-				</select>
+				<SelectControl
+					class="operator-select"
+					:df="{ fieldtype: 'Select', options: operators, reqd: 1, read_only: readOnly }"
+					:modelValue="node.op"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="(val) => (node.op = val)"
+				/>
 			</div>
 
 			<!-- Value Group -->
