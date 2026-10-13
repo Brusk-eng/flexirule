@@ -5,44 +5,46 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_break_tjia",
   "rule_name",
+  "description",
+  "column_break_scgd",
   "is_active",
+  "priority",
+  "trigger_conditions_section",
+  "trigger_type",
   "exposed_as_subrule",
+  "document_type",
+  "trigger_event",
+  "watched_fields",
+  "column_break_1",
+  "trigger_condition",
+  "compiled_expression",
   "section_break_subrule_interface",
   "input_schema",
   "column_break_subrule_interface",
   "output_schema",
-  "priority",
-  "column_break_1",
-  "trigger_type",
-  "document_type",
-  "trigger_event",
-  "column_break_2",
-  "execution_mode",
-  "max_execution_time",
-  "debug_mode",
-  "module",
-  "skip_for_roles",
-  "section_break_permissions",
-  "permissions",
   "section_break_flow",
   "actions",
   "visual_data",
-  "section_break_error",
-  "last_error",
   "settings",
+  "section_break_execution",
+  "execution_mode",
+  "max_execution_time",
+  "column_break_2",
+  "debug_mode",
+  "skip_for_roles",
+  "section_break_permissions",
+  "permissions",
+  "section_break_rule_metadata",
   "status",
-  "column_break_scgd",
+  "module",
+  "column_break_xnyu",
   "base_rule_name",
   "previous_version",
   "version",
-  "section_break_tjia",
-  "description",
-  "watched_fields",
-  "trigger_conditions_section",
-  "compiled_expression",
-  "column_break_xnyu",
-  "trigger_condition"
+  "section_break_error",
+  "last_error"
  ],
  "fields": [
   {
@@ -281,10 +283,10 @@
    "allow_in_quick_entry": 1,
    "default": "0",
    "depends_on": "eval:doc.trigger_type===\"Callable Event\"",
-   "description": "Make this rule available to be used as Action in other Rule",
+   "description": "Allow other Rules to invoke this Callable Rule as a Sub-Rule action.",
    "fieldname": "exposed_as_subrule",
    "fieldtype": "Check",
-   "label": "Exposed As Sub-Rule"
+   "label": "Expose as Sub-Rule"
   },
   {
    "fieldname": "section_break_subrule_interface",
@@ -300,7 +302,8 @@
    "label": "Input Schema (JSON)",
    "options": "JSON",
    "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
-   "description": "JSON array of input fields: fieldname, label, fieldtype, options, reqd (0/1), and optional default/description. Required inputs must be supplied by Sub-Rule callers."
+   "description": "JSON array of input fields: fieldname, label, fieldtype, options, reqd (0/1), and optional default/description. Required inputs must be supplied by Sub-Rule callers.",
+   "max_height": "200 px"
   },
   {
    "fieldname": "column_break_subrule_interface",
@@ -313,7 +316,8 @@
    "label": "Output Schema (JSON)",
    "options": "JSON",
    "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
-   "description": "JSON array of public outputs: fieldname, label, fieldtype, reqd (0/1), optional source and nested children. Every declared top-level output must be produced by the Rule."
+   "description": "JSON array of public outputs: fieldname, label, fieldtype, reqd (0/1), optional source and nested children. Every declared top-level output must be produced by the Rule.",
+   "max_height": "200 px"
   },
   {
    "fieldname": "settings",
@@ -326,16 +330,31 @@
   },
   {
    "fieldname": "section_break_tjia",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Rule Details",
+   "description": "Define the rule identity, activation state, and execution priority."
   },
   {
    "fieldname": "trigger_conditions_section",
    "fieldtype": "Section Break",
-   "label": "Trigger Conditions"
+   "label": "Trigger Configuration",
+   "description": "Choose the event that invokes this rule and configure any optional trigger filters."
   },
   {
    "fieldname": "column_break_xnyu",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_execution",
+   "fieldtype": "Section Break",
+   "label": "Execution & Behavior",
+   "description": "Configure how the rule runs and which users or roles it skips."
+  },
+  {
+   "fieldname": "section_break_rule_metadata",
+   "fieldtype": "Section Break",
+   "label": "Status & Version",
+   "description": "Read-only lifecycle and version information for this Rule."
   }
  ],
  "index_web_pages_for_search": 1,
