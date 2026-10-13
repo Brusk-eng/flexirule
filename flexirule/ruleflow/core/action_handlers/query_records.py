@@ -831,6 +831,140 @@ class QueryRecordsHandler(ActionHandler):
 		visit(filters, path, root_level=True)
 		return errors
 
+	def _split_fetch_literal_fields(self, fields):
+		"""Separate FlexiRule literal-column descriptors from native Frappe field expressions."""
+		if not isinstance(fields, list):
+			return fields, []
+		query_fields = []
+		literal_columns = []
+		for field in fields:
+			if isinstance(field, dict) and field.get("kind") == "literal":
+				literal_columns.append(field)
+			else:
+				query_fields.append(field)
+		return query_fields, literal_columns
+
+	def _selected_fetch_result_fieldnames(self, reference_doctype: str, fields) -> set[str]:
+		"""Return known output keys for collisions between query fields and literal columns."""
+		if fields in (None, "", []):
+			return {"name"}
+		if isinstance(fields, str):
+			if fields.strip() == "*":
+				meta = frappe.get_meta(reference_doctype)
+				non_column_types = {
+					"Section Break",
+					"Column Break",
+					"Tab Break",
+					"Heading",
+					"HTML",
+					"Button",
+					"Table",
+					"Table MultiSelect",
+					"Image",
+				}
+				return {
+					field.fieldname
+					for field in meta.fields
+					if field.fieldname and field.fieldtype not in non_column_types
+				} | {"name", "owner", "creation", "modified", "modified_by", "docstatus"}
+			fields = self._split_fetch_field_expressions(fields)
+
+		result_names: set[str] = set()
+		for field in fields if isinstance(fields, list | tuple) else []:
+			if isinstance(field, str):
+				expression = field.strip()
+				alias_match = re.match(r"^.+?\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)$", expression, re.IGNORECASE)
+				if alias_match:
+					result_names.add(alias_match.group(1))
+				elif self._is_plain_field_reference(expression):
+					result_names.add(expression)
+				continue
+			if not isinstance(field, dict):
+				continue
+			alias = str(field.get("as") or "").strip()
+			if alias:
+				result_names.add(alias)
+			for key, children in field.items():
+				if key == "as" or str(key).lower() in {"count", "sum", "avg", "min", "max"}:
+					continue
+				if isinstance(children, list):
+					result_names.add(key)
+					result_names.update(f"{key}.{child}" for child in children if isinstance(child, str))
+		return result_names
+
+	def _validate_fetch_literal_columns(
+		self, reference_doctype: str, literal_columns: list, query_fields
+	) -> list[str]:
+		"""Validate literal output metadata without treating values as SQL expressions."""
+		errors = []
+		seen = set()
+		query_names = self._selected_fetch_result_fieldnames(reference_doctype, query_fields)
+		allowed_fieldtypes = {
+			"Data",
+			"Int",
+			"Float",
+			"Currency",
+			"Check",
+			"Date",
+			"Datetime",
+			"Time",
+			"Link",
+			"Select",
+			"JSON",
+		}
+		valid_modes = {"static", "variable", "resolver", "expression"}
+		for index, column in enumerate(literal_columns, start=1):
+			label = _("Literal column {0}").format(index)
+			fieldname = str(column.get("fieldname") or "").strip()
+			if not re.fullmatch(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*", fieldname):
+				errors.append(_("{0} must have a lowercase snake_case output field name").format(label))
+				continue
+			if fieldname in seen:
+				errors.append(_("{0} duplicates output field '{1}'").format(label, fieldname))
+			seen.add(fieldname)
+			if fieldname in query_names:
+				errors.append(
+					_("{0} conflicts with a selected query output field '{1}'").format(label, fieldname)
+				)
+			fieldtype = str(column.get("fieldtype") or "Data")
+			if fieldtype not in allowed_fieldtypes:
+				errors.append(_("{0} uses unsupported field type '{1}'").format(label, fieldtype))
+			value_spec = column.get("value_spec")
+			if not isinstance(value_spec, dict) or str(value_spec.get("mode") or "").lower() not in valid_modes:
+				errors.append(_("{0} must contain a supported FlexValue value_spec").format(label))
+		return errors
+
+	def _resolve_fetch_literal_columns(self, literal_columns: list, resolve_payload, action_label: str):
+		"""Resolve configured FlexValue specs once for this query execution."""
+		resolved = []
+		for index, column in enumerate(literal_columns, start=1):
+			fieldname = str(column.get("fieldname") or "").strip()
+			value_spec = column.get("value_spec") or {"mode": "static", "value": column.get("value", "")}
+			value = resolve_payload(value_spec, f"{action_label}.literal_columns[{index}].value_spec")
+			if isinstance(value, (dict, list, tuple, set)):
+				frappe.throw(
+					_("Literal column '{0}' must resolve to a scalar value, not a collection").format(fieldname)
+				)
+			resolved.append((fieldname, value))
+		return resolved
+
+	def _append_fetch_literal_columns(self, rows, resolved_columns):
+		"""Append resolved literal values to query rows without inserting them into SQL."""
+		if not resolved_columns:
+			return rows
+		if not isinstance(rows, list):
+			frappe.throw(_("Fetch Records expected a list of rows before adding literal columns"))
+		for index, row in enumerate(rows):
+			if not isinstance(row, dict):
+				if hasattr(row, "as_dict"):
+					row = row.as_dict()
+					rows[index] = row
+				else:
+					frappe.throw(_("Fetch Records returned a row that cannot accept literal columns"))
+			for fieldname, value in resolved_columns:
+				row[fieldname] = value
+		return rows
+
 	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Execute Fetch Records through Frappe's native Query Builder API.
 
@@ -866,8 +1000,21 @@ class QueryRecordsHandler(ActionHandler):
 				frappe.throw(_("Filters must use a valid canonical filter tree."))
 
 		kwargs = {}
-		if config.get("fields") not in (None, "", []):
-			kwargs["fields"] = resolve_payload(config["fields"], f"{action_label}.fields")
+		configured_fields = config.get("fields")
+		query_fields, literal_columns = self._split_fetch_literal_fields(configured_fields)
+		if literal_columns:
+			if not query_fields:
+				frappe.throw(
+					_("Literal columns must be paired with at least one source field or aggregate.")
+				)
+			literal_errors = self._validate_fetch_literal_columns(
+				reference_doctype, literal_columns, query_fields
+			)
+			if literal_errors:
+				frappe.throw("; ".join(literal_errors))
+			kwargs["fields"] = resolve_payload(query_fields, f"{action_label}.fields")
+		elif configured_fields not in (None, "", []):
+			kwargs["fields"] = resolve_payload(configured_fields, f"{action_label}.fields")
 
 		for key in ("filters", "order_by", "group_by", "limit", "offset", "distinct"):
 			value = config.get(key)
@@ -918,13 +1065,20 @@ class QueryRecordsHandler(ActionHandler):
 		if kwargs.get("limit") == 0:
 			return []
 
+		if kwargs.get("limit") == 0:
+			return []
+
+		resolved_literal_columns = self._resolve_fetch_literal_columns(
+			literal_columns, resolve_payload, action_label
+		)
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
-		return execute_query(
+		rows = execute_query(
 			reference_doctype,
 			kwargs,
 			ignore_permissions,
 		)
+		return self._append_fetch_literal_columns(rows, resolved_literal_columns)
 
 	def _is_plain_field_reference(self, token) -> bool:
 		if not isinstance(token, str):

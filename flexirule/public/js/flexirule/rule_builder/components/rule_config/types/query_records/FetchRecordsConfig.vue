@@ -66,6 +66,7 @@
 					:modelValue="localConfig.fields || []"
 					:shape="localConfig.result_shape"
 					:groupBy="localConfig.group_by"
+					:variableOptions="variableOptions"
 					:readOnly="readOnly"
 					:showValidation="showValidation"
 					@update:modelValue="updateConfig('fields', $event)"

@@ -135,6 +135,63 @@
 						/>
 					</div>
 
+					<div v-else-if="row.kind === 'literal'" class="output-literal-controls">
+						<div class="output-field-controls">
+							<div class="output-field-control">
+								<label class="output-field-label">{{ __("Output field name") }}</label>
+								<input
+									class="form-control"
+									:value="row.fieldname"
+									:disabled="readOnly"
+									:placeholder="__('document_type')"
+									@input="updateRowValue(row, 'fieldname', $event.target.value)"
+								/>
+							</div>
+							<div class="output-field-control">
+								<label class="output-field-label">{{ __("Label") }}</label>
+								<input
+									class="form-control"
+									:value="row.label"
+									:disabled="readOnly"
+									:placeholder="__('Document Type')"
+									@input="updateRowValue(row, 'label', $event.target.value)"
+								/>
+							</div>
+							<div class="output-field-control">
+								<label class="output-field-label">{{ __("Value type") }}</label>
+								<select
+									class="form-control"
+									:value="row.fieldtype || 'Data'"
+									:disabled="readOnly"
+									@change="updateRowValue(row, 'fieldtype', $event.target.value)"
+								>
+									<option v-for="type in literalFieldTypes" :key="type.value" :value="type.value">
+										{{ type.label }}
+									</option>
+								</select>
+							</div>
+						</div>
+						<div class="output-field-control">
+							<label class="output-field-label">{{ __("Value") }}</label>
+							<FlexValueControl
+								:modelValue="row.value_spec"
+								:variableOptions="variableOptions"
+								:readOnly="readOnly"
+								:showValidation="showValidation"
+								:context="{
+									df: {
+										fieldname: row.fieldname || 'literal_value',
+										label: row.label || __('Literal value'),
+										fieldtype: row.fieldtype || 'Data',
+										reqd: 0,
+										options: row.options,
+									},
+								}"
+								@update:modelValue="updateRowValue(row, 'value_spec', $event)"
+							/>
+						</div>
+					</div>
+
 					<div v-else-if="row.kind === 'child'" class="output-child-controls">
 						<div class="output-child-table">
 							<label class="output-field-label">{{ __("Child table") }}</label>
@@ -197,6 +254,9 @@
 			<button type="button" class="output-fields-add-btn" @click="addFunction">
 				<i class="fa fa-calculator"></i>{{ __("Add function") }}
 			</button>
+			<button type="button" class="output-fields-add-btn" @click="addLiteral">
+				<i class="fa fa-tag"></i>{{ __("Add literal value") }}
+			</button>
 			<button
 				v-if="shape === 'embedded_children'"
 				type="button"
@@ -242,6 +302,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import MultiSelectList from "../../../../controls/MultiSelectList.vue";
+import FlexValueControl from "../../../../controls/FlexValueControl.vue";
 import { useMetaStore } from "../../../../stores/useMetaStore";
 import {
 	AGGREGATE_FUNCTIONS,
@@ -256,6 +317,7 @@ const props = defineProps({
 	doctype: { type: String, required: true },
 	shape: { type: String, required: true },
 	groupBy: { type: String, default: "" },
+	variableOptions: { type: Array, default: null },
 	readOnly: { type: Boolean, default: false },
 	showValidation: { type: Boolean, default: false },
 });
@@ -279,6 +341,19 @@ const aggregateFunctions = AGGREGATE_FUNCTIONS.map((value) => ({
 	value,
 	label: value.toUpperCase(),
 }));
+const literalFieldTypes = [
+	{ value: "Data", label: __("Text (Data)") },
+	{ value: "Int", label: __("Integer (Int)") },
+	{ value: "Float", label: __("Number (Float)") },
+	{ value: "Currency", label: __("Currency") },
+	{ value: "Check", label: __("Checkbox (Check)") },
+	{ value: "Date", label: __("Date") },
+	{ value: "Datetime", label: __("Datetime") },
+	{ value: "Time", label: __("Time") },
+	{ value: "Link", label: __("Link") },
+	{ value: "Select", label: __("Select") },
+	{ value: "JSON", label: __("JSON") },
+];
 
 const parentFields = computed(() => metaStore.doc_meta[props.doctype] || []);
 const childTableOptions = computed(() =>
@@ -353,6 +428,9 @@ function rowTitle(row) {
 	if (row.kind === "child") {
 		return fieldInfo(row.tableField).label || __("Embedded child selection");
 	}
+	if (row.kind === "literal") {
+		return row.label || humanizeAlias(row.fieldname) || __("Literal value");
+	}
 	return row.expression || __("Advanced field expression");
 }
 
@@ -389,6 +467,10 @@ function rowDescription(row) {
 					.join(", ")
 			: "";
 		return fields ? __("Child fields") + " · " + fields : __("Select child fields");
+	}
+	if (row.kind === "literal") {
+		const mode = row.value_spec?.mode || "static";
+		return __("Literal column") + " · " + (row.fieldname || "—") + " · " + __(mode);
 	}
 	return __("Advanced native field expression");
 }
@@ -466,6 +548,34 @@ function addChild() {
 		kind: "child",
 		tableField: "",
 		fields: [],
+		isEditing: true,
+		childFieldOptions: [],
+	});
+	emitRows();
+}
+
+function addLiteral() {
+	if (props.readOnly) return;
+	const usedNames = new Set(
+		rows.value
+			.map((row) =>
+				row.kind === "literal"
+					? row.fieldname
+					: row.alias || (row.kind === "field" ? row.field : "")
+			)
+			.filter(Boolean)
+	);
+	let fieldname = "literal_value";
+	let suffix = 2;
+	while (usedNames.has(fieldname)) fieldname = "literal_value_" + suffix++;
+	rows.value.push({
+		id: newId(),
+		kind: "literal",
+		fieldname,
+		label: humanizeAlias(fieldname),
+		fieldtype: "Data",
+		reqd: 0,
+		value_spec: { mode: "static", value: "" },
 		isEditing: true,
 		childFieldOptions: [],
 	});

@@ -291,4 +291,63 @@ assert.deepEqual(
 	]
 );
 
+const literalColumns = [
+	{
+		kind: "literal",
+		fieldname: "document_type",
+		label: "Document Type",
+		fieldtype: "Data",
+		reqd: 0,
+		value_spec: { mode: "static", value: "Sales Invoice" },
+	},
+	"count(name) as issued_count",
+];
+assert.deepEqual(parseOutputFields(literalColumns).map((row) => row.kind), ["literal", "function"]);
+assert.deepEqual(serializeOutputFields(parseOutputFields(literalColumns)), literalColumns);
+assert.deepEqual(
+	buildResolvedOutputSchema({
+		shape: RESULT_SHAPES.selectedFields,
+		fields: literalColumns,
+	}),
+	[
+		{
+			label: "Document Type",
+			fieldname: "document_type",
+			fieldtype: "Data",
+			reqd: 0,
+			source: {
+				kind: "literal",
+				fieldname: "document_type",
+				value_spec: { mode: "static", value: "Sales Invoice" },
+			},
+		},
+		{
+			label: "Issued Count",
+			fieldname: "issued_count",
+			fieldtype: "Int",
+			reqd: 0,
+			source: {
+				kind: "aggregate",
+				function: "count",
+				fieldname: "name",
+				expression: "count(name) as issued_count",
+			},
+		},
+	]
+);
+assert.equal(validateOutputFields(parseOutputFields(literalColumns), RESULT_SHAPES.selectedFields).length, 0);
+assert.ok(
+	validateOutputFields(
+		parseOutputFields([
+			{
+				kind: "literal",
+				fieldname: "document_type",
+				label: "Document Type",
+				value_spec: { mode: "static", value: "Sales Invoice" },
+			},
+		]),
+		RESULT_SHAPES.selectedFields
+	).some((error) => error.includes("source field or aggregate"))
+);
+
 console.log("output fields model tests passed");
