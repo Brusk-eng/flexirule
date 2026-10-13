@@ -320,10 +320,10 @@ export function buildResolvedOutputSchema({
 						: fn === "avg"
 						? "Float"
 						: ["min", "max"].includes(fn)
-							? info.fieldtype || "Data"
-							: numericType
-								? info.fieldtype
-								: "Float",
+						? info.fieldtype || "Data"
+						: numericType
+						? info.fieldtype
+						: "Float",
 				mandatory: 0,
 			});
 		} else if (row.kind === "child") {
