@@ -1,3 +1,5 @@
+import { normalizeResolvedOutputField } from "../../../../../utils/output_schema.js";
+
 export const RESULT_SHAPES = Object.freeze({
 	documentNames: "document_names",
 	wholeDocuments: "whole_documents",
@@ -7,6 +9,13 @@ export const RESULT_SHAPES = Object.freeze({
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
 const ALIAS_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+function humanizeAlias(value) {
+	return String(value ?? "")
+		.split("_")
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+}
 function clone(value) {
 	if (value === undefined) return undefined;
 	return JSON.parse(JSON.stringify(value));
