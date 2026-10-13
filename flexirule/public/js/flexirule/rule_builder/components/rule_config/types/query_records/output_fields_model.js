@@ -262,19 +262,22 @@ export function buildResolvedOutputSchema({
 			...(field.mandatory !== undefined ? { mandatory: field.mandatory } : {}),
 		});
 	};
-	const sourceInfo = (path) => lookup(String(path ?? "").trim()) || {
-		fieldname: path,
-		label: path,
-		fieldtype: "Data",
-	};
+	const sourceInfo = (path) =>
+		lookup(String(path ?? "").trim()) || {
+			fieldname: path,
+			label: path,
+			fieldtype: "Data",
+		};
 	const aliasLabel = (alias) => humanizeAlias(alias);
 
 	if (shape === RESULT_SHAPES.documentNames) {
-		add(lookup("name") || {
-			fieldname: "name",
-			label: "ID (name)",
-			fieldtype: "Data",
-		});
+		add(
+			lookup("name") || {
+				fieldname: "name",
+				label: "ID (name)",
+				fieldtype: "Data",
+			}
+		);
 		return schema;
 	}
 	if (shape === RESULT_SHAPES.wholeDocuments) {
@@ -292,7 +295,7 @@ export function buildResolvedOutputSchema({
 			add({
 				...info,
 				fieldname: alias || source,
-				label: alias ? aliasLabel(alias) : (info.label || source),
+				label: alias ? aliasLabel(alias) : info.label || source,
 			});
 		} else if (row.kind === "function") {
 			const source = String(row.field ?? "").trim();
@@ -300,17 +303,27 @@ export function buildResolvedOutputSchema({
 			const alias = scrubOutputAlias(row.alias);
 			if (!source || !alias) continue;
 			const info = sourceInfo(source);
-			const numericType = ["Currency", "Float", "Int", "Percent", "Rating", "Duration"].includes(
-				info.fieldtype
-			);
+			const numericType = [
+				"Currency",
+				"Float",
+				"Int",
+				"Percent",
+				"Rating",
+				"Duration",
+			].includes(info.fieldtype);
 			add({
 				fieldname: alias,
 				label: aliasLabel(alias),
 				fieldtype:
-					fn === "count" ? "Int" :
-					fn === "avg" ? "Float" :
-					["min", "max"].includes(fn) ? (info.fieldtype || "Data") :
-					numericType ? info.fieldtype : "Float",
+					fn === "count"
+						? "Int"
+						: fn === "avg"
+							? "Float"
+							: ["min", "max"].includes(fn)
+								? info.fieldtype || "Data"
+								: numericType
+									? info.fieldtype
+									: "Float",
 				mandatory: 0,
 			});
 		} else if (row.kind === "child") {
