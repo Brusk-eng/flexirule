@@ -232,9 +232,7 @@ export function buildResolvedOutputSchema({
 	const seen = new Set();
 	const sourceFallback = (field, kind) => ({
 		kind,
-		...(field?.fieldname
-			? { fieldname: field.fieldname, expression: field.fieldname }
-			: {}),
+		...(field?.fieldname ? { fieldname: field.fieldname, expression: field.fieldname } : {}),
 	});
 	const add = (field, fallbackSourceKind = "unknown") => {
 		if (!field?.fieldname || seen.has(field.fieldname)) return;
