@@ -1093,7 +1093,7 @@ def test_action_query(
 									"options": df.options,
 									"reqd": _reqd_flag(df.reqd),
 									"source": _output_schema_source(
-									"field", fieldname=df.fieldname, expression=df.fieldname
+										"field", fieldname=df.fieldname, expression=df.fieldname
 									),
 								}
 							)
