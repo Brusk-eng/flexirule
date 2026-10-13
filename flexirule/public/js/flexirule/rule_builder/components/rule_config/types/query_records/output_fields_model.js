@@ -8,9 +8,8 @@ export const RESULT_SHAPES = Object.freeze({
 });
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
-const ALIAS_PATTERN = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
-
-function humanizeAlias(value) {
+const ALIAS_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+export function humanizeAlias(value) {
 	return String(value ?? "")
 		.split("_")
 		.filter(Boolean)
@@ -82,9 +81,9 @@ function splitTopLevelExpressions(input) {
 function parseAlias(expression) {
 	const match = String(expression)
 		.trim()
-		.match(/^(.+?)\s+as\s+(.+)$/i);
+		.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
 	if (!match) return { expression: String(expression).trim(), alias: "" };
-	return { expression: match[1].trim(), alias: match[2].trim() };
+	return { expression: match[1].trim(), alias: match[2] };
 }
 function createRow(kind, index, values = {}) {
 	return {
@@ -146,6 +145,22 @@ export function parseOutputFields(value) {
 			continue;
 		}
 		if (isObject(item)) {
+			if (item.kind === "literal") {
+				rows.push(
+					createRow("literal", index++, {
+						fieldname: String(item.fieldname ?? "").trim(),
+						label: String(item.label ?? "").trim(),
+						fieldtype: String(item.fieldtype || "Data"),
+						options: item.options,
+						reqd: item.reqd,
+						value_spec: isObject(item.value_spec)
+							? clone(item.value_spec)
+							: { mode: "static", value: item.value ?? "" },
+						originalValue: clone(item),
+					})
+				);
+				continue;
+			}
 			const aggregateKey = Object.keys(item).find((key) =>
 				AGGREGATE_SET.has(key.toLowerCase())
 			);
@@ -154,7 +169,7 @@ export function parseOutputFields(value) {
 					createRow("function", index++, {
 						functionName: aggregateKey.toLowerCase(),
 						field: String(item[aggregateKey] ?? ""),
-						alias: String(item.as ?? "").trim(),
+						alias: String(item.as ?? ""),
 						originalValue: clone(item),
 					})
 				);
@@ -199,6 +214,20 @@ export function serializeOutputFields(rows) {
 			const tableField = String(row.tableField ?? "").trim();
 			const fields = Array.isArray(row.fields) ? clone(row.fields) : [];
 			return tableField ? { [tableField]: fields } : {};
+		}
+		if (row.kind === "literal") {
+			const fieldname = String(row.fieldname ?? "").trim();
+			return {
+				kind: "literal",
+				fieldname,
+				label: String(row.label ?? "").trim() || humanizeAlias(fieldname),
+				fieldtype: String(row.fieldtype || "Data"),
+				...(row.options ? { options: String(row.options) } : {}),
+				reqd: Number(row.reqd) === 1 ? 1 : 0,
+				value_spec: isObject(row.value_spec)
+					? clone(row.value_spec)
+					: { mode: "static", value: "" },
+			};
 		}
 		if (row.dirty) {
 			const expression = String(row.expression ?? "").trim();
@@ -358,6 +387,25 @@ export function buildResolvedOutputSchema({
 					},
 				});
 			}
+		} else if (row.kind === "literal") {
+			const fieldname = String(row.fieldname ?? "").trim();
+			if (!fieldname) continue;
+			const valueSpec = isObject(row.value_spec)
+				? clone(row.value_spec)
+				: { mode: "static", value: "" };
+			const valueMode = String(valueSpec.mode || "static").toLowerCase();
+			add({
+				fieldname,
+				label: String(row.label || "").trim() || aliasLabel(fieldname),
+				fieldtype: String(row.fieldtype || "Data"),
+				...(row.options ? { options: row.options } : {}),
+				reqd: 0,
+				source: {
+					kind: valueMode === "static" ? "literal" : "dynamic",
+					fieldname,
+					value_spec: valueSpec,
+				},
+			});
 		} else if (row.kind === "raw") {
 			const expression = String(row.expression ?? "").trim();
 			if (!expression) continue;
@@ -387,8 +435,11 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			"Aggregate functions mixed with regular fields require Group By. Configure Group By under Retrieval Settings, or remove regular output fields."
 		);
 	}
-	const aliases = new Set();
+	const outputNames = new Set();
 	if (!list.length) errors.push("Add at least one output field.");
+	if (list.some((row) => row.kind === "literal") && !list.some((row) => row.kind !== "literal")) {
+		errors.push("Literal columns must be paired with at least one source field or aggregate.");
+	}
 	if (shape === RESULT_SHAPES.embeddedChildren && !list.some((row) => row.kind === "child")) {
 		errors.push("Embedded children requires at least one child-table selection.");
 	}
@@ -396,11 +447,18 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 		const prefix = "Output field " + (index + 1) + ": ";
 		if (row.kind === "field") {
 			const fieldPath = String(row.field ?? "").trim();
+			const fieldAlias = String(row.alias ?? "").trim();
 			if (!fieldPath) errors.push(prefix + "select a field.");
 			else if (fieldPath.split(".").length > 2) {
 				errors.push(
 					prefix +
 						"Frappe v15 supports only one-level Link or child-table field paths in this selection."
+				);
+			}
+			if (fieldAlias && !ALIAS_PATTERN.test(fieldAlias)) {
+				errors.push(
+					prefix +
+						"alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words."
 				);
 			}
 		} else if (row.kind === "function") {
@@ -419,7 +477,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			else if (!ALIAS_PATTERN.test(alias)) {
 				errors.push(
 					prefix +
-						"alias must be lowercase snake_case and contain only letters, numbers, and underscores."
+						"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
 				);
 			}
 		} else if (row.kind === "child") {
@@ -427,22 +485,71 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			if (!Array.isArray(row.fields) || !row.fields.length) {
 				errors.push(prefix + "select at least one child field.");
 			}
+		} else if (row.kind === "literal") {
+			const fieldname = String(row.fieldname ?? "").trim();
+			if (!fieldname) errors.push(prefix + "enter an output field name.");
+			else if (!ALIAS_PATTERN.test(fieldname)) {
+				errors.push(prefix + "output field name must be lowercase snake_case.");
+			}
+			if (!String(row.label ?? "").trim()) errors.push(prefix + "enter a label.");
+			const fieldtype = String(row.fieldtype || "Data");
+			if (
+				![
+					"Data",
+					"Int",
+					"Float",
+					"Currency",
+					"Check",
+					"Date",
+					"Datetime",
+					"Time",
+					"Link",
+					"Select",
+				].includes(fieldtype)
+			) {
+				errors.push(prefix + "choose a supported output field type.");
+			}
+			if (["Link", "Select"].includes(fieldtype) && !String(row.options || "").trim()) {
+				errors.push(prefix + "enter Options for this field type.");
+			}
+			const valueSpec = row.value_spec;
+			if (
+				!isObject(valueSpec) ||
+				!["static", "variable", "resolver", "expression"].includes(
+					String(valueSpec.mode || "").toLowerCase()
+				)
+			) {
+				errors.push(prefix + "configure a valid FlexValue value.");
+			}
 		} else if (row.kind === "raw" && !String(row.expression ?? "").trim()) {
 			errors.push(prefix + "enter a field expression.");
 		}
-		const alias = String(row.alias ?? "").trim();
-		if (alias) {
-			if (!ALIAS_PATTERN.test(alias)) {
-				if (row.kind !== "function") {
-					errors.push(
-						prefix +
-							"alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words."
-					);
+
+		const rowNames = [];
+		if (row.kind === "literal") {
+			rowNames.push(String(row.fieldname ?? "").trim());
+		} else if (row.kind === "field") {
+			rowNames.push(String(row.alias || row.field || "").trim());
+		} else if (row.kind === "function") {
+			rowNames.push(String(row.alias || "").trim());
+		} else if (row.kind === "child") {
+			const tableField = String(row.tableField || "").trim();
+			if (tableField) {
+				rowNames.push(tableField);
+				for (const childField of Array.isArray(row.fields) ? row.fields : []) {
+					rowNames.push(tableField + "." + childField);
 				}
-			} else if (aliases.has(alias)) {
-				errors.push(prefix + "Alias '" + alias + "' is already used.");
+			}
+		} else if (row.kind === "raw") {
+			const expression = String(row.expression ?? "").trim();
+			const match = expression.match(/^.+?\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+			if (match) rowNames.push(match[1]);
+		}
+		for (const outputName of rowNames.filter(Boolean)) {
+			if (outputNames.has(outputName)) {
+				errors.push(prefix + "Output field '" + outputName + "' is already used.");
 			} else {
-				aliases.add(alias);
+				outputNames.add(outputName);
 			}
 		}
 	}

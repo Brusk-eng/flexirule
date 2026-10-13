@@ -136,6 +136,86 @@
 						/>
 					</div>
 
+					<div v-else-if="row.kind === 'literal'" class="output-literal-controls">
+						<div class="output-field-controls">
+							<div class="output-field-control">
+								<label class="output-field-label">{{
+									__("Output field name")
+								}}</label>
+								<input
+									class="form-control"
+									:value="row.fieldname"
+									:disabled="readOnly"
+									:placeholder="__('document_type')"
+									@input="updateRowValue(row, 'fieldname', $event.target.value)"
+								/>
+							</div>
+							<div class="output-field-control">
+								<label class="output-field-label">{{ __("Label") }}</label>
+								<input
+									class="form-control"
+									:value="row.label"
+									:disabled="readOnly"
+									:placeholder="__('Document Type')"
+									@input="updateRowValue(row, 'label', $event.target.value)"
+								/>
+							</div>
+							<div class="output-field-control">
+								<label class="output-field-label">{{ __("Value type") }}</label>
+								<select
+									class="form-control"
+									:value="row.fieldtype || 'Data'"
+									:disabled="readOnly"
+									@change="updateRowValue(row, 'fieldtype', $event.target.value)"
+								>
+									<option
+										v-for="type in literalFieldTypes"
+										:key="type.value"
+										:value="type.value"
+									>
+										{{ type.label }}
+									</option>
+								</select>
+							</div>
+						</div>
+						<div
+							v-if="['Link', 'Select'].includes(row.fieldtype)"
+							class="output-field-control"
+						>
+							<label class="output-field-label">{{ __("Options") }}</label>
+							<input
+								class="form-control"
+								:value="row.options || ''"
+								:disabled="readOnly"
+								:placeholder="
+									row.fieldtype === 'Link'
+										? __('Customer')
+										: __('Option A / Option B')
+								"
+								@input="updateRowValue(row, 'options', $event.target.value)"
+							/>
+						</div>
+						<div class="output-field-control">
+							<label class="output-field-label">{{ __("Value") }}</label>
+							<FlexValueControl
+								:modelValue="row.value_spec"
+								:variableOptions="variableOptions"
+								:readOnly="readOnly"
+								:showValidation="showValidation"
+								:context="{
+									df: {
+										fieldname: row.fieldname || 'literal_value',
+										label: row.label || __('Literal value'),
+										fieldtype: row.fieldtype || 'Data',
+										reqd: 0,
+										options: row.options,
+									},
+								}"
+								@update:modelValue="updateRowValue(row, 'value_spec', $event)"
+							/>
+						</div>
+					</div>
+
 					<div v-else-if="row.kind === 'child'" class="output-child-controls">
 						<div class="output-child-table">
 							<label class="output-field-label">{{ __("Child table") }}</label>
@@ -191,6 +271,9 @@
 			<button type="button" class="output-fields-add-btn" @click="addFunction">
 				<i class="fa fa-calculator"></i>{{ __("Add function") }}
 			</button>
+			<button type="button" class="output-fields-add-btn" @click="addLiteral">
+				<i class="fa fa-tag"></i>{{ __("Add literal value") }}
+			</button>
 			<button
 				v-if="shape === 'embedded_children'"
 				type="button"
@@ -236,10 +319,12 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import MultiSelectList from "../../../../controls/MultiSelectList.vue";
+import FlexValueControl from "../../../../controls/FlexValueControl.vue";
 import SelectControl from "../../../../controls/SelectControl.vue";
 import { useMetaStore } from "../../../../stores/useMetaStore";
 import {
 	AGGREGATE_FUNCTIONS,
+	humanizeAlias,
 	parseOutputFields,
 	serializeOutputFields,
 	validateOutputFields,
@@ -251,6 +336,7 @@ const props = defineProps({
 	doctype: { type: String, required: true },
 	shape: { type: String, required: true },
 	groupBy: { type: String, default: "" },
+	variableOptions: { type: Array, default: null },
 	readOnly: { type: Boolean, default: false },
 	showValidation: { type: Boolean, default: false },
 });
@@ -274,6 +360,18 @@ const aggregateFunctions = AGGREGATE_FUNCTIONS.map((value) => ({
 	value,
 	label: value.toUpperCase(),
 }));
+const literalFieldTypes = [
+	{ value: "Data", label: __("Text (Data)") },
+	{ value: "Int", label: __("Integer (Int)") },
+	{ value: "Float", label: __("Number (Float)") },
+	{ value: "Currency", label: __("Currency") },
+	{ value: "Check", label: __("Checkbox (Check)") },
+	{ value: "Date", label: __("Date") },
+	{ value: "Datetime", label: __("Datetime") },
+	{ value: "Time", label: __("Time") },
+	{ value: "Link", label: __("Link") },
+	{ value: "Select", label: __("Select") },
+];
 
 const parentFields = computed(() => metaStore.doc_meta[props.doctype] || []);
 const childTableOptions = computed(() =>
@@ -296,49 +394,8 @@ function newId() {
 	return "output-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
 }
 
-function fieldInfo(fieldPath) {
-	const path = String(fieldPath || "").trim();
-	if (!path) return { label: "", fieldname: "" };
-	const parts = path.split(".");
-	const rootField = parentFields.value.find((field) => field.fieldname === parts[0]);
-	if (parts.length > 1 && rootField?.options) {
-		const relatedFields = metaStore.doc_meta[rootField.options] || [];
-		const relatedField = relatedFields.find((field) => field.fieldname === parts[1]);
-		if (relatedField) {
-			return {
-				...relatedField,
-				label:
-					(rootField.label || rootField.fieldname) +
-					": " +
-					(relatedField.original_label || relatedField.label || relatedField.fieldname),
-				fieldname: path,
-			};
-		}
-	}
-	if (rootField) return rootField;
-	const systemLabels = {
-		name: "ID (name)",
-		owner: "Created By (owner)",
-		creation: "Created On (creation)",
-		modified: "Modified On (modified)",
-		modified_by: "Modified By (modified_by)",
-		docstatus: "Document Status (docstatus)",
-	};
-	return { fieldname: path, label: systemLabels[path] || path, fieldtype: "Data" };
-}
-
-function humanizeAlias(alias) {
-	return String(alias || "")
-		.split("_")
-		.filter(Boolean)
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(" ");
-}
-
 function rowTitle(row) {
-	if (row.kind === "field") {
-		return fieldInfo(row.field).label || row.alias || row.field || __("Output field");
-	}
+	if (row.kind === "field") return row.alias || row.field || __("Output field");
 	if (row.kind === "function") {
 		const fn = (row.functionName || "count").toUpperCase();
 		return row.alias
@@ -348,6 +405,10 @@ function rowTitle(row) {
 	if (row.kind === "child") {
 		return fieldInfo(row.tableField).label || __("Embedded child selection");
 	}
+	if (row.kind === "literal") {
+		return row.label || humanizeAlias(row.fieldname) || __("Literal value");
+	}
+	if (row.kind === "child") return row.tableField || __("Embedded child selection");
 	return row.expression || __("Advanced field expression");
 }
 
@@ -356,34 +417,27 @@ function rowDescription(row) {
 		const source = row.field
 			? (row.field.includes(".") ? __("Related field") : __("Parent field")) +
 			  " · " +
-			  (fieldInfo(row.field).label || row.field) +
-			  " (" +
-			  row.field +
-			  ")"
+			  row.field
 			: __("Choose a field");
 		return row.alias ? source + " · " + __("Output alias") + ": " + row.alias : source;
 	}
 	if (row.kind === "function") {
-		const fn = (row.functionName || "count").toUpperCase();
-		const source = fieldInfo(row.field).label || row.field || "?";
+		const expression =
+			(row.functionName || "count").toUpperCase() + "(" + (row.field || "?") + ")";
 		return (
 			__("Function") +
 			" · " +
-			fn +
-			"(" +
-			source +
-			")" +
-			(row.field ? " (" + row.field + ")" : "") +
+			expression +
 			(row.alias ? " · " + __("Output alias") + ": " + row.alias : "")
 		);
 	}
 	if (row.kind === "child") {
-		const fields = Array.isArray(row.fields)
-			? row.fields
-					.map((field) => fieldInfo(row.tableField + "." + field).label || field)
-					.join(", ")
-			: "";
+		const fields = Array.isArray(row.fields) ? row.fields.join(", ") : "";
 		return fields ? __("Child fields") + " · " + fields : __("Select child fields");
+	}
+	if (row.kind === "literal") {
+		const mode = row.value_spec?.mode || "static";
+		return __("Literal column") + " · " + (row.fieldname || "—") + " · " + __(mode);
 	}
 	return __("Advanced native field expression");
 }
@@ -401,21 +455,7 @@ function emitRows() {
 function updateRowValue(row, key, value) {
 	if (props.readOnly) return;
 	row[key] = value;
-	if (key === "field" && String(value || "").includes(".")) {
-		ensureMetadataForPath(value);
-	}
 	emitRows();
-}
-
-async function ensureMetadataForPath(fieldPath) {
-	const rootName = String(fieldPath || "").split(".")[0];
-	const rootField = parentFields.value.find((field) => field.fieldname === rootName);
-	if (!rootField?.options) return;
-	try {
-		await metaStore.fetch_metadata(rootField.options);
-	} catch (error) {
-		console.warn("OutputFieldsEditor: failed to load related field metadata", error);
-	}
 }
 
 function updateRaw(row, value) {
@@ -461,6 +501,34 @@ function addChild() {
 		kind: "child",
 		tableField: "",
 		fields: [],
+		isEditing: true,
+		childFieldOptions: [],
+	});
+	emitRows();
+}
+
+function addLiteral() {
+	if (props.readOnly) return;
+	const usedNames = new Set(
+		rows.value
+			.map((row) =>
+				row.kind === "literal"
+					? row.fieldname
+					: row.alias || (row.kind === "field" ? row.field : "")
+			)
+			.filter(Boolean)
+	);
+	let fieldname = "literal_value";
+	let suffix = 2;
+	while (usedNames.has(fieldname)) fieldname = "literal_value_" + suffix++;
+	rows.value.push({
+		id: newId(),
+		kind: "literal",
+		fieldname,
+		label: humanizeAlias(fieldname),
+		fieldtype: "Data",
+		reqd: 0,
+		value_spec: { mode: "static", value: "" },
 		isEditing: true,
 		childFieldOptions: [],
 	});
@@ -516,13 +584,7 @@ async function refreshMetadata() {
 	try {
 		await metaStore.fetch_metadata(props.doctype);
 		for (const row of rows.value) {
-			if (row.kind === "child") {
-				await loadChildFieldOptions(row);
-				continue;
-			}
-			if (row.field && String(row.field).includes(".")) {
-				await ensureMetadataForPath(row.field);
-			}
+			if (row.kind === "child") await loadChildFieldOptions(row);
 		}
 	} catch (error) {
 		console.warn("OutputFieldsEditor: failed to load DocType fields", error);

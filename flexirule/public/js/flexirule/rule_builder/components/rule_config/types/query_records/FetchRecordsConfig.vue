@@ -25,14 +25,14 @@
 			/>
 		</div>
 
-		<div class="sub-section section-subcard result-output-section">
+		<div class="sub-section section-subcard">
 			<div class="section-heading result-shape-heading">
 				<div>
-					<h6>{{ __("Result shape & output fields") }}</h6>
+					<h6>{{ __("Result shape") }}</h6>
 					<p class="section-description">
 						{{
 							__(
-								"Choose the row structure returned to later steps. For shapes with customizable results, select the fields and calculations included in each row."
+								"Choose the row structure returned to later steps. Some shapes let you choose fields and calculations."
 							)
 						}}
 					</p>
@@ -45,20 +45,22 @@
 				:showValidation="showValidation"
 				@update:modelValue="selectResultShape"
 			/>
+		</div>
 
-			<div v-if="isCustomResultShape(localConfig.result_shape)" class="output-fields-section">
-				<div class="section-heading">
-					<div>
-						<h6>{{ __("Output fields") }}</h6>
-						<p class="section-description">
-							{{
-								__(
-									"Choose fields or calculations for each result. Aliases provide clear field names for later steps."
-								)
-							}}
-						</p>
-					</div>
-					<span class="output-fields-badge">{{ __("Syntax-aware editor") }}</span>
+		<div
+			v-if="isCustomResultShape(localConfig.result_shape)"
+			class="sub-section section-subcard"
+		>
+			<div class="section-heading">
+				<div>
+					<h6>{{ __("Output fields") }}</h6>
+					<p class="section-description">
+						{{
+							__(
+								"Choose the fields or calculations in each result. Add an alias to give a value a clear name for later steps."
+							)
+						}}
+					</p>
 				</div>
 				<OutputFieldsEditor
 					ref="outputFieldsRef"
@@ -66,6 +68,7 @@
 					:modelValue="localConfig.fields || []"
 					:shape="localConfig.result_shape"
 					:groupBy="localConfig.group_by"
+					:variableOptions="variableOptions"
 					:readOnly="readOnly"
 					:showValidation="showValidation"
 					@update:modelValue="updateConfig('fields', $event)"
@@ -712,11 +715,6 @@ defineExpose({ validate });
 }
 .result-shape-heading {
 	margin-bottom: var(--fxr-space-2);
-}
-.output-fields-section {
-	margin-top: var(--fxr-space-4, var(--spacing-md));
-	padding-top: var(--fxr-space-4, var(--spacing-md));
-	border-top: 1px solid var(--fxr-border-subtle);
 }
 .section-description {
 	margin: var(--fxr-space-1) 0 0;

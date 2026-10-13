@@ -66,6 +66,12 @@ def validate_rule_definition(rule_doc, mode="full", target_rule_override=None) -
 		return _validate_single_action(rule, rule_doc, errors, warnings)
 
 	_normalize_hidden_trigger_fields(rule)
+	try:
+		from flexirule.ruleflow.core.sub_rule_contract import validate_sub_rule_contract
+
+		errors.extend(validate_sub_rule_contract(rule))
+	except Exception as exc:
+		errors.append(_("Sub-Rule interface contract validation failed: {0}").format(str(exc)))
 	if mode == "full":
 		_validate_trigger_requirements(rule, errors)
 
@@ -259,6 +265,16 @@ def _validate_action_json(action, action_label: str, errors: list[str]) -> None:
 		_validate_json_value(output_mapping, _("Action {0}: Output Mapping").format(action_label), errors)
 
 
+def _has_resolved_output_schema(value) -> bool:
+	"""Return whether a serialized resolved-output schema contains real fields."""
+	schema = _parse_json_value(value, [])
+	if isinstance(schema, Mapping):
+		return bool(schema.get("fields") or schema.get("properties"))
+	if isinstance(schema, list | tuple):
+		return any(isinstance(field, Mapping) and not _is_empty(field.get("fieldname")) for field in schema)
+	return False
+
+
 def _validate_action_contracts(
 	action,
 	action_type: str,
@@ -369,10 +385,18 @@ def _validate_action_contracts(
 				)
 			)
 
-	show_return_type = effective_policy.get("show_return_type", contract.get("show_return_type", True))
+	show_return_type = effective_policy.get("show_return_type")
+	if show_return_type is None:
+		show_return_type = contract.get("show_return_type", True)
 	return_type = _safe_get(action, "return_type")
-	if ((show_return_type and return_type) or _safe_get(action, "resolved_output_schema")) and _is_empty(
-		_safe_get(action, "return_variable")
+	supports_return_schema = bool(
+		effective_policy.get("supports_return_schema", contract.get("supports_return_schema", False))
+	)
+	has_resolved_output_schema = _has_resolved_output_schema(_safe_get(action, "resolved_output_schema"))
+	if (
+		supports_return_schema
+		and ((show_return_type and not _is_empty(return_type)) or has_resolved_output_schema)
+		and _is_empty(_safe_get(action, "return_variable"))
 	):
 		errors.append(
 			_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
@@ -895,17 +919,60 @@ def _validate_sub_rule_input_mapping(action, errors: list[str], target_rule_over
 			return
 
 	required_vars = _get_required_variables_for_rule(target_rule)
-	if not required_vars:
-		return
-
 	config = _parse_json_value(action.config, {})
 	input_mapping = config.get("input_mapping", [])
-	if not isinstance(input_mapping, list):
+	mapped_vars: set[str] = set()
+	if isinstance(input_mapping, list):
+		mapped_vars = {
+			str(mapping.get("target")).strip()
+			for mapping in input_mapping
+			if isinstance(mapping, Mapping)
+			and mapping.get("target") is not None
+			and str(mapping.get("target")).strip()
+		}
+	elif isinstance(input_mapping, Mapping):
+		mapped_vars = {
+			str(target).strip() for target in input_mapping if target is not None and str(target).strip()
+		}
+	else:
 		input_mapping = []
 
-	mapped_vars = {m.get("target") for m in input_mapping if m.get("target")}
+	raw_input_schema = _safe_get(target_rule, "input_schema")
+	input_schema_declared = raw_input_schema is not None and raw_input_schema != ""
+	if input_schema_declared:
+		from flexirule.ruleflow.core.sub_rule_contract import get_sub_rule_contract
 
-	missing = [v for v in required_vars if v not in mapped_vars]
+		target_contract = get_sub_rule_contract(target_rule)
+		declared_inputs = {
+			str(field.get("fieldname")): field
+			for field in target_contract.get("input_schema", [])
+			if isinstance(field.get("fieldname"), str) and field.get("fieldname")
+		}
+		undeclared = sorted(set(required_vars) - set(declared_inputs))
+		if undeclared:
+			errors.append(
+				_("Sub-Rule '{0}' uses required variables missing from its Input Schema: {1}").format(
+					action.action_label, ", ".join(undeclared)
+				)
+			)
+
+		unknown_targets = sorted(mapped_vars - set(declared_inputs))
+		if unknown_targets:
+			errors.append(
+				_("Sub-Rule '{0}' maps values to inputs not declared by the target: {1}").format(
+					action.action_label, ", ".join(unknown_targets)
+				)
+			)
+
+		required_inputs = {
+			name
+			for name, field in declared_inputs.items()
+			if field.get("reqd") and field.get("default") in (None, "")
+		}
+		missing = sorted((set(required_vars) | required_inputs) - mapped_vars)
+	else:
+		missing = sorted(set(required_vars) - mapped_vars)
+
 	if missing:
 		errors.append(
 			_("Sub-Rule '{0}' requires input mappings for: {1}").format(

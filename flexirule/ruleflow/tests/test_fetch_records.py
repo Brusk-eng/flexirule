@@ -71,6 +71,113 @@ class TestFetchRecords(FrappeTestCase):
 		self.assertEqual(row.get("task_desc"), f"{prefix}_1")
 		self.assertEqual(row.get("status"), "Open")
 
+	def test_literal_column_adds_static_and_dynamic_values(self):
+		prefix = f"FetchLiteral_{random_string(5)}"
+		frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_static", "status": "Open"}).insert(
+			ignore_permissions=True
+		)
+		frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_dynamic", "status": "Open"}).insert(
+			ignore_permissions=True
+		)
+
+		fields = [
+			"name",
+			{
+				"kind": "literal",
+				"fieldname": "document_type",
+				"label": "Document Type",
+				"fieldtype": "Data",
+				"reqd": 0,
+				"value_spec": {"mode": "static", "value": "Sales Invoice"},
+			},
+			{
+				"kind": "literal",
+				"fieldname": "party_kind",
+				"label": "Party Kind",
+				"fieldtype": "Data",
+				"reqd": 0,
+				"value_spec": {"mode": "variable", "value": "vars.party_kind"},
+			},
+		]
+		action = frappe._dict(
+			{
+				"name": f"test-fetch-literal-{prefix}",
+				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"fields": fields,
+						"filters": [["ToDo", "description", "like", f"{prefix}%"]],
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {"vars": {"party_kind": "Customer"}}, None)
+		self.assertEqual(len(result), 2)
+		self.assertEqual({row["document_type"] for row in result}, {"Sales Invoice"})
+		self.assertEqual({row["party_kind"] for row in result}, {"Customer"})
+		self.assertTrue(all(row.get("name") for row in result))
+
+	def test_literal_integer_column_coerces_to_integer(self):
+		prefix = f"FetchLiteralInt_{random_string(5)}"
+		frappe.get_doc({"doctype": "ToDo", "description": prefix}).insert(ignore_permissions=True)
+		action = frappe._dict(
+			{
+				"name": f"test-fetch-literal-int-{prefix}",
+				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"fields": [
+							"name",
+							{
+								"kind": "literal",
+								"fieldname": "source_count",
+								"label": "Source Count",
+								"fieldtype": "Int",
+								"value_spec": {"mode": "static", "value": "3"},
+							},
+						],
+						"filters": [["ToDo", "description", "=", prefix]],
+					}
+				),
+			}
+		)
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertEqual(result[0]["source_count"], 3)
+		self.assertIsInstance(result[0]["source_count"], int)
+
+	def test_literal_column_cannot_overwrite_selected_field(self):
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Automated test query",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"fields": [
+							"name",
+							{
+								"kind": "literal",
+								"fieldname": "name",
+								"label": "Overwritten Name",
+								"fieldtype": "Data",
+								"value_spec": {"mode": "static", "value": "unsafe"},
+							},
+						],
+					}
+				),
+			}
+		)
+		with self.assertRaises(frappe.ValidationError):
+			self.handler.execute(action, {}, None)
+
 	def test_filter_operators(self):
 		prefix = f"FetchOps_{random_string(5)}"
 		t1 = frappe.get_doc(

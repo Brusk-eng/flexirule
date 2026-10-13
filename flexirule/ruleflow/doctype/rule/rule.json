@@ -5,42 +5,54 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_break_tjia",
   "rule_name",
+  "description",
+  "column_break_scgd",
   "is_active",
-  "exposed_as_subrule",
   "priority",
-  "column_break_1",
+  "trigger_conditions_section",
   "trigger_type",
+  "exposed_as_subrule",
   "document_type",
   "trigger_event",
-  "column_break_2",
-  "execution_mode",
-  "max_execution_time",
-  "debug_mode",
-  "module",
-  "skip_for_roles",
-  "section_break_permissions",
-  "permissions",
+  "watched_fields",
+  "column_break_1",
+  "trigger_condition",
+  "compiled_expression",
+  "section_break_subrule_interface",
+  "input_schema",
+  "column_break_subrule_interface",
+  "output_schema",
   "section_break_flow",
   "actions",
   "visual_data",
-  "section_break_error",
-  "last_error",
   "settings",
+  "section_break_execution",
+  "execution_mode",
+  "max_execution_time",
+  "column_break_2",
+  "debug_mode",
+  "skip_for_roles",
+  "section_break_permissions",
+  "permissions",
+  "section_break_rule_metadata",
   "status",
-  "column_break_scgd",
+  "module",
+  "column_break_xnyu",
   "base_rule_name",
   "previous_version",
   "version",
-  "section_break_tjia",
-  "description",
-  "watched_fields",
-  "trigger_conditions_section",
-  "compiled_expression",
-  "column_break_xnyu",
-  "trigger_condition"
+  "section_break_error",
+  "last_error"
  ],
  "fields": [
+  {
+   "fieldname": "section_break_tjia",
+   "fieldtype": "Section Break",
+   "label": "Rule Details",
+   "description": "Define the rule identity, activation state, and execution priority."
+  },
   {
    "allow_in_quick_entry": 1,
    "fieldname": "rule_name",
@@ -52,6 +64,16 @@
    "unique": 1
   },
   {
+   "description": "Brief explanation of what this rule does",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_scgd",
+   "fieldtype": "Column Break"
+  },
+  {
    "default": "0",
    "fieldname": "is_active",
    "fieldtype": "Check",
@@ -59,23 +81,6 @@
    "in_standard_filter": 1,
    "label": "Is Active",
    "no_copy": 1
-  },
-  {
-   "default": "Draft",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Status",
-   "no_copy": 1,
-   "options": "Draft\nActive\nDisabled\nInvalid\nError\nArchived",
-   "read_only": 1
-  },
-  {
-   "description": "Brief explanation of what this rule does",
-   "fieldname": "description",
-   "fieldtype": "Small Text",
-   "label": "Description"
   },
   {
    "allow_in_quick_entry": 1,
@@ -90,34 +95,10 @@
    "reqd": 1
   },
   {
-   "default": "1",
-   "description": "Rule version number (auto-incremented on amendment)",
-   "fieldname": "version",
-   "fieldtype": "Int",
-   "label": "Version",
-   "no_copy": 1,
-   "read_only": 1
-  },
-  {
-   "fieldname": "base_rule_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Base Rule Name",
-   "no_copy": 1,
-   "read_only": 1,
-   "search_index": 1
-  },
-  {
-   "fieldname": "previous_version",
-   "fieldtype": "Link",
-   "label": "Previous Version",
-   "no_copy": 1,
-   "options": "Rule",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_1",
-   "fieldtype": "Column Break"
+   "fieldname": "trigger_conditions_section",
+   "fieldtype": "Section Break",
+   "label": "Trigger Configuration",
+   "description": "Choose the event that invokes this rule and configure any optional trigger filters."
   },
   {
    "allow_in_quick_entry": 1,
@@ -129,6 +110,15 @@
    "label": "Trigger Type",
    "options": "DocType Event\nScheduler Event\nCallable Event",
    "reqd": 1
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "default": "0",
+   "depends_on": "eval:doc.trigger_type===\"Callable Event\"",
+   "description": "Allow other Rules to invoke this Callable Rule as a Sub-Rule action.",
+   "fieldname": "exposed_as_subrule",
+   "fieldtype": "Check",
+   "label": "Expose as Sub-Rule"
   },
   {
    "allow_in_quick_entry": 1,
@@ -164,6 +154,19 @@
    "label": "Watched Fields"
   },
   {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.trigger_type==='DocType Event'",
+   "description": "JSON-based logic evaluated before loading the rule (Fast Filter)",
+   "fieldname": "trigger_condition",
+   "fieldtype": "Code",
+   "label": "Trigger Condition (JSON)",
+   "max_height": "100 px",
+   "options": "JSON"
+  },
+  {
    "depends_on": "eval:doc.trigger_type==='DocType Event'",
    "description": "Python expression evaluated before executing the rule",
    "fieldname": "compiled_expression",
@@ -177,68 +180,35 @@
    "width": "200"
   },
   {
-   "depends_on": "eval:doc.trigger_type==='DocType Event'",
-   "description": "JSON-based logic evaluated before loading the rule (Fast Filter)",
-   "fieldname": "trigger_condition",
-   "fieldtype": "Code",
-   "label": "Trigger Condition (JSON)",
-   "max_height": "100 px",
-   "options": "JSON"
-  },
-  {
-   "fieldname": "column_break_2",
-   "fieldtype": "Column Break"
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "default": "Synchronous",
-   "description": "Async mode runs in background (non-blocking)",
-   "fieldname": "execution_mode",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Execution Mode",
-   "options": "Synchronous\nAsynchronous",
-   "reqd": 1
-  },
-  {
-   "default": "30",
-   "description": "Timeout protection to prevent runaway execution",
-   "fieldname": "max_execution_time",
-   "fieldtype": "Int",
-   "label": "Max Execution Time (seconds)"
-  },
-  {
-   "default": "0",
-   "description": "Log detailed execution information",
-   "fieldname": "debug_mode",
-   "fieldtype": "Check",
-   "label": "Debug Mode"
-  },
-  {
-   "fieldname": "module",
-   "fieldtype": "Link",
-   "label": "Module (for export)",
-   "options": "Module Def"
-  },
-  {
-   "description": "Rule will NOT execute for users with these roles",
-   "fieldname": "skip_for_roles",
-   "fieldtype": "Table MultiSelect",
-   "label": "Skip for Roles",
-   "options": "Has Role"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_permissions",
+   "fieldname": "section_break_subrule_interface",
    "fieldtype": "Section Break",
-   "label": "Rule Permissions"
+   "label": "Sub-Rule Interface",
+   "collapsible": 1,
+   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
+   "description": "Define the callable Rule's public input and output contract."
   },
   {
-   "description": "Define role-based permissions for this rule",
-   "fieldname": "permissions",
-   "fieldtype": "Table",
-   "label": "Permissions",
-   "options": "Rule Permission"
+   "fieldname": "input_schema",
+   "fieldtype": "Code",
+   "label": "Input Schema (JSON)",
+   "options": "JSON",
+   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
+   "description": "JSON array of input fields: fieldname, label, fieldtype, options, reqd (0/1), and optional default/description. Required inputs must be supplied by Sub-Rule callers.",
+   "max_height": "200 px"
+  },
+  {
+   "fieldname": "column_break_subrule_interface",
+   "fieldtype": "Column Break",
+   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule"
+  },
+  {
+   "fieldname": "output_schema",
+   "fieldtype": "Code",
+   "label": "Output Schema (JSON)",
+   "options": "JSON",
+   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
+   "description": "JSON array of public outputs: fieldname, label, fieldtype, reqd (0/1), optional source and nested children. Every declared top-level output must be produced by the Rule.",
+   "max_height": "200 px"
   },
   {
    "collapsible": 1,
@@ -261,6 +231,119 @@
    "options": "JSON"
   },
   {
+   "fieldname": "settings",
+   "fieldtype": "Tab Break",
+   "label": "Settings"
+  },
+  {
+   "fieldname": "section_break_execution",
+   "fieldtype": "Section Break",
+   "label": "Execution & Behavior",
+   "description": "Configure how the rule runs and which users or roles it skips."
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "default": "Synchronous",
+   "description": "Async mode runs in background (non-blocking)",
+   "fieldname": "execution_mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Execution Mode",
+   "options": "Synchronous\nAsynchronous",
+   "reqd": 1
+  },
+  {
+   "default": "30",
+   "description": "Timeout protection to prevent runaway execution",
+   "fieldname": "max_execution_time",
+   "fieldtype": "Int",
+   "label": "Max Execution Time (seconds)"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Log detailed execution information",
+   "fieldname": "debug_mode",
+   "fieldtype": "Check",
+   "label": "Debug Mode"
+  },
+  {
+   "description": "Rule will NOT execute for users with these roles",
+   "fieldname": "skip_for_roles",
+   "fieldtype": "Table MultiSelect",
+   "label": "Skip for Roles",
+   "options": "Has Role"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_permissions",
+   "fieldtype": "Section Break",
+   "label": "Rule Permissions"
+  },
+  {
+   "description": "Define role-based permissions for this rule",
+   "fieldname": "permissions",
+   "fieldtype": "Table",
+   "label": "Permissions",
+   "options": "Rule Permission"
+  },
+  {
+   "fieldname": "section_break_rule_metadata",
+   "fieldtype": "Section Break",
+   "label": "Status & Version",
+   "description": "Read-only lifecycle and version information for this Rule."
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "no_copy": 1,
+   "options": "Draft\nActive\nDisabled\nInvalid\nError\nArchived",
+   "read_only": 1
+  },
+  {
+   "fieldname": "module",
+   "fieldtype": "Link",
+   "label": "Module (for export)",
+   "options": "Module Def"
+  },
+  {
+   "fieldname": "column_break_xnyu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "base_rule_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Base Rule Name",
+   "no_copy": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "previous_version",
+   "fieldtype": "Link",
+   "label": "Previous Version",
+   "no_copy": 1,
+   "options": "Rule",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "description": "Rule version number (auto-incremented on amendment)",
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "Version",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
    "collapsible": 1,
    "fieldname": "section_break_error",
    "fieldtype": "Section Break",
@@ -272,37 +355,6 @@
    "label": "Last Error",
    "no_copy": 1,
    "read_only": 1
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "default": "0",
-   "depends_on": "eval:doc.trigger_type===\"Callable Event\"",
-   "description": "Make this rule available to be used as Action in other Rule",
-   "fieldname": "exposed_as_subrule",
-   "fieldtype": "Check",
-   "label": "Exposed As Sub-Rule"
-  },
-  {
-   "fieldname": "settings",
-   "fieldtype": "Tab Break",
-   "label": "Settings"
-  },
-  {
-   "fieldname": "column_break_scgd",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "section_break_tjia",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "trigger_conditions_section",
-   "fieldtype": "Section Break",
-   "label": "Trigger Conditions"
-  },
-  {
-   "fieldname": "column_break_xnyu",
-   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,

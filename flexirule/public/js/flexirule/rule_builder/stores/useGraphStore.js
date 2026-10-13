@@ -405,23 +405,24 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				// Propagate resolved output schema
 				if (data.resolved_output_schema && data.return_type !== "Yes / No") {
 					const schema = flexirule.utils.safe_json_parse(data.resolved_output_schema, []);
-					if (Array.isArray(schema)) {
-						schema.forEach((field) => {
-							if (!field.fieldname) return;
-							const schemaValue = `vars.${normalizedReturnVariable}.${field.fieldname}`;
+					const addSchemaFields = (fields, parentPath) => {
+						if (!Array.isArray(fields)) return;
+						fields.forEach((field) => {
+							if (!field?.fieldname) return;
+							const schemaValue = `${parentPath}.${field.fieldname}`;
 							if (!seenContextValues.has(schemaValue)) {
 								seenContextValues.add(schemaValue);
 								context_vars.push({
 									...field,
-									label: `vars.${normalizedReturnVariable}.${field.fieldname} (${
-										field.label || field.fieldname
-									})`,
+									label: `${schemaValue} (${field.label || field.fieldname})`,
 									value: schemaValue,
 									is_variable: true,
 								});
 							}
+							addSchemaFields(field.children, schemaValue);
 						});
-					}
+					};
+					addSchemaFields(schema, root);
 				} else if (
 					ACTION_TYPES_WITH_RETURN_SCHEMA.has(data.action_type) &&
 					data.reference_doctype &&

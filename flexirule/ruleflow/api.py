@@ -100,6 +100,36 @@ def _reqd_flag(value: Any) -> int:
 	return 1 if value is True or str(value).strip().lower() in {"1", "true", "yes"} else 0
 
 
+@frappe.whitelist()
+def get_sub_rule_contract(rule_name: str):
+	"""Resolve the active public interface for a callable Rule used as a Sub-Rule."""
+	_require_api_access()
+	if not rule_name:
+		frappe.throw(_("Sub-Rule name is required"))
+
+	from flexirule.ruleflow.core.rule_service import resolve_rule_reference
+	from flexirule.ruleflow.core.sub_rule_contract import get_sub_rule_contract as resolve_contract
+
+	resolved_name = resolve_rule_reference(
+		rule_name,
+		active_only=True,
+		callable_only=True,
+		exposed_only=True,
+	)
+	if not resolved_name:
+		frappe.throw(_("Rule '{0}' is not an active, exposed Callable Event Rule.").format(rule_name))
+
+	target_rule = frappe.get_doc("Rule", resolved_name)
+	if not frappe.has_permission("Rule", "read", doc=target_rule):
+		frappe.throw(
+			_("You do not have permission to inspect this Sub-Rule interface."), frappe.PermissionError
+		)
+
+	contract = resolve_contract(target_rule)
+	contract["resolved_rule_name"] = resolved_name
+	return contract
+
+
 def _aggregate_source(mode: str, config: dict[str, Any]) -> dict[str, Any]:
 	"""Describe the input expression that produces a legacy aggregate result."""
 	functions = {"Count": "count", "Sum": "sum", "Average": "avg", "Min": "min", "Max": "max"}

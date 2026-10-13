@@ -44,11 +44,17 @@ export function normalizeResolvedOutputField(field, options = {}) {
 	const canonicalField = { ...field };
 	delete canonicalField.mandatory;
 
-	return {
+	const normalized = {
 		...canonicalField,
 		reqd: normalizeFlag(field.reqd ?? field.mandatory ?? 0),
 		source: normalizeResolvedOutputSource(field.source, fallbackSourceKind),
 	};
+	if (Array.isArray(field.children)) {
+		normalized.children = field.children.map((child) =>
+			normalizeResolvedOutputField(child, options)
+		);
+	}
+	return normalized;
 }
 
 export function normalizeResolvedOutputSchema(value, options = {}) {
