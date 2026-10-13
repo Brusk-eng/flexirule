@@ -313,7 +313,9 @@ function fieldInfo(fieldPath) {
 		if (relatedField) {
 			return {
 				...relatedField,
-				label: (rootField.label || rootField.fieldname) + ": " +
+				label:
+					(rootField.label || rootField.fieldname) +
+					": " +
 					(relatedField.original_label || relatedField.label || relatedField.fieldname),
 				fieldname: path,
 			};
@@ -345,7 +347,9 @@ function rowTitle(row) {
 	}
 	if (row.kind === "function") {
 		const fn = (row.functionName || "count").toUpperCase();
-		return row.alias ? humanizeAlias(row.alias) + " (" + fn + ")" : fn + "(" + (fieldInfo(row.field).label || row.field || "?") + ")";
+		return row.alias
+			? humanizeAlias(row.alias) + " (" + fn + ")"
+			: fn + "(" + (fieldInfo(row.field).label || row.field || "?") + ")";
 	}
 	if (row.kind === "child") {
 		return fieldInfo(row.tableField).label || __("Embedded child selection");
@@ -357,20 +361,33 @@ function rowDescription(row) {
 	if (row.kind === "field") {
 		const source = row.field
 			? (row.field.includes(".") ? __("Related field") : __("Parent field")) +
-			  " · " + (fieldInfo(row.field).label || row.field) + " (" + row.field + ")"
+			  " · " +
+			  (fieldInfo(row.field).label || row.field) +
+			  " (" +
+			  row.field +
+			  ")"
 			: __("Choose a field");
 		return row.alias ? source + " · " + __("Output alias") + ": " + row.alias : source;
 	}
 	if (row.kind === "function") {
 		const fn = (row.functionName || "count").toUpperCase();
 		const source = fieldInfo(row.field).label || row.field || "?";
-		return __("Function") + " · " + fn + "(" + source + ")" +
+		return (
+			__("Function") +
+			" · " +
+			fn +
+			"(" +
+			source +
+			")" +
 			(row.field ? " (" + row.field + ")" : "") +
-			(row.alias ? " · " + __("Output alias") + ": " + row.alias : "");
+			(row.alias ? " · " + __("Output alias") + ": " + row.alias : "")
+		);
 	}
 	if (row.kind === "child") {
 		const fields = Array.isArray(row.fields)
-			? row.fields.map((field) => fieldInfo(row.tableField + "." + field).label || field).join(", ")
+			? row.fields
+					.map((field) => fieldInfo(row.tableField + "." + field).label || field)
+					.join(", ")
 			: "";
 		return fields ? __("Child fields") + " · " + fields : __("Select child fields");
 	}
