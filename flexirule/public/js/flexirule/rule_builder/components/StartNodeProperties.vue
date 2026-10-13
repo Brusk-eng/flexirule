@@ -357,7 +357,7 @@ onMounted(async () => {
 		<div class="form-group">
 			<label class="control-label">{{ __("Description") }}</label>
 			<textarea
-				class="form-control"
+				class="fxr-input description-input"
 				rows="2"
 				:disabled="readOnly"
 				:value="nodeData?.description"
@@ -470,14 +470,6 @@ onMounted(async () => {
 
 .description {
 	font-size: 11px;
-}
-
-.form-control {
-	width: 100%;
-	padding: 6px 10px;
-	border: 1px solid var(--border-color);
-	border-radius: 4px;
-	font-size: 13px;
 }
 
 .text-mono {
@@ -610,5 +602,13 @@ onMounted(async () => {
 	background: var(--fxr-surface, #ffffff);
 	border-radius: 4px;
 	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
+}
+</style>
+
+<style scoped>
+.description-input {
+	min-height: 4rem;
+	line-height: 1.4;
+	resize: vertical;
 }
 </style>
