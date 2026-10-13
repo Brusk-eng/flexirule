@@ -507,12 +507,11 @@ watch(
 		if (!canInteract.value) return;
 		if (Array.isArray(newVal) && newVal.length > 0) {
 			validateSelection();
-		} else if (
-			(newVal === null || (Array.isArray(newVal) && newVal.length === 0)) &&
-			!props.loadingState
-		) {
-			clearAll();
 		}
+		// An empty option list can be a transient state while field metadata or
+		// remote options load. Never discard saved selections just because there
+		// are temporarily no options to validate against. Source changes are
+		// handled by the documentType and df.options watchers below.
 	},
 	{ deep: true }
 );
