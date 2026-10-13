@@ -1,3 +1,5 @@
+import { normalizeResolvedOutputField } from "../../../../../utils/output_schema.js";
+
 export const RESULT_SHAPES = Object.freeze({
 	documentNames: "document_names",
 	wholeDocuments: "whole_documents",
@@ -228,29 +230,32 @@ export function buildResolvedOutputSchema({
 	};
 	const schema = [];
 	const seen = new Set();
-	const flag = (value) => {
-		if (value === true || value === 1) return 1;
-		return ["1", "true", "yes"].includes(
-			String(value ?? "")
-				.trim()
-				.toLowerCase()
-		)
-			? 1
-			: 0;
-	};
-	const add = (field) => {
+	const sourceFallback = (field, kind) => ({
+		kind,
+		...(field?.fieldname
+			? { fieldname: field.fieldname, expression: field.fieldname }
+			: {}),
+	});
+	const add = (field, fallbackSourceKind = "unknown") => {
 		if (!field?.fieldname || seen.has(field.fieldname)) return;
 		seen.add(field.fieldname);
-		schema.push({
-			label: field.label || field.fieldname,
-			fieldname: field.fieldname,
-			fieldtype: field.fieldtype || "Data",
-			...(field.options ? { options: field.options } : {}),
-			reqd: flag(field.reqd ?? field.mandatory ?? 0),
-			...(field.source && typeof field.source === "object"
-				? { source: clone(field.source) }
-				: {}),
-		});
+		const source =
+			field.source && typeof field.source === "object" && !Array.isArray(field.source)
+				? clone(field.source)
+				: sourceFallback(field, fallbackSourceKind);
+		schema.push(
+			normalizeResolvedOutputField(
+				{
+					label: field.label || field.fieldname,
+					fieldname: field.fieldname,
+					fieldtype: field.fieldtype || "Data",
+					...(field.options ? { options: field.options } : {}),
+					reqd: field.reqd ?? field.mandatory ?? 0,
+					source,
+				},
+				{ fallbackSourceKind }
+			)
+		);
 	};
 	const sourceInfo = (path) =>
 		lookup(String(path ?? "").trim()) || {
@@ -266,13 +271,14 @@ export function buildResolvedOutputSchema({
 				fieldname: "name",
 				label: "ID (name)",
 				fieldtype: "Data",
-			}
+			},
+			"system"
 		);
 		return schema;
 	}
 	if (shape === RESULT_SHAPES.wholeDocuments) {
-		for (const field of wholeDocumentFields || []) add(field);
-		for (const field of systemFields || []) add(field);
+		for (const field of wholeDocumentFields || []) add(field, "field");
+		for (const field of systemFields || []) add(field, "system");
 		return schema;
 	}
 

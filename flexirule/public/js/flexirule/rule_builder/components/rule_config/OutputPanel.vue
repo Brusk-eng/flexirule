@@ -352,7 +352,7 @@ const detectedKeys = computed(() => {
 
 function serializeSchema(val) {
 	if (!val) return "[]";
-	const normalized = normalizeResolvedOutputSchema(val);
+	const normalized = normalizeResolvedOutputSchema(val, { fallbackSourceKind: "manual" });
 	if (typeof normalized === "string") return normalized;
 	try {
 		return JSON.stringify(normalized, null, 2);
@@ -362,7 +362,10 @@ function serializeSchema(val) {
 }
 
 function updateResolvedSchema(value) {
-	updateField("resolved_output_schema", normalizeResolvedOutputSchema(value));
+	updateField(
+		"resolved_output_schema",
+		normalizeResolvedOutputSchema(value, { fallbackSourceKind: "manual" })
+	);
 }
 
 // -- Mapping Logic --
