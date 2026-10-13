@@ -197,6 +197,21 @@ assert.deepEqual(wholeDocumentSchema[2].source, {
 	fieldname: "name",
 	expression: "name",
 });
+assert.deepEqual(wholeDocumentSchema[1].source, {
+	kind: "field",
+	fieldname: "status",
+	expression: "status",
+});
+assert.deepEqual(wholeDocumentSchema[3].source, {
+	kind: "system",
+	fieldname: "owner",
+	expression: "owner",
+});
+for (const field of [...aliasedSchema, ...wholeDocumentSchema]) {
+	assert.equal(Number.isInteger(field.reqd), true);
+	assert.equal(typeof field.source, "object");
+	assert.equal(typeof field.source.kind, "string");
+}
 assert.deepEqual(
 	normalizeResolvedOutputSchema([
 		{ fieldname: "legacy_key", fieldtype: "Data", mandatory: 1, source: { kind: "field" } },
@@ -205,9 +220,46 @@ assert.deepEqual(
 	]),
 	[
 		{ fieldname: "legacy_key", fieldtype: "Data", source: { kind: "field" }, reqd: 1 },
-		{ fieldname: "optional_key", fieldtype: "Int", reqd: 0 },
-		{ fieldname: "canonical_key", fieldtype: "Data", reqd: 1 },
+		{
+			fieldname: "optional_key",
+			fieldtype: "Int",
+			reqd: 0,
+			source: { kind: "unknown" },
+		},
+		{
+			fieldname: "canonical_key",
+			fieldtype: "Data",
+			reqd: 1,
+			source: { kind: "unknown" },
+		},
 	]
+);
+assert.deepEqual(
+	normalizeResolvedOutputSchema(
+		[
+			{ fieldname: "edited_key", fieldtype: "Data" },
+			{ fieldname: "known_key", fieldtype: "Data", source: { kind: "field", fieldname: "title" } },
+		],
+		{ fallbackSourceKind: "manual" }
+	),
+	[
+		{
+			fieldname: "edited_key",
+			fieldtype: "Data",
+			reqd: 0,
+			source: { kind: "manual" },
+		},
+		{
+			fieldname: "known_key",
+			fieldtype: "Data",
+			source: { kind: "field", fieldname: "title" },
+			reqd: 0,
+		},
+	]
+);
+assert.deepEqual(
+	normalizeResolvedOutputSchema([{ fieldname: "empty_source", source: {} }]),
+	[{ fieldname: "empty_source", reqd: 0, source: { kind: "unknown" } }]
 );
 
 console.log("output fields model tests passed");
