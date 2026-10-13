@@ -13,6 +13,7 @@ import { ref, computed, nextTick } from "vue";
 import { normalizeActionType, loadContractsFromBackend } from "../../core/contracts";
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
+import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
 
 import { useGraphStore } from "./useGraphStore";
 import { useMetaStore } from "./useMetaStore";
@@ -449,7 +450,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					reference_docname: node.data?.reference_docname,
 					mutation_mode: node.data?.mutation_mode,
 					return_type: node.data?.return_type,
-					resolved_output_schema: serializeField(node.data?.resolved_output_schema),
+					resolved_output_schema: serializeField(normalizeResolvedOutputSchema(node.data?.resolved_output_schema)),
 				};
 			});
 

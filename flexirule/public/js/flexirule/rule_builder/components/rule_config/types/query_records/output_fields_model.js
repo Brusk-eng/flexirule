@@ -228,6 +228,10 @@ export function buildResolvedOutputSchema({
 	};
 	const schema = [];
 	const seen = new Set();
+	const flag = (value) => {
+		if (value === true || value === 1) return 1;
+		return ["1", "true", "yes"].includes(String(value ?? "").trim().toLowerCase()) ? 1 : 0;
+	};
 	const add = (field) => {
 		if (!field?.fieldname || seen.has(field.fieldname)) return;
 		seen.add(field.fieldname);
@@ -236,7 +240,8 @@ export function buildResolvedOutputSchema({
 			fieldname: field.fieldname,
 			fieldtype: field.fieldtype || "Data",
 			...(field.options ? { options: field.options } : {}),
-			...(field.mandatory !== undefined ? { mandatory: field.mandatory } : {}),
+			reqd: flag(field.reqd ?? field.mandatory ?? 0),
+			...(field.source && typeof field.source === "object" ? { source: clone(field.source) } : {}),
 		});
 	};
 	const sourceInfo = (path) =>
@@ -273,6 +278,11 @@ export function buildResolvedOutputSchema({
 				...info,
 				fieldname: alias || source,
 				label: alias ? aliasLabel(alias) : info.label || source,
+				source: {
+					kind: source.includes(".") ? "child_field" : "field",
+					fieldname: source,
+					expression: alias ? source + " as " + alias : source,
+				},
 			});
 		} else if (row.kind === "function") {
 			const source = String(row.field ?? "").trim();
@@ -301,7 +311,13 @@ export function buildResolvedOutputSchema({
 						: numericType
 						? info.fieldtype
 						: "Float",
-				mandatory: 0,
+				reqd: 0,
+				source: {
+					kind: "aggregate",
+					function: fn,
+					fieldname: source,
+					expression: fn + "(" + source + ") as " + alias,
+				},
 			});
 		} else if (row.kind === "child") {
 			const tableField = String(row.tableField ?? "").trim();
@@ -312,6 +328,8 @@ export function buildResolvedOutputSchema({
 				label: tableInfo.label || tableField,
 				fieldtype: "Table",
 				options: tableInfo.options,
+				reqd: 0,
+				source: { kind: "child_table", fieldname: tableField, expression: tableField },
 			});
 			for (const childField of Array.isArray(row.fields) ? row.fields : []) {
 				const path = tableField + "." + childField;
@@ -320,6 +338,12 @@ export function buildResolvedOutputSchema({
 					...info,
 					fieldname: path,
 					label: (tableInfo.label || tableField) + ": " + (info.label || childField),
+					source: {
+						kind: "child_field",
+						table_fieldname: tableField,
+						fieldname: childField,
+						expression: path,
+					},
 				});
 			}
 		} else if (row.kind === "raw") {
@@ -332,6 +356,8 @@ export function buildResolvedOutputSchema({
 				fieldname,
 				label: alias ? aliasLabel(alias) : expression,
 				fieldtype: "Data",
+				reqd: 0,
+				source: { kind: "expression", fieldname: alias || undefined, expression },
 			});
 		}
 	}

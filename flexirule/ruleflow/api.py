@@ -78,6 +78,40 @@ LAYOUT_FIELDTYPES = [
 	"Heading",
 ]
 
+def _output_schema_source(
+	kind: str,
+	fieldname: str | None = None,
+	expression: str | None = None,
+	**extra: Any,
+) -> dict[str, Any]:
+	"""Build optional provenance metadata for a resolved output field."""
+	source: dict[str, Any] = {"kind": kind}
+	if fieldname:
+		source["fieldname"] = fieldname
+	if expression:
+		source["expression"] = expression
+	source.update({key: value for key, value in extra.items() if value is not None})
+	return source
+
+
+def _reqd_flag(value: Any) -> int:
+	"""Normalize Frappe-style requiredness to an integer flag."""
+	return 1 if value is True or str(value).strip().lower() in {"1", "true", "yes"} else 0
+
+
+def _aggregate_source(mode: str, config: dict[str, Any]) -> dict[str, Any]:
+	"""Describe the input expression that produces a legacy aggregate result."""
+	functions = {"Count": "count", "Sum": "sum", "Average": "avg", "Min": "min", "Max": "max"}
+	function = functions[mode]
+	fieldname = config.get("field") or ("*" if mode == "Count" else None)
+	return _output_schema_source(
+		"aggregate",
+		fieldname=fieldname if fieldname != "*" else None,
+		expression=f"{function}({fieldname})" if fieldname else None,
+		function=function,
+	)
+
+
 # System fields
 SYSTEM_FIELDS = [
 	{"value": "name", "label": "ID (name)", "fieldtype": "Data", "group": "System"},
@@ -1056,7 +1090,8 @@ def test_action_query(
 									"label": df.label,
 									"fieldtype": df.fieldtype,
 									"options": df.options,
-									"mandatory": df.reqd,
+									"reqd": _reqd_flag(df.reqd),
+									"source": _output_schema_source("field", fieldname=df.fieldname, expression=df.fieldname),
 								}
 							)
 					# Add system fields
@@ -1067,7 +1102,8 @@ def test_action_query(
 								"label": sf["label"],
 								"fieldtype": sf.get("fieldtype", "Data"),
 								"options": sf.get("options"),
-								"mandatory": 0,
+								"reqd": 0,
+								"source": _output_schema_source("system", fieldname=sf["value"], expression=sf["value"]),
 							}
 						)
 				else:
@@ -1099,7 +1135,13 @@ def test_action_query(
 								"label": label,
 								"fieldtype": df.fieldtype if df else "Data",
 								"options": df.options if df else None,
-								"mandatory": df.reqd if df and hasattr(df, "reqd") else 0,
+								"reqd": _reqd_flag(df.reqd) if df and hasattr(df, "reqd") else 0,
+								"source": _output_schema_source(
+									"child_field" if "." in f else ("system" if f in system_fields else "field"),
+									fieldname=f,
+									expression=f,
+									table_fieldname=f.split(".", 1)[0] if "." in f else None,
+								),
 							}
 						)
 			elif mode in ["Count", "Sum", "Average", "Min", "Max"]:
@@ -1116,7 +1158,8 @@ def test_action_query(
 						"label": label_map.get(mode, _("Query Result")),
 						"fieldtype": "Float" if mode == "Average" else "Int",
 						"options": None,
-						"mandatory": 0,
+						"reqd": 0,
+						"source": _aggregate_source(mode, config_data),
 					}
 				)
 		except Exception:
@@ -1148,7 +1191,12 @@ def test_action_query(
 									"label": c.get("label") or c.get("fieldname"),
 									"fieldtype": c.get("fieldtype") or "Data",
 									"options": c.get("options"),
-									"mandatory": c.get("mandatory", 0),
+									"reqd": _reqd_flag(c.get("reqd", c.get("mandatory", 0))),
+									"source": c.get("source") or _output_schema_source(
+										"report",
+										fieldname=c.get("fieldname") or c.get("label"),
+										expression=c.get("fieldname") or c.get("label"),
+									),
 								}
 							)
 						elif isinstance(c, str):
@@ -1158,7 +1206,8 @@ def test_action_query(
 									"label": c,
 									"fieldtype": "Data",
 									"options": None,
-									"mandatory": 0,
+									"reqd": 0,
+									"source": _output_schema_source("report", fieldname=c, expression=c),
 								}
 							)
 					if report_schema:
@@ -1171,12 +1220,26 @@ def test_action_query(
 			if isinstance(result, dict):
 				for k in result.keys():
 					schema.append(
-						{"fieldname": k, "label": k, "fieldtype": "Data", "options": None, "mandatory": 0}
+						{
+							"fieldname": k,
+							"label": k,
+							"fieldtype": "Data",
+							"options": None,
+							"reqd": 0,
+							"source": _output_schema_source("result", fieldname=k, expression=k),
+						}
 					)
 			elif isinstance(result, list) and result and isinstance(result[0], dict):
 				for k in result[0].keys():
 					schema.append(
-						{"fieldname": k, "label": k, "fieldtype": "Data", "options": None, "mandatory": 0}
+						{
+							"fieldname": k,
+							"label": k,
+							"fieldtype": "Data",
+							"options": None,
+							"reqd": 0,
+							"source": _output_schema_source("result", fieldname=k, expression=k),
+						}
 					)
 
 		return {
