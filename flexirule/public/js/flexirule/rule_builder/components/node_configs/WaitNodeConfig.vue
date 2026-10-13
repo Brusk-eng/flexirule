@@ -19,16 +19,12 @@
 			</div>
 			<div class="form-group col-md-6" v-fxr-fieldname="'config.unit'">
 				<label class="small text-muted">{{ __("Unit") }}</label>
-				<select
-					class="form-control"
-					:value="getJsonConfig('unit', 'Minutes')"
-					@change="$emit('update-field', 'unit', $event.target.value)"
-				>
-					<option value="Seconds">{{ __("Seconds") }}</option>
-					<option value="Minutes">{{ __("Minutes") }}</option>
-					<option value="Hours">{{ __("Hours") }}</option>
-					<option value="Days">{{ __("Days") }}</option>
-				</select>
+				<SelectControl
+					:df="{ fieldtype: 'Select', options: ['Seconds', 'Minutes', 'Hours', 'Days'] }"
+					:modelValue="getJsonConfig('unit', 'Minutes')"
+					:hideLabel="true"
+					@update:modelValue="(val) => $emit('update-field', 'unit', val)"
+				/>
 			</div>
 		</div>
 		<div class="alert alert-info py-2 px-3 small mt-2">
@@ -39,6 +35,7 @@
 </template>
 
 <script setup>
+import SelectControl from "../controls/SelectControl.vue";
 const props = defineProps({
 	nodeData: Object,
 	showValidation: { type: Boolean, default: false },
