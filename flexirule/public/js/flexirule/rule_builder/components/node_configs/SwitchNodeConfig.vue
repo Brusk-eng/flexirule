@@ -1,13 +1,13 @@
 <template>
 	<div class="switch-node-config">
 		<div
-			class="form-group"
+			class="form-group fxr-control"
 			:class="{ 'has-error': showValidation && !getJsonConfig('expression') }"
 			v-fxr-fieldname="'config.expression'"
 		>
-			<label>{{ __("Switch Expression (Python)") }}</label>
+			<label class="fxr-label">{{ __("Switch Expression (Python)") }}</label>
 			<textarea
-				class="form-control"
+				class="fxr-input switch-expression-input"
 				rows="2"
 				:value="getJsonConfig('expression')"
 				@input="$emit('update-json-config', 'expression', $event.target.value)"
@@ -19,11 +19,11 @@
 		</div>
 
 		<div
-			class="form-group"
+			class="form-group fxr-control"
 			:class="{ 'has-error': showValidation && Object.keys(cases).length === 0 }"
 			v-fxr-fieldname="'config.cases'"
 		>
-			<label>{{ __("Cases") }}</label>
+			<label class="fxr-label">{{ __("Cases") }}</label>
 			<div
 				v-if="showValidation && Object.keys(cases).length === 0"
 				class="fxr-error-msg mb-2"
@@ -51,7 +51,7 @@
 			<div class="add-case mt-2 p-2 border rounded">
 				<input
 					type="text"
-					class="form-control input-sm mb-1"
+					class="fxr-input mb-1"
 					v-model="newCaseValue"
 					:placeholder="__('Value (e.g. \'Active\')')"
 				/>
@@ -131,3 +131,11 @@ function validate() {
 
 defineExpose({ validate });
 </script>
+
+<style scoped>
+.switch-expression-input {
+	min-height: 4rem;
+	line-height: 1.4;
+	resize: vertical;
+}
+</style>
