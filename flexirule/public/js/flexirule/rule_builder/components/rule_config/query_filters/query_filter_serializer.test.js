@@ -105,3 +105,28 @@ assert.deepEqual(serializeQueryFilters(canonical), [
 	{ mode: "static", value: "" },
 ]);
 console.log("canonical query filter persistence tests passed");
+
+const staticListTree = {
+	type: "group",
+	operator: "and",
+	children: [
+		{
+			type: "leaf",
+			doctype: "Sales Order",
+			field: "status",
+			operator: "in",
+			value: { mode: "static", value: ["Open", "Closed"] },
+		},
+	],
+};
+const staticListPayload = toPersistedQueryFilterTree(staticListTree);
+assert.deepEqual(staticListPayload.children[0].value, {
+	mode: "static",
+	value: ["Open", "Closed"],
+});
+assert.deepEqual(
+	toPersistedQueryFilterTree(deserializeQueryFilters(staticListPayload)),
+	staticListPayload
+);
+console.log("static list query filter persistence tests passed");
+
