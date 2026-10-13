@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import {
+	buildResolvedOutputSchema,
 	inferResultShape,
+	scrubOutputAlias,
 	parseOutputFields,
 	RESULT_SHAPES,
 	serializeOutputFields,
@@ -96,5 +98,48 @@ assert.equal(nestedCommasStayInsideExpressions[1].kind, "raw");
 
 const aggregateOnlyRows = parseOutputFields(["count(name) as total_users"]);
 assert.deepEqual(validateOutputFields(aggregateOnlyRows, RESULT_SHAPES.selectedFields), []);
+
+
+assert.equal(scrubOutputAlias("Reference Doctype"), "reference_doctype");
+assert.equal(scrubOutputAlias("totalCount"), "total_count");
+assert.equal(scrubOutputAlias("Total-Count"), "total_count");
+
+const aliasedSchema = buildResolvedOutputSchema({
+	shape: RESULT_SHAPES.selectedFields,
+	fields: [
+		"voucher_type as Reference Doctype",
+		"title",
+		"count(name) as Totals",
+	],
+	fieldInfoByPath: {
+		voucher_type: { label: "Voucher Type", fieldtype: "Select" },
+		title: { label: "Title", fieldtype: "Data" },
+		name: { label: "ID (name)", fieldtype: "Data" },
+	},
+});
+assert.deepEqual(
+	aliasedSchema.map(({ fieldname, label, fieldtype }) => ({ fieldname, label, fieldtype })),
+	[
+		{ fieldname: "reference_doctype", label: "Reference Doctype", fieldtype: "Select" },
+		{ fieldname: "title", label: "Title", fieldtype: "Data" },
+		{ fieldname: "totals", label: "Totals", fieldtype: "Int" },
+	]
+);
+
+const wholeDocumentSchema = buildResolvedOutputSchema({
+	shape: RESULT_SHAPES.wholeDocuments,
+	wholeDocumentFields: [
+		{ fieldname: "title", label: "Title", fieldtype: "Data" },
+		{ fieldname: "status", label: "Status", fieldtype: "Select" },
+	],
+	systemFields: [
+		{ fieldname: "name", label: "ID (name)", fieldtype: "Data" },
+		{ fieldname: "owner", label: "Created By (owner)", fieldtype: "Link", options: "User" },
+	],
+});
+assert.deepEqual(
+	wholeDocumentSchema.map((field) => field.fieldname),
+	["title", "status", "name", "owner"]
+);
 
 console.log("output fields model tests passed");
