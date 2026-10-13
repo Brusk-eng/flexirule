@@ -2,7 +2,7 @@
 	<div class="context-picker">
 		<input
 			type="text"
-			class="form-control form-control-sm"
+			class="fxr-input"
 			:value="modelValue"
 			@input="$emit('update:modelValue', $event.target.value)"
 			@dragover.prevent
@@ -81,7 +81,7 @@ function fetchMeta() {
 <style scoped>
 .context-picker input {
 	font-family: monospace;
-	color: var(--primary);
-	background-color: var(--bg-light-gray);
+	color: var(--fxr-node-accent, var(--fxr-accent));
+	background-color: var(--fxr-bg-input);
 }
 </style>

@@ -132,14 +132,27 @@
 									}
 								"
 							/>
-							<select
+							<SelectControl
 								class="form-control input-xs direction-select"
-								v-model="row.direction"
-								:disabled="readOnly"
-							>
-								<option value="asc">{{ __("ASC") }}</option>
-								<option value="desc">{{ __("DESC") }}</option>
-							</select>
+								:df="{
+									fieldtype: 'Select',
+									label: '',
+									options: [
+										{ label: 'ASC', value: 'asc' },
+										{ label: 'DESC', value: 'desc' },
+									],
+									reqd: 1,
+								}"
+								:modelValue="row.direction"
+								:read_only="readOnly"
+								:hideLabel="true"
+								@update:modelValue="
+									(value) => {
+										row.direction = value;
+										sync_local_config();
+									}
+								"
+							/>
 							<button
 								v-if="!readOnly"
 								class="btn btn-xs btn-link text-danger remove-sort-btn"
@@ -584,6 +597,7 @@ import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
+import SelectControl from "../../../controls/SelectControl.vue";
 import FilterGroup from "../FilterGroup.vue";
 import FetchRecordsConfig from "./query_records/FetchRecordsConfig.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";

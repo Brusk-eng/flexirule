@@ -46,16 +46,21 @@
 		<div v-if="ui.copy_same_fields" class="rm-exclude-section">
 			<label class="rm-label-sm">{{ __("Exclude Fields") }}</label>
 			<div class="rm-exclude-row">
-				<select class="fxr-select" v-model="pendingExcludeField" :disabled="readOnly">
-					<option value="">{{ __("Select field…") }}</option>
-					<option
-						v-for="f in scalarTargetOptions"
-						:key="`exclude-${f.value}`"
-						:value="f.value"
-					>
-						{{ f.label || f.value }}
-					</option>
-				</select>
+				<SelectControl
+					class="fxr-select"
+					:df="{
+						fieldtype: 'Select',
+						label: '',
+						options: scalarTargetOptions.map((field) => ({
+							label: field.label || field.value,
+							value: field.value,
+						})),
+					}"
+					:modelValue="pendingExcludeField"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="(value) => (pendingExcludeField = value)"
+				/>
 				<button v-if="!readOnly" class="fxr-btn fxr-btn--sm" @click="addExcludedField">
 					{{ __("Add") }}
 				</button>
@@ -229,16 +234,24 @@
 
 				<!-- Source Type -->
 				<div class="rm-cell rm-cell-type">
-					<select
+					<SelectControl
 						class="fxr-select"
-						v-model="row.source_type"
-						:disabled="readOnly"
 						:class="{ 'has-error': showValidation && !row.source_type }"
-					>
-						<option value="path">{{ __("Path") }}</option>
-						<option value="expr">{{ __("Expr") }}</option>
-						<option value="literal">{{ __("Static") }}</option>
-					</select>
+						:df="{
+							fieldtype: 'Select',
+							label: '',
+							options: [
+								{ label: 'Path', value: 'path' },
+								{ label: 'Expr', value: 'expr' },
+								{ label: 'Static', value: 'literal' },
+							],
+							reqd: 1,
+						}"
+						:modelValue="row.source_type"
+						:read_only="readOnly"
+						:hideLabel="true"
+						@update:modelValue="(value) => (row.source_type = value)"
+					/>
 				</div>
 
 				<!-- Source Value -->
@@ -352,20 +365,21 @@
 							@change="toggleSelectTable(tIdx)"
 							style="margin-top: 5px"
 						/>
-						<select
+						<SelectControl
 							class="fxr-select"
-							v-model="table.target_table"
-							:disabled="readOnly"
-						>
-							<option value="">{{ __("Target Table") }}</option>
-							<option
-								v-for="tbl in tableTargetOptions"
-								:key="tbl.value"
-								:value="tbl.value"
-							>
-								{{ tbl.label }}
-							</option>
-						</select>
+							:df="{
+								fieldtype: 'Select',
+								label: '',
+								options: tableTargetOptions.map((table) => ({
+									label: table.label,
+									value: table.value,
+								})),
+							}"
+							:modelValue="table.target_table"
+							:read_only="readOnly"
+							:hideLabel="true"
+							@update:modelValue="(value) => (table.target_table = value)"
+						/>
 
 						<input
 							class="fxr-input"
@@ -553,16 +567,20 @@
 							/>
 						</div>
 						<div class="rm-cell rm-cell-target">
-							<select class="fxr-select" v-model="row.target" :disabled="readOnly">
-								<option value="">{{ __("Target Field") }}</option>
-								<option
-									v-for="cf in getChildFieldOptions(table.target_table)"
-									:key="cf.value"
-									:value="cf.value"
-								>
-									{{ cf.label }}
-								</option>
-							</select>
+							<SelectControl
+								class="fxr-select"
+								:df="{
+									fieldtype: 'Select',
+									label: '',
+									options: getChildFieldOptions(table.target_table).map(
+										(field) => ({ label: field.label, value: field.value })
+									),
+								}"
+								:modelValue="row.target"
+								:read_only="readOnly"
+								:hideLabel="true"
+								@update:modelValue="(value) => (row.target = value)"
+							/>
 						</div>
 
 						<div class="rm-cell rm-cell-arrow">
@@ -570,15 +588,23 @@
 						</div>
 
 						<div class="rm-cell rm-cell-type">
-							<select
+							<SelectControl
 								class="fxr-select"
-								v-model="row.source_type"
-								:disabled="readOnly"
-							>
-								<option value="path">{{ __("Path") }}</option>
-								<option value="expr">{{ __("Expr") }}</option>
-								<option value="literal">{{ __("Static") }}</option>
-							</select>
+								:df="{
+									fieldtype: 'Select',
+									label: '',
+									options: [
+										{ label: 'Path', value: 'path' },
+										{ label: 'Expr', value: 'expr' },
+										{ label: 'Static', value: 'literal' },
+									],
+									reqd: 1,
+								}"
+								:modelValue="row.source_type"
+								:read_only="readOnly"
+								:hideLabel="true"
+								@update:modelValue="(value) => (row.source_type = value)"
+							/>
 						</div>
 
 						<div class="rm-cell rm-cell-source">
@@ -677,6 +703,7 @@
 import { computed, ref, watch } from "vue";
 import { deepClone } from "../utils/serialization";
 import ComboBoxControl from "./ComboBoxControl.vue";
+import SelectControl from "./SelectControl.vue";
 
 const props = defineProps({
 	df: { type: Object, default: null },
