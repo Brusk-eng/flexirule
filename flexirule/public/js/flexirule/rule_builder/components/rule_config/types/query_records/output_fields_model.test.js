@@ -99,18 +99,13 @@ assert.equal(nestedCommasStayInsideExpressions[1].kind, "raw");
 const aggregateOnlyRows = parseOutputFields(["count(name) as total_users"]);
 assert.deepEqual(validateOutputFields(aggregateOnlyRows, RESULT_SHAPES.selectedFields), []);
 
-
 assert.equal(scrubOutputAlias("Reference Doctype"), "reference_doctype");
 assert.equal(scrubOutputAlias("totalCount"), "total_count");
 assert.equal(scrubOutputAlias("Total-Count"), "total_count");
 
 const aliasedSchema = buildResolvedOutputSchema({
 	shape: RESULT_SHAPES.selectedFields,
-	fields: [
-		"voucher_type as reference_doctype",
-		"title",
-		"count(name) as totals",
-	],
+	fields: ["voucher_type as reference_doctype", "title", "count(name) as totals"],
 	fieldInfoByPath: {
 		voucher_type: { label: "Voucher Type", fieldtype: "Select" },
 		title: { label: "Title", fieldtype: "Data" },
