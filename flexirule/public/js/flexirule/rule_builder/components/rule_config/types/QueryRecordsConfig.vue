@@ -621,7 +621,7 @@ import {
 	parseOutputFields,
 } from "./query_records/output_fields_model.js";
 import { normalizeResolvedOutputSchema } from "../../../../utils/output_schema.js";
-import { getQueryRecordsSchemaRefreshSignature } from "./query_records/schema_refresh.js";
+import { getQueryRecordsSchemaRefreshSignature } from "./query_records/schema_refresh.mjs";
 
 const isFrappe15 = computed(() => {
 	const version = frappe.boot?.versions?.frappe;
