@@ -44,30 +44,12 @@ jobs:
       - name: Run pre-commit hooks
         uses: pre-commit/action@v3.0.1
 
-  semgrep:
-    name: Semgrep rules
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' }}
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            pyproject.toml
-
       - name: Download Semgrep rules
+        if: ${{ github.event_name == 'pull_request' }}
         run: git clone --depth 1 https://github.com/frappe/semgrep-rules.git frappe-semgrep-rules
 
       - name: Run Semgrep rules
+        if: ${{ github.event_name == 'pull_request' }}
         env:
           SEMGREP_BASELINE_REF: ${{ github.event.pull_request.base.sha }}
         run: |
