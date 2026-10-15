@@ -7,7 +7,18 @@ import {
 	serializeOutputFields,
 	validateOutputFields,
 } from "./output_fields_model.js";
-import { normalizeResolvedOutputSchema } from "../../../../../utils/output_schema.js";
+import {
+	hasStoredResolvedOutputSchema,
+	normalizeResolvedOutputSchema,
+} from "../../../../../utils/output_schema.js";
+
+assert.equal(hasStoredResolvedOutputSchema(undefined), false);
+assert.equal(hasStoredResolvedOutputSchema(null), false);
+assert.equal(hasStoredResolvedOutputSchema(""), false);
+assert.equal(hasStoredResolvedOutputSchema([]), true);
+assert.equal(hasStoredResolvedOutputSchema("[]"), true);
+// Preserve malformed non-empty editor text instead of replacing it on mount.
+assert.equal(hasStoredResolvedOutputSchema("{"), true);
 
 assert.equal(inferResultShape(undefined), RESULT_SHAPES.documentNames);
 assert.equal(inferResultShape("*"), RESULT_SHAPES.wholeDocuments);
