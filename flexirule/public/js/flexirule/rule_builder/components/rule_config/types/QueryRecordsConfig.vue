@@ -620,7 +620,10 @@ import {
 	inferResultShape,
 	parseOutputFields,
 } from "./query_records/output_fields_model.js";
-import { normalizeResolvedOutputSchema } from "../../../../utils/output_schema.js";
+import {
+	hasStoredResolvedOutputSchema,
+	normalizeResolvedOutputSchema,
+} from "../../../../utils/output_schema.js";
 
 const isFrappe15 = computed(() => {
 	const version = frappe.boot?.versions?.frappe;
@@ -830,9 +833,8 @@ onMounted(async () => {
 	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
-		// Enforce the Frappe 15 Fetch Records permission-bypass requirement after
-		// loading the saved action; the node data remains the source of truth.
-		applyFetchRecordsFrappe15Defaults();
+		// Do not apply operation defaults while restoring an existing action.
+		// Defaults are applied when the user changes into Fetch Records below.
 		if (mode.value === "Query Doc") {
 			await reconcile_query_doc_state();
 		} else if (reference_doctype.value) {
@@ -843,11 +845,16 @@ onMounted(async () => {
 			is_single_doctype.value = !!meta?.issingle;
 			is_child_table_target.value = !!meta?.istable;
 		}
-		// Ensure schema is initialized on first load even before any user edits.
-		// This avoids empty OutputPanel schema when config already has selected fields.
-		await update_resolved_schema_local();
+		// The schema is persisted action state. Recompute on mount only when it
+		// is absent; rewriting a valid saved schema during modal initialization
+		// makes the detached draft look edited and enables Save without user input.
+		if (!hasStoredResolvedOutputSchema(props.node?.data?.resolved_output_schema)) {
+			await update_resolved_schema_local();
+		}
 		await refresh_variables();
-		await debounced_schema_update();
+		// Sample-query schema refresh is driven by configuration changes, not by
+		// opening the modal. This avoids an async response mutating an untouched draft.
+
 	} finally {
 		is_internal_update.value = false;
 	}
