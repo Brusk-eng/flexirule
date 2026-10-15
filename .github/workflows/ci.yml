@@ -130,7 +130,7 @@ jobs:
         run: npx --no-install eslint flexirule/public/js
 
   tests:
-    needs: [changes, lint]
+    needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -244,7 +244,7 @@ jobs:
           TYPE: server
 
   tests_frappe_16_nested_set:
-    needs: [changes, lint]
+    needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
