@@ -96,6 +96,7 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             pyproject.toml
+            frappe-src/pyproject.toml
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -174,6 +175,7 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             pyproject.toml
+            frappe-src/pyproject.toml
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -288,6 +290,7 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             pyproject.toml
+            frappe-src/pyproject.toml
 
       - name: Setup Node
         uses: actions/setup-node@v4
