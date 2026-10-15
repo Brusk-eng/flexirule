@@ -20,13 +20,9 @@
 							description: __(
 								'Bypass read permissions for this action. Requires audit reason.'
 							),
-							read_only:
-								readOnly ||
-								(mode === 'Fetch Records' &&
-									isFrappe15 &&
-									!!node?.data?.ignore_permissions),
+							read_only: readOnly || (mode === 'Fetch Records' && isFrappe15),
 						}"
-						:modelValue="node?.data?.ignore_permissions"
+						:modelValue="effectiveIgnorePermissions"
 						@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
 					/>
 					<div
@@ -49,7 +45,7 @@
 					</div>
 				</div>
 				<ControlFactory
-					v-if="!!node?.data?.ignore_permissions"
+					v-if="!!effectiveIgnorePermissions"
 					:ref="setControlRef"
 					:df="{
 						fieldname: 'permission_audit_reason',
@@ -653,6 +649,13 @@ const {
 	update_action_field,
 } = useActionConfig(props, {
 	fieldValueMode: "fieldname",
+});
+
+// Frappe 15's Fetch Records mode requires the permission bypass. Expose the
+// required default to the UI without mutating the draft simply by opening it.
+const effectiveIgnorePermissions = computed(() => {
+	if (mode.value === "Fetch Records" && isFrappe15.value) return 1;
+	return props.node?.data?.ignore_permissions;
 });
 
 const navigableFields = useNavigableFields(
@@ -1716,14 +1719,16 @@ watch(
 			}
 		}
 
-		applyFetchRecordsFrappe15Defaults();
+		if (!is_internal_update.value && newMode !== oldMode) {
+			applyFetchRecordsFrappe15Defaults();
 
-		if (newMode === "Query Report" && props.node?.data) {
-			if (props.node.data.reference_doctype !== "Report") {
-				update_action_field("reference_doctype", "Report");
-			}
-			if (props.node.data.reference_docname) {
-				config.report_name = props.node.data.reference_docname;
+			if (newMode === "Query Report" && props.node?.data) {
+				if (props.node.data.reference_doctype !== "Report") {
+					update_action_field("reference_doctype", "Report");
+				}
+				if (props.node.data.reference_docname) {
+					config.report_name = props.node.data.reference_docname;
+				}
 			}
 		}
 
@@ -2148,10 +2153,22 @@ async function validate() {
 
 	// 4. Permission Audit Reason (Global check, though child CheckControl should handle reqd)
 	if (
-		props.node?.data?.ignore_permissions &&
+		effectiveIgnorePermissions.value &&
 		!String(props.node?.data?.permission_audit_reason ?? "").trim()
 	) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
+	}
+
+	// Persist the Frappe 15 default only when the user is saving a valid edit.
+	// Merely opening the modal must not mutate the action or dirty-state baseline.
+	if (
+		!errors.length &&
+		!props.readOnly &&
+		mode.value === "Fetch Records" &&
+		isFrappe15.value &&
+		![true, 1, "1"].includes(props.node?.data?.ignore_permissions)
+	) {
+		props.node.data.ignore_permissions = 1;
 	}
 
 	return { valid: errors.length === 0, errors };
