@@ -35,19 +35,13 @@ for (const config of [
 	{ ...base.config, result_shape: "whole_documents" },
 	{ ...base.config, fetch_strategy: "Get latest Doc" },
 ]) {
-	assert.notEqual(
-		getQueryRecordsSchemaRefreshSignature({ ...base, config }),
-		signature
-	);
+	assert.notEqual(getQueryRecordsSchemaRefreshSignature({ ...base, config }), signature);
 }
 assert.notEqual(
 	getQueryRecordsSchemaRefreshSignature({ ...base, referenceDoctype: "Customer" }),
 	signature
 );
-assert.notEqual(
-	getQueryRecordsSchemaRefreshSignature({ ...base, mode: "Query List" }),
-	signature
-);
+assert.notEqual(getQueryRecordsSchemaRefreshSignature({ ...base, mode: "Query List" }), signature);
 assert.notEqual(
 	getQueryRecordsSchemaRefreshSignature({
 		...base,
