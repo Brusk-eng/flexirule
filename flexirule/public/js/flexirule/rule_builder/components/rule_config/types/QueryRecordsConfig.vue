@@ -831,6 +831,7 @@ async function reconcile_query_doc_state() {
 // Track only inputs that affect the exposed return schema. Unrelated edits such as
 // changing filters, sort order, or limits must not rewrite the saved schema.
 let lastSchemaRefreshSignature = null;
+let schemaRefreshInitialized = false;
 
 function getSchemaRefreshSignature() {
 	return JSON.stringify({
@@ -876,6 +877,7 @@ onMounted(async () => {
 		// Capture the initialized inputs only after restoring the saved config, so
 		// initialization itself is not treated as a user-requested schema refresh.
 		lastSchemaRefreshSignature = getSchemaRefreshSignature();
+		schemaRefreshInitialized = true;
 	} finally {
 		is_internal_update.value = false;
 	}
@@ -2061,20 +2063,33 @@ watch(
 		props.node?.data?.reference_docname,
 	],
 	() => {
-		if (is_internal_update.value) return;
-
-		sync_local_config();
-
-		const nextSignature = getSchemaRefreshSignature();
-		if (lastSchemaRefreshSignature === null) {
-			lastSchemaRefreshSignature = nextSignature;
+		const previousSignature = lastSchemaRefreshSignature;
+		const beforeSyncSignature = getSchemaRefreshSignature();
+		if (previousSignature === null) {
+			lastSchemaRefreshSignature = beforeSyncSignature;
 			return;
 		}
-		if (nextSignature === lastSchemaRefreshSignature) return;
+		const dependenciesChangedBeforeSync = beforeSyncSignature !== previousSignature;
+		lastSchemaRefreshSignature = beforeSyncSignature;
 
-		lastSchemaRefreshSignature = nextSignature;
-		update_resolved_schema_local();
-		debounced_schema_update();
+		if (!is_internal_update.value) {
+			sync_local_config();
+		}
+
+		const afterSyncSignature = getSchemaRefreshSignature();
+		const dependenciesChangedDuringSync = afterSyncSignature !== lastSchemaRefreshSignature;
+		lastSchemaRefreshSignature = afterSyncSignature;
+
+		// A dependency change made while restoring the modal is initialization,
+		// not a user edit. Afterwards, relevant changes refresh even if the config
+		// synchronization guard is active for the same edit.
+		if (
+			schemaRefreshInitialized &&
+			(dependenciesChangedBeforeSync || dependenciesChangedDuringSync)
+		) {
+			update_resolved_schema_local();
+			debounced_schema_update();
+		}
 	},
 	{ deep: true }
 );
