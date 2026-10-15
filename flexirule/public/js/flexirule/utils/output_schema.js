@@ -26,17 +26,6 @@ function normalizeSourceKind(value, fallbackSourceKind = "unknown") {
 	return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
-/**
- * True when the action already carries a schema payload.
- *
- * An empty array is a valid saved schema (for example, a query with no selected
- * output fields). Do not overwrite non-empty strings here: malformed JSON may
- * be an in-progress manual edit and should not be silently replaced on mount.
- */
-export function hasStoredResolvedOutputSchema(value) {
-	return value != null && !(typeof value === "string" && value.trim() === "");
-}
-
 export function normalizeResolvedOutputSource(source, fallbackSourceKind = "unknown") {
 	if (!source || typeof source !== "object" || Array.isArray(source)) {
 		return { kind: normalizeSourceKind(null, fallbackSourceKind) };
