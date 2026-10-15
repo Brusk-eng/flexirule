@@ -845,6 +845,10 @@ onMounted(async () => {
 	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
+		// Establish the dependency baseline before asynchronous metadata loads.
+		// A real field/result-shape edit during loading must still invalidate it.
+		lastSchemaRefreshSignature = getSchemaRefreshSignature();
+		schemaRefreshInitialized = true;
 		// Do not apply operation defaults while restoring an existing action.
 		// Defaults are applied when the user changes into Fetch Records below.
 		if (mode.value === "Query Doc") {
@@ -879,10 +883,6 @@ onMounted(async () => {
 		// a schema-defining input changes. Missing schemas remain missing until
 		// the user changes one of those inputs.
 		await refresh_variables();
-		// Capture the initialized inputs only after restoring the saved config, so
-		// initialization itself is not treated as a user-requested schema refresh.
-		lastSchemaRefreshSignature = getSchemaRefreshSignature();
-		schemaRefreshInitialized = true;
 	} finally {
 		is_internal_update.value = false;
 	}
