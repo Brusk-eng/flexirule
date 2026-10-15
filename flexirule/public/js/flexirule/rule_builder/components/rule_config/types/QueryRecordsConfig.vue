@@ -620,10 +620,8 @@ import {
 	inferResultShape,
 	parseOutputFields,
 } from "./query_records/output_fields_model.js";
-import {
-	hasStoredResolvedOutputSchema,
-	normalizeResolvedOutputSchema,
-} from "../../../../utils/output_schema.js";
+import { normalizeResolvedOutputSchema } from "../../../../utils/output_schema.js";
+import { getQueryRecordsSchemaRefreshSignature } from "./query_records/schema_refresh.js";
 
 const isFrappe15 = computed(() => {
 	const version = frappe.boot?.versions?.frappe;
@@ -834,19 +832,11 @@ let lastSchemaRefreshSignature = null;
 let schemaRefreshInitialized = false;
 
 function getSchemaRefreshSignature() {
-	return JSON.stringify({
+	return getQueryRecordsSchemaRefreshSignature({
 		mode: mode.value,
-		reference_doctype: reference_doctype.value,
-		reference_docname: props.node?.data?.reference_docname,
-		doctype_name: config.doctype_name,
-		report_name: config.report_name,
-		fields: config.fields,
-		result_shape: config.result_shape,
-		fetch_strategy: config.fetch_strategy,
-		field: config.field,
-		agg_field: config.agg_field,
-		group_by: config.group_by,
-		group_by_field: config.group_by_field,
+		referenceDoctype: reference_doctype.value,
+		referenceDocname: props.node?.data?.reference_docname,
+		config,
 	});
 }
 
@@ -867,12 +857,10 @@ onMounted(async () => {
 			is_single_doctype.value = !!meta?.issingle;
 			is_child_table_target.value = !!meta?.istable;
 		}
-		// The schema is persisted action state. Recompute on mount only when it
-		// is absent; rewriting a valid saved schema during modal initialization
-		// makes the detached draft look edited and enables Save without user input.
-		if (!hasStoredResolvedOutputSchema(props.node?.data?.resolved_output_schema)) {
-			await update_resolved_schema_local();
-		}
+		// Mounting the editor is a read/restore operation. Never write
+		// resolved_output_schema here; the watcher below refreshes it only when
+		// a schema-defining input changes. Missing schemas remain missing until
+		// the user changes one of those inputs.
 		await refresh_variables();
 		// Capture the initialized inputs only after restoring the saved config, so
 		// initialization itself is not treated as a user-requested schema refresh.
