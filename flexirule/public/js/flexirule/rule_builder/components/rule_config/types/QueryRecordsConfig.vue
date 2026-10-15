@@ -1299,15 +1299,21 @@ function set_resolved_output_schema(schema) {
 	if (!props.node?.data) return;
 	const next = normalizeResolvedOutputSchema(Array.isArray(schema) ? schema : []);
 	let current = props.node.data.resolved_output_schema;
+	let currentIsArray = Array.isArray(current);
 	if (typeof current === "string") {
 		try {
 			current = JSON.parse(current);
+			currentIsArray = Array.isArray(current);
 		} catch (error) {
-			current = [];
+			currentIsArray = false;
 		}
 	}
-	const currentNormalized = normalizeResolvedOutputSchema(Array.isArray(current) ? current : []);
-	if (JSON.stringify(currentNormalized) === JSON.stringify(next)) return;
+	if (
+		currentIsArray &&
+		JSON.stringify(normalizeResolvedOutputSchema(current)) === JSON.stringify(next)
+	) {
+		return;
+	}
 	props.node.data.resolved_output_schema = next;
 	const isDraft = !store.nodes.some((node) => node === props.node);
 	if (!isDraft) store.mark_dirty();
