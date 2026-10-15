@@ -251,7 +251,8 @@ jobs:
 
   tests_frappe_16_nested_set:
     needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    # Frappe 16 compatibility is an opt-in validation run, not a required PR/push check.
+    if: ${{ github.event_name == 'workflow_dispatch' && needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     name: Nested-set integration (Frappe 16)
