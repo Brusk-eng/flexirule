@@ -184,10 +184,14 @@ jobs:
           cache: yarn
           cache-dependency-path: yarn.lock
 
-      - name: Install MariaDB client
+      - name: Install MariaDB client when missing
         run: |
-          sudo apt-get update
-          sudo apt-get install -y mariadb-client
+          if ! command -v mariadb >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y mariadb-client
+          else
+            echo "MariaDB client is already available; skipping package installation."
+          fi
 
       - name: Initialize Bench and database
         run: |
@@ -299,10 +303,14 @@ jobs:
           cache: yarn
           cache-dependency-path: yarn.lock
 
-      - name: Install MariaDB client
+      - name: Install MariaDB client when missing
         run: |
-          sudo apt-get update
-          sudo apt-get install -y mariadb-client
+          if ! command -v mariadb >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y mariadb-client
+          else
+            echo "MariaDB client is already available; skipping package installation."
+          fi
 
       - name: Initialize Bench and database
         run: |
