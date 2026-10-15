@@ -392,6 +392,7 @@ watch(
 	{ immediate: true }
 );
 
+let outputPolicyWatcherInitialized = false;
 watch(
 	() => [
 		props.node?.data?.action_type,
@@ -399,8 +400,14 @@ watch(
 		props.node?.data?.process_name,
 	],
 	() => {
+		// This panel is lazily mounted in compact layouts. Its first render must
+		// not mutate the detached draft or turn opening the Output tab into an edit.
+		if (!outputPolicyWatcherInitialized) {
+			outputPolicyWatcherInitialized = true;
+			return;
+		}
 		if (!props.node?.data) return;
-		let changed = applyOutputPolicyDefaults(props.node.data, {
+		const changed = applyOutputPolicyDefaults(props.node.data, {
 			parent: store.rule_doc || {},
 			preserveUserChoices: true,
 		});
