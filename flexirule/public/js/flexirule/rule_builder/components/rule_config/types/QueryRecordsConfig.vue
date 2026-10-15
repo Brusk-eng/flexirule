@@ -848,7 +848,24 @@ onMounted(async () => {
 		// Do not apply operation defaults while restoring an existing action.
 		// Defaults are applied when the user changes into Fetch Records below.
 		if (mode.value === "Query Doc") {
-			await reconcile_query_doc_state();
+			// Read the saved target's metadata for rendering, but don't reconcile
+			// and rewrite the saved action during initialization. Reconciliation
+			// belongs to a real user change, not opening the modal.
+			const targetDoctype = isConcreteStaticValue(config.doctype_name)
+				? extractStaticValue(config.doctype_name)
+				: !config.doctype_name
+				? reference_doctype.value
+				: "";
+			if (targetDoctype) {
+				await loadDocMeta(targetDoctype);
+				await load_doctype_fields(targetDoctype);
+				const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
+				is_single_doctype.value = !!meta?.issingle;
+				is_child_table_target.value = !!meta?.istable;
+			} else {
+				is_single_doctype.value = false;
+				is_child_table_target.value = false;
+			}
 		} else if (reference_doctype.value) {
 			await loadDocMeta(reference_doctype.value);
 			await load_doctype_fields(reference_doctype.value);
