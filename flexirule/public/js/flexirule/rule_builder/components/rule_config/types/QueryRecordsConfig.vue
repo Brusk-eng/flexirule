@@ -828,6 +828,27 @@ async function reconcile_query_doc_state() {
 	}
 }
 
+// Track only inputs that affect the exposed return schema. Unrelated edits such as
+// changing filters, sort order, or limits must not rewrite the saved schema.
+let lastSchemaRefreshSignature = null;
+
+function getSchemaRefreshSignature() {
+	return JSON.stringify({
+		mode: mode.value,
+		reference_doctype: reference_doctype.value,
+		reference_docname: props.node?.data?.reference_docname,
+		doctype_name: config.doctype_name,
+		report_name: config.report_name,
+		fields: config.fields,
+		result_shape: config.result_shape,
+		fetch_strategy: config.fetch_strategy,
+		field: config.field,
+		agg_field: config.agg_field,
+		group_by: config.group_by,
+		group_by_field: config.group_by_field,
+	});
+}
+
 // Initialize local config
 onMounted(async () => {
 	is_internal_update.value = true;
@@ -852,9 +873,9 @@ onMounted(async () => {
 			await update_resolved_schema_local();
 		}
 		await refresh_variables();
-		// Sample-query schema refresh is driven by configuration changes, not by
-		// opening the modal. This avoids an async response mutating an untouched draft.
-
+		// Capture the initialized inputs only after restoring the saved config, so
+		// initialization itself is not treated as a user-requested schema refresh.
+		lastSchemaRefreshSignature = getSchemaRefreshSignature();
 	} finally {
 		is_internal_update.value = false;
 	}
@@ -1295,7 +1316,8 @@ function set_resolved_output_schema(schema) {
 			current = [];
 		}
 	}
-	if (JSON.stringify(current || []) === JSON.stringify(next)) return;
+	const currentNormalized = normalizeResolvedOutputSchema(Array.isArray(current) ? current : []);
+	if (JSON.stringify(currentNormalized) === JSON.stringify(next)) return;
 	props.node.data.resolved_output_schema = next;
 	const isDraft = !store.nodes.some((node) => node === props.node);
 	if (!isDraft) store.mark_dirty();
@@ -2027,15 +2049,32 @@ function load_local_config(val) {
 	}
 }
 
-// Unified watch for all local state changes
+// Keep serialized config in sync with local controls, but do not refresh the
+// schema merely because an unrelated query option changed.
 watch(
-	() => [order_by_rows.value, config, report_filter_values, mode.value, reference_doctype.value],
+	() => [
+		order_by_rows.value,
+		config,
+		report_filter_values,
+		mode.value,
+		reference_doctype.value,
+		props.node?.data?.reference_docname,
+	],
 	() => {
-		if (!is_internal_update.value) {
-			sync_local_config();
-			update_resolved_schema_local();
-			debounced_schema_update();
+		if (is_internal_update.value) return;
+
+		sync_local_config();
+
+		const nextSignature = getSchemaRefreshSignature();
+		if (lastSchemaRefreshSignature === null) {
+			lastSchemaRefreshSignature = nextSignature;
+			return;
 		}
+		if (nextSignature === lastSchemaRefreshSignature) return;
+
+		lastSchemaRefreshSignature = nextSignature;
+		update_resolved_schema_local();
+		debounced_schema_update();
 	},
 	{ deep: true }
 );
