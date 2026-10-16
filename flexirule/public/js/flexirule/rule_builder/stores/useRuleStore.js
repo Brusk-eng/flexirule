@@ -656,6 +656,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	 * baseline (or the baseline has not yet been established).
 	 */
 	function commit_graph_edit() {
+		// Explicit commits may bypass canvas initialization/layout suppression,
+		// but must never target a graph while fetch/save is replacing its state.
+		if (is_loading.value) return false;
+
 		const graphStore = useGraphStore();
 		if (
 			!shouldRecordExplicitGraphCommit({
