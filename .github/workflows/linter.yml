@@ -98,3 +98,4 @@ jobs:
           node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_field_info.test.mjs
           node flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_drag_model.test.mjs
           node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/schema_refresh.test.mjs
+          node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_fields_schema.test.mjs

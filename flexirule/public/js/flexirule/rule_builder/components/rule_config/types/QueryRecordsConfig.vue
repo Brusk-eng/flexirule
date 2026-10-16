@@ -565,7 +565,12 @@
 					v-if="supportsManualSchemaRefresh"
 					class="btn btn-xs btn-primary shadow-sm"
 					@click="refresh_schema_manually"
-					:disabled="readOnly || schema_refreshing"
+					:disabled="readOnly || schema_refreshing || schema_preview_loading || !schema_refresh_needed"
+					:title="
+						schema_refresh_needed
+							? __('The stored schema differs from the current output configuration.')
+							: __('The stored schema is up to date.')
+					"
 					tabindex="0"
 				>
 					<i
@@ -584,6 +589,13 @@
 					<i class="fa fa-flask mr-1"></i> {{ __("Debug Query") }}
 				</button>
 			</div>
+			<span
+				v-if="schema_refresh_needed"
+				class="mt-2 text-warning small"
+				role="status"
+			>
+				{{ __("The stored output schema differs from the current configuration.") }}
+			</span>
 			<span v-if="schema_refresh_status" class="mt-2 text-muted font-weight-bold">{{
 				schema_refresh_status
 			}}</span>
@@ -725,6 +737,8 @@ const report_filter_values = reactive({});
 const report_filter_types = reactive({});
 const test_status = ref("");
 const schema_refreshing = ref(false);
+const schema_preview_loading = ref(false);
+const schema_refresh_needed = ref(false);
 const schema_refresh_status = ref("");
 const supportsManualSchemaRefresh = computed(() =>
 	["Fetch Records", "Query List", "Query Doc", "Query Report"].includes(mode.value)
@@ -746,6 +760,7 @@ function setControlRef(el) {
 
 // Internal flag to prevent recursive sync loops
 const is_internal_update = ref(false);
+const schemaRefreshReady = ref(false);
 
 // Initialize local config
 const reference_docname = computed(
@@ -912,6 +927,10 @@ onMounted(async () => {
 		await refresh_variables();
 	} finally {
 		is_internal_update.value = false;
+		// Changes produced while hydrating saved controls are initialization, not edits.
+		lastSchemaRefreshSignature = getSchemaRefreshSignature();
+		schemaRefreshReady.value = true;
+		await update_schema_refresh_preview();
 	}
 });
 
@@ -1213,21 +1232,15 @@ const SYSTEM_FIELDS = [
  */
 let fetch_records_schema_request_id = 0;
 
-async function update_fetch_records_schema_local() {
+async function build_fetch_records_schema_local() {
 	const requestId = ++fetch_records_schema_request_id;
 	const isStale = () =>
 		requestId !== fetch_records_schema_request_id || mode.value !== "Fetch Records";
-	const applySchema = (schema) => {
-		if (isStale()) return false;
-		set_resolved_output_schema(schema);
-		return true;
-	};
-
-	if (!props.node?.data) return false;
+		if (!props.node?.data || mode.value !== "Fetch Records") return null;
 
 	const targetDoctype = reference_doctype.value;
 	if (!targetDoctype || is_doctype_dynamic.value) {
-		return applySchema(
+		return isStale() ? null : (
 			is_doctype_dynamic.value
 				? [
 						{
@@ -1247,7 +1260,7 @@ async function update_fetch_records_schema_local() {
 	}
 
 	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
-	if (isStale() || !meta) return false;
+	if (isStale() || !meta) return null;
 
 	const fieldInfoByPath = {};
 	const toSchemaField = (field, fieldname = field.fieldname, label = field.label) => {
@@ -1294,14 +1307,14 @@ async function update_fetch_records_schema_local() {
 	}
 
 	for (const path of paths) {
-		if (isStale()) return false;
+		if (isStale()) return null;
 		if (!path.includes(".")) continue;
 		const [rootName, nestedName] = path.split(".", 2);
 		const rootField = (meta.fields || []).find((field) => field.fieldname === rootName);
 		if (!rootField?.options || !nestedName) continue;
 		try {
 			const relatedMeta = await flexirule.utils.get_doctype_meta(rootField.options);
-			if (isStale()) return false;
+			if (isStale()) return null;
 			const nestedField = (relatedMeta?.fields || []).find(
 				(field) => field.fieldname === nestedName
 			);
@@ -1337,34 +1350,15 @@ async function update_fetch_records_schema_local() {
 		wholeDocumentFields,
 		systemFields: SYSTEM_FIELDS.map((field) => toSchemaField(field)),
 	});
-	return applySchema(schema);
+	return isStale() ? null : schema;
+}
+async function update_fetch_records_schema_local() {
+	const schema = await build_fetch_records_schema_local();
+	if (!Array.isArray(schema)) return false;
+	set_resolved_output_schema(schema);
+	return true;
 }
 
-// Fetch Records' schema depends on the selected DocType and output shape, not on
-// filters, sort order, or result limits. Watch these inputs independently from
-// the config-sync watcher because sync_config marks its prop update as internal
-// and can otherwise suppress the schema refresh when the shape/fields change.
-watch(
-	() => [
-		mode.value,
-		reference_doctype.value,
-		is_doctype_dynamic.value,
-		config.result_shape,
-		JSON.stringify(config.fields ?? null),
-	],
-	() => {
-		if (mode.value === "Fetch Records") {
-			// Config hydration during modal opening is read-only. Schema changes
-			// from later user edits are handled by the dependency-signature watcher.
-			if (!is_internal_update.value) {
-				void update_fetch_records_schema_local();
-			}
-		} else {
-			// Invalidate an outstanding metadata request after leaving Fetch Records.
-			fetch_records_schema_request_id += 1;
-		}
-	}
-);
 
 function set_resolved_output_schema(schema) {
 	if (!props.node?.data) return;
@@ -1383,9 +1377,11 @@ function set_resolved_output_schema(schema) {
 		currentIsArray &&
 		JSON.stringify(normalizeResolvedOutputSchema(current)) === JSON.stringify(next)
 	) {
+		schema_refresh_needed.value = false;
 		return;
 	}
 	props.node.data.resolved_output_schema = next;
+	schema_refresh_needed.value = false;
 	const isDraft = !store.nodes.some((node) => node === props.node);
 	if (!isDraft) store.mark_dirty();
 }
@@ -1394,19 +1390,18 @@ function set_resolved_output_schema(schema) {
  * Local metadata-based schema detection.
  * Provides instant feedback for Query List and Query Doc modes.
  */
-async function update_resolved_schema_local() {
-	if (!props.node?.data) return false;
+async function build_resolved_schema_preview() {
+	if (!props.node?.data) return null;
 	if (mode.value === "Fetch Records") {
-		return await update_fetch_records_schema_local();
-	}
+		return await build_fetch_records_schema_local();
+}
 
 	if (["Query List", "Query Doc"].includes(mode.value)) {
 		const is_query_doc = mode.value === "Query Doc";
 		const fields = (config.fields || []).filter((f) => f);
 
 		if (!is_query_doc && !fields.length) {
-			set_resolved_output_schema([]);
-			return true;
+			return [];
 		}
 
 		const schema = [];
@@ -1417,7 +1412,7 @@ async function update_resolved_schema_local() {
 			: reference_doctype.value;
 		if (!target_doctype || is_doctype_dynamic.value) {
 			if (is_doctype_dynamic.value) {
-				set_resolved_output_schema([
+				return [
 					{
 						label: __("Dynamic Object"),
 						fieldname: "doc",
@@ -1425,13 +1420,13 @@ async function update_resolved_schema_local() {
 						reqd: 0,
 						source: { kind: "dynamic", fieldname: "doc", expression: "doctype_name" },
 					},
-				]);
+				];
 			}
-			return is_doctype_dynamic.value;
+			return null;
 		}
 
 		const meta = await flexirule.utils.get_doctype_meta(target_doctype);
-		if (!meta) return false;
+		if (!meta) return null;
 
 		// For Query Doc, we return the full schema if fields are not explicitly set
 		const fields_to_process =
@@ -1511,16 +1506,23 @@ async function update_resolved_schema_local() {
 			}
 		}
 
-		set_resolved_output_schema(schema);
-		return true;
+		return schema;
 	} else if (mode.value === "Query Report" && props.node?.data?.reference_docname) {
-		return await update_report_columns();
+		return await build_report_schema_preview();
 	}
-	return false;
+	return null;
 }
 
-async function update_report_columns() {
-	if (mode.value !== "Query Report" || !props.node?.data?.reference_docname) return false;
+
+async function update_resolved_schema_local() {
+	const schema = await build_resolved_schema_preview();
+	if (!Array.isArray(schema)) return false;
+	set_resolved_output_schema(schema);
+	return true;
+}
+
+async function build_report_schema_preview() {
+	if (mode.value !== "Query Report" || !props.node?.data?.reference_docname) return null;
 
 	try {
 		const report_name = props.node.data.reference_docname;
@@ -1576,15 +1578,22 @@ async function update_report_columns() {
 					},
 				};
 			});
-			set_resolved_output_schema(schema);
-			return true;
+			return schema;
 		}
-		return false;
+		return null;
 	} catch (e) {
 		console.warn("Failed to update report columns", e);
-		return false;
+		return null;
 	}
 }
+
+async function update_report_columns() {
+	const schema = await build_report_schema_preview();
+	if (!Array.isArray(schema)) return false;
+	set_resolved_output_schema(schema);
+	return true;
+}
+
 
 const limitTypeField = computed(() =>
 	resolveFieldPolicy("limit_type", {
@@ -2024,6 +2033,106 @@ function getResolvedSchemaSnapshot() {
 	return JSON.stringify(normalizeResolvedOutputSchema(Array.isArray(schema) ? schema : []));
 }
 
+
+function normalizeSchemaForComparison(schema) {
+	let value = schema;
+	if (typeof value === "string") {
+		try {
+			value = JSON.parse(value);
+		} catch (error) {
+			return null;
+		}
+	}
+	return normalizeResolvedOutputSchema(Array.isArray(value) ? value : []);
+}
+
+function areResolvedSchemasEqual(left, right) {
+	const normalizedLeft = normalizeSchemaForComparison(left);
+	const normalizedRight = normalizeSchemaForComparison(right);
+	if (!Array.isArray(normalizedLeft) || !Array.isArray(normalizedRight)) return false;
+	return JSON.stringify(normalizedLeft) === JSON.stringify(normalizedRight);
+}
+
+let schemaPreviewRequestId = 0;
+
+async function update_schema_refresh_preview({ applyIfChanged = false } = {}) {
+	const requestId = ++schemaPreviewRequestId;
+	schema_preview_loading.value = true;
+	try {
+		const preview = await build_resolved_schema_preview();
+		if (requestId !== schemaPreviewRequestId) return;
+		if (!Array.isArray(preview)) {
+			schema_refresh_needed.value = false;
+			return;
+		}
+		const differs = !areResolvedSchemasEqual(
+			props.node?.data?.resolved_output_schema,
+			preview
+		);
+		schema_refresh_needed.value = differs;
+		if (applyIfChanged && differs && mode.value === "Fetch Records") {
+			set_resolved_output_schema(preview);
+			schema_refresh_status.value = __("Output schema updated.");
+		}
+	} catch (error) {
+		console.warn("Failed to compare Query Records output schema", error);
+		schema_refresh_needed.value = false;
+	} finally {
+		if (requestId === schemaPreviewRequestId) schema_preview_loading.value = false;
+	}
+}
+
+async function refresh_schema_manually() {
+	if (
+		!props.node?.data ||
+		props.readOnly ||
+		!supportsManualSchemaRefresh.value ||
+		schema_refreshing.value ||
+		!schema_refresh_needed.value
+	) {
+		return;
+	}
+	schema_refreshing.value = true;
+	schema_refresh_status.value = __("Checking output schema...");
+	try {
+		const preview = await build_resolved_schema_preview();
+		if (!Array.isArray(preview)) {
+			schema_refresh_status.value = __(
+				"Schema could not be built. Check the selected DocType or report configuration."
+			);
+			return;
+		}
+		if (areResolvedSchemasEqual(props.node.data.resolved_output_schema, preview)) {
+			schema_refresh_needed.value = false;
+			schema_refresh_status.value = __("The output schema is already up to date.");
+			return;
+		}
+		const confirmed = await new Promise((resolve) => {
+			frappe.confirm(
+				__(
+					"Refresh the output schema from the current configuration? Downstream actions that reference renamed or removed output fields may need to be reviewed."
+				),
+				() => resolve(true),
+				() => resolve(false)
+			);
+		});
+		if (!confirmed) {
+			schema_refresh_status.value = __("Schema refresh cancelled.");
+			return;
+		}
+		set_resolved_output_schema(preview);
+		schema_refresh_needed.value = false;
+		schema_refresh_status.value = __("Output schema refreshed.");
+	} catch (error) {
+		console.warn("Failed to refresh Query Records schema", error);
+		schema_refresh_status.value = __(
+			"Schema refresh failed. Check the configuration and try again."
+		);
+	} finally {
+		schema_refreshing.value = false;
+	}
+}
+
 async function refresh_schema_manually() {
 	if (
 		!props.node?.data ||
@@ -2201,12 +2310,15 @@ watch(
 		// synchronization guard is active for the same edit.
 		if (
 			schemaRefreshInitialized &&
+			schemaRefreshReady.value &&
 			(dependenciesChangedBeforeSync || dependenciesChangedDuringSync)
 		) {
-			// Fetch Records has a dedicated schema-input watcher so config sync
-			// cannot suppress updates and irrelevant filter edits do not rebuild it.
-			if (mode.value !== "Fetch Records") {
-				update_resolved_schema_local();
+			if (mode.value === "Fetch Records") {
+				// Rebuild from user-edited output fields even if the config update is
+				// still marked internal by the serialization loop guard.
+				void update_schema_refresh_preview({ applyIfChanged: true });
+			} else {
+				void update_resolved_schema_local();
 				debounced_schema_update();
 			}
 		}
