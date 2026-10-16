@@ -21,6 +21,11 @@ assert.equal(stableStringify({ date: new Date("2026-01-02T03:04:05.000Z") }), '{
 const cyclic = {};
 cyclic.self = cyclic;
 assert.throws(() => stableStringify(cyclic), TypeError);
+assert.throws(
+	() => stableStringify({ toJSON() { return this; } }),
+	TypeError,
+	"self-returning toJSON must fail rather than recurse indefinitely"
+);
 
 // Repeated shared objects are valid when the object graph is not cyclic.
 const shared = { value: 1 };
