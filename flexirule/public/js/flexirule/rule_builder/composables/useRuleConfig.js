@@ -1,5 +1,5 @@
 import { ref, reactive, computed, watch, nextTick } from "vue";
-import { useRuleStore, useStore } from "../stores";
+import { useGraphStore, useRuleStore, useStore } from "../stores";
 import { getContract, validateAgainstContract } from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
@@ -15,6 +15,7 @@ import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
  */
 export function useRuleConfig(props, emit) {
 	const ruleStore = useRuleStore();
+	const graphStore = useGraphStore();
 	const store = useStore();
 	const draftNode = ref(null);
 	const showValidation = ref(false);
@@ -113,31 +114,49 @@ export function useRuleConfig(props, emit) {
 	 * Save changes back to the source node and close.
 	 */
 	async function save() {
+		// Bind this save attempt to the exact graph generation and source node it
+		// started with. A fetch can begin and finish while validate() is awaiting,
+		// returning is_loading to false but replacing every node object.
+		const sourceNode = props.node;
+		const sourceGeneration = ruleStore.fetch_generation;
+		const isSourceContextCurrent = () =>
+			Boolean(
+				sourceNode &&
+				ruleStore.fetch_generation === sourceGeneration &&
+				graphStore.nodes.includes(sourceNode)
+			);
+
 		const saveResult = await runConfigSaveLifecycle({
 			// Read the domain store directly: the legacy facade spreads Pinia stores
 			// and snapshots unwrapped values instead of retaining live state.
 			isLoading: () => ruleStore.is_loading,
+			isContextCurrent: isSourceContextCurrent,
 			validate,
 			commit: () => {
-				if (!props.node || !draftNode.value) return;
+				if (!sourceNode || !draftNode.value) return;
 
-				const oldValue = props.node.data?.rule;
+				const oldValue = sourceNode.data?.rule;
 				const newValue = draftNode.value.data?.rule;
 
-				props.node.data = deepClone(draftNode.value.data);
-				props.node.label = draftNode.value.label || draftNode.value.data?.action_label;
+				sourceNode.data = deepClone(draftNode.value.data);
+				sourceNode.label = draftNode.value.label || draftNode.value.data?.action_label;
 
 				// Redraw nested nodes when Sub-Rule LinkControl target changes
-				if (props.node.data.action_type === "Sub-Rule" && oldValue !== newValue) {
+				if (sourceNode.data.action_type === "Sub-Rule" && oldValue !== newValue) {
 					// store.expand_sub_rule_in_graph removed per user request
 				}
 
-				store.touch_node(props.node.id);
+				store.touch_node(sourceNode.id);
 				store.commit_graph_edit();
 			},
 		});
 
-		if (saveResult.status === "blocked-loading") return false;
+		if (
+			saveResult.status === "blocked-loading" ||
+			saveResult.status === "blocked-stale-context"
+		) {
+			return false;
+		}
 
 		if (saveResult.status === "invalid") {
 			const validation = saveResult.validation;
@@ -159,7 +178,7 @@ export function useRuleConfig(props, emit) {
 			return false;
 		}
 
-		emit("save", props.node.data);
+		emit("save", sourceNode.data);
 		emit("update:modelValue", false);
 		return true;
 	}
