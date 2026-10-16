@@ -13,12 +13,17 @@ export function stableStringify(value) {
 			return JSON.stringify(current);
 		}
 
-		if (typeof current.toJSON === "function") {
-			return serialize(current.toJSON(key), key);
-		}
-
 		if (ancestors.has(current)) {
 			throw new TypeError("Converting circular structure to JSON");
+		}
+
+		if (typeof current.toJSON === "function") {
+			ancestors.add(current);
+			try {
+				return serialize(current.toJSON(key), key);
+			} finally {
+				ancestors.delete(current);
+			}
 		}
 
 		ancestors.add(current);
