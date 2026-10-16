@@ -27,6 +27,7 @@ import { getConditionPayload } from "../utils/condition_payload";
 import { generateShortId } from "../utils/schema_utils.js";
 import { deepClone } from "../utils/serialization.js";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
+import { stableStringify } from "../utils/stable_serialization.mjs";
 
 export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Core graph state ──
@@ -103,41 +104,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	 * comparison only detects meaningful changes.
 	 */
 	function getStateSnapshot() {
-		/**
-		 * Stable stringification helper that ensures consistent key ordering.
-		 */
-		const stringifyStable = (obj) => {
-			if (obj === undefined) return undefined;
-			if (obj === null || typeof obj !== "object") {
-				return JSON.stringify(obj);
-			}
-			if (Array.isArray(obj)) {
-				return (
-					"[" +
-					obj.map((x) => (x === undefined ? "null" : stringifyStable(x))).join(",") +
-					"]"
-				);
-			}
-			const keys = Object.keys(obj).sort();
-			const parts = [];
-			for (const k of keys) {
-				const valStr = stringifyStable(obj[k]);
-				if (valStr !== undefined) {
-					parts.push(JSON.stringify(k) + ":" + valStr);
-				}
-			}
-			return "{" + parts.join(",") + "}";
-		};
-
 		const nodesSnap = nodes.value.map((el) => {
-			// Deep clone data and sort its keys for stability
 			const rawData = deepClone(el.data || {});
-			// We don't need to recursively sort every object here because stringifyStable
-			// will handle the nested objects when comparing snapshots if we used it,
-			// but getStateSnapshot returns an array of objects which is then stringified.
-			// To be absolutely safe, we'll return the data as-is but ensure the top-level
-			// snapshot objects themselves have a stable structure.
-
 			return {
 				data: rawData,
 				id: el.id,
@@ -158,20 +126,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			targetHandle: el.targetHandle || null,
 		}));
 
-		// Standardize the flat array by sorting everything by ID.
-		// Since we use JSON.stringify(getStateSnapshot()) for comparison,
-		// we must ensure the key order within nodesSnap/edgesSnap objects is also stable.
-		// We've done this above by defining keys in alphabetical order.
-
 		const combined = [...nodesSnap, ...edgesSnap].sort((a, b) =>
 			(a.id || "").localeCompare(b.id || "")
 		);
 
-		// Final pass: ensure all nested objects in 'data' are also stable by re-parsing
-		// a stable-stringified version. This is slower but guarantees dirty tracking accuracy.
-		return JSON.parse(stringifyStable(combined));
+		// Canonical serialization makes nested object key order irrelevant while
+		// preserving meaningful value and array-order changes.
+		return JSON.parse(stableStringify(combined));
 	}
-
 	function getGraphSnapshot() {
 		// Use the stable state snapshot for history to prevent transient UI changes
 		// (like node selection or dragging) from polluting the undo/redo stack.
