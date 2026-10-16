@@ -9,21 +9,23 @@ export function stableStringify(value) {
 	const ancestors = new Set();
 
 	function serialize(current, key = "") {
+		// JSON.stringify calls toJSON once for the current property, then serializes
+		// the returned value directly. Do not recurse through serialize() here,
+		// which would invoke toJSON a second time if it returns an object.
+		if (
+			current !== null &&
+			(typeof current === "object" || typeof current === "function") &&
+			typeof current.toJSON === "function"
+		) {
+			current = current.toJSON(key);
+		}
+
 		if (current === null || typeof current !== "object") {
 			return JSON.stringify(current);
 		}
 
 		if (ancestors.has(current)) {
 			throw new TypeError("Converting circular structure to JSON");
-		}
-
-		if (typeof current.toJSON === "function") {
-			ancestors.add(current);
-			try {
-				return serialize(current.toJSON(key), key);
-			} finally {
-				ancestors.delete(current);
-			}
 		}
 
 		ancestors.add(current);
