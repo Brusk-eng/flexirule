@@ -15,7 +15,7 @@ import { runConfigSaveLifecycle } from "./config_save_lifecycle.mjs";
 			commitCalls += 1;
 		},
 	});
-	assert.deepEqual(result, { status: "blocked-loading" });
+	assert.deepEqual(result, { status: "blocked-stale-context" });
 	assert.equal(validationCalls, 0);
 	assert.equal(commitCalls, 0);
 }
@@ -39,7 +39,53 @@ import { runConfigSaveLifecycle } from "./config_save_lifecycle.mjs";
 
 	loading = true;
 	releaseValidation({ valid: true });
-	assert.deepEqual(await saving, { status: "blocked-loading" });
+	assert.deepEqual(await saving, { status: "blocked-stale-context" });
+	assert.equal(commitCalls, 0);
+}
+
+// A fetch may start and finish before validation resolves. The loading boolean
+// is false again, but the generation/context guard must still reject the stale draft.
+{
+	let loading = false;
+	let fetchGeneration = 7;
+	let capturedGeneration = fetchGeneration;
+	let contextCurrent = true;
+	let releaseValidation;
+	let commitCalls = 0;
+	const validationPending = new Promise((resolve) => {
+		releaseValidation = resolve;
+	});
+	const saving = runConfigSaveLifecycle({
+		isLoading: () => loading,
+		isContextCurrent: () => contextCurrent && fetchGeneration === capturedGeneration,
+		validate: () => validationPending,
+		commit: () => {
+			commitCalls += 1;
+		},
+	});
+
+	loading = true;
+	fetchGeneration += 1;
+	contextCurrent = false; // the fetch replaced the source node object
+	loading = false;
+	releaseValidation({ valid: true });
+
+	assert.deepEqual(await saving, { status: "blocked-stale-context" });
+	assert.equal(commitCalls, 0);
+}
+
+// A replaced source node is rejected even when no loading transition is observable.
+{
+	let commitCalls = 0;
+	const result = await runConfigSaveLifecycle({
+		isLoading: () => false,
+		isContextCurrent: () => false,
+		validate: async () => ({ valid: true }),
+		commit: () => {
+			commitCalls += 1;
+		},
+	});
+	assert.deepEqual(result, { status: "blocked-stale-context" });
 	assert.equal(commitCalls, 0);
 }
 
