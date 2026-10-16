@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { stableStringify } from "./stable_serialization.mjs";
-import { hasGraphStateChanged, shouldRecordExplicitGraphCommit } from "./graph_dirty_state.mjs";
+import {
+	hasGraphStateChanged,
+	shouldRecordExplicitGraphCommit,
+} from "./graph_dirty_state.mjs";
 
 const baselineSnapshot = [
 	{
