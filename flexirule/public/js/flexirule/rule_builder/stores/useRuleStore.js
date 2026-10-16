@@ -15,7 +15,10 @@ import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
-import { hasGraphStateChanged, shouldRecordExplicitGraphCommit } from "../utils/graph_dirty_state.mjs";
+import {
+	hasGraphStateChanged,
+	shouldRecordExplicitGraphCommit,
+} from "../utils/graph_dirty_state.mjs";
 
 import { useGraphStore } from "./useGraphStore";
 import { useMetaStore } from "./useMetaStore";
@@ -694,10 +697,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		}
 
 		if (checkDirty()) {
-			_is_dirty.value = true;
-			const graphStore = useGraphStore();
-			const historyStore = useHistoryStore();
-			historyStore.commit(() => graphStore.getGraphSnapshot());
+			record_graph_change();
 		}
 	}
 
