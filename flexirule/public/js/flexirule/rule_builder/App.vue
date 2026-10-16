@@ -206,7 +206,6 @@
 			v-if="uiStore.show_config_modal"
 			v-model="uiStore.show_config_modal"
 			:node="graphStore.nodes.find((n) => n.id === uiStore.selected_id)"
-			@save="ruleStore.commit_graph_edit()"
 		/>
 		<ShortcutsHelp v-model="uiStore.show_shortcuts_help" />
 		<CommandPalette v-model="uiStore.show_command_palette" />
