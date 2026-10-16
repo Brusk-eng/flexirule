@@ -65,6 +65,23 @@ assert.notEqual(
 	getQueryRecordsSchemaRefreshSignature({ ...fetchBase, mode: "Query List" }),
 	fetchSignature
 );
+assert.notEqual(
+	getQueryRecordsSchemaRefreshSignature({
+		...fetchBase,
+		config: { ...fetchBase.config, fields: ["sum(grand_total) as total_amount"] },
+	}),
+	fetchSignature
+);
+assert.notEqual(
+	getQueryRecordsSchemaRefreshSignature({
+		...fetchBase,
+		config: { ...fetchBase.config, fields: ["sum(grand_total) as invoice_total"] },
+	}),
+	getQueryRecordsSchemaRefreshSignature({
+		...fetchBase,
+		config: { ...fetchBase.config, fields: ["sum(grand_total) as total_amount"] },
+	})
+);
 
 // Query Doc's schema depends on DocType/fetch strategy, not the selected document name.
 const queryDocBase = {

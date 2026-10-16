@@ -2021,6 +2021,16 @@ function update_report_filter(fieldname, value) {
 	});
 }
 
+function sortSchemaObjectKeys(value) {
+	if (Array.isArray(value)) return value.map(sortSchemaObjectKeys);
+	if (!value || typeof value !== "object") return value;
+	return Object.fromEntries(
+		Object.keys(value)
+			.sort()
+			.map((key) => [key, sortSchemaObjectKeys(value[key])])
+	);
+}
+
 function normalizeSchemaForComparison(schema) {
 	let value = schema;
 	if (typeof value === "string") {
@@ -2030,7 +2040,8 @@ function normalizeSchemaForComparison(schema) {
 			return null;
 		}
 	}
-	return normalizeResolvedOutputSchema(Array.isArray(value) ? value : []);
+	if (value != null && !Array.isArray(value)) return null;
+	return sortSchemaObjectKeys(normalizeResolvedOutputSchema(Array.isArray(value) ? value : []));
 }
 
 function areResolvedSchemasEqual(left, right) {
@@ -2266,6 +2277,9 @@ watch(
 			schemaRefreshReady.value &&
 			(dependenciesChangedBeforeSync || dependenciesChangedDuringSync)
 		) {
+			if (mode.value !== "Fetch Records") {
+				fetch_records_schema_request_id += 1;
+			}
 			if (mode.value === "Fetch Records") {
 				// Rebuild from user-edited output fields even if the config update is
 				// still marked internal by the serialization loop guard.
