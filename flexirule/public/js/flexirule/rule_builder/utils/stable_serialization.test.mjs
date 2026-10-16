@@ -20,6 +20,10 @@ assert.notEqual(
 // Match JSON behavior for omitted object properties and undefined array entries.
 assert.equal(stableStringify({ present: 1, omitted: undefined }), '{"present":1}');
 assert.equal(stableStringify([1, undefined, 3]), "[1,null,3]");
+const sparse = [];
+sparse[1] = "value";
+assert.equal(stableStringify(sparse), '[null,"value"]');
+assert.equal(stableStringify([() => {}, Symbol("ignored")]), "[null,null]");
 assert.equal(stableStringify(undefined), undefined);
 assert.equal(
 	stableStringify({ date: new Date("2026-01-02T03:04:05.000Z") }),
