@@ -1,8 +1,9 @@
 import { ref, reactive, computed, watch, nextTick } from "vue";
-import { useStore } from "../stores";
+import { useRuleStore, useStore } from "../stores";
 import { getContract, validateAgainstContract } from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
+import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
 
 /**
  * useRuleConfig
@@ -13,6 +14,7 @@ import { stableStringify } from "../utils/stable_serialization.mjs";
  * @param {Object} emit - Component emit function
  */
 export function useRuleConfig(props, emit) {
+	const ruleStore = useRuleStore();
 	const store = useStore();
 	const draftNode = ref(null);
 	const showValidation = ref(false);
@@ -111,12 +113,34 @@ export function useRuleConfig(props, emit) {
 	 * Save changes back to the source node and close.
 	 */
 	async function save() {
-		// Fetch/save rebuilds the graph baseline and history; do not commit a
-		// configuration draft while that replacement is in progress.
-		if (store.is_loading) return false;
+		const saveResult = await runConfigSaveLifecycle({
+			// Read the domain store directly: the legacy facade spreads Pinia stores
+			// and snapshots unwrapped values instead of retaining live state.
+			isLoading: () => ruleStore.is_loading,
+			validate,
+			commit: () => {
+				if (!props.node || !draftNode.value) return;
 
-		const validation = await validate();
-		if (!validation.valid) {
+				const oldValue = props.node.data?.rule;
+				const newValue = draftNode.value.data?.rule;
+
+				props.node.data = deepClone(draftNode.value.data);
+				props.node.label = draftNode.value.label || draftNode.value.data?.action_label;
+
+				// Redraw nested nodes when Sub-Rule LinkControl target changes
+				if (props.node.data.action_type === "Sub-Rule" && oldValue !== newValue) {
+					// store.expand_sub_rule_in_graph removed per user request
+				}
+
+				store.touch_node(props.node.id);
+				store.commit_graph_edit();
+			},
+		});
+
+		if (saveResult.status === "blocked-loading") return false;
+
+		if (saveResult.status === "invalid") {
+			const validation = saveResult.validation;
 			const message = validation.errors.map((e) => `<li>${e}</li>`).join("");
 			frappe.msgprint({
 				title: __("Validation Error"),
@@ -133,23 +157,6 @@ export function useRuleConfig(props, emit) {
 			});
 
 			return false;
-		}
-
-		// Commit changes
-		if (props.node && draftNode.value) {
-			const oldValue = props.node.data?.rule;
-			const newValue = draftNode.value.data?.rule;
-
-			props.node.data = deepClone(draftNode.value.data);
-			props.node.label = draftNode.value.label || draftNode.value.data?.action_label;
-
-			// Redraw nested nodes when Sub-Rule LinkControl target changes
-			if (props.node.data.action_type === "Sub-Rule" && oldValue !== newValue) {
-				// store.expand_sub_rule_in_graph removed per user request
-			}
-
-			store.touch_node(props.node.id);
-			store.commit_graph_edit();
 		}
 
 		emit("save", props.node.data);
