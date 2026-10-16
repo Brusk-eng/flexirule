@@ -34,16 +34,28 @@ assert.equal(
 const cyclic = {};
 cyclic.self = cyclic;
 assert.throws(() => stableStringify(cyclic), TypeError);
-assert.throws(
-	() =>
-		stableStringify({
-			toJSON() {
-				return this;
-			},
-		}),
-	TypeError,
-	"self-returning toJSON must fail rather than recurse indefinitely"
+const selfReturningToJSON = {
+	toJSON() {
+		return this;
+	},
+};
+assert.equal(stableStringify(selfReturningToJSON), JSON.stringify(selfReturningToJSON));
+assert.equal(
+	stableStringify(selfReturningToJSON),
+	"{}",
+	"A self-returning toJSON method should be invoked once and then serialize enumerable data."
 );
+let toJSONCalls = 0;
+assert.equal(
+	stableStringify({
+		toJSON() {
+			toJSONCalls += 1;
+			return { nested: { value: 1 } };
+		},
+	}),
+	'{"nested":{"value":1}}'
+);
+assert.equal(toJSONCalls, 1, "toJSON must be called once for the current property.");
 
 // Repeated shared objects are valid when the object graph is not cyclic.
 const shared = { value: 1 };
