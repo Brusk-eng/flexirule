@@ -1244,20 +1244,20 @@ async function build_fetch_records_schema_local() {
 		return isStale()
 			? null
 			: is_doctype_dynamic.value
-				? [
-						{
-							label: __("Dynamic Object"),
+			? [
+					{
+						label: __("Dynamic Object"),
+						fieldname: "doc",
+						fieldtype: "JSON",
+						reqd: 0,
+						source: {
+							kind: "dynamic",
 							fieldname: "doc",
-							fieldtype: "JSON",
-							reqd: 0,
-							source: {
-								kind: "dynamic",
-								fieldname: "doc",
-								expression: "doctype_name",
-							},
+							expression: "doctype_name",
 						},
-				  ]
-				: [];
+					},
+			  ]
+			: [];
 	}
 
 	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
@@ -1394,7 +1394,7 @@ async function build_resolved_schema_preview() {
 	if (!props.node?.data) return null;
 	if (mode.value === "Fetch Records") {
 		return await build_fetch_records_schema_local();
-}
+	}
 
 	if (["Query List", "Query Doc"].includes(mode.value)) {
 		const is_query_doc = mode.value === "Query Doc";
