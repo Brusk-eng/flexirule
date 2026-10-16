@@ -111,6 +111,10 @@ export function useRuleConfig(props, emit) {
 	 * Save changes back to the source node and close.
 	 */
 	async function save() {
+		// Fetch/save rebuilds the graph baseline and history; do not commit a
+		// configuration draft while that replacement is in progress.
+		if (store.is_loading) return false;
+
 		const validation = await validate();
 		if (!validation.valid) {
 			const message = validation.errors.map((e) => `<li>${e}</li>`).join("");
