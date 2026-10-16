@@ -134,6 +134,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		// preserving meaningful value and array-order changes.
 		return JSON.parse(stableStringify(combined));
 	}
+
 	function getGraphSnapshot() {
 		// Use the stable state snapshot for history to prevent transient UI changes
 		// (like node selection or dragging) from polluting the undo/redo stack.
