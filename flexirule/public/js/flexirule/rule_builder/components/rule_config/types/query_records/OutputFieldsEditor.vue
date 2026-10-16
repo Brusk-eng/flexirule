@@ -40,6 +40,9 @@
 							:modelValue="row.field"
 							:readOnly="readOnly"
 							:label="__('Field')"
+							:reqd="true"
+							:showValidation="showValidation || !String(row.field ?? '').trim()"
+							:placeholder="__('Select field')"
 							@update:modelValue="updateRowValue(row, 'field', $event)"
 						/>
 						<input
@@ -78,6 +81,9 @@
 							:readOnly="readOnly"
 							:rootOnly="true"
 							:label="__('Source field')"
+							:reqd="true"
+							:showValidation="showValidation || !String(row.field ?? '').trim()"
+							:placeholder="__('Select source field')"
 							@update:modelValue="updateRowValue(row, 'field', $event)"
 						/>
 						<input
@@ -216,6 +222,15 @@
 					</div>
 				</div>
 			</template>
+			<template #footer>
+				<p class="output-fields-hint">
+					{{
+						__(
+							"Functions use Frappe-style field syntax. Aggregate functions currently support fields on the selected DocType, not linked or child-table paths."
+						)
+					}}
+				</p>
+			</template>
 		</GenericGrid>
 
 		<p v-if="requiresGroupBy" class="output-fields-warning">
@@ -231,13 +246,6 @@
 			{{
 				__(
 					"Child selections return nested arrays for each parent record. Use dotted paths only when you want flat joined rows."
-				)
-			}}
-		</p>
-		<p class="output-fields-hint">
-			{{
-				__(
-					"Functions use Frappe-style field syntax. Aggregate functions currently support fields on the selected DocType, not linked or child-table paths."
 				)
 			}}
 		</p>
@@ -287,6 +295,9 @@ const rows = ref(
 	}))
 );
 const validationErrors = ref([]);
+const currentOutputValidationErrors = computed(() =>
+	validateOutputFields(rows.value, props.shape, props.groupBy)
+);
 const searchableFields = [
 	"kind",
 	"field",
@@ -376,15 +387,20 @@ function newId() {
 }
 
 function rowTitle(row) {
-	if (row.kind === "field") return row.alias || row.field || __("Output field");
+	if (row.kind === "field") {
+		if (row.alias) return humanizeAlias(row.alias);
+		const label = fieldInfo(row.field).label;
+		return label ? __(label) : row.field || __("Output field");
+	}
 	if (row.kind === "function") {
 		const fn = (row.functionName || "count").toUpperCase();
-		return row.alias
-			? humanizeAlias(row.alias) + " (" + fn + ")"
-			: fn + "(" + (fieldInfo(row.field).label || row.field || "?") + ")";
+		if (row.alias) return humanizeAlias(row.alias) + " (" + fn + ")";
+		const label = fieldInfo(row.field).label;
+		return fn + "(" + (label ? __(label) : row.field || "?") + ")";
 	}
 	if (row.kind === "child") {
-		return fieldInfo(row.tableField).label || __("Embedded child selection");
+		const label = fieldInfo(row.tableField).label;
+		return label ? __(label) : __("Embedded child selection");
 	}
 	if (row.kind === "literal") {
 		return row.label || humanizeAlias(row.fieldname) || __("Literal value");
@@ -392,38 +408,59 @@ function rowTitle(row) {
 	return row.expression || __("Advanced field expression");
 }
 
+function literalValueModeLabel(mode) {
+	switch (String(mode || "static").toLowerCase()) {
+		case "static":
+			return __("static");
+		case "resolver":
+			return __("resolver");
+		case "formula":
+			return __("formula");
+		case "format":
+			return __("format");
+		case "formatter":
+			return __("formatter");
+		case "normalize":
+			return __("normalize");
+		case "normalization":
+			return __("normalization");
+		case "expression":
+			return __("expression");
+		default:
+			return __("dynamic");
+	}
+}
+
 function rowDescription(row) {
 	if (row.kind === "field") {
 		const source = row.field
-			? (row.field.includes(".") ? __("Related field") : __("Parent field")) +
-			  " · " +
-			  row.field
+			? __("{0}: {1}", [
+					row.field.includes(".") ? __("Related field") : __("Parent field"),
+					row.field,
+			  ])
 			: __("Choose a field");
-		return row.alias ? source + " · " + __("Output alias") + ": " + row.alias : source;
+		return row.alias ? __("{0} · Output alias: {1}", [source, row.alias]) : source;
 	}
 	if (row.kind === "function") {
 		const expression =
 			(row.functionName || "count").toUpperCase() + "(" + (row.field || "?") + ")";
-		return (
-			__("Function") +
-			" · " +
-			expression +
-			(row.alias ? " · " + __("Output alias") + ": " + row.alias : "")
-		);
+		return row.alias
+			? __("Function: {0} · Output alias: {1}", [expression, row.alias])
+			: __("Function: {0}", [expression]);
 	}
 	if (row.kind === "child") {
 		const fields = Array.isArray(row.fields) ? row.fields.join(", ") : "";
-		return fields ? __("Child fields") + " · " + fields : __("Select child fields");
+		return fields ? __("Child fields: {0}", [fields]) : __("Select child fields");
 	}
 	if (row.kind === "literal") {
 		const mode = row.value_spec?.mode || "static";
-		return __("Literal column") + " · " + (row.fieldname || "—") + " · " + __(mode);
+		return __("Literal column: {0} · {1}", [row.fieldname || "—", literalValueModeLabel(mode)]);
 	}
 	return __("Advanced native field expression");
 }
 
 function emitRows() {
-	validationErrors.value = [];
+	validationErrors.value = props.showValidation ? [...currentOutputValidationErrors.value] : [];
 	emit("update:modelValue", serializeOutputFields(rows.value));
 }
 
@@ -612,18 +649,26 @@ function handleGridRowAction({ action, row, index }) {
 
 function isRowInvalid(row, index) {
 	const prefix = "Output field " + (index + 1) + ":";
-	if (validationErrors.value.some((error) => error.startsWith(prefix))) return true;
+	const validationMessage = currentOutputValidationErrors.value.find((error) =>
+		error.startsWith(prefix)
+	);
+	if (validationMessage) return validationMessage;
 	if (row?.kind !== "child") return false;
 	if (
 		row.tableField &&
 		!childTableOptions.value.some((option) => option.value === row.tableField)
 	) {
-		return true;
+		return prefix + " Child selection references a field that is not a child table.";
 	}
-	return (
+	if (
 		Array.isArray(row.fields) &&
 		row.fields.some((field) => !row.childFieldOptions.some((option) => option.value === field))
-	);
+	) {
+		return (
+			prefix + " Child selection contains a field unavailable in the selected child DocType."
+		);
+	}
+	return false;
 }
 
 function removeRow(index) {
@@ -749,7 +794,7 @@ defineExpose({ validate });
 }
 
 .output-fields-list :deep(.fxr-generic-grid-row-summary) {
-	align-self: center;
+	align-self: start;
 }
 
 .output-fields-list :deep(.fxr-generic-grid-row.is-editing) {
@@ -760,9 +805,11 @@ defineExpose({ validate });
 .output-field-row-copy {
 	display: flex;
 	flex-direction: column;
-	justify-content: center;
+	justify-content: flex-start;
+	gap: 2px;
 	min-width: 0;
 	flex: 1;
+	text-align: start;
 	user-select: text;
 }
 
@@ -771,13 +818,14 @@ defineExpose({ validate });
 	overflow: hidden;
 	color: var(--fxr-text);
 	font-size: var(--fxr-text-sm);
-	font-weight: var(--fxr-weight-medium);
+	font-weight: var(--fxr-weight-semibold, 600);
+	line-height: 1.25;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .output-field-row-copy p {
-	margin: 1px 0 0;
+	margin: 0;
 	overflow: hidden;
 	color: var(--fxr-text-muted);
 	font-size: var(--fxr-text-xs);
@@ -849,8 +897,9 @@ defineExpose({ validate });
 	font-size: var(--fxr-text-xs);
 	line-height: 1.4;
 }
-
 .output-fields-hint {
+	max-width: 100%;
+	white-space: normal;
 	color: var(--fxr-text-muted);
 }
 

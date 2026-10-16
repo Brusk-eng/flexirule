@@ -33,6 +33,7 @@
 				:aria-invalid="getInvalidState(entry.row, entry.index).invalid ? 'true' : undefined"
 				:title="getInvalidState(entry.row, entry.index).message || undefined"
 				:data-row-index="entry.index"
+				@click.capture="handleGridRowClick(entry, $event)"
 			>
 				<div class="fxr-generic-grid-row-toolbar">
 					<button
@@ -122,7 +123,13 @@
 					</div>
 				</div>
 
-				<div v-if="hasSummarySlot" class="fxr-generic-grid-row-summary">
+				<div
+					v-if="hasSummarySlot"
+					class="fxr-generic-grid-row-summary"
+					:class="{ 'is-toggleable': summaryToggleAction(entry) !== null }"
+					:title="summaryToggleTitle(entry)"
+					@dblclick="toggleSummaryRow(entry, $event)"
+				>
 					<slot
 						name="row-summary"
 						:row="entry.row"
@@ -384,6 +391,9 @@
 		<p v-if="feedback" class="fxr-generic-grid-feedback" role="status" aria-live="polite">
 			{{ feedback }}
 		</p>
+		<div v-if="slots.footer" class="fxr-generic-grid-custom-footer">
+			<slot name="footer" />
+		</div>
 	</div>
 </template>
 
@@ -393,11 +403,13 @@ import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
 	getBulkEditAction,
+	getPrimaryActionAfterIndex,
 	matchesShortcut,
 	paginateRows,
 	parseClipboardRows,
 	rowMatchesSearch,
 	buildRowProps,
+	getSummaryToggleAction,
 	selectRangeKeys,
 } from "./generic_grid_model.mjs";
 
@@ -408,7 +420,7 @@ const props = defineProps({
 	rowKey: { type: [String, Function], default: "id" },
 	gridLabel: { type: String, default: "" },
 	keyboardNavigation: { type: Boolean, default: true },
-	primaryActionShortcut: { type: String, default: "Alt+Enter" },
+	primaryActionShortcut: { type: String, default: "Shift+Enter" },
 	rowComponent: { type: [Object, Function, String], default: null },
 	rowProps: { type: [Object, Function], default: null },
 	rowInvalid: { type: [Function, Array], default: null },
@@ -704,6 +716,17 @@ function handleIndexKeyboardClick(pageIndex, event) {
 	selectVisibleRange(pageIndex, pageIndex);
 }
 
+function handleGridRowClick(entry, event) {
+	if (!entry) return;
+	activeRowIndex.value = entry.index;
+
+	// Let controls keep focus so Shift+Enter can bubble from a row editor.
+	const interactiveTarget = event.target?.closest?.(
+		"button, input, select, textarea, a, [contenteditable='true'], [role='button'], [role='combobox']"
+	);
+	if (!interactiveTarget) rootRef.value?.focus({ preventScroll: true });
+}
+
 function getInvalidState(row, index) {
 	let result = false;
 	if (typeof props.rowInvalid === "function") result = props.rowInvalid(row, index);
@@ -723,6 +746,34 @@ function resolveRowProps(row, index) {
 		getInvalidState(row, index).invalid,
 		props.readOnly
 	);
+}
+
+function summaryToggleAction(entry) {
+	return getSummaryToggleAction(entry.row, {
+		readOnly: props.readOnly,
+		availableRowActions: props.availableRowActions,
+		editStateKey: props.editStateKey,
+	});
+}
+
+function summaryToggleTitle(entry) {
+	const action = summaryToggleAction(entry);
+	if (action === "view") return __("Double-click to return to reading mode");
+	if (action === "edit") return __("Double-click to edit");
+	return undefined;
+}
+
+function toggleSummaryRow(entry, event) {
+	const action = summaryToggleAction(entry);
+	if (!action) return;
+	if (
+		event.target?.closest?.(
+			"a, button, input, select, textarea, [contenteditable='true'], [role='button'], [role='combobox']"
+		)
+	) {
+		return;
+	}
+	requestRowAction(action, entry);
 }
 
 function requestRowAction(action, entry) {
@@ -1069,7 +1120,7 @@ async function handleKeydown(event) {
 	if (!isDataGrid.value) return;
 
 	const target = event.target;
-	// Menu keyboard events belong to the open menu, not the grid's row shortcuts.
+	// Headless UI owns keyboard navigation inside the secondary-action menu.
 	if (target?.closest?.(".fxr-grid-menu")) return;
 
 	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
@@ -1118,28 +1169,31 @@ async function handleKeydown(event) {
 		return;
 	}
 
-	// Alt+Enter always invokes whichever action is currently pinned as primary.
+	// Shift+Enter invokes the pinned primary action from an activated row,
+	// without requiring the row-index selection control to be selected.
+	const rowElement = target?.closest?.("[data-row-index]");
+	const isGridFocus = target === rootRef.value;
+	const preservesNativeEnter = target?.closest?.(
+		"textarea, select, [contenteditable='true'], [role='textbox'], [role='combobox'], [aria-haspopup='listbox']"
+	);
 	if (
 		activePrimaryAction.value &&
 		!props.readOnly &&
 		matchesShortcut(event, props.primaryActionShortcut) &&
-		!isInputTarget(target)
+		(rowElement || isGridFocus) &&
+		!preservesNativeEnter
 	) {
 		event.preventDefault();
-		const rowElement = target?.closest?.("[data-row-index]");
-		const activeIndex = rowElement
+		const rowIndexFromTarget = rowElement
 			? Number(rowElement.getAttribute("data-row-index"))
 			: activeRowIndex.value;
+		const activeIndex = sourceRows.value.some((entry) => entry.index === rowIndexFromTarget)
+			? rowIndexFromTarget
+			: null;
 		const selectedIndexes = sourceRows.value
 			.filter((entry) => selectedKeys.value.has(entry.key))
 			.map((entry) => entry.index);
-		requestPrimaryAction(
-			Number.isInteger(activeIndex) && activeIndex >= 0
-				? activeIndex
-				: selectedIndexes.length
-				? Math.max(...selectedIndexes)
-				: null
-		);
+		requestPrimaryAction(getPrimaryActionAfterIndex(activeIndex, selectedIndexes));
 		return;
 	}
 
@@ -1230,6 +1284,10 @@ defineExpose({
 	flex-direction: column;
 	gap: var(--fxr-space-2, 8px);
 	outline: none;
+}
+
+.fxr-generic-grid-data.is-compact {
+	gap: var(--fxr-space-1, 4px);
 }
 
 .fxr-generic-grid-footer,
@@ -1545,6 +1603,11 @@ defineExpose({
 	gap: var(--fxr-space-1, 4px);
 }
 
+.fxr-generic-grid-data.is-compact .fxr-generic-grid-row {
+	row-gap: 2px;
+	padding: 2px var(--fxr-space-2, 8px);
+}
+
 .fxr-generic-grid-row {
 	display: grid;
 	grid-template-columns: 22px minmax(0, 1fr) auto;
@@ -1584,9 +1647,29 @@ defineExpose({
 }
 
 .fxr-generic-grid-row-summary {
+	display: flex;
 	grid-column: 2;
 	grid-row: 1;
+	align-self: start;
+	align-items: center;
 	min-width: 0;
+	font-size: var(--fxr-text-sm, 12px);
+	line-height: 1.25;
+}
+
+.fxr-generic-grid-row-summary :deep(p) {
+	margin-block: 0;
+	line-height: 1.25;
+}
+
+.fxr-generic-grid-row-summary.is-toggleable {
+	border-radius: var(--fxr-radius-sm, 4px);
+	cursor: pointer;
+	transition: color 120ms ease;
+}
+
+.fxr-generic-grid-row-summary.is-toggleable:hover {
+	color: var(--fxr-text-strong, #111827);
 }
 
 .fxr-generic-grid-row-body {
@@ -1596,6 +1679,10 @@ defineExpose({
 .fxr-generic-grid-row.is-editing {
 	grid-template-columns: 22px minmax(0, 1fr) auto;
 	padding: var(--fxr-space-2, 8px);
+}
+
+.fxr-generic-grid-data.is-compact .fxr-generic-grid-row.is-editing {
+	padding: var(--fxr-space-1, 4px) var(--fxr-space-2, 8px);
 }
 
 .fxr-generic-grid-row.is-editing .fxr-generic-grid-row-actions {
@@ -1974,5 +2061,18 @@ defineExpose({
 	.fxr-generic-grid-bulk-actions {
 		align-items: flex-start;
 	}
+}
+.fxr-generic-grid-custom-footer {
+	min-width: 0;
+	padding: var(--fxr-space-2, 8px) var(--fxr-space-1, 4px) 0;
+	border-top: 1px solid var(--fxr-border-subtle, #e5e7eb);
+	color: var(--fxr-text-muted, #6b7280);
+	font-size: var(--fxr-text-xs, 11px);
+}
+.fxr-generic-grid-custom-footer > :first-child {
+	margin-top: 0;
+}
+.fxr-generic-grid-custom-footer > :last-child {
+	margin-bottom: 0;
 }
 </style>

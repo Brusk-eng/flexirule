@@ -560,17 +560,30 @@
 		</div>
 
 		<div class="config-section section-card test-section">
-			<button
-				class="btn btn-xs btn-primary shadow-sm"
-				@click="test_query"
-				:disabled="readOnly"
-				tabindex="0"
-			>
-				<i class="fa fa-flask mr-1"></i> {{ __("Refresh Schema (Debug Query)") }}
-			</button>
-			<span v-if="test_status" class="ml-2 text-muted font-weight-bold">{{
-				test_status
+			<div class="d-flex align-items-center flex-wrap" style="gap: 8px">
+				<button
+					v-if="supportsManualSchemaRefresh"
+					class="btn btn-xs btn-primary shadow-sm"
+					@click="refresh_schema_manually"
+					:disabled="readOnly || schema_refreshing"
+					tabindex="0"
+				>
+					<i :class="schema_refreshing ? 'fa fa-spinner fa-spin mr-1' : 'fa fa-refresh mr-1'"></i>
+					{{ schema_refreshing ? __("Refreshing Schema...") : __("Refresh Schema") }}
+				</button>
+				<button
+					class="btn btn-xs btn-outline-secondary shadow-sm"
+					@click="test_query"
+					:disabled="readOnly || is_doctype_dynamic"
+					tabindex="0"
+				>
+					<i class="fa fa-flask mr-1"></i> {{ __("Debug Query") }}
+				</button>
+			</div>
+			<span v-if="schema_refresh_status" class="mt-2 text-muted font-weight-bold">{{
+				schema_refresh_status
 			}}</span>
+			<span v-if="test_status" class="mt-2 text-muted font-weight-bold">{{ test_status }}</span>
 			<div
 				v-if="is_doctype_dynamic"
 				class="mt-2 text-warning small d-flex align-items-center"
@@ -705,6 +718,11 @@ const report_filters = ref([]);
 const report_filter_values = reactive({});
 const report_filter_types = reactive({});
 const test_status = ref("");
+const schema_refreshing = ref(false);
+const schema_refresh_status = ref("");
+const supportsManualSchemaRefresh = computed(() =>
+	["Fetch Records", "Query List", "Query Doc", "Query Report"].includes(mode.value)
+);
 const is_single_doctype = ref(false);
 const is_child_table_target = ref(false);
 const showValidation = ref(false);
@@ -1194,14 +1212,16 @@ async function update_fetch_records_schema_local() {
 	const isStale = () =>
 		requestId !== fetch_records_schema_request_id || mode.value !== "Fetch Records";
 	const applySchema = (schema) => {
-		if (!isStale()) set_resolved_output_schema(schema);
+		if (isStale()) return false;
+		set_resolved_output_schema(schema);
+		return true;
 	};
 
-	if (!props.node?.data) return;
+	if (!props.node?.data) return false;
 
 	const targetDoctype = reference_doctype.value;
 	if (!targetDoctype || is_doctype_dynamic.value) {
-		applySchema(
+		return applySchema(
 			is_doctype_dynamic.value
 				? [
 						{
@@ -1218,11 +1238,10 @@ async function update_fetch_records_schema_local() {
 				  ]
 				: []
 		);
-		return;
 	}
 
 	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
-	if (isStale() || !meta) return;
+	if (isStale() || !meta) return false;
 
 	const fieldInfoByPath = {};
 	const toSchemaField = (field, fieldname = field.fieldname, label = field.label) => {
@@ -1269,14 +1288,14 @@ async function update_fetch_records_schema_local() {
 	}
 
 	for (const path of paths) {
-		if (isStale()) return;
+		if (isStale()) return false;
 		if (!path.includes(".")) continue;
 		const [rootName, nestedName] = path.split(".", 2);
 		const rootField = (meta.fields || []).find((field) => field.fieldname === rootName);
 		if (!rootField?.options || !nestedName) continue;
 		try {
 			const relatedMeta = await flexirule.utils.get_doctype_meta(rootField.options);
-			if (isStale()) return;
+			if (isStale()) return false;
 			const nestedField = (relatedMeta?.fields || []).find(
 				(field) => field.fieldname === nestedName
 			);
@@ -1312,8 +1331,30 @@ async function update_fetch_records_schema_local() {
 		wholeDocumentFields,
 		systemFields: SYSTEM_FIELDS.map((field) => toSchemaField(field)),
 	});
-	applySchema(schema);
+	return applySchema(schema);
 }
+
+// Fetch Records' schema depends on the selected DocType and output shape, not on
+// filters, sort order, or result limits. Watch these inputs independently from
+// the config-sync watcher because sync_config marks its prop update as internal
+// and can otherwise suppress the schema refresh when the shape/fields change.
+watch(
+	() => [
+		mode.value,
+		reference_doctype.value,
+		is_doctype_dynamic.value,
+		config.result_shape,
+		JSON.stringify(config.fields ?? null),
+	],
+	() => {
+		if (mode.value === "Fetch Records") {
+			void update_fetch_records_schema_local();
+		} else {
+			// Invalidate an outstanding metadata request after leaving Fetch Records.
+			fetch_records_schema_request_id += 1;
+		}
+	}
+);
 
 function set_resolved_output_schema(schema) {
 	if (!props.node?.data) return;
@@ -1344,10 +1385,9 @@ function set_resolved_output_schema(schema) {
  * Provides instant feedback for Query List and Query Doc modes.
  */
 async function update_resolved_schema_local() {
-	if (!props.node?.data) return;
+	if (!props.node?.data) return false;
 	if (mode.value === "Fetch Records") {
-		await update_fetch_records_schema_local();
-		return;
+		return await update_fetch_records_schema_local();
 	}
 
 	if (["Query List", "Query Doc"].includes(mode.value)) {
@@ -1356,7 +1396,7 @@ async function update_resolved_schema_local() {
 
 		if (!is_query_doc && !fields.length) {
 			set_resolved_output_schema([]);
-			return;
+			return true;
 		}
 
 		const schema = [];
@@ -1373,11 +1413,11 @@ async function update_resolved_schema_local() {
 					},
 				]);
 			}
-			return;
+			return is_doctype_dynamic.value;
 		}
 
 		const meta = await flexirule.utils.get_doctype_meta(target_doctype);
-		if (!meta) return;
+		if (!meta) return false;
 
 		// For Query Doc, we return the full schema if fields are not explicitly set
 		const fields_to_process =
@@ -1458,13 +1498,15 @@ async function update_resolved_schema_local() {
 		}
 
 		set_resolved_output_schema(schema);
+		return true;
 	} else if (mode.value === "Query Report" && props.node?.data?.reference_docname) {
-		await update_report_columns();
+		return await update_report_columns();
 	}
+	return false;
 }
 
 async function update_report_columns() {
-	if (mode.value !== "Query Report" || !props.node?.data?.reference_docname) return;
+	if (mode.value !== "Query Report" || !props.node?.data?.reference_docname) return false;
 
 	try {
 		const report_name = props.node.data.reference_docname;
@@ -1521,9 +1563,12 @@ async function update_report_columns() {
 				};
 			});
 			set_resolved_output_schema(schema);
+			return true;
 		}
+		return false;
 	} catch (e) {
 		console.warn("Failed to update report columns", e);
+		return false;
 	}
 }
 
@@ -1953,6 +1998,52 @@ function update_report_filter(fieldname, value) {
 	});
 }
 
+function getResolvedSchemaSnapshot() {
+	let schema = props.node?.data?.resolved_output_schema;
+	if (typeof schema === "string") {
+		try {
+			schema = JSON.parse(schema);
+		} catch (error) {
+			return "invalid:" + schema;
+		}
+	}
+	return JSON.stringify(normalizeResolvedOutputSchema(Array.isArray(schema) ? schema : []));
+}
+
+async function refresh_schema_manually() {
+	if (
+		!props.node?.data ||
+		props.readOnly ||
+		!supportsManualSchemaRefresh.value ||
+		schema_refreshing.value
+	) {
+		return;
+	}
+	const previousSchema = getResolvedSchemaSnapshot();
+	schema_refreshing.value = true;
+	schema_refresh_status.value = __("Refreshing schema...");
+	try {
+		const refreshed = await update_resolved_schema_local();
+		if (!refreshed) {
+			schema_refresh_status.value = __(
+				"Schema could not be refreshed. Check the selected DocType or report configuration."
+			);
+			return;
+		}
+		schema_refresh_status.value =
+			previousSchema === getResolvedSchemaSnapshot()
+				? __("Schema is already up to date.")
+				: __("Schema refreshed.");
+	} catch (error) {
+		console.warn("Failed to refresh Query Records schema", error);
+		schema_refresh_status.value = __(
+			"Schema refresh failed. Check the configuration and try again."
+		);
+	} finally {
+		schema_refreshing.value = false;
+	}
+}
+
 async function test_query() {
 	if (!props.node?.data || is_doctype_dynamic.value) return;
 	test_status.value = __("Debugging...");
@@ -1975,11 +2066,6 @@ async function test_query() {
 				set_resolved_output_schema(res.message.schema || []);
 			}
 			test_status.value = __("Success");
-
-			const isDraft = !store.nodes.some((n) => n === props.node);
-			if (!isDraft) {
-				store.mark_dirty();
-			}
 		}
 	} catch (e) {
 		test_status.value = __("Failed");
@@ -2103,8 +2189,12 @@ watch(
 			schemaRefreshInitialized &&
 			(dependenciesChangedBeforeSync || dependenciesChangedDuringSync)
 		) {
-			update_resolved_schema_local();
-			debounced_schema_update();
+			// Fetch Records has a dedicated schema-input watcher so config sync
+			// cannot suppress updates and irrelevant filter edits do not rebuild it.
+			if (mode.value !== "Fetch Records") {
+				update_resolved_schema_local();
+				debounced_schema_update();
+			}
 		}
 	},
 	{ deep: true }

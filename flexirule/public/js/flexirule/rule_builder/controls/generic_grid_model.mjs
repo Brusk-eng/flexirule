@@ -138,6 +138,20 @@ export function buildRowProps(row, index, customProps, selected, invalid, readOn
 }
 
 /**
+ * Resolve the summary's double-click action for either readable or editing rows.
+ * Read-only rows and rows without an edit action remain non-interactive.
+ */
+export function getSummaryToggleAction(
+	row,
+	{ readOnly = false, availableRowActions = ["edit"], editStateKey = "isEditing" } = {}
+) {
+	if (readOnly || !Array.isArray(availableRowActions) || !availableRowActions.includes("edit")) {
+		return null;
+	}
+	return Boolean(row?.[editStateKey]) ? "view" : "edit";
+}
+
+/**
  * A selection is toggled as one group: all-editing becomes readable; any other
  * combination becomes editable. This avoids leaving a mixed selection in mixed modes.
  */
@@ -145,4 +159,16 @@ export function getBulkEditAction(rows, editStateKey = "isEditing") {
 	const list = Array.isArray(rows) ? rows : [];
 	if (!list.length) return null;
 	return list.every((row) => Boolean(row?.[editStateKey])) ? "view" : "edit";
+}
+
+/**
+ * Resolve where the primary action should insert relative to the user's active row.
+ * Row activation is independent of the index-based multi-selection UI.
+ */
+export function getPrimaryActionAfterIndex(activeIndex, selectedIndexes = []) {
+	if (Number.isInteger(activeIndex) && activeIndex >= 0) return activeIndex;
+	const validIndexes = (Array.isArray(selectedIndexes) ? selectedIndexes : []).filter(
+		(index) => Number.isInteger(index) && index >= 0
+	);
+	return validIndexes.length ? Math.max(...validIndexes) : null;
 }
