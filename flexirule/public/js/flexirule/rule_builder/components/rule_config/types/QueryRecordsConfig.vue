@@ -1236,7 +1236,7 @@ async function build_fetch_records_schema_local() {
 	const requestId = ++fetch_records_schema_request_id;
 	const isStale = () =>
 		requestId !== fetch_records_schema_request_id || mode.value !== "Fetch Records";
-		if (!props.node?.data || mode.value !== "Fetch Records") return null;
+	if (!props.node?.data || mode.value !== "Fetch Records") return null;
 
 	const targetDoctype = reference_doctype.value;
 	if (!targetDoctype || is_doctype_dynamic.value) {
@@ -2021,19 +2021,6 @@ function update_report_filter(fieldname, value) {
 	});
 }
 
-function getResolvedSchemaSnapshot() {
-	let schema = props.node?.data?.resolved_output_schema;
-	if (typeof schema === "string") {
-		try {
-			schema = JSON.parse(schema);
-		} catch (error) {
-			return "invalid:" + schema;
-		}
-	}
-	return JSON.stringify(normalizeResolvedOutputSchema(Array.isArray(schema) ? schema : []));
-}
-
-
 function normalizeSchemaForComparison(schema) {
 	let value = schema;
 	if (typeof value === "string") {
@@ -2123,40 +2110,6 @@ async function refresh_schema_manually() {
 		set_resolved_output_schema(preview);
 		schema_refresh_needed.value = false;
 		schema_refresh_status.value = __("Output schema refreshed.");
-	} catch (error) {
-		console.warn("Failed to refresh Query Records schema", error);
-		schema_refresh_status.value = __(
-			"Schema refresh failed. Check the configuration and try again."
-		);
-	} finally {
-		schema_refreshing.value = false;
-	}
-}
-
-async function refresh_schema_manually() {
-	if (
-		!props.node?.data ||
-		props.readOnly ||
-		!supportsManualSchemaRefresh.value ||
-		schema_refreshing.value
-	) {
-		return;
-	}
-	const previousSchema = getResolvedSchemaSnapshot();
-	schema_refreshing.value = true;
-	schema_refresh_status.value = __("Refreshing schema...");
-	try {
-		const refreshed = await update_resolved_schema_local();
-		if (!refreshed) {
-			schema_refresh_status.value = __(
-				"Schema could not be refreshed. Check the selected DocType or report configuration."
-			);
-			return;
-		}
-		schema_refresh_status.value =
-			previousSchema === getResolvedSchemaSnapshot()
-				? __("Schema is already up to date.")
-				: __("Schema refreshed.");
 	} catch (error) {
 		console.warn("Failed to refresh Query Records schema", error);
 		schema_refresh_status.value = __(
