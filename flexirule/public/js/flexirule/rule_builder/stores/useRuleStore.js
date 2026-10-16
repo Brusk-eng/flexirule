@@ -15,6 +15,7 @@ import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
+import { hasGraphStateChanged, shouldRecordExplicitGraphCommit } from "../utils/graph_dirty_state.mjs";
 
 import { useGraphStore } from "./useGraphStore";
 import { useMetaStore } from "./useMetaStore";
@@ -650,8 +651,16 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	 * baseline (or the baseline has not yet been established).
 	 */
 	function commit_graph_edit() {
-		if (is_read_only.value) return false;
-		if (initial_state.value && !checkDirty()) return false;
+		const graphStore = useGraphStore();
+		if (
+			!shouldRecordExplicitGraphCommit({
+				isReadOnly: is_read_only.value,
+				initialState: initial_state.value,
+				currentSnapshot: graphStore.getStateSnapshot(),
+			})
+		) {
+			return false;
+		}
 
 		record_graph_change();
 		return true;
@@ -700,8 +709,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const _nodes = graphStore.nodes;
 		const _edges = graphStore.edges;
 
-		const current = stableStringify(graphStore.getStateSnapshot());
-		return current !== initial_state.value;
+		return hasGraphStateChanged(initial_state.value, graphStore.getStateSnapshot());
 	}
 
 	/**
