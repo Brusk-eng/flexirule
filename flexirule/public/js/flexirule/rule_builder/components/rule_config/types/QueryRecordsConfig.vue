@@ -20,13 +20,9 @@
 							description: __(
 								'Bypass read permissions for this action. Requires audit reason.'
 							),
-							read_only:
-								readOnly ||
-								(mode === 'Fetch Records' &&
-									isFrappe15 &&
-									!!node?.data?.ignore_permissions),
+							read_only: readOnly || (mode === 'Fetch Records' && isFrappe15),
 						}"
-						:modelValue="node?.data?.ignore_permissions"
+						:modelValue="effectiveIgnorePermissions"
 						@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
 					/>
 					<div
@@ -49,7 +45,7 @@
 					</div>
 				</div>
 				<ControlFactory
-					v-if="!!node?.data?.ignore_permissions"
+					v-if="!!effectiveIgnorePermissions"
 					:ref="setControlRef"
 					:df="{
 						fieldname: 'permission_audit_reason',
@@ -564,15 +560,47 @@
 		</div>
 
 		<div class="config-section section-card test-section">
-			<button
-				class="btn btn-xs btn-primary shadow-sm"
-				@click="test_query"
-				:disabled="readOnly"
-				tabindex="0"
-			>
-				<i class="fa fa-flask mr-1"></i> {{ __("Refresh Schema (Debug Query)") }}
-			</button>
-			<span v-if="test_status" class="ml-2 text-muted font-weight-bold">{{
+			<div class="d-flex align-items-center flex-wrap" style="gap: 8px">
+				<button
+					v-if="supportsManualSchemaRefresh"
+					class="btn btn-xs btn-primary shadow-sm"
+					@click="refresh_schema_manually"
+					:disabled="
+						readOnly ||
+						schema_refreshing ||
+						schema_preview_loading ||
+						!schema_refresh_needed
+					"
+					:title="
+						schema_refresh_needed
+							? __('The stored schema differs from the current output configuration.')
+							: __('The stored schema is up to date.')
+					"
+					tabindex="0"
+				>
+					<i
+						:class="
+							schema_refreshing ? 'fa fa-spinner fa-spin mr-1' : 'fa fa-refresh mr-1'
+						"
+					></i>
+					{{ schema_refreshing ? __("Refreshing Schema...") : __("Refresh Schema") }}
+				</button>
+				<button
+					class="btn btn-xs btn-outline-secondary shadow-sm"
+					@click="test_query"
+					:disabled="readOnly || is_doctype_dynamic"
+					tabindex="0"
+				>
+					<i class="fa fa-flask mr-1"></i> {{ __("Debug Query") }}
+				</button>
+			</div>
+			<span v-if="schema_refresh_needed" class="mt-2 text-warning small" role="status">
+				{{ __("The stored output schema differs from the current configuration.") }}
+			</span>
+			<span v-if="schema_refresh_status" class="mt-2 text-muted font-weight-bold">{{
+				schema_refresh_status
+			}}</span>
+			<span v-if="test_status" class="mt-2 text-muted font-weight-bold">{{
 				test_status
 			}}</span>
 			<div
@@ -621,6 +649,7 @@ import {
 	parseOutputFields,
 } from "./query_records/output_fields_model.js";
 import { normalizeResolvedOutputSchema } from "../../../../utils/output_schema.js";
+import { getQueryRecordsSchemaRefreshSignature } from "./query_records/schema_refresh.mjs";
 
 const isFrappe15 = computed(() => {
 	const version = frappe.boot?.versions?.frappe;
@@ -652,6 +681,13 @@ const {
 	update_action_field,
 } = useActionConfig(props, {
 	fieldValueMode: "fieldname",
+});
+
+// Frappe 15's Fetch Records mode requires the permission bypass. Expose the
+// required default to the UI without mutating the draft simply by opening it.
+const effectiveIgnorePermissions = computed(() => {
+	if (mode.value === "Fetch Records" && isFrappe15.value) return 1;
+	return props.node?.data?.ignore_permissions;
 });
 
 const navigableFields = useNavigableFields(
@@ -701,6 +737,13 @@ const report_filters = ref([]);
 const report_filter_values = reactive({});
 const report_filter_types = reactive({});
 const test_status = ref("");
+const schema_refreshing = ref(false);
+const schema_preview_loading = ref(false);
+const schema_refresh_needed = ref(false);
+const schema_refresh_status = ref("");
+const supportsManualSchemaRefresh = computed(() =>
+	["Fetch Records", "Query List", "Query Doc", "Query Report"].includes(mode.value)
+);
 const is_single_doctype = ref(false);
 const is_child_table_target = ref(false);
 const showValidation = ref(false);
@@ -718,6 +761,7 @@ function setControlRef(el) {
 
 // Internal flag to prevent recursive sync loops
 const is_internal_update = ref(false);
+const schemaRefreshReady = ref(false);
 
 // Initialize local config
 const reference_docname = computed(
@@ -825,16 +869,50 @@ async function reconcile_query_doc_state() {
 	}
 }
 
+// Track only inputs that affect the exposed return schema. Unrelated edits such as
+// changing filters, sort order, or limits must not rewrite the saved schema.
+let lastSchemaRefreshSignature = null;
+let schemaRefreshInitialized = false;
+
+function getSchemaRefreshSignature() {
+	return getQueryRecordsSchemaRefreshSignature({
+		mode: mode.value,
+		referenceDoctype: reference_doctype.value,
+		referenceDocname: props.node?.data?.reference_docname,
+		config,
+	});
+}
+
 // Initialize local config
 onMounted(async () => {
 	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
-		// Enforce the Frappe 15 Fetch Records permission-bypass requirement after
-		// loading the saved action; the node data remains the source of truth.
-		applyFetchRecordsFrappe15Defaults();
+		// Establish the dependency baseline before asynchronous metadata loads.
+		// A real field/result-shape edit during loading must still invalidate it.
+		lastSchemaRefreshSignature = getSchemaRefreshSignature();
+		schemaRefreshInitialized = true;
+		// Do not apply operation defaults while restoring an existing action.
+		// Defaults are applied when the user changes into Fetch Records below.
 		if (mode.value === "Query Doc") {
-			await reconcile_query_doc_state();
+			// Read the saved target's metadata for rendering, but don't reconcile
+			// and rewrite the saved action during initialization. Reconciliation
+			// belongs to a real user change, not opening the modal.
+			const targetDoctype = isConcreteStaticValue(config.doctype_name)
+				? extractStaticValue(config.doctype_name)
+				: !config.doctype_name
+				? reference_doctype.value
+				: "";
+			if (targetDoctype) {
+				await loadDocMeta(targetDoctype);
+				await load_doctype_fields(targetDoctype);
+				const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
+				is_single_doctype.value = !!meta?.issingle;
+				is_child_table_target.value = !!meta?.istable;
+			} else {
+				is_single_doctype.value = false;
+				is_child_table_target.value = false;
+			}
 		} else if (reference_doctype.value) {
 			await loadDocMeta(reference_doctype.value);
 			await load_doctype_fields(reference_doctype.value);
@@ -843,13 +921,17 @@ onMounted(async () => {
 			is_single_doctype.value = !!meta?.issingle;
 			is_child_table_target.value = !!meta?.istable;
 		}
-		// Ensure schema is initialized on first load even before any user edits.
-		// This avoids empty OutputPanel schema when config already has selected fields.
-		await update_resolved_schema_local();
+		// Mounting the editor is a read/restore operation. Never write
+		// resolved_output_schema here; the watcher below refreshes it only when
+		// a schema-defining input changes. Missing schemas remain missing until
+		// the user changes one of those inputs.
 		await refresh_variables();
-		await debounced_schema_update();
 	} finally {
 		is_internal_update.value = false;
+		// Changes produced while hydrating saved controls are initialization, not edits.
+		lastSchemaRefreshSignature = getSchemaRefreshSignature();
+		schemaRefreshReady.value = true;
+		await update_schema_refresh_preview();
 	}
 });
 
@@ -1151,40 +1233,35 @@ const SYSTEM_FIELDS = [
  */
 let fetch_records_schema_request_id = 0;
 
-async function update_fetch_records_schema_local() {
+async function build_fetch_records_schema_local() {
 	const requestId = ++fetch_records_schema_request_id;
 	const isStale = () =>
 		requestId !== fetch_records_schema_request_id || mode.value !== "Fetch Records";
-	const applySchema = (schema) => {
-		if (!isStale()) set_resolved_output_schema(schema);
-	};
-
-	if (!props.node?.data) return;
+	if (!props.node?.data || mode.value !== "Fetch Records") return null;
 
 	const targetDoctype = reference_doctype.value;
 	if (!targetDoctype || is_doctype_dynamic.value) {
-		applySchema(
-			is_doctype_dynamic.value
-				? [
-						{
-							label: __("Dynamic Object"),
+		return isStale()
+			? null
+			: is_doctype_dynamic.value
+			? [
+					{
+						label: __("Dynamic Object"),
+						fieldname: "doc",
+						fieldtype: "JSON",
+						reqd: 0,
+						source: {
+							kind: "dynamic",
 							fieldname: "doc",
-							fieldtype: "JSON",
-							reqd: 0,
-							source: {
-								kind: "dynamic",
-								fieldname: "doc",
-								expression: "doctype_name",
-							},
+							expression: "doctype_name",
 						},
-				  ]
-				: []
-		);
-		return;
+					},
+			  ]
+			: [];
 	}
 
 	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
-	if (isStale() || !meta) return;
+	if (isStale() || !meta) return null;
 
 	const fieldInfoByPath = {};
 	const toSchemaField = (field, fieldname = field.fieldname, label = field.label) => {
@@ -1231,14 +1308,14 @@ async function update_fetch_records_schema_local() {
 	}
 
 	for (const path of paths) {
-		if (isStale()) return;
+		if (isStale()) return null;
 		if (!path.includes(".")) continue;
 		const [rootName, nestedName] = path.split(".", 2);
 		const rootField = (meta.fields || []).find((field) => field.fieldname === rootName);
 		if (!rootField?.options || !nestedName) continue;
 		try {
 			const relatedMeta = await flexirule.utils.get_doctype_meta(rootField.options);
-			if (isStale()) return;
+			if (isStale()) return null;
 			const nestedField = (relatedMeta?.fields || []).find(
 				(field) => field.fieldname === nestedName
 			);
@@ -1274,44 +1351,37 @@ async function update_fetch_records_schema_local() {
 		wholeDocumentFields,
 		systemFields: SYSTEM_FIELDS.map((field) => toSchemaField(field)),
 	});
-	applySchema(schema);
+	return isStale() ? null : schema;
 }
-
-// Fetch Records' schema depends on the selected DocType and output shape, not on
-// filters, sort order, or result limits. Watch these inputs independently from
-// the config-sync watcher because sync_config marks its prop update as internal
-// and can otherwise suppress the schema refresh when the shape/fields change.
-watch(
-	() => [
-		mode.value,
-		reference_doctype.value,
-		is_doctype_dynamic.value,
-		config.result_shape,
-		JSON.stringify(config.fields ?? null),
-	],
-	() => {
-		if (mode.value === "Fetch Records") {
-			void update_fetch_records_schema_local();
-		} else {
-			// Invalidate an outstanding metadata request after leaving Fetch Records.
-			fetch_records_schema_request_id += 1;
-		}
-	}
-);
+async function update_fetch_records_schema_local() {
+	const schema = await build_fetch_records_schema_local();
+	if (!Array.isArray(schema)) return false;
+	set_resolved_output_schema(schema);
+	return true;
+}
 
 function set_resolved_output_schema(schema) {
 	if (!props.node?.data) return;
 	const next = normalizeResolvedOutputSchema(Array.isArray(schema) ? schema : []);
 	let current = props.node.data.resolved_output_schema;
+	let currentIsArray = Array.isArray(current);
 	if (typeof current === "string") {
 		try {
 			current = JSON.parse(current);
+			currentIsArray = Array.isArray(current);
 		} catch (error) {
-			current = [];
+			currentIsArray = false;
 		}
 	}
-	if (JSON.stringify(current || []) === JSON.stringify(next)) return;
+	if (
+		currentIsArray &&
+		JSON.stringify(normalizeResolvedOutputSchema(current)) === JSON.stringify(next)
+	) {
+		schema_refresh_needed.value = false;
+		return;
+	}
 	props.node.data.resolved_output_schema = next;
+	schema_refresh_needed.value = false;
 	const isDraft = !store.nodes.some((node) => node === props.node);
 	if (!isDraft) store.mark_dirty();
 }
@@ -1320,11 +1390,10 @@ function set_resolved_output_schema(schema) {
  * Local metadata-based schema detection.
  * Provides instant feedback for Query List and Query Doc modes.
  */
-async function update_resolved_schema_local() {
-	if (!props.node?.data) return;
+async function build_resolved_schema_preview() {
+	if (!props.node?.data) return null;
 	if (mode.value === "Fetch Records") {
-		await update_fetch_records_schema_local();
-		return;
+		return await build_fetch_records_schema_local();
 	}
 
 	if (["Query List", "Query Doc"].includes(mode.value)) {
@@ -1332,15 +1401,18 @@ async function update_resolved_schema_local() {
 		const fields = (config.fields || []).filter((f) => f);
 
 		if (!is_query_doc && !fields.length) {
-			set_resolved_output_schema([]);
-			return;
+			return [];
 		}
 
 		const schema = [];
-		const target_doctype = reference_doctype.value;
+		const target_doctype = is_query_doc
+			? isConcreteStaticValue(config.doctype_name)
+				? extractStaticValue(config.doctype_name)
+				: reference_doctype.value
+			: reference_doctype.value;
 		if (!target_doctype || is_doctype_dynamic.value) {
 			if (is_doctype_dynamic.value) {
-				set_resolved_output_schema([
+				return [
 					{
 						label: __("Dynamic Object"),
 						fieldname: "doc",
@@ -1348,13 +1420,13 @@ async function update_resolved_schema_local() {
 						reqd: 0,
 						source: { kind: "dynamic", fieldname: "doc", expression: "doctype_name" },
 					},
-				]);
+				];
 			}
-			return;
+			return null;
 		}
 
 		const meta = await flexirule.utils.get_doctype_meta(target_doctype);
-		if (!meta) return;
+		if (!meta) return null;
 
 		// For Query Doc, we return the full schema if fields are not explicitly set
 		const fields_to_process =
@@ -1434,14 +1506,22 @@ async function update_resolved_schema_local() {
 			}
 		}
 
-		set_resolved_output_schema(schema);
+		return schema;
 	} else if (mode.value === "Query Report" && props.node?.data?.reference_docname) {
-		await update_report_columns();
+		return await build_report_schema_preview();
 	}
+	return null;
 }
 
-async function update_report_columns() {
-	if (mode.value !== "Query Report" || !props.node?.data?.reference_docname) return;
+async function update_resolved_schema_local() {
+	const schema = await build_resolved_schema_preview();
+	if (!Array.isArray(schema)) return false;
+	set_resolved_output_schema(schema);
+	return true;
+}
+
+async function build_report_schema_preview() {
+	if (mode.value !== "Query Report" || !props.node?.data?.reference_docname) return null;
 
 	try {
 		const report_name = props.node.data.reference_docname;
@@ -1497,11 +1577,20 @@ async function update_report_columns() {
 					},
 				};
 			});
-			set_resolved_output_schema(schema);
+			return schema;
 		}
+		return null;
 	} catch (e) {
 		console.warn("Failed to update report columns", e);
+		return null;
 	}
+}
+
+async function update_report_columns() {
+	const schema = await build_report_schema_preview();
+	if (!Array.isArray(schema)) return false;
+	set_resolved_output_schema(schema);
+	return true;
 }
 
 const limitTypeField = computed(() =>
@@ -1696,14 +1785,16 @@ watch(
 			}
 		}
 
-		applyFetchRecordsFrappe15Defaults();
+		if (!is_internal_update.value && newMode !== oldMode) {
+			applyFetchRecordsFrappe15Defaults();
 
-		if (newMode === "Query Report" && props.node?.data) {
-			if (props.node.data.reference_doctype !== "Report") {
-				update_action_field("reference_doctype", "Report");
-			}
-			if (props.node.data.reference_docname) {
-				config.report_name = props.node.data.reference_docname;
+			if (newMode === "Query Report" && props.node?.data) {
+				if (props.node.data.reference_doctype !== "Report") {
+					update_action_field("reference_doctype", "Report");
+				}
+				if (props.node.data.reference_docname) {
+					config.report_name = props.node.data.reference_docname;
+				}
 			}
 		}
 
@@ -1928,6 +2019,113 @@ function update_report_filter(fieldname, value) {
 	});
 }
 
+function sortSchemaObjectKeys(value) {
+	if (Array.isArray(value)) return value.map(sortSchemaObjectKeys);
+	if (!value || typeof value !== "object") return value;
+	return Object.fromEntries(
+		Object.keys(value)
+			.sort()
+			.map((key) => [key, sortSchemaObjectKeys(value[key])])
+	);
+}
+
+function normalizeSchemaForComparison(schema) {
+	let value = schema;
+	if (typeof value === "string") {
+		try {
+			value = JSON.parse(value);
+		} catch (error) {
+			return null;
+		}
+	}
+	if (value != null && !Array.isArray(value)) return null;
+	return sortSchemaObjectKeys(normalizeResolvedOutputSchema(Array.isArray(value) ? value : []));
+}
+
+function areResolvedSchemasEqual(left, right) {
+	const normalizedLeft = normalizeSchemaForComparison(left);
+	const normalizedRight = normalizeSchemaForComparison(right);
+	if (!Array.isArray(normalizedLeft) || !Array.isArray(normalizedRight)) return false;
+	return JSON.stringify(normalizedLeft) === JSON.stringify(normalizedRight);
+}
+
+let schemaPreviewRequestId = 0;
+
+async function update_schema_refresh_preview({ applyIfChanged = false } = {}) {
+	const requestId = ++schemaPreviewRequestId;
+	schema_preview_loading.value = true;
+	try {
+		const preview = await build_resolved_schema_preview();
+		if (requestId !== schemaPreviewRequestId) return;
+		if (!Array.isArray(preview)) {
+			schema_refresh_needed.value = false;
+			return;
+		}
+		const differs = !areResolvedSchemasEqual(props.node?.data?.resolved_output_schema, preview);
+		schema_refresh_needed.value = differs;
+		if (applyIfChanged && differs && mode.value === "Fetch Records") {
+			set_resolved_output_schema(preview);
+			schema_refresh_status.value = __("Output schema updated.");
+		}
+	} catch (error) {
+		console.warn("Failed to compare Query Records output schema", error);
+		schema_refresh_needed.value = false;
+	} finally {
+		if (requestId === schemaPreviewRequestId) schema_preview_loading.value = false;
+	}
+}
+
+async function refresh_schema_manually() {
+	if (
+		!props.node?.data ||
+		props.readOnly ||
+		!supportsManualSchemaRefresh.value ||
+		schema_refreshing.value ||
+		!schema_refresh_needed.value
+	) {
+		return;
+	}
+	schema_refreshing.value = true;
+	schema_refresh_status.value = __("Checking output schema...");
+	try {
+		const preview = await build_resolved_schema_preview();
+		if (!Array.isArray(preview)) {
+			schema_refresh_status.value = __(
+				"Schema could not be built. Check the selected DocType or report configuration."
+			);
+			return;
+		}
+		if (areResolvedSchemasEqual(props.node.data.resolved_output_schema, preview)) {
+			schema_refresh_needed.value = false;
+			schema_refresh_status.value = __("The output schema is already up to date.");
+			return;
+		}
+		const confirmed = await new Promise((resolve) => {
+			frappe.confirm(
+				__(
+					"Refresh the output schema from the current configuration? Downstream actions that reference renamed or removed output fields may need to be reviewed."
+				),
+				() => resolve(true),
+				() => resolve(false)
+			);
+		});
+		if (!confirmed) {
+			schema_refresh_status.value = __("Schema refresh cancelled.");
+			return;
+		}
+		set_resolved_output_schema(preview);
+		schema_refresh_needed.value = false;
+		schema_refresh_status.value = __("Output schema refreshed.");
+	} catch (error) {
+		console.warn("Failed to refresh Query Records schema", error);
+		schema_refresh_status.value = __(
+			"Schema refresh failed. Check the configuration and try again."
+		);
+	} finally {
+		schema_refreshing.value = false;
+	}
+}
+
 async function test_query() {
 	if (!props.node?.data || is_doctype_dynamic.value) return;
 	test_status.value = __("Debugging...");
@@ -1950,11 +2148,6 @@ async function test_query() {
 				set_resolved_output_schema(res.message.schema || []);
 			}
 			test_status.value = __("Success");
-
-			const isDraft = !store.nodes.some((n) => n === props.node);
-			if (!isDraft) {
-				store.mark_dirty();
-			}
 		}
 	} catch (e) {
 		test_status.value = __("Failed");
@@ -2042,16 +2235,52 @@ function load_local_config(val) {
 	}
 }
 
-// Unified watch for all local state changes
+// Keep serialized config in sync with local controls, but do not refresh the
+// schema merely because an unrelated query option changed.
 watch(
-	() => [order_by_rows.value, config, report_filter_values, mode.value, reference_doctype.value],
+	() => [
+		order_by_rows.value,
+		config,
+		report_filter_values,
+		mode.value,
+		reference_doctype.value,
+		props.node?.data?.reference_docname,
+	],
 	() => {
+		const previousSignature = lastSchemaRefreshSignature;
+		const beforeSyncSignature = getSchemaRefreshSignature();
+		if (previousSignature === null) {
+			lastSchemaRefreshSignature = beforeSyncSignature;
+			return;
+		}
+		const dependenciesChangedBeforeSync = beforeSyncSignature !== previousSignature;
+		lastSchemaRefreshSignature = beforeSyncSignature;
+
 		if (!is_internal_update.value) {
 			sync_local_config();
-			// Fetch Records has a dedicated schema-input watcher so config sync
-			// cannot suppress updates and irrelevant filter edits do not rebuild it.
+		}
+
+		const afterSyncSignature = getSchemaRefreshSignature();
+		const dependenciesChangedDuringSync = afterSyncSignature !== lastSchemaRefreshSignature;
+		lastSchemaRefreshSignature = afterSyncSignature;
+
+		// A dependency change made while restoring the modal is initialization,
+		// not a user edit. Afterwards, relevant changes refresh even if the config
+		// synchronization guard is active for the same edit.
+		if (
+			schemaRefreshInitialized &&
+			schemaRefreshReady.value &&
+			(dependenciesChangedBeforeSync || dependenciesChangedDuringSync)
+		) {
 			if (mode.value !== "Fetch Records") {
-				update_resolved_schema_local();
+				fetch_records_schema_request_id += 1;
+			}
+			if (mode.value === "Fetch Records") {
+				// Rebuild from user-edited output fields even if the config update is
+				// still marked internal by the serialization loop guard.
+				void update_schema_refresh_preview({ applyIfChanged: true });
+			} else {
+				void update_resolved_schema_local();
 				debounced_schema_update();
 			}
 		}
@@ -2102,10 +2331,22 @@ async function validate() {
 
 	// 4. Permission Audit Reason (Global check, though child CheckControl should handle reqd)
 	if (
-		props.node?.data?.ignore_permissions &&
+		effectiveIgnorePermissions.value &&
 		!String(props.node?.data?.permission_audit_reason ?? "").trim()
 	) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
+	}
+
+	// Persist the Frappe 15 default only when the user is saving a valid edit.
+	// Merely opening the modal must not mutate the action or dirty-state baseline.
+	if (
+		!errors.length &&
+		!props.readOnly &&
+		mode.value === "Fetch Records" &&
+		isFrappe15.value &&
+		![true, 1, "1"].includes(props.node?.data?.ignore_permissions)
+	) {
+		props.node.data.ignore_permissions = 1;
 	}
 
 	return { valid: errors.length === 0, errors };
