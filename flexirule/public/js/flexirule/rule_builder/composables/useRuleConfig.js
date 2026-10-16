@@ -2,6 +2,7 @@ import { ref, reactive, computed, watch, nextTick } from "vue";
 import { useStore } from "../stores";
 import { getContract, validateAgainstContract } from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
+import { stableStringify } from "../utils/stable_serialization.mjs";
 
 /**
  * useRuleConfig
@@ -29,7 +30,7 @@ export function useRuleConfig(props, emit) {
 				isDirty.value = false;
 				return;
 			}
-			const current = JSON.stringify(draftNode.value.data || {});
+			const current = stableStringify(draftNode.value.data || {});
 			isDirty.value = current !== initialDraftState.value;
 		},
 		{ deep: true, immediate: true }
@@ -144,7 +145,7 @@ export function useRuleConfig(props, emit) {
 			}
 
 			store.touch_node(props.node.id);
-			store.mark_dirty();
+			store.commit_graph_edit();
 		}
 
 		emit("save", props.node.data);
@@ -178,7 +179,7 @@ export function useRuleConfig(props, emit) {
 				// We wait for a single tick to ensure the child components have received the draft.
 				nextTick(() => {
 					if (draftNode.value) {
-						initialDraftState.value = JSON.stringify(draftNode.value.data || {});
+						initialDraftState.value = stableStringify(draftNode.value.data || {});
 					}
 				});
 			}
