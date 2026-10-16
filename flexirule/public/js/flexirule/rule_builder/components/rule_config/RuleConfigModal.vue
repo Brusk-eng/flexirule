@@ -137,6 +137,7 @@
 									<button
 										v-if="
 											!ruleStore.is_read_only &&
+											!ruleStore.is_loading &&
 											isDirty &&
 											(!isMobile || !isEditingLabel)
 										"
