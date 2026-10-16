@@ -12,12 +12,11 @@ export function stableStringify(value) {
 		// JSON.stringify calls toJSON once for the current property, then serializes
 		// the returned value directly. Do not recurse through serialize() here,
 		// which would invoke toJSON a second time if it returns an object.
-		if (
-			current !== null &&
-			(typeof current === "object" || typeof current === "function") &&
-			typeof current.toJSON === "function"
-		) {
-			current = current.toJSON(key);
+		if (current !== null && (typeof current === "object" || typeof current === "function")) {
+			const toJSON = current.toJSON;
+			if (typeof toJSON === "function") {
+				current = toJSON.call(current, key);
+			}
 		}
 
 		if (current === null || typeof current !== "object") {
