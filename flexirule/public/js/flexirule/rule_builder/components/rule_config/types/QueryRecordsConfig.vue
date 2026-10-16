@@ -1348,7 +1348,11 @@ watch(
 	],
 	() => {
 		if (mode.value === "Fetch Records") {
-			void update_fetch_records_schema_local();
+			// Config hydration during modal opening is read-only. Schema changes
+			// from later user edits are handled by the dependency-signature watcher.
+			if (!is_internal_update.value) {
+				void update_fetch_records_schema_local();
+			}
 		} else {
 			// Invalidate an outstanding metadata request after leaving Fetch Records.
 			fetch_records_schema_request_id += 1;
@@ -1400,7 +1404,11 @@ async function update_resolved_schema_local() {
 		}
 
 		const schema = [];
-		const target_doctype = reference_doctype.value;
+		const target_doctype = is_query_doc
+			? isConcreteStaticValue(config.doctype_name)
+				? extractStaticValue(config.doctype_name)
+				: reference_doctype.value
+			: reference_doctype.value;
 		if (!target_doctype || is_doctype_dynamic.value) {
 			if (is_doctype_dynamic.value) {
 				set_resolved_output_schema([
