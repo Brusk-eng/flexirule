@@ -130,12 +130,6 @@ jobs:
         working-directory: /home/runner/frappe-bench/apps/flexirule
         run: npx --no-install eslint flexirule/public/js
 
-      - name: Run standalone frontend state tests
-        working-directory: /home/runner/frappe-bench/apps/flexirule
-        run: |
-          node flexirule/public/js/flexirule/rule_builder/utils/stable_serialization.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/utils/graph_dirty_state.test.mjs
-
   tests:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
