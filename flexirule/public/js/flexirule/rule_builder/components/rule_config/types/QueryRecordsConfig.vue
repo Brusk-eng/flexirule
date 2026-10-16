@@ -565,7 +565,12 @@
 					v-if="supportsManualSchemaRefresh"
 					class="btn btn-xs btn-primary shadow-sm"
 					@click="refresh_schema_manually"
-					:disabled="readOnly || schema_refreshing || schema_preview_loading || !schema_refresh_needed"
+					:disabled="
+						readOnly ||
+						schema_refreshing ||
+						schema_preview_loading ||
+						!schema_refresh_needed
+					"
 					:title="
 						schema_refresh_needed
 							? __('The stored schema differs from the current output configuration.')
@@ -574,10 +579,10 @@
 					tabindex="0"
 				>
 					<i
-					:class="
-						schema_refreshing ? 'fa fa-spinner fa-spin mr-1' : 'fa fa-refresh mr-1'
-					"
-				></i>
+						:class="
+							schema_refreshing ? 'fa fa-spinner fa-spin mr-1' : 'fa fa-refresh mr-1'
+						"
+					></i>
 					{{ schema_refreshing ? __("Refreshing Schema...") : __("Refresh Schema") }}
 				</button>
 				<button
@@ -589,11 +594,7 @@
 					<i class="fa fa-flask mr-1"></i> {{ __("Debug Query") }}
 				</button>
 			</div>
-			<span
-				v-if="schema_refresh_needed"
-				class="mt-2 text-warning small"
-				role="status"
-			>
+			<span v-if="schema_refresh_needed" class="mt-2 text-warning small" role="status">
 				{{ __("The stored output schema differs from the current configuration.") }}
 			</span>
 			<span v-if="schema_refresh_status" class="mt-2 text-muted font-weight-bold">{{
@@ -1240,8 +1241,9 @@ async function build_fetch_records_schema_local() {
 
 	const targetDoctype = reference_doctype.value;
 	if (!targetDoctype || is_doctype_dynamic.value) {
-		return isStale() ? null : (
-			is_doctype_dynamic.value
+		return isStale()
+			? null
+			: is_doctype_dynamic.value
 				? [
 						{
 							label: __("Dynamic Object"),
@@ -1255,8 +1257,7 @@ async function build_fetch_records_schema_local() {
 							},
 						},
 				  ]
-				: []
-		);
+				: [];
 	}
 
 	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
@@ -1358,7 +1359,6 @@ async function update_fetch_records_schema_local() {
 	set_resolved_output_schema(schema);
 	return true;
 }
-
 
 function set_resolved_output_schema(schema) {
 	if (!props.node?.data) return;
@@ -1513,7 +1513,6 @@ async function build_resolved_schema_preview() {
 	return null;
 }
 
-
 async function update_resolved_schema_local() {
 	const schema = await build_resolved_schema_preview();
 	if (!Array.isArray(schema)) return false;
@@ -1593,7 +1592,6 @@ async function update_report_columns() {
 	set_resolved_output_schema(schema);
 	return true;
 }
-
 
 const limitTypeField = computed(() =>
 	resolveFieldPolicy("limit_type", {
@@ -2063,10 +2061,7 @@ async function update_schema_refresh_preview({ applyIfChanged = false } = {}) {
 			schema_refresh_needed.value = false;
 			return;
 		}
-		const differs = !areResolvedSchemasEqual(
-			props.node?.data?.resolved_output_schema,
-			preview
-		);
+		const differs = !areResolvedSchemasEqual(props.node?.data?.resolved_output_schema, preview);
 		schema_refresh_needed.value = differs;
 		if (applyIfChanged && differs && mode.value === "Fetch Records") {
 			set_resolved_output_schema(preview);

@@ -3,7 +3,7 @@ import {
 	buildResolvedOutputSchema,
 	RESULT_SHAPES,
 	serializeOutputFields,
-} from "./output_fields_model.js";
+} from "./output_fields_model.mjs";
 
 const fieldInfoByPath = {
 	customer: {
