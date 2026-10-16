@@ -14,6 +14,7 @@ import { normalizeActionType, loadContractsFromBackend } from "../../core/contra
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
+import { stableStringify } from "../utils/stable_serialization.mjs";
 
 import { useGraphStore } from "./useGraphStore";
 import { useMetaStore } from "./useMetaStore";
@@ -187,7 +188,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		// We wait for nextTick to ensure all reactive changes from
 		// graphStore sync and normalize have settled before we capture the baseline.
 		await nextTick();
-		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
+		initial_state.value = stableStringify(graphStore.getStateSnapshot());
 		_is_dirty.value = false;
 
 		// Ensure App.vue bindings see the nodes/edges immediately
@@ -633,6 +634,29 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	}
 
 	// ── Dirty tracking ──
+	function record_graph_change() {
+		_is_dirty.value = true;
+		const historyStore = useHistoryStore();
+		const graphStore = useGraphStore();
+		historyStore.commit(() => graphStore.getGraphSnapshot());
+	}
+
+	/**
+	 * Record a graph edit accepted by an explicit user action, such as saving
+	 * an action-configuration draft. Unlike automatic/watch-driven dirty marks,
+	 * an explicit commit must not be lost during canvas initialization or layout.
+	 *
+	 * Returns true only when the current graph differs from its persisted
+	 * baseline (or the baseline has not yet been established).
+	 */
+	function commit_graph_edit() {
+		if (is_read_only.value) return false;
+		if (initial_state.value && !checkDirty()) return false;
+
+		record_graph_change();
+		return true;
+	}
+
 	function mark_dirty() {
 		const uiStore = useUIStore();
 		if (
@@ -645,10 +669,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		}
 
 		if (checkDirty()) {
-			_is_dirty.value = true;
-			const historyStore = useHistoryStore();
-			const graphStore = useGraphStore();
-			historyStore.commit(() => graphStore.getGraphSnapshot());
+			record_graph_change();
 		}
 	}
 
@@ -679,7 +700,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const _nodes = graphStore.nodes;
 		const _edges = graphStore.edges;
 
-		const current = JSON.stringify(graphStore.getStateSnapshot());
+		const current = stableStringify(graphStore.getStateSnapshot());
 		return current !== initial_state.value;
 	}
 
@@ -689,7 +710,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	 */
 	function clear_dirty() {
 		const graphStore = useGraphStore();
-		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
+		initial_state.value = stableStringify(graphStore.getStateSnapshot());
 		_is_dirty.value = false;
 	}
 
@@ -726,7 +747,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			return el;
 		});
 
-		initial_state.value = JSON.stringify(updatedInitialSnapshot);
+		initial_state.value = stableStringify(updatedInitialSnapshot);
 	}
 
 	// ── UI Helpers (Delegated to UI Store) ──
@@ -955,6 +976,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		// Dirty tracking
 		mark_dirty,
+		commit_graph_edit,
 		mark_position_change,
 		clear_dirty,
 		sync_initial_state_positions,
