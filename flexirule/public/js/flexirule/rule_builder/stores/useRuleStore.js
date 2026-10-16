@@ -181,6 +181,14 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		graphStore.autoConnectStartNode();
 		graphStore.normalize_graph_nodes();
 
+		// Capture the persisted-data baseline as soon as the graph is ready,
+		// before asynchronous layout work can allow a modal save to race it.
+		// Layout-only position changes are synchronized into this baseline when
+		// the layout settles; action data is never silently adopted as baseline.
+		await nextTick();
+		initial_state.value = stableStringify(graphStore.getStateSnapshot());
+		_is_dirty.value = false;
+
 		// Trigger auto-layout only if mismatch or new
 		if (needs_auto_layout) {
 			const { useRuleGraph } = await import("../composables/useRuleGraph");
@@ -188,12 +196,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			await nextTick();
 			layoutGraph(uiStore.layout_preference);
 		}
-
-		// We wait for nextTick to ensure all reactive changes from
-		// graphStore sync and normalize have settled before we capture the baseline.
-		await nextTick();
-		initial_state.value = stableStringify(graphStore.getStateSnapshot());
-		_is_dirty.value = false;
 
 		// Ensure App.vue bindings see the nodes/edges immediately
 		// by triggering a reactivity update if needed
