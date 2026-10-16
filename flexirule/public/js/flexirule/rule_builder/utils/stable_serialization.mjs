@@ -31,12 +31,10 @@ export function stableStringify(value) {
 			if (Array.isArray(current)) {
 				return (
 					"[" +
-					current
-						.map((item, index) => {
-							const serialized = serialize(item, String(index));
+					Array.from(current, (item, index) => {
+						const serialized = serialize(item, String(index));
 						return serialized === undefined ? "null" : serialized;
-						})
-						.join(",") +
+					}).join(",") +
 					"]"
 				);
 			}
