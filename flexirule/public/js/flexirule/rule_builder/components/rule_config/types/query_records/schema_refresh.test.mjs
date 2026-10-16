@@ -52,7 +52,10 @@ for (const config of [
 	{ ...fetchBase.config, result_shape: "whole_documents" },
 	{ ...fetchBase.config, group_by: "customer" },
 ]) {
-	assert.notEqual(getQueryRecordsSchemaRefreshSignature({ ...fetchBase, config }), fetchSignature);
+	assert.notEqual(
+		getQueryRecordsSchemaRefreshSignature({ ...fetchBase, config }),
+		fetchSignature
+	);
 }
 assert.notEqual(
 	getQueryRecordsSchemaRefreshSignature({ ...fetchBase, referenceDoctype: "Customer" }),

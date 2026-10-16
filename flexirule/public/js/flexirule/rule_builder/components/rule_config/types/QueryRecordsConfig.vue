@@ -568,7 +568,11 @@
 					:disabled="readOnly || schema_refreshing"
 					tabindex="0"
 				>
-					<i :class="schema_refreshing ? 'fa fa-spinner fa-spin mr-1' : 'fa fa-refresh mr-1'"></i>
+					<i
+					:class="
+						schema_refreshing ? 'fa fa-spinner fa-spin mr-1' : 'fa fa-refresh mr-1'
+					"
+				></i>
 					{{ schema_refreshing ? __("Refreshing Schema...") : __("Refresh Schema") }}
 				</button>
 				<button
@@ -583,7 +587,9 @@
 			<span v-if="schema_refresh_status" class="mt-2 text-muted font-weight-bold">{{
 				schema_refresh_status
 			}}</span>
-			<span v-if="test_status" class="mt-2 text-muted font-weight-bold">{{ test_status }}</span>
+			<span v-if="test_status" class="mt-2 text-muted font-weight-bold">{{
+				test_status
+			}}</span>
 			<div
 				v-if="is_doctype_dynamic"
 				class="mt-2 text-warning small d-flex align-items-center"
