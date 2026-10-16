@@ -1,20 +1,25 @@
 /**
- * Run the Rule Config save lifecycle with live loading checks around async validation.
+ * Run the Rule Config save lifecycle with loading and source-context guards.
  *
- * The commit callback runs synchronously immediately after the post-validation check,
- * so a graph fetch cannot slip between the final guard and applying the draft.
+ * A graph fetch can start and finish while validation is awaiting, leaving a
+ * modal's node reference detached even though isLoading() is false again.
  */
-export async function runConfigSaveLifecycle({ isLoading, validate, commit }) {
-	if (isLoading()) {
-		return { status: "blocked-loading" };
+export async function runConfigSaveLifecycle({
+	isLoading,
+	isContextCurrent = () => true,
+	validate,
+	commit,
+}) {
+	if (isLoading() || !isContextCurrent()) {
+		return { status: "blocked-stale-context" };
 	}
 
 	const validation = await validate();
 
-	// Validation can await panel-level validators. Read the live store state again
-	// before either applying changes or treating a now-stale draft as saved.
-	if (isLoading()) {
-		return { status: "blocked-loading" };
+	// Validation can await panel-level validators. Recheck both loading and
+	// identity/generation before mutating the graph or closing the modal.
+	if (isLoading() || !isContextCurrent()) {
+		return { status: "blocked-stale-context" };
 	}
 
 	if (!validation?.valid) {
