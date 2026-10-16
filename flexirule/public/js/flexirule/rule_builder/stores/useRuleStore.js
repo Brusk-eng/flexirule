@@ -43,6 +43,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	const settings = ref(null);
 	const validation_errors = ref([]);
 	const is_loading = ref(false);
+	// Monotonic identity for each graph fetch; detects fetches that start and finish
+	// while asynchronous modal validation is pending.
+	const fetch_generation = ref(0);
 	// ── Process / Sub-Rule state ──
 	const processes = ref([]);
 	const available_rules = ref([]);
@@ -81,6 +84,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	async function fetch() {
 		if (!rule_name.value) return;
 
+		fetch_generation.value += 1;
 		const graphStore = useGraphStore();
 		const metaStore = useMetaStore();
 		const historyStore = useHistoryStore();
@@ -963,6 +967,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		rule_name,
 		rule_doc,
 		settings,
+		fetch_generation,
 		is_dirty,
 		is_loading,
 		processes,
