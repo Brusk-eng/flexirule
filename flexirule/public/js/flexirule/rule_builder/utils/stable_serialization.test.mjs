@@ -35,7 +35,12 @@ const cyclic = {};
 cyclic.self = cyclic;
 assert.throws(() => stableStringify(cyclic), TypeError);
 assert.throws(
-	() => stableStringify({ toJSON() { return this; } }),
+	() =>
+		stableStringify({
+			toJSON() {
+				return this;
+			},
+		}),
 	TypeError,
 	"self-returning toJSON must fail rather than recurse indefinitely"
 );
