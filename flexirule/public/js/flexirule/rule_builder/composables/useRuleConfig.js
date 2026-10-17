@@ -122,8 +122,8 @@ export function useRuleConfig(props, emit) {
 		const isSourceContextCurrent = () =>
 			Boolean(
 				sourceNode &&
-				ruleStore.fetch_generation === sourceGeneration &&
-				graphStore.nodes.includes(sourceNode)
+					ruleStore.fetch_generation === sourceGeneration &&
+					graphStore.nodes.includes(sourceNode)
 			);
 
 		const saveResult = await runConfigSaveLifecycle({
