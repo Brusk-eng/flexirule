@@ -674,6 +674,32 @@ class TestFetchRecords(FrappeTestCase):
 				)
 		execute_query.assert_not_called()
 
+	def test_query_list_does_not_apply_fetch_records_permission_gate(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.utils.frappe_query_compat import FrappeQueryCapabilities
+
+		action = frappe._dict(
+			{
+				"operation": "Query List",
+				"reference_doctype": "ToDo",
+				"ignore_permissions": 0,
+				"skip_permissions": 0,
+				"config": {},
+			}
+		)
+
+		with patch(
+			"flexirule.ruleflow.core.action_handlers.query_records.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(supports_ignore_permissions=False),
+		):
+			errors = self.handler.validate(action, {"doc": None, "vars": {}})
+
+		self.assertFalse(
+			any("cannot enforce record-level read permissions" in error for error in errors),
+			"Query List must use its frappe.get_list permission path, not the Fetch Records gate.",
+		)
+
 	def test_validate_fetch_records_accepts_large_static_limit(self):
 		action = frappe._dict({"reference_doctype": "ToDo"})
 		errors = self.handler.validate_fetch_records(action, {"limit": 1_000_001})
