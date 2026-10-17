@@ -742,7 +742,7 @@ const schema_preview_loading = ref(false);
 const schema_refresh_needed = ref(false);
 const schema_refresh_status = ref("");
 const supportsManualSchemaRefresh = computed(() =>
-	["Fetch Records", "Query List", "Query Doc", "Query Report"].includes(mode.value)
+	["Fetch Records", "Query List", "Query Doc", "Query Report", "Group By"].includes(mode.value)
 );
 const is_single_doctype = ref(false);
 const is_child_table_target = ref(false);
@@ -1402,6 +1402,9 @@ async function build_resolved_schema_preview() {
 	if (mode.value === "Fetch Records") {
 		return await build_fetch_records_schema_local();
 	}
+	if (mode.value === "Group By") {
+		return await build_group_by_schema_preview();
+	}
 
 	if (["Query List", "Query Doc"].includes(mode.value)) {
 		const is_query_doc = mode.value === "Query Doc";
@@ -1518,6 +1521,104 @@ async function build_resolved_schema_preview() {
 		return await build_report_schema_preview();
 	}
 	return null;
+}
+
+async function build_group_by_schema_preview() {
+	const targetDoctype = reference_doctype.value;
+	const groupFieldname = String(config.group_by_field || "").trim();
+	const aggregateFieldname = String(config.agg_field || "name").trim();
+	const aggregateFunction = String(config.agg_function || "count").toLowerCase();
+	const allowedFunctions = new Set(["count", "sum", "avg", "min", "max"]);
+
+	if (
+		!targetDoctype ||
+		!groupFieldname ||
+		!aggregateFieldname ||
+		!allowedFunctions.has(aggregateFunction)
+	) {
+		return null;
+	}
+
+	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
+	if (!meta?.fields) return null;
+
+	async function resolveField(fieldname) {
+		if (fieldname.includes(".")) {
+			const [tableFieldname, childFieldname] = fieldname.split(".", 2);
+			const tableField = meta.fields.find((field) => field.fieldname === tableFieldname);
+			if (!tableField?.options) return null;
+
+			const childMeta = await flexirule.utils.get_doctype_meta(tableField.options);
+			const field =
+				childMeta?.fields?.find((candidate) => candidate.fieldname === childFieldname) ||
+				SYSTEM_FIELDS.find((candidate) => candidate.fieldname === childFieldname);
+			if (!field) return null;
+
+			return {
+				label: `${tableField.label || tableFieldname}: ${field.label || field.fieldname}`,
+				fieldname,
+				fieldtype: field.fieldtype || "Data",
+				...(field.options ? { options: field.options } : {}),
+				reqd: Number(field.reqd) === 1 ? 1 : 0,
+				source: {
+					kind: "child_field",
+					table_fieldname: tableFieldname,
+					fieldname: childFieldname,
+					expression: fieldname,
+				},
+			};
+		}
+
+		const field =
+			meta.fields.find((candidate) => candidate.fieldname === fieldname) ||
+			SYSTEM_FIELDS.find((candidate) => candidate.fieldname === fieldname);
+		if (!field) return null;
+
+		return {
+			label: field.label || field.fieldname,
+			fieldname,
+			fieldtype: field.fieldtype || "Data",
+			...(field.options ? { options: field.options } : {}),
+			reqd: Number(field.reqd) === 1 ? 1 : 0,
+			source: {
+				kind: SYSTEM_FIELDS.some((candidate) => candidate.fieldname === fieldname)
+					? "system"
+					: "field",
+				fieldname,
+				expression: fieldname,
+			},
+		};
+	}
+
+	const groupSchemaField = await resolveField(groupFieldname);
+	const aggregateSourceField = await resolveField(aggregateFieldname);
+	if (!groupSchemaField || (aggregateFunction !== "count" && !aggregateSourceField)) {
+		return null;
+	}
+
+	const aggregateFieldtype =
+		aggregateFunction === "count"
+			? "Int"
+			: aggregateFunction === "avg"
+				? "Float"
+				: aggregateSourceField?.fieldtype || "Data";
+
+	return [
+		groupSchemaField,
+		{
+			label: __("Value"),
+			fieldname: "value",
+			fieldtype: aggregateFieldtype,
+			...(aggregateSourceField?.options ? { options: aggregateSourceField.options } : {}),
+			reqd: 0,
+			source: {
+				kind: "aggregate",
+				function: aggregateFunction,
+				fieldname: aggregateFieldname,
+				expression: `${aggregateFunction}(${aggregateFieldname}) as value`,
+			},
+		},
+	];
 }
 
 async function update_resolved_schema_local() {
