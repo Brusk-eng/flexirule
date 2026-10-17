@@ -121,15 +121,26 @@ export function useRuleConfig(props, emit) {
 		// while a panel validator awaits must never redirect this draft's commit.
 		const sourceNode = props.node;
 		const sourceDraft = draftNode.value;
+		const validatedDraft = sourceDraft ? deepClone(sourceDraft) : null;
+		const validatedDraftSignature = validatedDraft ? stableStringify(validatedDraft) : null;
 		const sourceGeneration = ruleStore.fetch_generation;
 		const sourceContextGeneration = saveContextGeneration;
+		const hasUnchangedDraft = () => {
+			if (!sourceDraft || validatedDraftSignature === null) return false;
+			try {
+				return stableStringify(sourceDraft) === validatedDraftSignature;
+			} catch {
+				return false;
+			}
+		};
 		const isSourceContextCurrent = () =>
 			Boolean(
 				sourceNode &&
-					sourceDraft &&
+					validatedDraft &&
 					props.modelValue &&
 					props.node === sourceNode &&
 					draftNode.value === sourceDraft &&
+					hasUnchangedDraft() &&
 					saveContextGeneration === sourceContextGeneration &&
 					ruleStore.fetch_generation === sourceGeneration &&
 					graphStore.nodes.includes(sourceNode)
@@ -142,15 +153,15 @@ export function useRuleConfig(props, emit) {
 				// Read live domain-store state, not the spread legacy facade.
 				isLoading: () => ruleStore.is_loading,
 				isContextCurrent: isSourceContextCurrent,
-				validate: () => validate(sourceDraft),
+				validate: () => validate(validatedDraft),
 				commit: () => {
-					if (!sourceNode || !sourceDraft) return;
+					if (!sourceNode || !validatedDraft) return;
 
 					const oldValue = sourceNode.data?.rule;
-					const newValue = sourceDraft.data?.rule;
+					const newValue = validatedDraft.data?.rule;
 
-					sourceNode.data = deepClone(sourceDraft.data);
-					sourceNode.label = sourceDraft.label || sourceDraft.data?.action_label;
+					sourceNode.data = deepClone(validatedDraft.data);
+					sourceNode.label = validatedDraft.label || validatedDraft.data?.action_label;
 
 					// Redraw nested nodes when Sub-Rule LinkControl target changes
 					if (sourceNode.data.action_type === "Sub-Rule" && oldValue !== newValue) {
