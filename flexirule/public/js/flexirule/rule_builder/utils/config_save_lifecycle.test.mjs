@@ -89,6 +89,52 @@ import { runConfigSaveLifecycle } from "./config_save_lifecycle.mjs";
 	assert.equal(commitCalls, 0);
 }
 
+// Switching from Action A to Action B while validation is pending must not commit A's
+// validated save using B's replacement draft.
+{
+	const originalDraft = { id: "action-a" };
+	let activeDraft = originalDraft;
+	let releaseValidation;
+	let commitCalls = 0;
+	const validationPending = new Promise((resolve) => {
+		releaseValidation = resolve;
+	});
+	const saving = runConfigSaveLifecycle({
+		isLoading: () => false,
+		isContextCurrent: () => activeDraft === originalDraft,
+		validate: () => validationPending,
+		commit: () => {
+			commitCalls += 1;
+		},
+	});
+	activeDraft = { id: "action-b" };
+	releaseValidation({ valid: true });
+	assert.deepEqual(await saving, { status: "blocked-stale-context" });
+	assert.equal(commitCalls, 0);
+}
+
+// Closing/cancelling the modal while validation is pending must not commit.
+{
+	let modalOpen = true;
+	let releaseValidation;
+	let commitCalls = 0;
+	const validationPending = new Promise((resolve) => {
+		releaseValidation = resolve;
+	});
+	const saving = runConfigSaveLifecycle({
+		isLoading: () => false,
+		isContextCurrent: () => modalOpen,
+		validate: () => validationPending,
+		commit: () => {
+			commitCalls += 1;
+		},
+	});
+	modalOpen = false;
+	releaseValidation({ valid: true });
+	assert.deepEqual(await saving, { status: "blocked-stale-context" });
+	assert.equal(commitCalls, 0);
+}
+
 // Valid saves commit once; invalid saves never commit.
 {
 	let commitCalls = 0;
