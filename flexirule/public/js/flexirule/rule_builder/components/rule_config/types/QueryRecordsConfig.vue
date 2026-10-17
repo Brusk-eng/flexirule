@@ -1600,8 +1600,8 @@ async function build_group_by_schema_preview() {
 		aggregateFunction === "count"
 			? "Int"
 			: aggregateFunction === "avg"
-				? "Float"
-				: aggregateSourceField?.fieldtype || "Data";
+			? "Float"
+			: aggregateSourceField?.fieldtype || "Data";
 
 	return [
 		groupSchemaField,
