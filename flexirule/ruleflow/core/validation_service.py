@@ -121,9 +121,7 @@ def validate_rule_definition(rule_doc, mode="full", target_rule_override=None) -
 				handler_context = f"{action_type} / {_safe_get(action, 'operation')}"
 			for err in handler_errors:
 				errors.append(
-					_("Action '{0}' ({1}) validation failed: {2}").format(
-						action_label, handler_context, err
-					)
+					_("Action '{0}' ({1}) validation failed: {2}").format(action_label, handler_context, err)
 				)
 
 	dependency_result = _validate_variable_dependencies(actions, operation_metadata)
