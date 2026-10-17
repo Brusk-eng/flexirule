@@ -211,7 +211,7 @@
 																closeOverflow();
 															"
 															:disabled="
-																currentNodeIndex >= totalNodes - 1
+																isSaving || currentNodeIndex >= totalNodes - 1
 															"
 														>
 															<i class="fa fa-chevron-right"></i>
