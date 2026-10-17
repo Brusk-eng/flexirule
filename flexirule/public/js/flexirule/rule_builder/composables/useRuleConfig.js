@@ -100,10 +100,7 @@ export function useRuleConfig(props, emit) {
 		}
 
 		// 3. Global Business Rules
-		if (
-			targetDraft.data?.ignore_permissions &&
-			!targetDraft.data?.permission_audit_reason
-		) {
+		if (targetDraft.data?.ignore_permissions && !targetDraft.data?.permission_audit_reason) {
 			errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 		}
 
@@ -168,7 +165,10 @@ export function useRuleConfig(props, emit) {
 			isSaving.value = false;
 		}
 
-		if (saveResult.status === "blocked-loading" || saveResult.status === "blocked-stale-context") {
+		if (
+			saveResult.status === "blocked-loading" ||
+			saveResult.status === "blocked-stale-context"
+		) {
 			return false;
 		}
 
