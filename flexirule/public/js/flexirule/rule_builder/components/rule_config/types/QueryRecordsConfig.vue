@@ -873,6 +873,8 @@ async function reconcile_query_doc_state() {
 // changing filters, sort order, or limits must not rewrite the saved schema.
 let lastSchemaRefreshSignature = null;
 let schemaRefreshInitialized = false;
+let schemaRefreshPromptShown = false;
+let schemaEditorMounted = true;
 
 function getSchemaRefreshSignature() {
 	return getQueryRecordsSchemaRefreshSignature({
@@ -932,7 +934,9 @@ onMounted(async () => {
 		// Changes produced while hydrating saved controls are initialization, not edits.
 		lastSchemaRefreshSignature = getSchemaRefreshSignature();
 		schemaRefreshReady.value = true;
-		await update_schema_refresh_preview();
+		// Compare the saved schema as soon as the editor is hydrated. A mismatch
+		// prompts for an explicit refresh; skipping preserves the stored schema.
+		await update_schema_refresh_preview({ promptIfChanged: true });
 	}
 });
 
@@ -1155,6 +1159,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
 	window.frappe.query_report = original_query_report;
+	schemaEditorMounted = false;
+	schemaPreviewRequestId += 1;
 });
 
 function evaluate_depends_on(expression, values) {
@@ -2053,12 +2059,15 @@ function areResolvedSchemasEqual(left, right) {
 
 let schemaPreviewRequestId = 0;
 
-async function update_schema_refresh_preview({ applyIfChanged = false } = {}) {
+async function update_schema_refresh_preview({
+	applyIfChanged = false,
+	promptIfChanged = false,
+} = {}) {
 	const requestId = ++schemaPreviewRequestId;
 	schema_preview_loading.value = true;
 	try {
 		const preview = await build_resolved_schema_preview();
-		if (requestId !== schemaPreviewRequestId) return;
+		if (requestId !== schemaPreviewRequestId || !schemaEditorMounted) return;
 		if (!Array.isArray(preview)) {
 			schema_refresh_needed.value = false;
 			return;
@@ -2068,6 +2077,15 @@ async function update_schema_refresh_preview({ applyIfChanged = false } = {}) {
 		if (applyIfChanged && differs && mode.value === "Fetch Records") {
 			set_resolved_output_schema(preview);
 			schema_refresh_status.value = __("Output schema updated.");
+		} else if (
+			promptIfChanged &&
+			differs &&
+			!schemaRefreshPromptShown &&
+			!props.readOnly &&
+			supportsManualSchemaRefresh.value
+		) {
+			schemaRefreshPromptShown = true;
+			await confirm_schema_refresh();
 		}
 	} catch (error) {
 		console.warn("Failed to compare Query Records output schema", error);
@@ -2077,7 +2095,11 @@ async function update_schema_refresh_preview({ applyIfChanged = false } = {}) {
 	}
 }
 
-async function refresh_schema_manually() {
+const SCHEMA_REFRESH_CONFIRMATION = __(
+	"Refresh the output schema from the current configuration? Downstream actions that reference renamed or removed output fields may need to be reviewed."
+);
+
+async function confirm_schema_refresh() {
 	if (
 		!props.node?.data ||
 		props.readOnly ||
@@ -2087,10 +2109,40 @@ async function refresh_schema_manually() {
 	) {
 		return;
 	}
+	const confirmed = await new Promise((resolve) => {
+		frappe.confirm(
+			SCHEMA_REFRESH_CONFIRMATION,
+			() => resolve(true),
+			() => resolve(false),
+			__("Refresh Schema"),
+			__("Skip")
+		);
+	});
+	if (!schemaEditorMounted || !confirmed) {
+		if (schemaEditorMounted && !confirmed) {
+			schema_refresh_status.value = __(
+				"Schema refresh skipped. The existing output schema was kept."
+			);
+		}
+		return;
+	}
+	await apply_schema_refresh();
+}
+
+async function apply_schema_refresh() {
+	if (
+		!props.node?.data ||
+		props.readOnly ||
+		!supportsManualSchemaRefresh.value ||
+		schema_refreshing.value
+	) {
+		return;
+	}
 	schema_refreshing.value = true;
 	schema_refresh_status.value = __("Checking output schema...");
 	try {
 		const preview = await build_resolved_schema_preview();
+		if (!schemaEditorMounted) return;
 		if (!Array.isArray(preview)) {
 			schema_refresh_status.value = __(
 				"Schema could not be built. Check the selected DocType or report configuration."
@@ -2100,19 +2152,6 @@ async function refresh_schema_manually() {
 		if (areResolvedSchemasEqual(props.node.data.resolved_output_schema, preview)) {
 			schema_refresh_needed.value = false;
 			schema_refresh_status.value = __("The output schema is already up to date.");
-			return;
-		}
-		const confirmed = await new Promise((resolve) => {
-			frappe.confirm(
-				__(
-					"Refresh the output schema from the current configuration? Downstream actions that reference renamed or removed output fields may need to be reviewed."
-				),
-				() => resolve(true),
-				() => resolve(false)
-			);
-		});
-		if (!confirmed) {
-			schema_refresh_status.value = __("Schema refresh cancelled.");
 			return;
 		}
 		set_resolved_output_schema(preview);
@@ -2126,6 +2165,10 @@ async function refresh_schema_manually() {
 	} finally {
 		schema_refreshing.value = false;
 	}
+}
+
+async function refresh_schema_manually() {
+	await confirm_schema_refresh();
 }
 
 async function test_query() {
