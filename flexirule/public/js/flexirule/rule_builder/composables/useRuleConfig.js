@@ -25,6 +25,9 @@ export function useRuleConfig(props, emit) {
 	const initialDraftState = ref(null);
 
 	const isDirty = ref(false);
+	const isSaving = ref(false);
+	// Invalidates pending saves when the modal is cancelled or the editing context changes.
+	let saveContextGeneration = 0;
 
 	watch(
 		[() => draftNode.value?.data, initialDraftState],
@@ -75,12 +78,12 @@ export function useRuleConfig(props, emit) {
 	 * Validate the entire configuration.
 	 * Checks all panels and returns { valid, errors }.
 	 */
-	async function validate() {
+	async function validate(targetDraft = draftNode.value) {
 		showValidation.value = true;
 		const errors = [];
 
 		// 1. Canonical Contract Validation (Handles mandatory fields, policies, etc.)
-		const contractRes = validateAgainstContract(draftNode.value.data);
+		const contractRes = validateAgainstContract(targetDraft.data);
 		if (!contractRes.valid) {
 			errors.push(...contractRes.errors);
 		}
@@ -98,8 +101,8 @@ export function useRuleConfig(props, emit) {
 
 		// 3. Global Business Rules
 		if (
-			draftNode.value.data?.ignore_permissions &&
-			!draftNode.value.data?.permission_audit_reason
+			targetDraft.data?.ignore_permissions &&
+			!targetDraft.data?.permission_audit_reason
 		) {
 			errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 		}
@@ -114,47 +117,58 @@ export function useRuleConfig(props, emit) {
 	 * Save changes back to the source node and close.
 	 */
 	async function save() {
-		// Bind this save attempt to the exact graph generation and source node it
-		// started with. A fetch can begin and finish while validate() is awaiting,
-		// returning is_loading to false but replacing every node object.
+		if (isSaving.value) return false;
+
+		// Bind the attempt to the exact source node, draft, fetch generation, and
+		// modal editing session that initiated validation. A navigation or close
+		// while a panel validator awaits must never redirect this draft's commit.
 		const sourceNode = props.node;
+		const sourceDraft = draftNode.value;
 		const sourceGeneration = ruleStore.fetch_generation;
+		const sourceContextGeneration = saveContextGeneration;
 		const isSourceContextCurrent = () =>
 			Boolean(
 				sourceNode &&
+					sourceDraft &&
+					props.modelValue &&
+					props.node === sourceNode &&
+					draftNode.value === sourceDraft &&
+					saveContextGeneration === sourceContextGeneration &&
 					ruleStore.fetch_generation === sourceGeneration &&
 					graphStore.nodes.includes(sourceNode)
 			);
 
-		const saveResult = await runConfigSaveLifecycle({
-			// Read the domain store directly: the legacy facade spreads Pinia stores
-			// and snapshots unwrapped values instead of retaining live state.
-			isLoading: () => ruleStore.is_loading,
-			isContextCurrent: isSourceContextCurrent,
-			validate,
-			commit: () => {
-				if (!sourceNode || !draftNode.value) return;
+		isSaving.value = true;
+		let saveResult;
+		try {
+			saveResult = await runConfigSaveLifecycle({
+				// Read live domain-store state, not the spread legacy facade.
+				isLoading: () => ruleStore.is_loading,
+				isContextCurrent: isSourceContextCurrent,
+				validate: () => validate(sourceDraft),
+				commit: () => {
+					if (!sourceNode || !sourceDraft) return;
 
-				const oldValue = sourceNode.data?.rule;
-				const newValue = draftNode.value.data?.rule;
+					const oldValue = sourceNode.data?.rule;
+					const newValue = sourceDraft.data?.rule;
 
-				sourceNode.data = deepClone(draftNode.value.data);
-				sourceNode.label = draftNode.value.label || draftNode.value.data?.action_label;
+					sourceNode.data = deepClone(sourceDraft.data);
+					sourceNode.label = sourceDraft.label || sourceDraft.data?.action_label;
 
-				// Redraw nested nodes when Sub-Rule LinkControl target changes
-				if (sourceNode.data.action_type === "Sub-Rule" && oldValue !== newValue) {
-					// store.expand_sub_rule_in_graph removed per user request
-				}
+					// Redraw nested nodes when Sub-Rule LinkControl target changes
+					if (sourceNode.data.action_type === "Sub-Rule" && oldValue !== newValue) {
+						// store.expand_sub_rule_in_graph removed per user request
+					}
 
-				store.touch_node(sourceNode.id);
-				store.commit_graph_edit();
-			},
-		});
+					store.touch_node(sourceNode.id);
+					store.commit_graph_edit();
+				},
+			});
+		} finally {
+			isSaving.value = false;
+		}
 
-		if (
-			saveResult.status === "blocked-loading" ||
-			saveResult.status === "blocked-stale-context"
-		) {
+		if (saveResult.status === "blocked-loading" || saveResult.status === "blocked-stale-context") {
 			return false;
 		}
 
@@ -184,6 +198,7 @@ export function useRuleConfig(props, emit) {
 	}
 
 	function cancel() {
+		saveContextGeneration += 1;
 		if (isDirty.value) {
 			frappe.confirm(
 				__("You have unsaved changes. Are you sure you want to discard them?"),
@@ -200,6 +215,7 @@ export function useRuleConfig(props, emit) {
 	watch(
 		() => [props.node, props.modelValue],
 		([newNode, isOpen]) => {
+			saveContextGeneration += 1;
 			if (isOpen && newNode) {
 				createDraft();
 				initialDraftState.value = null;
@@ -214,13 +230,14 @@ export function useRuleConfig(props, emit) {
 				});
 			}
 		},
-		{ immediate: true }
+		{ immediate: true, flush: "sync" }
 	);
 
 	return {
 		draftNode,
 		config,
 		isDirty,
+		isSaving,
 		panelRefs,
 		showValidation,
 		updateField,
