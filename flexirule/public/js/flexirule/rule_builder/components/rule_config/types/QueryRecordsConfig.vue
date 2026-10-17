@@ -138,7 +138,7 @@
 								"
 							/>
 							<SelectControl
-								class="form-control input-xs direction-select"
+								class="direction-select"
 								:df="{
 									fieldtype: 'Select',
 									label: '',
@@ -2583,8 +2583,9 @@ defineExpose({
 }
 
 .direction-select {
+	flex: 0 0 100px;
 	width: 100px !important;
-	flex-shrink: 0;
+	min-width: 100px;
 }
 
 .remove-sort-btn {
