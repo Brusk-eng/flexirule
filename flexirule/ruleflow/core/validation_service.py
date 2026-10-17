@@ -116,9 +116,14 @@ def validate_rule_definition(rule_doc, mode="full", target_rule_override=None) -
 		handler = HandlerRegistry.get(action_type)
 		if handler:
 			handler_errors = handler.validate(action, {"doc": None, "vars": {}}) or []
+			handler_context = action_type
+			if action_type == "Query Records" and _safe_get(action, "operation"):
+				handler_context = f"{action_type} / {_safe_get(action, 'operation')}"
 			for err in handler_errors:
 				errors.append(
-					_("Action '{0}' ({1}) validation failed: {2}").format(action_label, action_type, err)
+					_("Action '{0}' ({1}) validation failed: {2}").format(
+						action_label, handler_context, err
+					)
 				)
 
 	dependency_result = _validate_variable_dependencies(actions, operation_metadata)
@@ -214,9 +219,14 @@ def _validate_single_action(rule, action, errors, warnings) -> dict:
 	handler = HandlerRegistry.get(action_type)
 	if handler:
 		handler_errors = handler.validate(action, {"doc": None, "vars": {}}) or []
+		handler_context = action_type
+		if action_type == "Query Records" and _safe_get(action, "operation"):
+			handler_context = f"{action_type} / {_safe_get(action, 'operation')}"
 		for err in handler_errors:
 			errors.append(
-				_("Action '{0}' ({1}) validation failed: {2}").format(action_label, action_type, err)
+				_("Action '{0}' ({1}) validation failed: {2}").format(
+					action_label, handler_context, err
+				)
 			)
 
 	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings, "mode": "node"}
