@@ -10,7 +10,11 @@
  */
 import { defineStore } from "pinia";
 import { ref, computed, nextTick } from "vue";
-import { normalizeActionType, loadContractsFromBackend } from "../../core/contracts";
+import {
+	normalizeActionType,
+	loadContractsFromBackend,
+	getOperationFieldOverride,
+} from "../../core/contracts";
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
@@ -251,6 +255,23 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				}
 
 				const doc = node.data;
+
+				// Fetch Records on Frappe versions without Query Builder permission
+				// support requires the audited bypass. Apply the backend-declared
+				// operation default across the whole graph before validating or
+				// serializing, not only when that node's modal happens to be opened.
+				// The audit reason remains user-supplied and is checked immediately
+				// below; never synthesize a reason to make the save pass.
+				if (doc.action_type === "Query Records" && doc.operation === "Fetch Records") {
+					const permissionPolicy = getOperationFieldOverride(
+						doc.action_type,
+						"ignore_permissions",
+						{ operation: doc.operation }
+					);
+					if (permissionPolicy.default === 1) {
+						doc.ignore_permissions = 1;
+					}
+				}
 
 				const skipPermissions = [doc.ignore_permissions, doc.skip_permissions].some(
 					(value) => [true, 1, "1", "true", "True"].includes(value)

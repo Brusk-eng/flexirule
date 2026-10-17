@@ -742,7 +742,7 @@ const schema_preview_loading = ref(false);
 const schema_refresh_needed = ref(false);
 const schema_refresh_status = ref("");
 const supportsManualSchemaRefresh = computed(() =>
-	["Fetch Records", "Query List", "Query Doc", "Query Report"].includes(mode.value)
+	["Fetch Records", "Query List", "Query Doc", "Query Report", "Group By"].includes(mode.value)
 );
 const is_single_doctype = ref(false);
 const is_child_table_target = ref(false);
@@ -873,6 +873,8 @@ async function reconcile_query_doc_state() {
 // changing filters, sort order, or limits must not rewrite the saved schema.
 let lastSchemaRefreshSignature = null;
 let schemaRefreshInitialized = false;
+let schemaRefreshPromptShown = false;
+let schemaEditorMounted = true;
 
 function getSchemaRefreshSignature() {
 	return getQueryRecordsSchemaRefreshSignature({
@@ -892,8 +894,9 @@ onMounted(async () => {
 		// A real field/result-shape edit during loading must still invalidate it.
 		lastSchemaRefreshSignature = getSchemaRefreshSignature();
 		schemaRefreshInitialized = true;
-		// Do not apply operation defaults while restoring an existing action.
-		// Defaults are applied when the user changes into Fetch Records below.
+		// Do not mutate a persisted action just by opening its configuration.
+		// Defaults apply when the user selects Fetch Records or explicitly saves
+		// a valid edit; whole-rule save also normalizes the backend-declared default.
 		if (mode.value === "Query Doc") {
 			// Read the saved target's metadata for rendering, but don't reconcile
 			// and rewrite the saved action during initialization. Reconciliation
@@ -931,7 +934,9 @@ onMounted(async () => {
 		// Changes produced while hydrating saved controls are initialization, not edits.
 		lastSchemaRefreshSignature = getSchemaRefreshSignature();
 		schemaRefreshReady.value = true;
-		await update_schema_refresh_preview();
+		// Compare the saved schema as soon as the editor is hydrated. A mismatch
+		// prompts for an explicit refresh; skipping preserves the stored schema.
+		await update_schema_refresh_preview({ promptIfChanged: true });
 	}
 });
 
@@ -1154,6 +1159,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
 	window.frappe.query_report = original_query_report;
+	schemaEditorMounted = false;
+	schemaPreviewRequestId += 1;
 });
 
 function evaluate_depends_on(expression, values) {
@@ -1395,6 +1402,9 @@ async function build_resolved_schema_preview() {
 	if (mode.value === "Fetch Records") {
 		return await build_fetch_records_schema_local();
 	}
+	if (mode.value === "Group By") {
+		return await build_group_by_schema_preview();
+	}
 
 	if (["Query List", "Query Doc"].includes(mode.value)) {
 		const is_query_doc = mode.value === "Query Doc";
@@ -1511,6 +1521,104 @@ async function build_resolved_schema_preview() {
 		return await build_report_schema_preview();
 	}
 	return null;
+}
+
+async function build_group_by_schema_preview() {
+	const targetDoctype = reference_doctype.value;
+	const groupFieldname = String(config.group_by_field || "").trim();
+	const aggregateFieldname = String(config.agg_field || "name").trim();
+	const aggregateFunction = String(config.agg_function || "count").toLowerCase();
+	const allowedFunctions = new Set(["count", "sum", "avg", "min", "max"]);
+
+	if (
+		!targetDoctype ||
+		!groupFieldname ||
+		!aggregateFieldname ||
+		!allowedFunctions.has(aggregateFunction)
+	) {
+		return null;
+	}
+
+	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
+	if (!meta?.fields) return null;
+
+	async function resolveField(fieldname) {
+		if (fieldname.includes(".")) {
+			const [tableFieldname, childFieldname] = fieldname.split(".", 2);
+			const tableField = meta.fields.find((field) => field.fieldname === tableFieldname);
+			if (!tableField?.options) return null;
+
+			const childMeta = await flexirule.utils.get_doctype_meta(tableField.options);
+			const field =
+				childMeta?.fields?.find((candidate) => candidate.fieldname === childFieldname) ||
+				SYSTEM_FIELDS.find((candidate) => candidate.fieldname === childFieldname);
+			if (!field) return null;
+
+			return {
+				label: `${tableField.label || tableFieldname}: ${field.label || field.fieldname}`,
+				fieldname,
+				fieldtype: field.fieldtype || "Data",
+				...(field.options ? { options: field.options } : {}),
+				reqd: Number(field.reqd) === 1 ? 1 : 0,
+				source: {
+					kind: "child_field",
+					table_fieldname: tableFieldname,
+					fieldname: childFieldname,
+					expression: fieldname,
+				},
+			};
+		}
+
+		const field =
+			meta.fields.find((candidate) => candidate.fieldname === fieldname) ||
+			SYSTEM_FIELDS.find((candidate) => candidate.fieldname === fieldname);
+		if (!field) return null;
+
+		return {
+			label: field.label || field.fieldname,
+			fieldname,
+			fieldtype: field.fieldtype || "Data",
+			...(field.options ? { options: field.options } : {}),
+			reqd: Number(field.reqd) === 1 ? 1 : 0,
+			source: {
+				kind: SYSTEM_FIELDS.some((candidate) => candidate.fieldname === fieldname)
+					? "system"
+					: "field",
+				fieldname,
+				expression: fieldname,
+			},
+		};
+	}
+
+	const groupSchemaField = await resolveField(groupFieldname);
+	const aggregateSourceField = await resolveField(aggregateFieldname);
+	if (!groupSchemaField || (aggregateFunction !== "count" && !aggregateSourceField)) {
+		return null;
+	}
+
+	const aggregateFieldtype =
+		aggregateFunction === "count"
+			? "Int"
+			: aggregateFunction === "avg"
+			? "Float"
+			: aggregateSourceField?.fieldtype || "Data";
+
+	return [
+		groupSchemaField,
+		{
+			label: __("Value"),
+			fieldname: "value",
+			fieldtype: aggregateFieldtype,
+			...(aggregateSourceField?.options ? { options: aggregateSourceField.options } : {}),
+			reqd: 0,
+			source: {
+				kind: "aggregate",
+				function: aggregateFunction,
+				fieldname: aggregateFieldname,
+				expression: `${aggregateFunction}(${aggregateFieldname}) as value`,
+			},
+		},
+	];
 }
 
 async function update_resolved_schema_local() {
@@ -1724,12 +1832,13 @@ function applyFetchRecordsFrappe15Defaults() {
 	if (props.readOnly || !props.node?.data) return;
 	if (mode.value !== "Fetch Records" || !isFrappe15.value) return;
 	const current = props.node.data.ignore_permissions;
-	// Frappe 15's Fetch Records Query Builder path cannot provide the expected
-	// permission-aware read behavior. This mode must use the audited bypass;
-	// keep the value in node data so the control and save pipeline share state.
+	// Frappe 15's Fetch Records Query Builder path cannot provide native
+	// record-level read permission enforcement. Apply the explicit audited-bypass
+	// default when the user changes the operation to Fetch Records. Opening an
+	// existing modal is intentionally non-mutating; valid modal saves and the
+	// whole-rule save path normalize existing legacy values separately.
 	if (![true, 1, "1"].includes(current)) {
 		props.node.data.ignore_permissions = 1;
-		store.mark_dirty();
 	}
 }
 
@@ -2051,12 +2160,15 @@ function areResolvedSchemasEqual(left, right) {
 
 let schemaPreviewRequestId = 0;
 
-async function update_schema_refresh_preview({ applyIfChanged = false } = {}) {
+async function update_schema_refresh_preview({
+	applyIfChanged = false,
+	promptIfChanged = false,
+} = {}) {
 	const requestId = ++schemaPreviewRequestId;
 	schema_preview_loading.value = true;
 	try {
 		const preview = await build_resolved_schema_preview();
-		if (requestId !== schemaPreviewRequestId) return;
+		if (requestId !== schemaPreviewRequestId || !schemaEditorMounted) return;
 		if (!Array.isArray(preview)) {
 			schema_refresh_needed.value = false;
 			return;
@@ -2066,6 +2178,15 @@ async function update_schema_refresh_preview({ applyIfChanged = false } = {}) {
 		if (applyIfChanged && differs && mode.value === "Fetch Records") {
 			set_resolved_output_schema(preview);
 			schema_refresh_status.value = __("Output schema updated.");
+		} else if (
+			promptIfChanged &&
+			differs &&
+			!schemaRefreshPromptShown &&
+			!props.readOnly &&
+			supportsManualSchemaRefresh.value
+		) {
+			schemaRefreshPromptShown = true;
+			await confirm_schema_refresh();
 		}
 	} catch (error) {
 		console.warn("Failed to compare Query Records output schema", error);
@@ -2075,7 +2196,11 @@ async function update_schema_refresh_preview({ applyIfChanged = false } = {}) {
 	}
 }
 
-async function refresh_schema_manually() {
+const SCHEMA_REFRESH_CONFIRMATION = __(
+	"Refresh the output schema from the current configuration? Downstream actions that reference renamed or removed output fields may need to be reviewed."
+);
+
+async function confirm_schema_refresh() {
 	if (
 		!props.node?.data ||
 		props.readOnly ||
@@ -2085,10 +2210,40 @@ async function refresh_schema_manually() {
 	) {
 		return;
 	}
+	const confirmed = await new Promise((resolve) => {
+		frappe.confirm(
+			SCHEMA_REFRESH_CONFIRMATION,
+			() => resolve(true),
+			() => resolve(false),
+			__("Refresh Schema"),
+			__("Skip")
+		);
+	});
+	if (!schemaEditorMounted || !confirmed) {
+		if (schemaEditorMounted && !confirmed) {
+			schema_refresh_status.value = __(
+				"Schema refresh skipped. The existing output schema was kept."
+			);
+		}
+		return;
+	}
+	await apply_schema_refresh();
+}
+
+async function apply_schema_refresh() {
+	if (
+		!props.node?.data ||
+		props.readOnly ||
+		!supportsManualSchemaRefresh.value ||
+		schema_refreshing.value
+	) {
+		return;
+	}
 	schema_refreshing.value = true;
 	schema_refresh_status.value = __("Checking output schema...");
 	try {
 		const preview = await build_resolved_schema_preview();
+		if (!schemaEditorMounted) return;
 		if (!Array.isArray(preview)) {
 			schema_refresh_status.value = __(
 				"Schema could not be built. Check the selected DocType or report configuration."
@@ -2098,19 +2253,6 @@ async function refresh_schema_manually() {
 		if (areResolvedSchemasEqual(props.node.data.resolved_output_schema, preview)) {
 			schema_refresh_needed.value = false;
 			schema_refresh_status.value = __("The output schema is already up to date.");
-			return;
-		}
-		const confirmed = await new Promise((resolve) => {
-			frappe.confirm(
-				__(
-					"Refresh the output schema from the current configuration? Downstream actions that reference renamed or removed output fields may need to be reviewed."
-				),
-				() => resolve(true),
-				() => resolve(false)
-			);
-		});
-		if (!confirmed) {
-			schema_refresh_status.value = __("Schema refresh cancelled.");
 			return;
 		}
 		set_resolved_output_schema(preview);
@@ -2124,6 +2266,10 @@ async function refresh_schema_manually() {
 	} finally {
 		schema_refreshing.value = false;
 	}
+}
+
+async function refresh_schema_manually() {
+	await confirm_schema_refresh();
 }
 
 async function test_query() {
