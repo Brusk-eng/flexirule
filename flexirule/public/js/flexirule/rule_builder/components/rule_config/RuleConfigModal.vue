@@ -92,7 +92,7 @@
 										<button
 											class="toolbar-btn"
 											@click="ruleStore.prev_config_node()"
-											:disabled="currentNodeIndex <= 0"
+											:disabled="isSaving || currentNodeIndex <= 0"
 											:title="__('Previous')"
 										>
 											<i class="fa fa-chevron-left"></i>
@@ -104,7 +104,9 @@
 										<button
 											class="toolbar-btn"
 											@click="ruleStore.next_config_node()"
-											:disabled="currentNodeIndex >= totalNodes - 1"
+											:disabled="
+												isSaving || currentNodeIndex >= totalNodes - 1
+											"
 											:title="__('Next')"
 										>
 											<i class="fa fa-chevron-right"></i>
@@ -137,10 +139,12 @@
 									<button
 										v-if="
 											!ruleStore.is_read_only &&
+											!ruleStore.is_loading &&
 											isDirty &&
 											(!isMobile || !isEditingLabel)
 										"
 										class="toolbar-btn save-action"
+										:disabled="isSaving"
 										@click="save"
 										:title="__('Save Changes')"
 									>
@@ -196,7 +200,9 @@
 																ruleStore.prev_config_node();
 																closeOverflow();
 															"
-															:disabled="currentNodeIndex <= 0"
+															:disabled="
+																isSaving || currentNodeIndex <= 0
+															"
 														>
 															<i class="fa fa-chevron-left"></i>
 															<span>{{ __("Previous Action") }}</span>
@@ -209,6 +215,7 @@
 																closeOverflow();
 															"
 															:disabled="
+																isSaving ||
 																currentNodeIndex >= totalNodes - 1
 															"
 														>
@@ -606,7 +613,10 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const { draftNode, panelRefs, save, cancel, isDirty, showValidation } = useRuleConfig(props, emit);
+const { draftNode, panelRefs, save, cancel, isDirty, isSaving, showValidation } = useRuleConfig(
+	props,
+	emit
+);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,
@@ -727,7 +737,7 @@ function handleTouchMove(e) {
 }
 
 function handleTouchEnd() {
-	if (!isMobile.value || !isSwiping.value) return;
+	if (!isMobile.value || !isSwiping.value || isSaving.value) return;
 
 	const diffX = touchCurrentX.value - touchStartX.value;
 
@@ -976,7 +986,7 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (currentNodeIndex.value > 0) ruleStore.prev_config_node();
+				if (!isSaving.value && currentNodeIndex.value > 0) ruleStore.prev_config_node();
 			},
 		}),
 		registerShortcut({
@@ -985,7 +995,7 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (currentNodeIndex.value > 0) ruleStore.prev_config_node();
+				if (!isSaving.value && currentNodeIndex.value > 0) ruleStore.prev_config_node();
 			},
 		}),
 		registerShortcut({
@@ -994,7 +1004,8 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
+				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1)
+					ruleStore.next_config_node();
 			},
 		}),
 		registerShortcut({
@@ -1003,7 +1014,8 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
+				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1)
+					ruleStore.next_config_node();
 			},
 		}),
 		registerShortcut({

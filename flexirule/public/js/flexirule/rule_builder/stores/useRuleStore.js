@@ -14,6 +14,11 @@ import { normalizeActionType, loadContractsFromBackend } from "../../core/contra
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
+import { stableStringify } from "../utils/stable_serialization.mjs";
+import {
+	hasGraphStateChanged,
+	shouldRecordExplicitGraphCommit,
+} from "../utils/graph_dirty_state.mjs";
 
 import { useGraphStore } from "./useGraphStore";
 import { useMetaStore } from "./useMetaStore";
@@ -38,6 +43,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	const settings = ref(null);
 	const validation_errors = ref([]);
 	const is_loading = ref(false);
+	// Monotonic identity for each graph fetch; detects fetches that start and finish
+	// while asynchronous modal validation is pending.
+	const fetch_generation = ref(0);
 	// ── Process / Sub-Rule state ──
 	const processes = ref([]);
 	const available_rules = ref([]);
@@ -76,6 +84,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	async function fetch() {
 		if (!rule_name.value) return;
 
+		fetch_generation.value += 1;
 		const graphStore = useGraphStore();
 		const metaStore = useMetaStore();
 		const historyStore = useHistoryStore();
@@ -176,6 +185,14 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		graphStore.autoConnectStartNode();
 		graphStore.normalize_graph_nodes();
 
+		// Capture the persisted-data baseline as soon as the graph is ready,
+		// before asynchronous layout work can allow a modal save to race it.
+		// Layout-only position changes are synchronized into this baseline when
+		// the layout settles; action data is never silently adopted as baseline.
+		await nextTick();
+		initial_state.value = stableStringify(graphStore.getStateSnapshot());
+		_is_dirty.value = false;
+
 		// Trigger auto-layout only if mismatch or new
 		if (needs_auto_layout) {
 			const { useRuleGraph } = await import("../composables/useRuleGraph");
@@ -183,12 +200,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			await nextTick();
 			layoutGraph(uiStore.layout_preference);
 		}
-
-		// We wait for nextTick to ensure all reactive changes from
-		// graphStore sync and normalize have settled before we capture the baseline.
-		await nextTick();
-		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
-		_is_dirty.value = false;
 
 		// Ensure App.vue bindings see the nodes/edges immediately
 		// by triggering a reactivity update if needed
@@ -633,6 +644,41 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	}
 
 	// ── Dirty tracking ──
+	function record_graph_change() {
+		_is_dirty.value = true;
+		const historyStore = useHistoryStore();
+		const graphStore = useGraphStore();
+		historyStore.commit(() => graphStore.getGraphSnapshot());
+	}
+
+	/**
+	 * Record a graph edit accepted by an explicit user action, such as saving
+	 * an action-configuration draft. Unlike automatic/watch-driven dirty marks,
+	 * an explicit commit must not be lost during canvas initialization or layout.
+	 *
+	 * Returns true only when the current graph differs from its persisted
+	 * baseline (or the baseline has not yet been established).
+	 */
+	function commit_graph_edit() {
+		// Explicit commits may bypass canvas initialization/layout suppression,
+		// but must never target a graph while fetch/save is replacing its state.
+		if (is_loading.value) return false;
+
+		const graphStore = useGraphStore();
+		if (
+			!shouldRecordExplicitGraphCommit({
+				isReadOnly: is_read_only.value,
+				initialState: initial_state.value,
+				currentSnapshot: graphStore.getStateSnapshot(),
+			})
+		) {
+			return false;
+		}
+
+		record_graph_change();
+		return true;
+	}
+
 	function mark_dirty() {
 		const uiStore = useUIStore();
 		if (
@@ -645,10 +691,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		}
 
 		if (checkDirty()) {
-			_is_dirty.value = true;
-			const historyStore = useHistoryStore();
-			const graphStore = useGraphStore();
-			historyStore.commit(() => graphStore.getGraphSnapshot());
+			record_graph_change();
 		}
 	}
 
@@ -664,10 +707,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		}
 
 		if (checkDirty()) {
-			_is_dirty.value = true;
-			const graphStore = useGraphStore();
-			const historyStore = useHistoryStore();
-			historyStore.commit(() => graphStore.getGraphSnapshot());
+			record_graph_change();
 		}
 	}
 
@@ -679,8 +719,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const _nodes = graphStore.nodes;
 		const _edges = graphStore.edges;
 
-		const current = JSON.stringify(graphStore.getStateSnapshot());
-		return current !== initial_state.value;
+		return hasGraphStateChanged(initial_state.value, graphStore.getStateSnapshot());
 	}
 
 	/**
@@ -689,7 +728,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	 */
 	function clear_dirty() {
 		const graphStore = useGraphStore();
-		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
+		initial_state.value = stableStringify(graphStore.getStateSnapshot());
 		_is_dirty.value = false;
 	}
 
@@ -726,7 +765,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			return el;
 		});
 
-		initial_state.value = JSON.stringify(updatedInitialSnapshot);
+		initial_state.value = stableStringify(updatedInitialSnapshot);
 	}
 
 	// ── UI Helpers (Delegated to UI Store) ──
@@ -928,6 +967,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		rule_name,
 		rule_doc,
 		settings,
+		fetch_generation,
 		is_dirty,
 		is_loading,
 		processes,
@@ -955,6 +995,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		// Dirty tracking
 		mark_dirty,
+		commit_graph_edit,
 		mark_position_change,
 		clear_dirty,
 		sync_initial_state_positions,
