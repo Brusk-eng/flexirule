@@ -1,609 +1,336 @@
-# FlexiRule Condition Comparison System — Architectural Audit
+# FlexiRule Condition Comparison System — Canonical Architecture Audit
 
 **Audit date:** 2026-10-17  
 **Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)  
-**Audited ref:** `develop`, source snapshot `65c7372be0fe80261609fc122d153c3bb41d5199`  
-**Report status:** Read-only source audit; remediation proposed, not implemented  
-**Scope boundary:** This change adds this report only. No application source, tests, runtime configuration, schema, or workflow files were modified.
+**Authoritative baseline:** `develop` at `65c7372be0fe80261609fc122d153c3bb41d5199`  
+**Framework source inspected:** Frappe `version-15` and `version-16` branches  
+**Scope:** Read-only architecture analysis plus this report only. No application code, schema, tests, dependencies, workflows, or existing PRs were changed.  
+**Canonical report location:** `reports/condition-comparison-architectural-audit.md` in PR #412. This is the sole maintained report for this audit.
 
-## 1. Executive summary
+## 1. Executive summary and canonical PR selection
 
-### Decision
+### Decision: select PR #412 as the canonical path forward
 
-**Recommendation: partially redesign the condition comparison core, while retaining FlexiRule-owned business semantics and Frappe's safe execution boundary.** Do not replace in-memory evaluation with database filters. Do not merge assignment operators into comparison operators. Avoid a large plug-in registry: the core needs a small, explicit domain model and a canonical set of comparison semantics, not another extensibility framework.
+**Select [PR #412 — condition comparison architectural audit](https://github.com/Sendipad/flexirule/pull/412) as the canonical architectural foundation.** Retain its core direction: build a strict, FlexiRule-owned condition contract and a structured, validated condition plan; unify comparison semantics across ordinary rule conditions and collection/value-resolver predicates; and retain Frappe's `frappe.safe_eval` only where a separate expression/formula feature genuinely requires restricted Python evaluation. Do not retain untrusted field-reference interpolation into generated Python as the condition language itself.
 
-The current system has useful foundations: the condition builder uses Frappe DocType metadata; normal rule conditions are compiled when the Rule is validated/saved; execution uses Frappe's restricted `safe_eval`; nested groups and collection predicates are represented declaratively; and the project has existing field resolution and value-resolution facilities. Compilation reduces repeated recursive dispatch at runtime, and Frappe's safe evaluator is materially safer than raw unrestricted Python `eval`. These are not abstractions to delete simply to reduce line count.
+PR #412 is not perfect and is itself an analysis-only report, not an implementation PR. Its strongest recommendations must still be corrected and validated as listed below. Nevertheless, its architectural direction addresses the root problem: the same saved condition must have one defined meaning, and invalid input must never become an unconditional pass. PR #413 correctly identifies important drift but recommends keeping the current generated-Python compiler as the single transformation engine. That would centralize the current implementation without removing its unsafe permissive defaults or resolving the mismatch between comparison semantics and runtime contexts.
 
-However, the implementation is **not yet production-ready as a condition-comparison contract**. The most important findings are:
+### One recommended architecture
 
-1. **Verified correctness defects:** visible operators can compile to the wrong operation, unsupported operators silently default to equality, and malformed condition nodes can compile to an unconditional pass.
-2. **Verified duplicate semantics:** normal Condition actions use generated Python expressions, while collection resolver predicates use a separate JSON evaluator. The two paths support different operators, values, and error behavior.
-3. **Probable security-hardening issue:** compiler-generated Python source interpolates saved field-reference strings without correct quoting/identifier validation. The AST check in FlexiRule does not itself restrict expressions to the intended condition language. Frappe's sandbox restricts Python capabilities, but it does not repair the generated condition's business meaning or prevent every unexpected call on an exposed public safe-context object. This finding is based on source construction, not a demonstrated exploit.
-4. **Verified frontend/backend contract gap:** frontend defaults duplicate and differ from backend metadata; frontend validation is structural, while backend validation does not validate the entire condition tree against an authoritative operator/type contract. Field/operator changes may retain incompatible values.
-5. **Semantic ambiguity:** null and empty-string values, falsy values, type conversion, Link tuples, dates/times, collection edges, and error-to-false behavior are not consistently specified across execution paths.
-6. **Compatibility evidence gap:** package metadata requires Python `>=3.10`; CI currently exercises Python 3.10 and the Frappe 15 source branch. README claims Frappe v15+, but this audit did not verify a full Frappe 16 condition-comparison test suite. The latest observed CI run succeeded on the audited `develop` SHA, while its separate Frappe 16 nested-set job was skipped.
+Use this pipeline:
 
-These are confirmed by inspecting current source. No test command was run as part of this report. CI results described below are observations of GitHub Actions, not an assertion that this audit independently executed the tests.
+`Saved JSON condition tree → strict schema and metadata validation → normalized typed condition plan → one pure comparator / group evaluator → explicit result or diagnostic`
 
-### Smallest maintainable target
+- **Persisted contract:** the declarative condition tree remains the source of truth in `Rule.trigger_condition` or `Rule Action.config`. Compiled output is derived data only.
+- **Validation:** validate node shape, operators, operand arity and types, allowed scopes, field paths, collection operations, aliases, and fieldtype applicability against server-side metadata. Reject invalid configuration during save/activation, with a tree path in the error.
+- **Plan building:** normalize compatible legacy shapes and approved aliases, then construct a structured plan. Do not generate Python source for ordinary comparisons.
+- **Runtime:** use one resolver and one comparison implementation for trigger gates, Condition actions, nested collection predicates, and CollectionResolver operations. Give row predicates explicit parent-document and row/alias context rather than adapting semantics by maintaining a second operator map.
+- **Expression features:** keep formula/resolver/expression syntax behind a separate, narrowly validated and restricted-evaluation boundary. Do not allow that feature to expand the ordinary condition grammar by accident.
+- **Compactor:** initially compact serialization and representation only. Algebraic rewrites must be opt-in, semantics-preserving transformations proved by differential tests, not string substitutions or aggressive simplification.
 
-Use a **small FlexiRule-owned condition domain model** with:
+Compilation/plan building is useful for early validation and avoiding repeated recursive schema interpretation. **Generated Python source is not necessary to obtain those benefits.**
 
-- A strict canonical condition schema and explicit operator identifiers.
-- One authoritative backend definition of each operator's semantics, supported operand shape, and field-type applicability.
-- One operand normalization/resolution path using existing FlexiRule value and field-resolution facilities.
-- One in-memory comparison primitive shared by ordinary conditions and collection resolver predicates.
-- Frappe DocType metadata to determine field types/options and validate references; select Frappe conversion utilities only where their actual behavior matches the rule contract.
-- A compiled, validated condition plan for normal execution, rather than generated Python source for the condition tree itself. Keep separately authored formula/expression features behind their existing dedicated resolver/safe-expression boundary; do not accidentally turn arbitrary field references into source code.
-- Thin frontend adapters that consume backend-provided operator metadata, with only basic UX validation duplicated client-side.
+### Release posture
 
-Compilation should remain as a meaningful **normalization/plan-building step** unless measurement shows it is unnecessary. The current source-string compiler should not be retained unchanged merely because the compiled field exists; it should be hardened or replaced by a structured plan. The legacy JSON evaluator should delegate to the same comparison primitive during the transition, then its duplicate operator dispatch can be removed once behavior is proven equivalent.
+Do not treat the current implementation as a stable semantic contract. The source confirms correctness defects: `like`/`not like` fall back to equality; unknown operators fall back to equality; malformed nodes and empty groups can disappear during compilation; `has_changed` compiles to `True`; null is rewritten to an empty string; mixed sibling logic differs between the two evaluators; and Link tuple comparison ignores the tuple's DocType. There are also contract and security-hardening risks involving unvalidated field paths and collection aliases. No exploit is claimed demonstrated.
 
-### Release disposition
+These findings justify P0 hardening and semantic regression tests before business-critical use. A green broad test suite cannot establish semantic correctness for cases the suite does not cover.
 
-| Priority | Recommendation | Release position |
-|---|---|---|
-| **P0** | Reject malformed condition schemas and unknown operators; remove silent “unknown means equality / empty means True” behavior; validate and safely encode references/aliases before execution | Required before enabling business-critical rules in production |
-| **P0** | Audit expression-generation and safe-context boundaries with adversarial tests, particularly source-string interpolation and public read APIs | Required before production; exploitability is not claimed proven |
-| **P1** | Define canonical operator, value, null/empty, type-conversion, collection, and failure semantics | Required before production |
-| **P1** | Make compiler/runtime and collection-predicate behavior agree; add differential tests | Required before production |
-| **P1** | Validate conditions server-side using schema plus Frappe metadata; make invalid persisted rules fail closed with diagnostics | Required before production |
-| **P2** | Remove duplicated frontend defaults and payload-shape logic; fix stale value and Dynamic Link editing behavior | Strongly recommended before public release |
-| **P2/P3** | Measure compiler and artifact-cache benefits, then remove only proven redundant layers | After correctness/security is stabilized |
+## 2. Baseline, scope, provenance, and report review
 
-## 2. Scope, evidence method, and compatibility assumptions
+### 2.1 Audited baseline
 
-### Files inspected directly
+The current `develop` branch was fetched from GitHub and pinned to commit **`65c7372be0fe80261609fc122d153c3bb41d5199`** ([commit](https://github.com/Sendipad/flexirule/commit/65c7372be0fe80261609fc122d153c3bb41d5199)). The commit message is “Merge pull request #409 … Fix Query Records schema refresh on modal open”. The current README advertises Frappe v15+, and `pyproject.toml` declares Python `>=3.10`; Frappe is bench-managed rather than a pinned package dependency ([pyproject.toml](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/pyproject.toml#L1-L14), [README](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/README.md#L1-L18)).
 
-The audit examined the current implementation, not earlier architectural reports. The main sources were:
+### 2.2 PR #412 report and history
 
-- Backend condition compilation and operator metadata: [`compiler.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py), including the operator map/type metadata, `compile`, group/leaf/collection compilation, operand encoding, reference generation, and validation.
-- Alternate evaluator and Link comparison helper: [`evaluator.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/evaluator.py).
-- Save-time lifecycle: [`rule.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/doctype/rule/rule.py#L1283-L1347), especially `compile_conditions`.
-- Backend condition payload contract: [`condition_payload.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/condition_payload.py).
-- Rule validation: [`validation_service.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/validation_service.py#L46-L90) and its Condition branch near lines 509–512.
-- Runtime action dispatch: [ConditionHandler](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/action_handlers/condition.py), [`engine.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/engine.py#L755-L868), and [`runtime_eval.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/runtime_eval.py#L48-L96).
-- Restricted evaluation and safe context: [`permissions.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/permissions.py#L247-L290), [`SafeFrappeAPI`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/engine.py), and the Frappe v15/v16 `safe_exec.py` implementations.
-- Field resolution and collection resolver predicate execution: [`field_resolver.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/utils/field_resolver.py#L15-L189) and [`value_resolver.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/value_resolver.py#L467-L590).
-- Frontend: [ConditionBuilder.vue](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/condition_builder/ConditionBuilder.vue), [SimpleCondition.vue](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/condition_builder/SimpleCondition.vue#L68-L187), [condition_validator.js](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/condition_builder/condition_validator.js), [ConditionStep.vue](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/rule_config/types/ConditionStep.vue), [JS condition payload utility](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/utils/condition_payload.js), and [useMetaStore.js](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/stores/useMetaStore.js).
-- Tests inspected: [`test_compiler.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/tests/test_compiler.py), [`test_evaluator.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/tests/test_evaluator.py), [`test_link_semantics.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/tests/test_link_semantics.py), and `test_audit_reproductions.py`.
-- Assignment's [`operators.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/operators.py) was checked to distinguish its assignment-operation registry from comparison operators.
+- [PR #412](https://github.com/Sendipad/flexirule/pull/412) is the primary PR and original review history. Its current report path is `reports/condition-comparison-architectural-audit.md`; this consolidated document replaces the original contents at that path.
+- Original PR #412 audit commits included [`4c450476`](https://github.com/Sendipad/flexirule/commit/4c450476570eeabb2a85e9d77f28dd94772c740e) (“docs: add condition comparison architecture audit”) and [`44f42cad`](https://github.com/Sendipad/flexirule/commit/44f42cadf11ee525cfa1219a5701a463d4288e16) (report formatting).
+- The new canonical-architecture analysis was reviewed and its source-verified conclusions are consolidated here rather than maintained as a second report file.
+- Findings retained from both audits include incorrect `like` behavior; permissive unknown/malformed-condition handling; separate compiler/evaluator semantics; reference and alias construction risks; operand normalization and frontend contract drift; Frappe 16 verification gaps; and the corrected mixed-operator precedence finding.
 
-### Supported environment evidence
+### 2.3 PR #413 report and history
 
-| Source | Observed evidence | Audit implication |
-|---|---|---|
-| `pyproject.toml` | Python `>=3.10`, Ruff target Python 3.10; Frappe dependency is bench-managed | Use Python 3.10 as the minimum baseline; Frappe version is not pinned as a standalone package dependency here |
-| `.github/workflows/ci.yml` | Checkout of `frappe/frappe` ref `version-15`, Python 3.10, Node 18; server job labelled “Frappe 15” | Frappe 15 is the verified CI target; this is not a v15/v16 condition-evaluator matrix |
-| README / product positioning | Describes the application as Frappe v15+ | Treat v16 as a claimed support target that needs explicit verification, not as proven by v15 CI |
-| Frappe v15 source | `frappe.safe_eval` normalizes source, validates syntax, uses restricted compilation and restricted globals/attribute access | Good execution boundary, but not a substitute for a condition-language schema or operator allowlist |
-| Frappe v16 source | `frappe.safe_eval` still exists, but source compiles through a different helper path; guard behavior is similar at the inspected entry points | Do not depend on undocumented internals; run behavior-level tests against both branches if both are supported |
+- [PR #413](https://github.com/Sendipad/flexirule/pull/413), head `be2c42b8a7e299dd8b5991216d52d9430400115c`, adds only `reports/condition_comparison_architectural_audit.md` (286 lines).
+- Commit: [`be2c42b8`](https://github.com/Sendipad/flexirule/commit/be2c42b8a7e299dd8b5991216d52d9430400115c) (“docs: add architectural audit report for condition comparison system”).
+- Valid findings include duplicate condition semantics, null/boolean normalization issues, and UI fallback operator duplication. Its proposed direction is to make `ConditionCompiler` the sole transformation engine and route CollectionResolver evaluation through it.
+- Its report header says “February 2025”, although the report commit and PR were created on 2026-10-17. Treat that report date and any claimed execution environment as unverified provenance.
+- It claims that `test_compiler`, `test_evaluator`, `test_engine`, and `bench build` passed in `/home/jules/frappe-bench`. Those local results were not reproduced by this audit, and no associated console transcript or artifact was attached in the report.
 
-The latest observed [CI run](https://github.com/Sendipad/flexirule/actions/runs/38956561512) on SHA `65c7372be0fe80261609fc122d153c3bb41d5199` completed successfully. The Frontend and Server (Frappe 15) jobs succeeded; the separate “Nested-set integration (Frappe 16)” job was skipped. This result does not test every condition scenario in this report and does not constitute v16 condition-engine verification.
+Both PRs target `develop` at the same audited base SHA and remain open/unmerged. Neither has submitted reviews or inline review threads. PR #412 has no issue comments; PR #413 has one unrelated automated Jules greeting, not a substantive architecture discussion. The GitHub Actions runs for both report-only heads show CI and linter workflows succeeded; that validates the report-only branches against their workflows, not the proposed architecture.
 
-## 3. Current architecture
+### 2.4 Section-numbering clarification
+
+The two reports do **not** have equivalent Section 4 content. PR #412 Section 4 is an operator inventory/semantic matrix. PR #413 Section 4 is an end-to-end lifecycle stage map; its operator inventory is Section 5. The matrix below therefore compares the substantive claims from those sections and their linked recommendations, rather than treating the section numbers as equivalent.
+
+## 3. Disagreement matrix: source-verified resolutions
+
+“Verified” means the behavior is supported by the pinned source. “Partially correct” means a report identified a real concern but overstated or misdiagnosed it. Security-hardening concerns are distinguished from a proven exploit.
+
+| Topic | Competing claims / recommendations | Source evidence and actual behavior | Verdict and decision |
+|---|---|---|---|
+| **Canonical architecture** | PR #412 favors a strict condition domain model / structured plan; PR #413 favors the current `ConditionCompiler` as the one compiler, then shares its output. | `ConditionCompiler` builds Python strings from a declarative tree and relies on `validate()` plus runtime `frappe.safe_eval`; `ConditionEvaluator` separately dispatches operators. See [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L131-L180), [evaluator.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/evaluator.py#L18-L36). | **Select PR #412’s architectural direction.** Unifying through the present source-string compiler would centralize but preserve fallback-to-equality, raw string generation and Python-precedence behavior. Build a structured plan and one semantic engine instead. |
+| **“Previous node” logical-operator bug** | PR #413 says reading `prev_node.get("logical_operator")` is a bug and recommends the current node or the group default. | `compiler.py` explicitly documents that in FlexiRule each condition’s `logical_operator` joins that condition to the **next** condition. `ConditionEvaluator._evaluate_group` also sets `current_operator` from the just-evaluated condition for the next iteration. See [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L182-L216), [evaluator.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/evaluator.py#L64-L104). | **The specific bug claim is incorrect.** Keep the “operator on this item joins to the next item” contract unless product/UI evidence changes it. However, a real mismatch exists: the compiler emits e.g. `A or B and C`, whose Python precedence is `A or (B and C)`; the JSON evaluator folds left-to-right as `(A or B) and C`. For A=True, B=False, C=False these can differ. Fix by encoding the agreed semantics explicitly in the plan and tests, not by blindly switching to `sub`. |
+| **`like` and `not like`** | PR #412 flags both as visible “contains” operators that compile to equality; PR #413 concentrates on evaluator unification and does not elevate this to a finding. | `FIELDTYPE_OPERATORS` exposes `like`/`not like`, and labels map them to “contains”; `OPERATOR_MAP` lacks both tokens, while `_compile_condition` uses `self.OPERATOR_MAP.get(op, "==")`. Explicit substring branches are for `contains`/`not_contains`. See [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L18-L80) and [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L218-L290). | **PR #412 is correct.** This is a user-visible correctness bug. Decide whether these are literal substring aliases or a distinct SQL-like pattern operator. Do not silently change existing saved rules: inventory them and apply an explicit compatibility/migration policy. |
+| **Unknown operators and aliases** | PR #412 recommends rejecting unsupported tokens; PR #413 recommends synchronizing compiler and evaluator capabilities. | Compiler’s unknown-token default is equality. The evaluator recognizes `not_in`, while compiler `OPERATOR_MAP` contains `not in` but not `not_in`; `not_in` therefore normally compiles as equality except the Link-tuple special case. The evaluator also has `regex`, which the compiler does not implement as a normal comparison. See [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L218-L290), [evaluator.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/evaluator.py#L18-L36). | **Both identify drift; PR #412’s strict rejection is the safer rule.** Normalize only an explicit, versioned alias set. All other tokens must produce validation errors, never equality. |
+| **Malformed node / empty condition pass-through** | PR #412 identifies permissive malformed conditions; PR #413 assumes compiler syntax validation is sufficient and recommends retaining that pipeline. | `_compile_node` returns `""` for an unrecognized node; `_compile_group` skips empty compiled children; top-level `compile` returns `"True"` if the node compiles to an empty string. Empty inputs can also return `""`, and ConditionHandler treats a missing expression as a pass. Tree shape is not checked against a full condition schema. See [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L131-L180), [condition.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/action_handlers/condition.py#L62-L97). | **PR #412 is correct. P0.** Reject malformed tree nodes and invalid empty groups at server validation. Keep “no condition configured” as an explicit, contextual state; never obtain a passing condition through failed compilation. |
+| **Null, empty-string, booleans, and types** | Both reports identify `None → ''`; PR #413 further notes `True/False → 1/0`. | `_compile_operand_value` rewrites `None` to `''`, `True` to `1`, and `False` to `0`; the JSON evaluator retains values and uses Python operators. The compiler helper `is_empty_value` additionally treats whitespace-only strings and empty containers as empty, while `is_set` checks only `None` and `''`. See [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L380-L430) and [engine.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/engine.py#L755-L868). | **Both are correct.** Keep literal null distinct from empty string and boolean distinct from integer in the condition plan. Define a deliberate Fieldtype normalization policy and separate semantics for `is_set` and `is_empty`. Do not rely on incidental Python coercion. |
+| **Generated reference strings / AST “safety”** | PR #412 calls for hardening raw field-reference interpolation; PR #413 characterizes the AST + `safe_eval` boundary as robust. | `_resolve_ref` interpolates path segments into single-quoted Python source; collection `alias` is placed directly into a generated comprehension. FlexiRule’s `SafeEvalVisitor` blocks dunder names/attributes and import nodes, but is not a condition-tree schema validator or a complete allowlist of generated syntax. Frappe `safe_eval` adds RestrictedPython compilation, empty builtins, and whitelisted globals; that is valuable, but does not validate business meaning or make raw reference interpolation a sound design. See [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L328-L509), [permissions.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/permissions.py#L245-L291), and Frappe v15/v16 [safe_exec.py](https://github.com/frappe/frappe/blob/version-15/frappe/utils/safe_exec.py#L132-L149) / [safe_exec.py](https://github.com/frappe/frappe/blob/version-16/frappe/utils/safe_exec.py#L136-L149). | **PR #412 is directionally correct; PR #413 overstates what its validation proves.** No arbitrary-code exploit was demonstrated here. Remove field-path and alias source generation for normal conditions. Validate path tokens, scope, field metadata and aliases before runtime; retain Frappe restricted evaluation only for explicitly designed expression features. |
+| **Collection predicates and operator context** | PR #412 recommends one shared comparator; PR #413 recommends making CollectionResolver use compiler output and supplying common helpers. | Rule actions execute compiled expressions via `RuleEngine._evaluate_python_condition`; `CollectionResolver` creates a `ConditionEvaluator` and passes each row via `evaluate(doc, row=r)`. A simple compiler substitution does not automatically preserve the parent document + row alias model. Compiler collection logic defaults unknown collection `op` to `any`, and a missing/invalid `where` can compile to `True`; evaluator returns False for invalid non-list collection values and True for a missing `where`. See [value_resolver.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/value_resolver.py#L475-L590), [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L292-L326), and [evaluator.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/evaluator.py#L64-L180). | **Keep the unification goal; reject a mechanical “compile instead” migration.** A single plan evaluator must explicitly model parent, row, aliases, empty sets, and error semantics. Unknown collection operations and malformed `where` trees must fail validation. |
+| **Link / Dynamic Link semantics** | PR #412 notes the DocType in Link tuples is not validated; PR #413 treats Link tuple helpers as reusable semantics. | `check_link_match` documents that `rhs[0]` is included but not validated; it compares only `rhs[1]`. Thus two records with the same key but different DocTypes may compare equal if the same helper is used. See [evaluator.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/evaluator.py#L280-L315). | **PR #412 is correct.** Validate the tuple’s DocType against the Link/Dynamic Link field metadata and make key normalization explicit. Do not collapse Link identity to a value string without a documented contract. |
+| **Regex support / cost** | PR #412 identifies `regex` as evaluator-only with no resource policy; PR #413 does not list it as a primary finding. | The tree evaluator calls Python `re.search`; normal compiler operator handling does not expose matching semantics for `regex`. Python’s standard `re` API here has no per-match timeout. See [evaluator.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/evaluator.py#L18-L36). | **PR #412 is correct.** Do not advertise `regex` as generally supported until a resource-safety and pattern-policy decision is implemented. Otherwise reject/deprecate it consistently. |
+| **Frontend and payload contract** | Both reports flag operator arrays and UI/backend drift; PR #413 recommends removing frontend fallbacks because the API is the single source. | `get_operator_config` returns compiler metadata; `SimpleCondition.vue` nevertheless retains `DEFAULT_OPERATORS` and `DEFAULT_LABELS` fallback lists. The frontend validator primarily checks tree shape and required values; backend Condition validation primarily checks payload/compiled-expression presence, not complete operator/fieldtype validity. JS recognizes an array as a condition payload, while `ConditionBuilder.normalizeModel` expects an object with `op` and `conditions`; hydrating a legacy root array can therefore render as an empty group. See [api.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/api.py#L619-L629), [SimpleCondition.vue](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/public/js/flexirule/rule_builder/components/condition_builder/SimpleCondition.vue#L68-L119), [condition_validator.js](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/public/js/flexirule/rule_builder/components/condition_builder/condition_validator.js#L5-L104), and [ConditionBuilder.vue](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/public/js/flexirule/rule_builder/components/condition_builder/ConditionBuilder.vue#L24-L120). | **Both identify real drift.** Publish operator metadata from the canonical backend definition and use frontend validation for UX only. Normalize legacy list payloads into the canonical group before the UI receives them; add load-edit-save round-trip tests. |
+| **Frappe v15/v16 claim** | PR #412 says full v16 condition compatibility is unestablished; PR #413 labels the code forward-compatible with v16. | Both version branches expose `frappe.safe_eval` and use RestrictedPython, but internal compilation paths differ slightly (`compile_restricted` directly in v15 versus `_compile_code` helper in v16). The repository workflow has a Frappe 15 server job; its separate Frappe 16 job is a nested-set integration job and was skipped in the baseline run. See [CI workflow](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/.github/workflows/ci.yml#L82-L105) and [Frappe 16 workflow setup](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/.github/workflows/ci.yml#L281-L310). | **PR #412 is correct.** The presence of `safe_eval` in both branches is not proof of condition-engine compatibility. Add the same semantic tests on every officially supported Frappe branch. |
+| **Tests cited by PR #413** | PR #413 reports 27 compiler, 22 evaluator, 5 engine tests plus frontend build as passed; PR #412 says it did not run direct tests. | This audit did not independently execute a Frappe/bench test command. GitHub Actions for the baseline `develop` SHA shows a successful CI run with Frontend and Server (Frappe 15) jobs succeeded; server log says `Ran 581 tests in 19.063s`. The “Nested-set integration (Frappe 16)” job was skipped. | **Baseline CI pass is verified; PR #413’s local test transcript is unverified here.** Report the known CI result accurately and do not imply that these architecture edge cases are covered by the 581 tests. |
+
+## 4. Current architecture and end-to-end lifecycle
+
+### 4.1 Architecture map
 
 ```mermaid
 flowchart TD
-    A["User configures condition"] --> B["ConditionStep / ConditionBuilder"]
-    B --> C["SimpleCondition / CollectionUI"]
-    C --> D["useMetaStore: DocType / DocField metadata"]
-    C --> E["get_operator_config API"]
-    E --> F["ConditionCompiler operator/type metadata"]
-    B --> G["JS structural validation"]
-    B --> H["Serialize to action.config or trigger_condition"]
+  A[ConditionStep / ConditionBuilder] --> B[Vue tree state]
+  B --> C[Frontend structural validator]
+  B --> D[Config JSON or trigger_condition]
+  C --> D
+  D --> E[Rule.validate]
+  E --> F[ConditionCompiler.compile]
+  F --> G[Generated Python expression]
+  G --> H[ConditionCompiler.validate / SafeEvalVisitor]
+  H --> I[Persist compiled_expression]
+  I --> J[ConditionHandler or trigger gate]
+  J --> K[RuleEngine runtime locals]
+  K --> L[frappe.safe_eval]
+  L --> M[Boolean branch result]
 
-    H --> I["Rule.validate()"]
-    I --> J["get_condition_payload()"]
-    J --> K["ConditionCompiler.compile()"]
-    K --> L["Generated Python expression string"]
-    L --> M["ConditionCompiler.validate + SafeEvalVisitor"]
-    M --> N["Persist Rule/RuleAction.compiled_expression"]
-    N --> O["ConditionHandler / trigger eligibility"]
-    O --> P["RuleEngine._evaluate_python_condition"]
-    P --> Q["runtime_eval -> frappe.safe_eval"]
-    Q --> R["safe locals + helper functions"]
-    R --> S["Boolean result and next edge"]
+  D --> N[CollectionResolver]
+  N --> O[ConditionEvaluator JSON tree walk]
+  O --> P[Separate operator map / FieldResolver]
+  P --> Q[Filter / any / all / count / aggregation]
 
-    H --> T["CollectionResolver condition"]
-    T --> U["ConditionEvaluator JSON path"]
-    U --> V["FieldResolver + second operator map"]
-    V --> W["Filter / count / any / all / aggregation"]
-
-    I -. "Rule artifact copies compiled fields" .-> X["compile_service compiled artifact/cache"]
+  R[API get_operator_config] --> A
+  R --> F
 ```
 
-### Lifecycle table
+### 4.2 Lifecycle by source
 
-| Stage | Implementation and data form | Current behavior / concern |
+1. **Configure and hydrate.** `ConditionStep.vue` hydrates condition payload into a Vue model and adds temporary IDs for reactivity. The same component strips IDs before saving; entry conditions go to `trigger_condition`, while a Condition action stores configuration in `config` and clears the legacy `condition_json` field. ([ConditionStep.vue](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/public/js/flexirule/rule_builder/components/rule_config/types/ConditionStep.vue#L60-L170))
+2. **Metadata and operator controls.** The API returns `ConditionCompiler.FIELDTYPE_OPERATORS` and `OPERATOR_LABELS`. The UI uses Frappe field metadata but also has local operator fallbacks. ([api.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/api.py#L619-L629), [SimpleCondition.vue](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/public/js/flexirule/rule_builder/components/condition_builder/SimpleCondition.vue#L68-L119))
+3. **Frontend validation.** `validateConditions` checks groups, collections, field reference presence, operators and required values. It is useful for UX but cannot be trusted as server validation because rules can be submitted outside the UI. ([condition_validator.js](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/public/js/flexirule/rule_builder/components/condition_builder/condition_validator.js#L5-L104))
+4. **Server save lifecycle.** `Rule.validate()` calls `compile_conditions()` before `validate_with_service()`. Compilation runs for the trigger condition and each Condition action; payloads are normalized back into `config` for legacy-field migration. ([rule.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/doctype/rule/rule.py#L117-L170), [rule.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/doctype/rule/rule.py#L1283-L1346))
+5. **Compile and validate.** `ConditionCompiler.compile` converts the tree into source code. `validate` checks syntax and calls `validate_safe_eval`, but does not verify the full tree schema, operator allowlist, operand arity, or fieldtype applicability. The result can still be semantically wrong while syntactically valid. ([compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L131-L180), [compiler.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/compiler.py#L328-L378))
+6. **Normal runtime path.** ConditionHandler reads the persisted `compiled_expression`; RuleEngine supplies `doc`, `old_doc`, `vars`, row-related helpers and Frappe metadata helpers; `eval_condition_bool` evaluates through `frappe.safe_eval`. Most runtime exceptions become the default false result, but `NameError` is re-raised. ([condition.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/action_handlers/condition.py#L62-L97), [engine.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/engine.py#L755-L868), [runtime_eval.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/runtime_eval.py#L48-L74))
+7. **Alternate resolver path.** CollectionResolver uses the JSON `ConditionEvaluator` with an explicit row. It has a separate operator map, value resolution and error handling. Unifying this path requires the canonical runtime plan to model row aliases and the parent document; simply calling the existing compiler string is not semantically equivalent. ([value_resolver.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/value_resolver.py#L475-L590), [evaluator.py](https://github.com/Sendipad/flexirule/blob/65c7372be0fe80261609fc122d153c3bb41d5199/flexirule/ruleflow/core/evaluator.py#L64-L180))
+
+## 5. Frappe and Python API findings
+
+### 5.1 `frappe.safe_eval`
+
+The inspected Frappe v15 implementation normalizes source, validates syntax, empties `__builtins__`, adds a whitelist of safe-eval globals, compiles with RestrictedPython, and evaluates against explicit globals/locals ([Frappe v15 source](https://github.com/frappe/frappe/blob/version-15/frappe/utils/safe_exec.py#L132-L149)). Frappe v16 retains the public `safe_eval(code, eval_globals, eval_locals)` entry point with a helper for restricted compilation ([Frappe v16 source](https://github.com/frappe/frappe/blob/version-16/frappe/utils/safe_exec.py#L132-L159)).
+
+**Architecture implication:** retain this boundary for a separate formula/resolver expression feature where required. It is not a condition schema, operator registry, type system, or guarantee that an arbitrary generated expression has the intended business meaning. FlexiRule’s AST visitor specifically blocks dunder access and import nodes; it does not substitute for strict condition validation. The concern in this audit is unsound source generation and inconsistent semantics, not a claim of demonstrated arbitrary OS-level execution.
+
+### 5.2 Metadata and field handling
+
+The current engine already uses public Frappe metadata APIs: `frappe.get_meta(doctype)`, `meta.is_submittable`, and `meta.has_field(fieldname)`. Reuse these for the server validator’s fieldtype/options/context checks. Resolve runtime values from the actual evaluation context; do not replace in-memory comparison with SQL filters because conditions may observe unsaved `doc` state, `old_doc`, `vars`, and child rows. The query/filter engine is not a drop-in evaluator for these objects.
+
+### 5.3 Frappe compatibility evidence
+
+Repository `pyproject.toml` sets Python `>=3.10`. The baseline workflow’s server job checks out Frappe `version-15` on Python 3.10; a distinct Frappe 16 workflow job is limited to nested-set integration and was skipped in the baseline run. This is **not** a Frappe 15/16 condition-engine matrix. If v16 remains a supported target, execute semantic tests for the condition engine against both versions before claiming compatibility.
+
+### 5.4 Transactions, permissions, and failure handling
+
+The comparator should be pure: no writes, commits, or hidden mutations while testing a predicate. Any external read/metadata access belongs behind explicit, permission-reviewed adapters rather than implicit generated source. Save-time configuration errors should raise actionable validation errors. Runtime evaluation errors must be logged and surfaced distinctly from a legitimate `False` result; silently selecting the false branch and continuing can disguise a bad rule as a business decision. The product must choose a consistent rule-execution policy for runtime errors (fail the current rule/run or apply an explicit fail-closed policy), rather than relying on broad exception handlers in two engines.
+
+## 6. Supported semantics: current behavior versus target contract
+
+This table deliberately separates what the code **currently does** from the behavior recommended for the canonical design.
+
+| Feature | Current source behavior / discrepancy | Canonical contract decision |
 |---|---|---|
-| 1. Configure DocType, field, operator, value | ConditionStep.vue → ConditionBuilder.vue → SimpleCondition.vue | Operands use a reference such as `doc.status`; values can be static, Link tuples, variables, or structured FlexValue payloads. The visible UI is not itself a server trust boundary. |
-| 2. Discover field metadata/operators | useMetaStore.js; ConditionBuilder loads `get_operator_config` from api.py; values draw from Frappe DocField metadata | Field metadata reuse is sensible. Backend operator metadata is authored in ConditionCompiler, but the frontend also has defaults and operator labels. |
-| 3. Frontend validation/transform | condition_validator.js; SimpleCondition.vue's wrapped value and watcher logic | Validates presence/shape, not authoritative operator/type compatibility, type coercion, parser safety, or runtime support. Special Link values are transformed to/from tuples. |
-| 4. Serialize | ConditionStep.vue `save`/`dehydrate`; JS condition_payload.js | Ephemeral UI IDs are removed. Conditions are stored as a direct JSON condition tree in action config or as trigger_condition. JS payload recognition is not identical to Python payload recognition. |
-| 5. Backend validation | Rule.validate → validation_service.validate_rule_definition | The Condition branch checks that a payload or compiled expression exists, but does not fully validate each node/operator/operand against an authoritative schema. |
-| 6. Compile | rule.py `compile_conditions` → condition_payload.py → ConditionCompiler | Normalizes a tree into a Python expression string and calls `ConditionCompiler.validate`. Malformed but parseable config can reach fallback compilation. |
-| 7. Resolve operands | Compiler-generated `doc.get`, `vars.get`, or `resolve(scope, path)`; engine safe locals include FieldResolver.resolve | Runtime values are resolved during execution. The compiler also rewrites literal booleans/null-like values and has special handling for structured operands. |
-| 8. Compare | Generated Python operators/helper calls, or evaluator.py's `OPERATORS` map | There are two independent dispatch paths with different operation sets and error behavior. Unknown compiler operators default to equality. |
-| 9. Propagate logic | Compiled Python `and`/`or` and generator `any/all`; alternate evaluator traverses groups/collections recursively | Nested logic is useful, but empty/malformed structures do not consistently fail closed. |
-| 10. Return result/diagnostics | ConditionHandler selects next action; runtime_eval logs errors and returns default False except NameError is re-raised | Ordinary comparison failures can be converted to False, potentially making an invalid rule look like an ordinary branch decision. Collection evaluator also logs errors and returns False. |
+| Equality / inequality | Python equality in compiled source; `operator.eq/ne` in JSON evaluator. Values are not normalized consistently. | One comparator. Validate/normalize operands by field metadata before comparison. |
+| Numeric and temporal ordering | Native Python `>`, `<`, `>=`, `<=`; incompatible values can throw and then be converted to False in some paths. | Define number precision, `Decimal`/float conversion, date/time parsing, timezone rules, and invalid-input behavior; reject incompatible constants at save time where possible. |
+| `in` / `not in` | Compiler understands `not in`; evaluator also normalizes `not_in`. Evaluator forces false/true for falsy RHS values, while normal Python operations can error for a null or wrong-type RHS. | Canonical `in` and `not_in` aliases; enforce RHS collection/type contract. Preserve empty-list math (`x in []` false, `x not in []` true) but reject null/wrong-shape RHS instead of silently substituting. |
+| `like` / `not like` | Displayed as contains, but compiled to equality. | Make approved aliases to one explicit operator only after inventory and migration policy. Decide literal substring versus wildcard-pattern meaning; never silently reinterpret old conditions. |
+| `contains` / `not_contains` | Compiled with string coercion of LHS if truthy; separate lambdas in the evaluator. RHS isn't normalized centrally. | Explicit case-sensitivity and conversion rules; share one implementation. Decide whether falsy LHS means false/true or whether it is handled through null policy. |
+| `is_set` / `is_not_set` | `None` and `''` count as unset; whitespace-only string counts as set. | Preserve this as a distinct, documented predicate unless the product contract deliberately changes it; test whitespace explicitly. |
+| `is_empty` / `is_not_empty` | Compiled helpers consider `None`, whitespace-only strings, and empty list/tuple/dict/set empty. JSON evaluator lacks these operations. | Define container and whitespace semantics once and use the same comparator in all contexts. |
+| `length_*` | Compiler-only length helper; strips string whitespace before counting and counts containers by `len`. | Decide whether string length trims whitespace. Implement the same helper everywhere and validate RHS as integer. |
+| `is_submittable` / `has_field` | Special compiler helpers; not in the normal fieldtype operator arrays for general fields. | Treat as metadata/context predicates with dedicated schemas, not as general field comparisons. Validate argument types and context. |
+| `regex` | JSON evaluator only, using `re.search`; lacks a cost policy and is not a normal compiler operator. | Disable/reject until a safe pattern/resource policy is chosen; never leave it available in only one execution context. |
+| `is` / `is not` | Present in compiler map but not normal fieldtype UI lists. Identity semantics on serialized business values are unclear. | Do not expose generically. Use equality or explicit null/set predicates unless a narrow identity use case is specified. |
+| `has_changed` | Compiler warns and returns literal `True`; any surviving condition using it passes regardless of field state. | P0: reject on save/activation and provide a migration diagnostic. Do not preserve an unconditional pass as “backward compatibility”. |
+| Link / Dynamic Link | Tuple helper ignores tuple DocType and compares only the target value; identical keys can collide across DocTypes. | Verify Link field options and Dynamic Link target type before comparison; compare canonical identity including the valid target DocType. |
+| Nested groups | Nested group expressions are parenthesized, but mixed logical operators among siblings are emitted as raw `and`/`or` source and inherit Python precedence. JSON evaluator left-folds sibling operators. | Define group operator and sibling-join semantics explicitly, store/construct a plan preserving grouping, and test truth tables. Never depend on host-language precedence accidentally. |
+| `any` / `all` / `none` | Compiled collection conditions use Python `any/all/not any`, default unknown operation to `any`, and replace missing `where` with `True`; evaluator has different invalid collection/error results. | Strictly allow only these tokens, require a valid `where` tree, define empty-list truth values (including vacuous `all([]) = true` if accepted), and distinguish invalid collection from an empty collection. |
+| Unknown/malformed input | Unknown operation becomes equality; bad leaf may compile to no expression; invalid references can resolve to `''`. | Reject with a node-path diagnostic before plan execution. Never map malformed input to a passing Boolean. |
 
-### Where meaning can change
+### 6.1 Null, missing, and falsy values
 
-1. **Operator name:** frontend labels like/not like as contains/not contains, compiler map omits those operator tokens, and the alternate evaluator does not handle them.
-2. **Malformed node:** a dict without a recognized node shape can become an empty compile result, then the root compiler returns `True`.
-3. **Value representation:** null becomes an empty string in the compiler; the JSON evaluator can preserve Python `None`. Structured FlexValue values are handled by the compiler, but not equivalently by ConditionEvaluator.
-4. **Link value:** the UI may wrap a static Link RHS as `[DocType, value]`; the comparison helper uses the scalar value and does not verify the DocType element.
-5. **Type:** the field metadata can suggest a numeric/date field, but the comparison engine does not apply a consistent Frappe fieldtype conversion before Python comparison.
-6. **Runtime path:** a normal Condition action uses the compiled expression; CollectionResolver predicates use ConditionEvaluator.
-7. **Failure policy:** compiler output for unknown operation becomes equality; evaluator unknown operation/error becomes False; an empty root compile can become True.
-8. **Context and path:** frontend sanitizes its displayed loop alias but the compiler consumes the raw saved alias; reference paths are inserted into generated source strings.
-9. **Empty semantics:** is_set/is_not_set consider None and empty string; is_empty uses another helper, where whitespace-only strings are empty; zero and False are not empty. These can be sensible choices but need to be canonical, tested, and documented.
+Current `_compile_operand_value` conflates explicit `None` with `''` and maps booleans to integers. This changes comparisons independently of whether a given Frappe field happens to store empty text. The canonical plan should preserve literal type and, where meaningful, distinguish a missing path from an explicit null value. If the product intentionally treats absent fields as null, encode that as an explicit resolution rule—not a side effect of Python string generation.
 
-## 4. Operator inventory and semantic matrix
+Falsy values are not all empty: `0` and `False` must not be treated like `None`, `''`, empty list, or empty mapping by a generic truthiness check. The distinction between `is_set` and `is_empty` must remain explicit unless a versioned business-contract change says otherwise.
+
+### 6.2 Operator registry responsibility
 
-This inventory records the implementation found, rather than implying every token is intentionally supported in every context.
+The registry should be a small immutable definition table, not a plugin framework. Each definition should specify:
 
-| Operator or family | Source of semantics today | Type/UI exposure | Principal gap / recommendation |
-|---|---|---|---|
-| `==`, `!=` | Compiler emits Python equality/inequality; ConditionEvaluator uses `operator.eq/ne` | Offered for most field types; Check limits UI to equality/inequality | No consistent typed coercion. Decide whether comparison is typed by left DocField or strict runtime type, then implement once. |
-| `>`, `<`, `>=`, `<=` | Python native operators in compiled expression; evaluator uses operator functions | Numeric, date/time, duration, rating lists | Numeric strings, Decimal/float, date/date-time, aware/naive values are not normalized consistently. Mismatches may become False rather than a clear configuration error. |
-| `in`, `not in` | Compiler maps `in` and spaced `not in`; evaluator uses `in` and accepts `not_in` via normalization | UI membership controls | Compiler's fallback for `not_in` produces equality; empty-container behavior differs from native Python because evaluator explicitly returns false/true for empty RHS. Specify supported RHS types and empty-list behavior. |
-| `like`, `not like` | UI metadata only labels them “contains” / “not contains”; not correctly mapped in compiler | Offered for Data/text fieldtypes | **Verified defect:** compiler defaults both to equality. Either implement documented contains semantics or reject them; do not silently reinterpret. |
-| `contains`, `not_contains` | Custom source generation and parallel lambdas in evaluator | Compiler supports source generation; central fieldtype lists generally offer like/not like instead | Converts LHS to string, does not normalize RHS, uses LHS truthiness. Keep only one canonical name/implementation and define non-string behavior. |
-| `is_set`, `is_not_set` | Custom predicates in compiler and evaluator | Offered for many scalar/special fields | None and empty string count as unset; whitespace does not. This differs from `is_empty`. Define intended semantics separately and test. |
-| `is_empty`, `is_not_empty` | Compiler helper `is_empty_value`; engine helper at engine.py around lines 813–820 | Offered for default and table fields; hidden RHS in UI | ConditionEvaluator doesn't implement them. Engine semantics treat None, whitespace-only strings, and empty containers as empty; 0 and False are not empty. |
-| `length_eq/gt/gte/lt/lte` | Compiler generates `length_of(lhs)` | Table/Table MultiSelect lists; frontend changes RHS schema to Int | ConditionEvaluator does not implement them. For strings, helper strips whitespace before counting; this is a business choice that needs to be made explicit. |
-| `regex` | ConditionEvaluator only: `re.search(pattern, str(value))` | Not in compiler's operator map or the central visible fieldtype lists | Different execution availability; potentially expensive patterns on long input have no standard-library timeout. Decide whether to support, constrain, or deprecate. |
-| `is_submittable`, `has_field` | Compiler-generated helper calls backed by engine metadata helpers | Labels exist, but not in the visible `FIELDTYPE_OPERATORS` map or its normal field lists | Compiler-only paths must be explicitly represented in validation and UI metadata. Validate argument shape and reject wrong contexts. |
-| `has_changed` | Compiler emits literal `True` and warns at compile time | Legacy compatibility path; not in central visible operator list | This is not a real comparison. It can silently make an old saved condition pass. Require migration/deprecation policy and refuse activation for this operator unless its semantics are restored. |
-| `is`, `is not` | In `OPERATOR_MAP`; emitted as Python identity comparison | Not part of central fieldtype operator mapping | Identity is rarely the business intent for serialized field values. Prefer explicit null/set operators or value equality. Do not expose without defined use cases. |
-| Link/Dynamic Link tuple | Compiler special case calls `check_link_match`; evaluator has similar helper | UI turns a static Link value into a two-element tuple | Helper explicitly treats DocType as informational and compares only the value, so the wrong DocType can match a same-named record. Decide whether DocType identity is part of the contract; use the selected field's metadata for validation. |
-| Check/boolean values | UI limits operators to equality/inequality; compiler maps literal True/False to 1/0 | Frappe Check fields | Server does not enforce RHS is an allowed boolean representation. Clarify accepted inputs (True/False, 1/0, strings) rather than relying on Python equality. |
-| Date/Datetime/Time/Duration | Native Python comparison once operands resolve | Operators exposed by fieldtype lists | No central temporal conversion/time-zone policy. Invalid mixed-type values may throw and become false. Define date/time parsing and aware/naive policy. |
-| Collection Any/All/None | Compiler generates Python `any/all` generator expression; ConditionEvaluator recursively walks lists | CollectionUI exposes any/all/none | Compiler and evaluator differ for non-list iterables, invalid/empty where clauses, aliases and error behavior. One collection plan should call the same predicate comparator. |
-| Nested AND/OR | Compiler emits Python logical expressions; evaluator walks recursively | Root/group toggles in frontend | No explicit negation node. Sequential join behavior must be specified and tested. Empty groups currently tend to pass regardless of AND/OR intent. |
-| Unknown operator | Compiler: `OPERATOR_MAP.get(op, "==")`; evaluator logs and returns False | Frontend values are not guaranteed to be validated by server | **Verified unsafe fallback:** reject unsupported tokens with a path-specific validation error. Never substitute equality or a success result. |
+- canonical token, label key and approved legacy aliases;
+- unary/binary arity and permitted operand shape;
+- valid fieldtype families and any DocType metadata preconditions;
+- the comparison/metadata predicate implementation;
+- type-normalization, null/empty and error policy;
+- support status and deprecation/migration message.
 
-### Canonical operator design
+The API should expose a UI-safe DTO derived from that definition. Frontend display grouping and order may remain presentation concerns; operator meaning and server enforcement must not be duplicated in Vue fallback arrays.
 
-A canonical operator definition does not need to be a general-purpose registry framework. A small immutable definition table or explicit mapping can carry:
+## 7. Condition Compactor design and semantic-equivalence rules
+
+The safest first compactor is a **canonical serializer and validated plan normalizer**, not a Boolean algebra optimizer. The current payload is declarative JSON and the compiler’s output is derived. Compaction should not alter business decisions or error visibility.
 
-- Canonical token and label/translation key.
-- Whether the RHS is required and its expected operand shape.
-- Supported fieldtype families and any required metadata/options.
-- Pure comparison function or operation enum.
-- Null/empty and type-conversion policy identifiers.
-- Optional aliases for existing saved payloads, with explicit deprecation warnings.
+### 7.1 Safe first-stage compaction
 
-The compiler, server validator, collection resolver and frontend DTO should use the same definitions where practicable. Keep frontend-only display grouping/order separate from comparator semantics. Avoid having labels define behavior, and avoid asking the frontend to be the security validator.
+1. Normalize only schema-approved legacy payload shapes into one canonical root group.
+2. Normalize known operator aliases only through an explicit, versioned alias table after impact analysis. Do not reinterpret `like` as substring silently because current runtime has equality behavior and users may have compensated for it.
+3. Strip UI-only IDs; canonicalize only JSON structure/order where ordering is non-semantic by contract.
+4. Normalize simple wrapper nodes only when equivalent behavior is proven: no per-sibling logical operator, error boundary, row-scope, or empty-group behavior may be lost.
+5. Build and cache a derived plan keyed by normalized configuration and semantic version, but invalidate/rebuild it when configuration or operator semantics change. Keep cache work behind evidence that it has real consumers and a measured benefit.
 
-## 5. Reuse opportunities: Python, Frappe, and existing FlexiRule code
+### 7.2 Rewrites that must not be applied casually
 
-### Frappe metadata and field handling — reuse
+- **Do not reorder predicates.** Short-circuit ordering changes which resolution errors or diagnostics surface; order can matter even for a Boolean result that otherwise appears commutative.
+- **Do not merge `A or B and C` into another grouping by assumption.** First define the exact current/UI contract and encode it structurally.
+- **Do not collapse null into empty string**, or booleans into integers, to make string expressions shorter.
+- **Do not remove duplicate predicates** until predicate evaluation is pure/total by contract and tests prove that duplicate evaluation has no visible effect on errors or diagnostics.
+- **Do not flatten groups with different operators**, group-local behavior, or differing row aliases.
+- **Do not simplify an empty group to True** merely because a compiler currently does so. Empty configuration and a valid logical identity (`AND` identity True, `OR` identity False) are different schema states; validate intent explicitly.
+- **Do not turn a failed comparison or invalid path into False/True without a diagnostic.** A runtime error and a legitimate false predicate are distinct results.
+
+Any later algebraic compaction should be implemented over typed condition-plan nodes with narrowly defined rewrite rules and property/differential tests against the canonical evaluator. Do not build source-to-source Python rewrites.
+
+### 7.3 Error contract
+
+- Invalid JSON/schema/operator/path/operand: reject save or activation with a precise path such as `conditions[2].right`.
+- Valid predicate returning false: normal false branch.
+- Runtime resolution or comparator failure: typed evaluation error and durable diagnostic; abort or follow an explicit configured failure policy. Never let a broad exception handler silently turn every error into an ordinary false branch.
+- Missing/unconfigured condition: an explicit action/trigger contract state, not an accidental consequence of an empty compiled expression.
 
-Frappe's public `frappe.get_meta(doctype)` and DocField metadata provide fieldtype, options, Link target DocType, child-table target DocType, and other field properties. FlexiRule already reuses this through the metadata store in `useMetaStore.js` and through backend helpers. Extend this capability to server-side condition validation; do not invent a second DocField catalogue.
+## 8. Additional source-verified defects and risks
 
-This satisfies field discovery and type/relationship validation. It does **not** define FlexiRule's comparison semantics, value resolver language, or nested collection operators. The authoritative server must still resolve and validate field paths (including aliases and child-table scope) from metadata.
+1. **`has_changed` is hard-coded to pass.** `ConditionCompiler._compile_condition` warns that the operator is deprecated but returns `"True"`. A stale rule can therefore pass regardless of field changes. Reject and inventory these saved configurations before activation; do not silently preserve the behavior.
+2. **Field references can alter generated grammar.** `_resolve_ref` interpolates a field name or nested subpath inside single quotes instead of validating tokens and binding data separately. Collection aliases are inserted as Python identifiers without an identifier/schema check. This creates malformed-source and semantic-manipulation risks. This audit did not demonstrate arbitrary code execution.
+3. **Invalid scopes/operands degrade to `''`.** Unknown scopes and absent `ref`/`value` operands can compile to an empty-string literal. That is too permissive for a rule that controls business flow.
+4. **Collection operation and `where` validation are incomplete.** Unknown collection op defaults to `any`; a malformed `where` can default to `True`. Valid empty-list behavior must not be confused with invalid condition shape.
+5. **Link comparison discards target DocType.** Fixing only the compiler/evaluator parity will preserve this defect unless the canonical comparator checks field metadata and the Link target.
+6. **Legacy root arrays can be lost in frontend editing.** The payload helper recognizes an array as a condition payload and `ConditionStep` can hydrate it as an array, but `ConditionBuilder.normalizeModel` only reads object properties `op` and `conditions`. The UI expects a root group object. Normalize root arrays before the component boundary and test load → edit → save.
+7. **Frontend value state may outlive operator/field changes.** `SimpleCondition.vue` initializes a missing RHS on change but does not establish an authoritative server-enforced operand type policy. Changing field type/operator can leave a stale RHS shape. Server validation must be decisive.
+8. **Failure handling is ambiguous.** The compiled path rethrows `NameError` but returns a default false for many other exceptions; the tree evaluator logs broad exceptions and returns false. Branches can mistake a broken condition for a legitimate no-match.
+9. **Existing tests are not a semantic parity suite.** The test modules exercise both engines, but the architecture includes no demonstrated comprehensive differential suite that compares action/trigger and collection resolver semantics across all operators, null/missing values, mixed AND/OR, and failures.
+10. **Assignment operations are a separate domain.** `core/operators.py` defines assignment transformations such as set/clear/increment/append/toggle. These are not comparison predicates. Do not merge assignment operations with the condition comparison registry; share only genuinely generic type/metadata helpers.
 
-### Frappe's in-memory filter comparator — reuse selectively
+## 9. What to retain, reject, and correct from the reports
 
-Frappe v15's `frappe.utils.data.compare(val1, condition, val2, fieldtype=None)` is an existing in-memory helper used by `evaluate_filters`. The source around [Frappe v15 data.py](https://github.com/frappe/frappe/blob/version-15/frappe/utils/data.py#L1874-L1935) shows operator dispatch and fieldtype-aware casting, including special branches for `is`, `in/not in`, `between`, and Datetime bounds. This is direct evidence that FlexiRule need not invent every numeric/date conversion primitive.
+### Retain from PR #412
 
-Best option: **evaluate and selectively adapt/reuse the conversion behavior**, with tests for the exact public interface in both target versions. It can reduce custom casting for ordinary field-value comparisons. It does not automatically satisfy FlexiRule's full requirements: structured Link operands, flexible resolver values, child collection predicates, business-specific empty semantics, regex policy, helper operators, and condition-specific diagnostics. Its database-filter-style operator spellings and casting behavior should not silently become FlexiRule's public contract.
+- Structured plan and one semantic layer as the architectural target.
+- Reject-on-invalid behavior rather than unknown-to-equality or empty-to-pass behavior.
+- Explicit semantics for values, Link types, collection edges, regex cost, and runtime diagnostics.
+- Frappe metadata reuse without replacing in-memory evaluation with SQL.
+- Migration inventory and differential test plan before changing existing saved-rule semantics.
 
-### Frappe filter/query facilities — do not replace in-memory evaluation
+### Retain from PR #413
 
-`frappe.get_list`, `frappe.get_all`, `frappe.qb`, and `frappe.get_query` serve data retrieval/filtering, not a universal in-memory business-condition DSL. Query filters can be useful inside Query Records/Fetch Records, but aren't interchangeable with an evaluator for an already-loaded document or child row.
+- The end-to-end lifecycle summary: front-end JSON, save-time compilation, action runtime, and the separate CollectionResolver tree-evaluation path.
+- The correct observations about `None`/boolean coercion and UI fallback duplication.
+- The objective of one reusable operator definition and one evaluator path.
+- The existing engine helpers and Frappe metadata should be reused when the desired business semantics match and context is explicit.
 
-Differences include SQL NULL behavior, database collation and case sensitivity, LIKE wildcard matching, data coercion, query permission policy, and whether a filter executes against a current in-memory value versus a database snapshot. In particular, `get_list` is permission-aware while `get_all` bypasses permissions. Do not move normal conditions to SQL merely to reuse database filter operators.
+### Reject or correct
 
-### Python standard library — reuse for elementary operators and types
+- Reject PR #413’s claim that reading `prev_node.logical_operator` is itself the logical-joining bug. The code explicitly defines it as the operator joining with the next sibling. Correct the real defect: the compiler’s Python precedence and evaluator’s left-fold precedence differ for mixed sibling operators.
+- Reject PR #413’s proposal to make the present generated-Python compiler the canonical condition engine without first fixing its permissive fallbacks and generated-source design. Do not mechanically feed compiler strings into collection rows; that path needs explicit parent/row/alias semantics.
+- Correct PR #412’s operator matrix wherever it implies all non-empty RHS values use a meaningful, stable native comparison: coercion and error behavior are not fully defined. For example, the difference for `in`/ `not in` is primarily invalid/falsy RHS handling; an empty list itself follows the expected false/true membership truth values in both paths.
+- Reject any recommendation to treat a green test suite or presence of Frappe’s `safe_eval` as proof of semantic or complete sandbox correctness.
+- Do not merge the assignment-operation system into comparison operators.
+- Do not introduce a broad extension/plugin registry. A small explicit definition table is sufficient.
 
-- Python's `operator` module already supports basic comparison functions and is used by ConditionEvaluator. Keep basic equality/order dispatch simple.
-- `datetime.date`, `datetime.datetime`, `datetime.time`, and `decimal.Decimal` are adequate primitives, provided FlexiRule defines parsing and type normalization before comparison.
-- Python's `re` is available but does not provide a general per-match execution timeout in its standard API. A size limit alone does not prevent every pathological regular expression. Either limit the regex feature and inputs, adopt a safe/limited pattern implementation if needed, or remove it from rule conditions.
-- Python collections and type-checking are sufficient; no additional expression-engine dependency has been demonstrated as necessary.
+## 10. Prioritized implementation plan
 
-### Frappe safe evaluation — retain as boundary, not as the domain engine
+### P0 — Validate before execution and close fail-open cases
 
-Source inspection of Frappe v15's `frappe/utils/safe_exec.py` shows that `safe_eval` validates syntax, removes builtins, uses restricted compilation and guarded attribute access. Frappe v16 has the corresponding public entry point, with a different internal compile helper in the inspected source. FlexiRule's `runtime_eval.py` correctly uses `frappe.safe_eval` rather than direct unrestricted `eval`.
+1. Introduce a server-side condition schema validator that rejects unknown node shapes, invalid operators, missing required operands, invalid logical ops, malformed groups, bad collection ops/`where`, invalid scopes, and invalid aliases/field references.
+2. Remove unknown-operator-to-equality, invalid-reference-to-empty-string, malformed-node-skipping, and compile-empty-to-True fallbacks. Return actionable validation errors.
+3. Replace raw field-name and nested-path string interpolation with validated path tokens resolved at runtime. If generated Python remains for separate expression features, quote all data safely and keep the expression grammar distinct.
+4. Reject `has_changed` during save/activation and report affected rules for migration.
+5. Separate valid empty/missing configuration from compiled output; an empty source string must not be a condition result.
 
-However, safe evaluation does not define a canonical operator vocabulary or ensure a generated expression accurately represents a selected UI operation. Nor should FlexiRule rely on private RestrictedPython transformation details as its validation contract. Prefer the public API and a narrow FlexiRule AST/plan schema. Keep arbitrary resolver/formula features explicitly separate from ordinary point-and-click conditions.
+### P1 — Lock down canonical semantics and implement the single plan evaluator
 
-### Existing FlexiRule primitives — reuse where semantics agree
+6. Specify the condition-tree schema, including whether sibling `logical_operator` joins the next item and how it associates; retain nested groups for explicit precedence.
+7. Add a versioned operator definition table with arity, operand types, fieldtype applicability, aliases, null/empty semantics, and failure policy.
+8. Implement a normalized plan that preserves value types. Decide missing vs null, empty text vs whitespace, Check-field boolean normalization, numeric precision, dates/times and timezone handling, Link/Dynamic Link target identity, membership RHS shape and collection empty behavior.
+9. Implement one pure comparator/resolver over plan nodes. Route Condition actions, trigger gates and CollectionResolver predicates through it. Preserve row alias and parent-document scopes as first-class context.
+10. Make runtime evaluation errors observable and distinguish them from false conditions. Apply one explicit action/run failure policy.
 
-| Existing implementation | Useful capability | Limitation / recommended boundary |
-|---|---|---|
-| `FieldResolver.resolve` | Document, child-table path, parent reference, and aggregate resolution | Parent resolution can fetch a document; aggregate numeric filtering currently accepts int/float but not Decimal/numeric strings. Validate paths before resolving. |
-| `ValueResolver` / `CollectionResolver` | Existing value resolution, collection iteration, operation set and a 10,000-row execution bound | CollectionResolver currently embeds ConditionEvaluator for filtering. Keep row bounds, but share the same operator semantics and structured value normalization. |
-| `ConditionEvaluator` | Reusable JSON traversal and row predicate path | Its comparison table differs from ConditionCompiler and it turns many invalid runtime comparisons into False. Use it as a migration adapter or refactor its traversal, not as a second comparator. |
-| `ConditionCompiler` | Save-time compilation and Frappe operator metadata endpoint | Current generated source and metadata responsibilities are entangled; unknown tokens default to equality; reference source escaping is fragile. Retain the compile/plan concept, not necessarily source-code generation. |
-| `SafeFrappeAPI` | Intentional read-only facade and restricted data helpers | Includes `get_all`/database `get_all` paths that bypass record permissions. The security policy for condition expressions must be explicit; don't assume restricted Python means permission-filtered data. |
-| `operators.py` AssignmentOperatorRegistry | Metadata-driven assignment operations (set, clear, increment, append, etc.) | Assignment mutates targets and has different validation/idempotence semantics. Do not merge it with comparison definitions just because both use operator terminology. |
-| Frappe `get_meta` and frontend meta store | Central DocField types/options and cached metadata | Strong reuse candidate for field-type checks and picker values; not a replacement for server validation or semantic comparison. |
+### P1 — Semantic regression and compatibility suite
 
-### Complexity assessment
+11. Add truth-table tests for mixed AND/OR sibling logic and nested group combinations. Test exact counterexamples where host-language precedence would differ.
+12. Add table-driven parity tests for every supported operator across Condition action, trigger condition, and CollectionResolver predicates.
+13. Add edge cases for `None`, missing paths, `''`, whitespace, zero, booleans, empty list/tuple/dict, wrong-type RHS, null comparisons, invalid numeric/date values, Link tuple target mismatch, unknown operator, invalid field path, invalid alias, empty group, malformed collection `where`, and exception propagation.
+14. Test that condition and plan normalization preserves order and does not reorder/short-circuit-changing predicates.
 
-Most avoidable complexity is not the number of classes. It is the cost of maintaining **two comparator implementations plus overlapping metadata and normalization contracts**. The highest-value reduction is:
+### P2 — Align frontend and migration
 
-1. One strict condition schema.
-2. One typed operand resolution/normalization path.
-3. One comparison dispatch table for all operators.
-4. Thin compile/evaluate adapters for ordinary rule actions and collection predicates.
-5. One payload shape/alias normalization contract shared by frontend and backend where code sharing is practical.
+15. Normalize legacy root arrays into the canonical group before hydration; test saved payload round trips in Vue.
+16. Generate frontend operator DTOs from the canonical backend definition. Remove stale fallback tables only after the API contract is reliable; keep UI validation for usability but never as the trust boundary.
+17. Build a read-only inventory of saved rules using deprecated aliases, `has_changed`, unknown operators, malformed payloads, stale Link tuples, and expression modes before enabling strict validation.
+18. Establish an explicit migration for `like`/`not like` because current equality behavior and UI “contains” labels contradict one another.
 
-This reduces duplicated semantic branches and enables differential testing without requiring a universal plugin registry.
+### P3 — Measured cleanup and support policy
 
-## 6. Compiler and intermediate representation
+19. Trace all call sites of the compiled artifact/cache before removing it; keep or delete based on actual consumers and benchmarks.
+20. Decide whether `regex`, `is`/`is not`, `is_submittable`, and `has_field` are public supported operators, narrow contextual helpers, or deprecated tokens.
+21. Run the identical focused condition suite against each officially supported Frappe branch (at least v15, and v16 if it remains a claimed target).
+22. Publish the canonical contract and error behavior after acceptance tests pass.
 
-### What compilation currently provides
+## 11. Regression test checklist and acceptance criteria
 
-`ConditionCompiler.compile` transforms a JSON tree into a Python expression string. `Rule.validate` calls `compile_conditions`, which compiles trigger conditions and Condition-action payloads and persists `compiled_expression`. Runtime then evaluates the saved expression through `frappe.safe_eval`. In the ordinary path this avoids rewalking the full JSON node tree for every invocation; that is a real architectural benefit.
+The implementation should not be accepted until:
 
-The current compiler also:
-- Wraps list-shaped legacy conditions in an AND group and accepts double-encoded JSON.
-- Emits helper calls for child paths, collection checks, length and metadata operators.
-- Converts structured FlexValue inputs (static, variable, resolver/formula, expression) into Python expressions.
-- Validates generated expression syntax and invokes FlexiRule's AST safety visitor.
+- [ ] Unknown or malformed inputs fail validation and cannot compile to unconditional True/equality.
+- [ ] No user-configured field path or collection alias is interpolated into condition-language source.
+- [ ] Every canonical operator has a documented, tested operand schema and one implementation.
+- [ ] A given valid tree evaluates equivalently in trigger, Condition action and resolver/row contexts, with context differences explicit in the plan.
+- [ ] Mixed sibling AND/OR behavior is documented and tested; nested precedence is structural and does not depend on Python parsing rules.
+- [ ] Missing, null, empty-string, whitespace, false and zero behavior is explicit and regression-tested.
+- [ ] Numeric/date/time coercion and Link/Dynamic Link target validation are deterministic.
+- [ ] Invalid `where`, unknown collection op, empty collection, and empty `all`/ `any`/ `none` are covered.
+- [ ] Runtime errors cannot be mistaken for an ordinary false decision without a durable diagnostic.
+- [ ] Legacy payloads load-edit-save without losing conditions; migrations and operator aliases are explicit.
+- [ ] The full targeted test suite passes on each officially supported Frappe/Python combination.
 
-### Costs and problems
+## 12. Verification results and limitations
 
-The compiler is also the owner of UI operator labels and fieldtype mappings, while it has no complete backend condition schema validator. It writes source code using user-configured condition references and some raw aliases. Its fallback paths can hide unsupported shapes. Dynamic resolver/expression payloads can insert source expressions, which means the safe-expression grammar is coupled to compilation details.
+### Actual verification performed for this audit
 
-This setup is harder to reason about than a plan containing explicit operations and operands. The compiler and evaluator also do not normalize values identically. Tests that assert exact string output can pass while the intended business operation is not performed: a generated `==` expression can be perfectly syntactically valid and safe to evaluate, yet still be a semantic defect.
+- Fetched both PR reports in full, their metadata, changed-file lists, commits, comments, review submissions and inline review threads.
+- Fetched the `develop` branch reference and pinned the source to SHA `65c7372be0fe80261609fc122d153c3bb41d5199`.
+- Read the relevant frontend, payload, validation, compiler, evaluator, runtime, CollectionResolver, test, CI and project metadata sources at that SHA.
+- Compared the version-matched Frappe v15 and v16 `safe_eval` source.
+- Verified the existing baseline GitHub Actions run [#38956561512](https://github.com/Sendipad/flexirule/actions/runs/38956561512): overall CI succeeded; Frontend succeeded; Server (Frappe 15) succeeded and logged `Ran 581 tests in 19.063s`; the “Nested-set integration (Frappe 16)” job was skipped.
+- Verified that CI and linter workflows on both audit PR heads reported success. PRs only changed Markdown reports.
+- Attempted a shallow local clone to run local verification, but this environment could not resolve `github.com` (DNS/network error). **No local Frappe/bench tests or build command was executed by this audit.** The PR #413 claim of 27 + 22 + 5 unit tests and a successful `bench build` is therefore recorded as an unverified report claim, not this audit’s result.
 
-### Compilation recommendation
+### Limits
 
-**Retain compilation as a transformation, but move toward a validated, structured plan.**
+No live database or stored Rule definitions were available for inventory, so the number of affected saved rules is unknown. This report makes source-supported behavior claims, not a claim that an exploit was executed or that every listed edge case has already been reproduced in a running Frappe site. The CI pass is useful evidence of general baseline health, not proof that untested condition semantics are correct.
 
-An internal plan should contain a node kind, explicit AND/OR join, validated field/context reference, canonical operator enum, normalized operand definition, and nested collection plan. Cache the normalized plan by a version/hash if profiling supports it. Evaluate this plan with the canonical comparator. The plan should not be executable Python text assembled from saved strings.
+## 13. Final decisions and PR change control
 
-If a migration requires retaining current expressions temporarily, immediately enforce strict schema/operator validation, quote path components safely, constrain aliases to valid identifiers, validate generated ASTs against a narrow allowlist for *compiler-generated conditions*, and run the same comparator behavior tests against legacy ConditionEvaluator. Do not use the same AST allowlist indiscriminately for formula features that intentionally support richer expression syntax.
+1. **PR #412 is the sole primary PR.** This existing report path now contains the consolidated architectural decision, the source-verified findings from the canonical-architecture analysis, and the valid findings from PR #413.
+2. **Maintain one report artifact for this work:** `reports/condition-comparison-architectural-audit.md`. The separate `reports/condition-canonical-architecture.md` file is not part of the final PR #412 change set.
+3. **Close PR #413 unmerged after posting a concise consolidation comment.** Its verified findings are retained here; its compiler-first implementation recommendation is not the selected architecture. Do not create another competing report or implementation branch.
+4. **Branch cleanup:** the audit branch and the Jules branch are no longer needed as active work branches after the report content is consolidated. Branch deletion is separate from these file updates and must be completed with a GitHub operation that supports deleting refs; until then, they must not be treated as the canonical implementation path.
+5. **Implementation starts in a separate, narrowly scoped code PR against the latest `develop`.** Begin with P0 schema validation and fail-open behavior, include regression tests in that PR, and do not treat this report-only PR as implementation or release verification.
 
-### Compiled artifact cache
-
-`compile_service.py` builds a rule-level artifact and caches it under a v1 Redis prefix. For Condition actions, it copies `action.compiled_expression`; it does not itself create a second condition expression. Search found a direct use in a Rule test but no production call sites for `get_compiled_artifact` / `cache_compiled_artifact` beyond the service module in the available code search. Treat production usefulness as **unverified/probable redundancy**, not a confirmed runtime duplication. Before removing it, perform a complete call-site audit and measure consumers, invalidation guarantees, and expected rule-plan usage. Its 24-hour cache should also have an explicit version/hash invalidation story if production consumers exist.
-
-## 7. Runtime semantics, correctness, and security
-
-### Values and comparisons
-
-Python's native operators are suitable primitives, but not a fully specified business contract. The current code can compare strings lexicographically, compare int and float according to Python rules, raise on incompatible types, and treat `None` according to the exact operand emitted by the compiler. The project must define expected behavior based on field metadata and operand form rather than accidentally inherit Python behavior in every case.
-
-Examples that need explicit answers:
-- Does a Currency comparison convert both values to Decimal, and what rounding/scale applies?
-- Should numeric string `"10"` equal integer `10`, or should the value fail validation?
-- Does Date compare to Datetime, and if so, which day boundary and timezone apply?
-- Are timezone-aware and naive datetimes compatible?
-- Does null differ from empty string for all field types?
-- Are booleans valid as numeric values?
-- Does `not in []` return True, raise validation, or mean something else?
-- Does string contains treat a missing/falsy LHS as false for contains and true for not-contains?
-- Are lists only values for membership, or may tuples/strings/sets also be supplied?
-
-A fieldtype-aware converter should be deterministic and strict. It should not blanket-cast all values with `flt` or `cint`, which can corrupt precision or erase the distinction between literal text and numeric values.
-
-### Errors and fail-closed behavior
-
-There are at least three different failure policies today:
-- Compile-time: unknown operators fall back to equality; unrecognized root nodes can result in an expression that passes.
-- Compiled runtime: evaluation exceptions other than NameError are logged and return false.
-- JSON evaluator runtime: unsupported operators and exceptions are logged/converted to false.
-
-Returning false for an actual value comparison error may be acceptable only when the contract explicitly says evaluation failure counts as a non-match. It must not be used to conceal unsupported operators, invalid syntax, stale compilation, or invalid metadata. Those are configuration errors and should be rejected before activation and reported distinctly at runtime for old stored rules.
-
-### Reference construction and the safe boundary
-
-The compiler's `_resolve_ref` builds calls such as `doc.get('field')` and `resolve(doc, 'nested.path')` using string interpolation of the path components. The FlexiRule `validate_safe_eval` visitor rejects dunder identifiers/attributes and import nodes, but it does not define an allowlist of condition AST node types and allowed calls. The runtime local context contains `frappe` bound to `SafeFrappeAPI` by default; that facade exposes public read methods including `get_all` and `db.get_all`, which bypass user record permissions under Frappe conventions.
-
-This is **not a claim that arbitrary OS code execution is possible**: Frappe's `safe_eval` applies its own restrictions. The concern is narrower but important: a condition reference is expected to name a field, yet unescaped source text can alter the resulting expression structure and potentially invoke public methods in the expression's available safe context. Depending on the rule-author trust model, that can produce unexpected reads/branch outcomes and breaks the intended “reference, not expression” contract.
-
-Recommended controls:
-1. Parse and validate reference paths as structured paths: allowed root scope, nonempty path segments, known field/alias where applicable, no quotes or expression syntax.
-2. Do not concatenate raw path fragments inside Python string literals; use safe literal encoding even if source generation remains temporarily.
-3. Prefer a plan and call a field resolver with validated path data rather than emitting source.
-4. Separate formula/resolver syntax from standard condition paths. Their source or payload should be validated according to a deliberately defined grammar.
-5. Make safe-context data access policy explicit: use permission-aware reads where rule conditions are expected to reflect the current user's visible data; allow permission-bypassing reads only under a documented privileged-rule policy with auditable behavior.
-6. Add negative security tests against both Frappe 15 and 16 before changing the boundary.
-
-### Regular expressions and resource limits
-
-The `regex` operator is implemented in ConditionEvaluator via `re.search` and does not share the compiled-condition operator model. There is no timeout in that code path. A pathological pattern applied to a long string can consume excessive CPU. Regex appears to be a legacy/collection predicate capability, and exposure beyond trusted rule authors is unverified. Decide whether this is a supported product feature; if retained, bound inputs/patterns, test expensive-pattern cases without allowing indefinite CI hangs, and consider a safe pattern engine if requirements warrant it.
-
-The collection resolver's 10,000-row cap is a justified protective bound. Retain a similar explicit cost policy for nested collections and any custom operation that can traverse large child lists or repeatedly fetch parent documents.
-
-## 8. Frontend architecture and contract audit
-
-### Positive reuse
-
-- The frontend is built with Vue 3 components and composables; the builder keeps editable state local and emits model changes.
-- DocType fields are sourced through the existing meta store and Frappe metadata.
-- Link search uses Frappe's `frappe.desk.search.search_link` API rather than maintaining a separate global list of Link records.
-- ConditionStep adds ephemeral IDs for Vue identity and removes them before persistence. Those IDs do not appear intended as domain identifiers, which is appropriate.
-
-### Gaps
-
-**Operator defaults:** SimpleCondition.vue contains its own `DEFAULT_OPERATORS` and `DEFAULT_LABELS`. These differ from `ConditionCompiler.FIELDTYPE_OPERATORS`: the local default mapping offers ordered comparisons for generic fields and `contains`, while the backend `_default` list is equality/set/empty. If metadata fetching fails or an unrecognized field type is encountered, the frontend can offer a token that the backend does not support. The fallback keeps the screen usable during a network error, but it undermines parity and can misrepresent save-time behavior.
-
-**Frontend validation:** condition_validator.js checks groups, collections, selected field/operator and whether a RHS exists. It does not prove that the operator is allowed for the field type or accepted by the compiler; it does not validate the resolved right-hand type or security-sensitive reference paths. This is reasonable as immediate UX validation but insufficient as the domain validation layer.
-
-**State after field/operator changes:** SimpleCondition.vue watches fieldtype and operator mainly to ensure a RHS object/default exists. It does not centrally re-normalize or reject an existing value that is incompatible with the newly chosen field/operator. Membership operators adapt the control to a multi-select type, and switching operators can leave a value originally selected for another shape.
-
-**Dynamic Link round-trip:** dynamic link DocType is kept in component-local `dynamicLinkDocType` state. The getter unwraps static Link tuple values from saved RHS data, but the displayed Dynamic Link picker is not clearly hydrated from the saved tuple's DocType element. A saved condition can therefore reopen with the read-only “Select DocType first” state until the user picks the linked DocType again. This is a likely edit-round-trip inconsistency; confirm with a frontend reproduction.
-
-**Payload shape:** JS `isConditionPayloadShape` requires the expected shape of a group, leaf or collection; Python `parse_condition_payload` accepts any JSON Mapping/list, and its config extraction checks the presence of broad keys. Rule.compile_conditions then falls back to raw nonempty config when extraction fails. This can cause UI-open/edit behavior and backend compile behavior to diverge.
-
-**UI/runtime capabilities:** `has_field`, `is_submittable`, `regex`, `has_changed` and some empty/length operators are not consistently available in the central frontend list, compiler and alternate evaluator. An operator's existence in a label table is not a proof of valid configuration or execution.
-
-### Frontend recommendation
-
-Do not replace the current control system or introduce another dependency. Keep the current controls and Frappe metadata API. Remove the duplicate fallback operator inventory after the backend contract becomes reliable. The frontend may still do fast basic validation, but it should consume the same canonical operator descriptors and clearly indicate when metadata loading failed rather than showing a knowingly divergent set. On save, the backend must validate every field, operator, operand and tree shape.
-
-## 9. Findings register
-
-Severity uses the requested scale. **Verified** means directly established by current code structure or behavior; **probable** denotes a likely user-visible/security consequence that should be reproduced in focused tests; **unverified** means a full call-site/runtime proof is unavailable. No item below is a claim that its proposed fix has already been applied.
-
-### CC-001 — “like” and “not like” compile to equality
-
-- **Severity:** High; **Category:** correctness / frontend-backend consistency; **Status:** Verified; **Confidence:** High.
-- **Evidence:** [`compiler.py`, operator metadata and leaf compilation](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py#L39-L129) and [`_compile_condition`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py#L218-L290). The central Data/text operator lists contain `like` and `not like`; the labels describe them as contains/not-contains, but `OPERATOR_MAP` does not map either. Unknown operators use `"=="`.
-- **Reproducible example:** LHS `"urgent invoice"`, RHS `"urgent"`, op `like`. The expected contains-style predicate is true; the current compiler emits an equality expression and evaluates false. `not like` likewise becomes inequality rather than the complement of contains. The alternate evaluator's map also does not implement these tokens.
-- **Impact:** User configures the displayed operation, but execution performs another operation. Rule branches may be taken incorrectly with no compile error.
-- **Recommendation:** Define the exact semantics for “like” (literal substring vs SQL wildcard pattern), map it explicitly, or remove/reject the token and require canonical `contains` / `not_contains`. Provide legacy alias normalization only if its semantics are explicit.
-- **Existing implementation considered:** Python substring/regular operators and Frappe `compare` with LIKE-style semantics exist, but they are not interchangeable without a documented wildcard/case policy.
-- **Remediation:** P0; bug fix and possible backward-compatibility change; Medium effort / Medium regression risk.
-
-### CC-002 — Unknown operator and malformed condition can pass instead of fail
-
-- **Severity:** High; **Category:** correctness / security; **Status:** Verified; **Confidence:** High.
-- **Evidence:** [`compiler.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py#L131-L180) returns `"True"` when a root dict is not a recognized node; [`_compile_condition`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py#L218-L290) uses equality as the default operator; [`rule.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/doctype/rule/rule.py#L1309-L1347) falls back to raw nonempty config when payload extraction returns None; [validation_service.py](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/validation_service.py#L509-L512) checks presence, not the full tree schema.
-- **Reproducible example:** Config `{"foo":"bar"}` is valid JSON but not a valid group/leaf/collection. Extraction can fall back to this raw config, compiler node detection returns no expression, and root compile returns `True`. A leaf with an unrecognized operator emits an equality predicate.
-- **Impact:** Invalid definitions can become permissive conditions. This is especially dangerous where a condition is intended as an execution gate.
-- **Recommendation:** Validate schema before compile; require exact node-kind shape, valid operator token and operand shape; raise a path-specific validation error; do not fallback unknown operator to equality or unknown root to True. Only a deliberately empty optional gate should mean pass, and only through an explicit contract.
-- **Existing implementation considered:** JSON Schema is already a project dependency; a small schema validator plus domain-specific checks can reject malformed input. Frappe's general document validation does not define this condition schema for FlexiRule.
-- **Remediation:** P0; bug fix and potentially backward-incompatible for malformed saved configs; Medium effort / Medium risk after inventorying legacy payloads.
-
-### CC-003 — Field-path interpolation undermines the intended condition grammar
-
-- **Severity:** High; **Category:** security / correctness; **Status:** Probable; **Confidence:** Medium-high.
-- **Evidence:** [`_resolve_ref`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py) interpolates field components into generated Python string literals. [FlexiRule SafeEvalVisitor](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/permissions.py#L247-L290) rejects dunder/import constructs but does not limit the AST to a full condition-only grammar. The runtime exposes a `SafeFrappeAPI` instance in safe locals, including `get_all` / `db.get_all` methods ([engine.py](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/engine.py#L755-L845)). Frappe v15 and v16 safe_eval restricts Python attributes and builtins, but public methods on supplied objects remain a separate exposure policy.
-- **Reproducible investigation case:** Submit a path containing a single quote and condition syntax, then inspect whether generated expression source contains an unexpected extra expression/call. This has not been executed in this audit. A crafted nested path can plausibly close the compiler-created quoted literal and alter the expression.
-- **Impact:** A field-reference feature can stop behaving like a pure path. Depending on rule-author permissions and safe-context policy, this can access allowed public APIs from a path input and influence branch outcomes. This is not evidence of unrestricted Python/OS code execution.
-- **Recommendation:** Strictly validate root and path segments; encode literal strings correctly; reject arbitrary expression syntax in field references; prefer an explicit plan with references as data. Separate authored formulas from field references. Review whether permission-bypassing `get_all` is appropriate in condition safe context.
-- **Existing implementation considered:** Frappe safe_eval is necessary as a boundary for expression features, but does not validate FlexiRule field-path semantics. Python's string repr/AST facilities can help during an interim source-code hardening; a structured plan is a stronger solution.
-- **Remediation:** P0; security hardening and architectural correction; Medium-to-high effort / High regression risk if mixed with a broad redesign. Reproduce and add negative tests before closing the finding.
-
-### CC-004 — Two active comparison engines have different operator support
-
-- **Severity:** High; **Category:** architecture / correctness / frontend-backend consistency; **Status:** Verified; **Confidence:** High.
-- **Evidence:** Compiled conditions use [`ConditionCompiler`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py). Collection predicates create [`ConditionEvaluator`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/evaluator.py), from [`CollectionResolver`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/value_resolver.py#L467-L590), using a second `OPERATORS` map.
-- **Concrete divergence:** ConditionEvaluator implements `regex` and `not_in`, but not `is_empty` or `length_*`; compiler supports empty/length helpers but not regex. Structured FlexValue modes are expanded by compiler code; `ConditionEvaluator._resolve_value` treats a payload without a legacy type as its raw `value`, so it does not interpret all of the same structured value modes. Error handling is also different.
-- **Impact:** The same logical predicate can behave differently when used in an ordinary Condition node versus a resolver filter. Tests confined to either path won't detect this class of regression.
-- **Recommendation:** Make one comparison primitive authoritative. Reuse ConditionEvaluator's tree traversal only if helpful, but delegate all leaf operation/value semantics to a shared domain module. During migration, differential tests should establish intended behavior before moving old saved definitions.
-- **Existing implementation considered:** Python `operator` functions, Frappe's compare/cast helper and existing FieldResolver are useful building blocks; none makes the duplicate dispatch tables safe to keep.
-- **Remediation:** P1; semantic alignment and then refactor; High effort / High regression risk unless built with differential tests and a compatibility adapter.
-
-### CC-005 — Null, empty string and structured values are normalized differently
-
-- **Severity:** Medium; **Category:** correctness / frontend-backend consistency; **Status:** Verified; **Confidence:** High.
-- **Evidence:** [Compiler operand encoding](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py) maps `None` to an empty string and booleans to `1/0`; [ConditionEvaluator operand resolution](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/evaluator.py) preserves raw `None` for `{"value": null}` and does not unwrap the full new structured FlexValue payload in the same way.
-- **Reproducible example:** RHS `null` can mean `''` in generated compiled code and Python `None` on the JSON evaluator path. Comparing a missing/None LHS can therefore differ from a comparison against the compiled empty string.
-- **Impact:** Null and intentionally empty values are collapsed in one path. UI round-trips may also turn an unset operand into a static empty value.
-- **Recommendation:** Preserve the structured value shape through validation/plan compilation. Define null, empty string, False and 0 separately; normalize once based on fieldtype and explicit value mode.
-- **Existing implementation considered:** Existing FlexValueControl/ValueResolver is the source of operand modes; use it rather than inventing a parallel structured-value interpreter.
-- **Remediation:** P1; semantic clarification + bug fix, with backward-compatibility implications; Medium effort / Medium risk.
-
-### CC-006 — Comparisons are mostly untyped despite fieldtype-aware UI
-
-- **Severity:** Medium; **Category:** correctness / maintainability; **Status:** Verified; **Confidence:** High.
-- **Evidence:** FIELDTYPE_OPERATORS limits available choices, but compiler emits native Python operators and ConditionEvaluator uses native operator functions without common fieldtype normalization. Several imports in evaluator (`cint`, `flt`, `getdate`) do not participate in its operator dispatch.
-- **Impact:** Numeric strings, Decimal/float, date/date-time, temporal timezone mismatches and malformed operands rely on Python runtime behavior; exceptions can become false conditions.
-- **Recommendation:** Choose a type policy per Frappe fieldtype: either require correctly typed values or normalize them through a single tested converter. Use Decimal where precision matters. Define aware/naive datetime handling, date-to-datetime boundaries and invalid-input diagnostics.
-- **Existing implementation considered:** Frappe's public metadata and `frappe.utils.data.compare/cast` can cover some ordinary conversions; Python datetime/Decimal are sufficient primitives. Avoid indiscriminate `flt`/string casts.
-- **Remediation:** P1; semantic clarification and bug fixes; Medium-high effort / Medium-high risk because legacy rules may depend on current behavior.
-
-### CC-007 — Nested and collection edge cases are not fail-closed consistently
-
-- **Severity:** Medium; **Category:** correctness; **Status:** Verified; **Confidence:** High.
-- **Evidence:** [Compiler group and collection paths](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py#L182-L320) skip some unrecognized nodes, use `True` when collection predicate compilation yields no expression, and interpolate aliases. [ConditionEvaluator](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/evaluator.py) returns True for empty groups and for collection nodes missing a path/where; it returns False for non-list rows. Compiled Python generator expressions can iterate other iterable types.
-- **Impact:** Empty groups, incomplete collections, invalid aliases and non-list collections may produce unintended truth values or runtime outcomes.
-- **Recommendation:** Define empty group truth semantics for AND and OR separately or reject empty nested groups; require a valid collection reference and nonempty predicate when required; validate aliases; specify list/tuple/iterable policy and row limits. Do not turn invalid collections into a pass predicate.
-- **Existing implementation considered:** Python's any/all are suitable primitives once the collection and predicate plan are validated. Existing CollectionResolver row cap should be retained.
-- **Remediation:** P1; bug fixes and semantic clarification; Medium effort / Medium risk.
-
-### CC-008 — Regex execution lacks a resource policy
-
-- **Severity:** Medium; **Category:** security / performance; **Status:** Verified implementation, exposure impact unverified; **Confidence:** High on missing limit, medium on user exposure.
-- **Evidence:** [`ConditionEvaluator.OPERATORS`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/evaluator.py) calls `re.search` directly. This operator exists on the alternate JSON path and is absent from the compiled operator inventory.
-- **Impact:** Some patterns can require disproportionate CPU on long input strings; behavior also differs by execution path.
-- **Recommendation:** Decide if regex is supported. If retained, constrain pattern/input behavior, document semantics, and use a safe/limited implementation if arbitrary user patterns are in scope. Ensure test cases won't hang the suite.
-- **Existing implementation considered:** Standard `re` is available but offers no general timeout argument to this call. Adding a new dependency is warranted only if regex is a real product requirement.
-- **Remediation:** P1 if user-authored regex is a supported feature; otherwise P2 to deprecate/remove; Medium effort / Medium risk.
-
-### CC-009 — Frontend fallback operators, round-trip values and payload detection drift
-
-- **Severity:** Medium; **Category:** frontend/backend consistency / maintainability; **Status:** Verified for duplicated inventories and shape logic; probable for Dynamic Link round-trip; **Confidence:** High / Medium respectively.
-- **Evidence:** [SimpleCondition.vue](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/condition_builder/SimpleCondition.vue#L68-L119) carries its own operator and label fallbacks. [Python payload handling](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/condition_payload.py#L48-L95) and [JS payload handling](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/utils/condition_payload.js) do not recognize precisely the same shapes. SimpleCondition retains RHS state when field/operator changes. Dynamic Link DocType picker is local state and is not clearly reconstructed from the saved tuple.
-- **Impact:** The builder can expose a token backend doesn't support, preserve a stale operand, or re-open an existing Dynamic Link value in an incomplete state. Shape mismatches can make a condition edit/save round-trip differ from backend interpretation.
-- **Recommendation:** Have the backend return the canonical operator descriptors; use local labels/order only for display, not fallback semantics. Validate and normalize payloads on the server; apply an explicit RHS transition policy when field/operator changes; hydrate Dynamic Link DocType state from the persisted value. Verify by opening and saving representative existing rules without modifying their semantics.
-- **Existing implementation considered:** Existing FlexiRule SelectControl, FlexValueControl and meta store suffice; no new design system/dependency required.
-- **Remediation:** P2; bug fix/refactor, potentially compatibility-sensitive only where currently malformed payloads exist; Medium effort / Medium regression risk.
-
-### CC-010 — Frappe v16 compatibility is not established for conditions
-
-- **Severity:** Medium; **Category:** compatibility; **Status:** Verified CI evidence gap; **Confidence:** High.
-- **Evidence:** `pyproject.toml` requires Python >=3.10; [CI workflow](https://github.com/Sendipad/flexirule/blob/develop/.github/workflows/ci.yml) checks out Frappe `version-15`, Python 3.10. The latest run's separate “Nested-set integration (Frappe 16)” job was skipped. Direct source inspection confirms `frappe.safe_eval` exists in both versions but internal compile handling differs.
-- **Impact:** Public v16 support cannot be inferred from v15 green CI or a skipped, unrelated integration job. Differences in safe evaluation, type conversion/timezone helpers or metadata APIs may affect edge cases.
-- **Recommendation:** If v16 is within release support, add a dedicated CI matrix for condition behavior and comparator/metadata APIs. Otherwise explicitly narrow supported versions before release. Test only against public APIs where possible.
-- **Existing implementation considered:** Python 3.10 standard library remains a viable baseline; the exact Frappe version is the differentiator.
-- **Remediation:** P1 for a v15+ release claim; framework compatibility improvement; Medium effort / Medium risk.
-
-### CC-011 — Compiler mixes unrelated responsibilities and contains stale paths
-
-- **Severity:** Low–Medium; **Category:** architecture / maintainability; **Status:** Verified; **Confidence:** High.
-- **Evidence:** `ConditionCompiler` owns expression compilation, operator labels, fieldtype operator metadata and expression validation. Its operator table doesn't fully correspond to its leaf implementation. `has_changed` compiles to literal True. The alternate evaluator contains operators not represented in the compiler/UI.
-- **Impact:** A new operator can be visible but wrong, accepted but unsupported, or compiled differently in a collection predicate. Maintaining multiple tables imposes recurring review and testing cost.
-- **Recommendation:** Separate schema/metadata from executable semantics within a small domain module, then generate the frontend DTO from the same definition. Deprecate stale paths deliberately; do not turn this into a plugin or reflection framework.
-- **Existing implementation considered:** Existing AssignmentOperatorRegistry is useful for assignment operations, but its lifecycle/mutation contract differs from comparisons and is not a reason to make a universal operator-registry framework.
-- **Remediation:** P2; refactor plus explicit semantic changes for deprecated operators; Medium effort / Low-to-medium risk after CC-001–CC-007 are fixed.
-
-### CC-012 — Rule artifact cache benefit/callers are unproven
-
-- **Severity:** Informational; **Category:** architecture / performance; **Status:** Unverified; **Confidence:** Medium.
-- **Evidence:** [`compile_service.py`](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compile_service.py) serializes an artifact, copying an action's `compiled_expression` into a Condition entry, and provides a Redis cache. Search of available call sites found a rule test but no production consumer outside the service itself. Code search can miss dynamic imports/callers.
-- **Impact:** If production does not consume the artifact, it adds cache invalidation and versioning obligations without runtime benefit. If it is intended for planned execution, its value should be documented and measured.
-- **Recommendation:** Run complete static call-site search and profile/trace production consumers before keeping or removing it. Document its source-of-truth and invalidation lifecycle if actively used.
-- **Existing implementation considered:** Rule.compiled_expression already supplies the expression for normal execution; the artifact should only remain if its broader plan contract is consumed.
-- **Remediation:** P3; possible simplification/performance decision, no immediate behavior change; Low effort to investigate / Low risk.
-
-## 10. Test coverage and independent verification
-
-### Existing coverage observed
-
-The inspected tests cover basics: equality; AND/OR; membership; contains; set/not-set; regex; old_doc/row context; nested groups and collections; compiled syntax for basic operators; structured static/variable/resolver operands; length operators; Link tuple generation; and some safe-eval/security boundaries. This is a useful starting point but is not a guarantee that both runtime paths agree.
-
-Compiler tests heavily assert exact generated source strings. Such tests are appropriate for a source generator, but can pass even when a valid expression implements the wrong operation. Behavioral expectations need to be the primary acceptance gate.
-
-### Tests actually executed
-
-- **No test command was run by this audit.** This was a remote GitHub source inspection; the working application/database environment was not invoked.
-- **Observed remote CI:** the latest run at the audited SHA passed its Frontend and Server (Frappe 15) jobs; Frappe 16 nested-set integration was skipped. See [GitHub Actions run 38956561512](https://github.com/Sendipad/flexirule/actions/runs/38956561512).
-- The audit did not independently execute pytest, Bench, lint, ESLint, benchmark, or frontend browser tests. The latest CI result does not prove the edge cases listed here.
-
-### Proposed differential test matrix
-
-Use expected results written independently of the implementation under test. For each supported canonical operator, assert the expected result using explicit test values, and run the same case through the compiled-plan path and collection-predicate path until the latter has been migrated.
-
-| Area | Required cases |
-|---|---|
-| Operator behavior | Positive/negative equality/order, contains/not-contains, membership/non-membership, null/set/empty, length; every visible UI token; every deprecated alias; unknown token must reject |
-| Fieldtype matrix | Data/Text/Select/Link/Dynamic Link/Check/Int/Float/Currency/Percent/Date/Datetime/Time/Duration/Table and uncommon field types supported in the picker |
-| Null/falsy | Missing path, explicit None/null, empty string, whitespace-only string, 0, "0", False, "False", empty and nonempty list/dict |
-| Numeric/temporal | Int vs numeric string, Decimal vs float, currency precision, date vs datetime, aware vs naive datetime, timezone offset, invalid temporal string |
-| Tree logic | AND/OR sequence joins, nested groups, empty AND and empty OR, malformed child node, explicit unsupported negation, collection any/all/none with empty/nonempty/non-list sources |
-| Link semantics | Link equality and membership, wrong DocType tuple, missing Dynamic Link DocType, saved/open/edit/save round-trip, scalar and structured value forms |
-| Compilation | Malformed dict/list/JSON, double-encoded payload, unknown operation, bad alias, path with quotes, nested path, unknown scope, helper operator malformed arguments |
-| Safety | Attempts to inject quotes/operators into field reference or collection alias; permitted/denied method access; permission-aware data reads; max pattern/subject limits for regex |
-| Frontend/backend parity | API unavailable, unknown fieldtype, field change with stale RHS, operator change (scalar ↔ list), dynamic link re-open, JS/Python payload shape comparison |
-| Compatibility | Run all domain tests against Frappe 15 and 16, Python 3.10 minimum; check only stable/public framework APIs are needed |
-| Performance | Benchmark many repeated evaluations of deeply nested conditions and child collections; compare plan cached vs freshly normalized execution; track helper/meta calls and regex workload bounds |
-
-### Acceptance criteria
-
-- No unknown operator or malformed tree can become equality or unconditional true.
-- Each supported operator has one definition, explicit fieldtype/operand policy, examples, and positive/negative/boundary tests.
-- The same saved condition returns the same defined result across normal condition execution and CollectionResolver filtering, except where a documented context capability intentionally differs.
-- All accepted saved conditions open and save without semantic change, including Link/Dynamic Link, null/empty and nested collections.
-- Invalid configuration fails during save/activation with a message identifying the offending path/operator; runtime errors are not silently indistinguishable from valid false predicates.
-- Reference fuzz tests establish that saved paths cannot alter the intended expression structure or reach APIs beyond the documented safe-context policy.
-- CI tests the actual supported Frappe major versions.
-
-## 11. Alternative architectures
-
-Scores below are comparative judgments from the inspected implementation; they are not benchmark measurements. Higher is better except migration effort, where “Low” is desirable.
-
-| Dimension | A. Correct current architecture | B. Simplified Frappe-native | C. Minimal custom domain engine |
-|---|---|---|---|
-| Core design | Keep compiler-generated expressions and JSON evaluator, correct mapping/validation and synchronize dispatch tables | Use Frappe metadata, controls and some filter comparison/casting; retain FlexiRule code for non-filter semantics | Explicit condition schema/plan + single comparator; thin Frappe metadata/resolution adapters and frontend DTO |
-| Correctness clarity | Medium: still two paths to align | Medium: conversion helpful, but framework filter semantics can leak into rule behavior | High: one explicit business semantic contract |
-| Security | Medium after strict path validation and AST restrictions | Medium: reuse still needs correct expression/permission boundaries | High potential: tree is data, not generated Python; separate expression feature still needs sandboxing |
-| Frappe v15/v16 | Medium; relies on safe_eval behavior and careful sync | Medium; public APIs must be verified per version | High if based on stable metadata/APIs and tested matrix |
-| Performance | Potentially high from source compilation; should measure | Medium; type casts/adapter cost, still in-memory | Medium-to-high with normalized plan and optional cache; benchmark before claiming superiority |
-| Frontend/backend consistency | Medium; still needs duplicated mapping removal | Medium-to-high with generated metadata DTO | High with one canonical backend schema/descriptor and behavioral tests |
-| Extensibility | Medium; adding operators requires careful edits across paths | Medium; only simple framework-compatible operations reuse well | High enough for a closed, explicit domain contract without a universal registry |
-| Testability | Medium | Medium | High: pure comparison functions and plan nodes have independent expected results |
-| Backward compatibility | Lowest change risk initially, but current defects remain if only mappings are patched | Medium; framework coercion may change semantics | Medium-high; needs migration adapter and corpus replay |
-| Maintenance complexity | Remains relatively high | Medium, but risks coupling to Frappe filter semantics | Lowest ongoing semantic duplication if migration succeeds |
-| Recommendation | Useful short-term patch strategy, not desired end state | Selective reuse for casting/metadata only | **Recommended target** |
-
-### Recommended choice
-
-Choose **C, implemented incrementally**. It best fits the requirement that FlexiRule own business-rule semantics without reimplementing Frappe infrastructure. Reuse Frappe metadata and verified casting where appropriate, keep framework filter execution separate, and express conditions as validated data. The target comparator can use Python primitives and a small explicit operator definition table.
-
-Don't flip every path in one large change. First block invalid/unknown configurations and secure reference handling; establish canonical semantics with tests; then migrate the collection resolver and ordinary condition path to the same comparison implementation. Keep a temporary legacy adapter for saved payloads that need compatibility.
-
-## 12. Prioritized remediation plan
-
-Dependencies are ordered to reduce regression risk. Each stage should produce tests before broad code movement.
-
-### P0 — Close permissive/unsafe cases
-
-1. **Strict server condition-tree validation.** Define node shapes; reject unsupported node kinds, empty/broken refs, invalid collection definitions and unsupported operators. Fix compiler fallback rules so unknown input never compiles to equality or an implicit True. Preserve pass-through behavior only for a documented empty optional condition contract.
-   - **Type:** bug fix + semantic clarification; malformed legacy definitions may become invalid.
-   - **Acceptance:** malformed JSON/tree/operator tests fail with precise messages; no permissive fallback remains.
-2. **Reference and alias hardening.** Strictly parse scopes and field path segments; validate collection aliases as identifiers; never insert raw field paths into source strings. Add adversarial tests using quotes, delimiters, unknown scopes, and attempted function/member injection.
-   - **Type:** security fix; possible backward-incompatible validation tightening.
-   - **Acceptance:** generated expressions cannot be structurally changed by a saved path, and forged aliases are rejected.
-3. **Safe context permission policy review.** Decide whether condition expressions should be allowed to call `get_all` or `db.get_all`; condition field references must not grant a path to invoke them. If explicit read APIs are supported for rule-authored formulas, define permission and audit policy separately.
-   - **Type:** security policy clarification.
-   - **Acceptance:** allow/deny tests prove the rule author's role and runtime user's record visibility are handled intentionally.
-
-### P1 — Establish one business semantic contract
-
-4. **Operator/value contract.** Write down the meaning of each canonical token, allowed field types, RHS shape, empty/null behavior, and invalid-type behavior. Normalize aliases (`not_in`, `not in`, `like`, etc.) at one boundary, or reject deprecated values with a migration message.
-   - **Type:** semantic clarification + bug fixes; potentially backward-incompatible.
-5. **Single comparison primitive.** Implement pure/basic operators over normalized operands. Share it between normal conditions and CollectionResolver; retain collection traversal only where context semantics differ. No duplicate operator lambda map.
-   - **Type:** refactor with behavior changes called out.
-6. **Typed conversion.** Build a small fieldtype-aware normalization layer. Use Frappe's public metadata and verified compare/cast behavior selectively; preserve Decimal precision and explicitly handle dates/timezones rather than blanket casting.
-   - **Type:** correctness fix and compatibility improvement.
-7. **Structured compilation plan.** Convert the valid condition tree to an immutable or straightforward structured plan. Cache only if profile data supports it; do not generate arbitrary Python expression source for standard condition nodes. Keep formula/resolver features separated by payload type and grammar.
-   - **Type:** architecture refactor; behavior should be unchanged except the separately documented fixes.
-8. **Observable diagnostics.** Differentiate invalid configuration, missing references, and runtime type errors from a legitimate non-match. Ensure old rules with stale expressions do not continue executing stale semantic behavior after config changes.
-   - **Type:** correctness/diagnostic improvement.
-9. **Compatibility matrix.** Add Frappe 15 and 16 condition tests if both are supported. Pin CI/runtime claims to tested versions.
-   - **Type:** framework compatibility improvement.
-
-### P2 — Simplify frontend and payload contracts
-
-10. **Remove duplicate operator semantics from SimpleCondition.vue.** Consume the backend canonical DTO rather than falling back to a conflicting list. If metadata loading fails, present a clear retry/error state while retaining current value display; don't fabricate unsupported choices.
-11. **Unify payload shape validation.** The frontend may mirror a generated JSON Schema or a small shared schema DTO; regardless, the backend is authoritative. Align JS/Python handling for direct tree and legacy nested keys.
-12. **Make operand transitions explicit.** On field/operator changes, retain only compatible operands or request user confirmation; set list/scalar defaults based on the canonical RHS contract. Rehydrate Link/Dynamic Link DocType state from saved tuples.
-13. **Round-trip tests.** Open, edit and save representative conditions with no changes; compare normalized tree semantics, not incidental ordering or ephemeral IDs.
-
-All items here are bug fixes/refactors, not a reason to replace Vue controls or the design system.
-
-### P3 — Measured cleanup
-
-14. **Audit compile_service cache usage.** Keep or remove its second artifact/cache only after complete call-site trace, invalidation review and a benchmark/consumer requirement.
-15. **Tune metadata/helper work.** Frappe already caches DocType metadata; measure repeated helper/path resolution before adding another cache. If a plan cache helps, version it based on normalized config and supported semantic version.
-16. **Regex decision.** If regex remains a supported product requirement, adopt an explicit resource-safety design and tests; otherwise deprecate it consistently.
-17. **Documentation.** Publish the actual supported token list, value semantics, failure behavior, and examples after acceptance tests pass.
-
-### Backward compatibility and migration
-
-- FlexiRule is described as pre-release/beta; confirm release policy before promising compatibility for every currently serialized shape. Regardless, inspect existing rules before enforcing new server validation.
-- Do not silently remap an ambiguous old token. For example, old `like` configuration might have been intended as substring match despite current equality output; choose desired intent explicitly and offer a warning/one-time normalization if the data corpus requires it.
-- `has_changed` currently compiles to True. This should be treated as a migration/security review item, not a “cleanup” that silently turns old conditions into a different real comparison.
-- Use a read-only inventory of stored active/draft conditions before roll-out: unknown operators, malformed payloads, invalid field paths, empty collections, structured RHS modes, and legacy Link tuples. Do not run a patch or migration until the report and compatibility policy are approved.
-- A new plan/compiler can coexist temporarily with the stored JSON tree. Prefer recompiling derived plan data from canonical saved configuration rather than migrating source expressions as primary data. If generated `compiled_expression` remains in stored fields for compatibility, mark it as derived and invalidate/recompute it whenever the normalized condition contract changes.
-
-## 13. Final answers to the audit objectives
-
-1. **Smallest maintainable architecture:** validated condition tree → typed normalized operand/reference resolution → small canonical comparator/collection plan → observable result. Frappe metadata and permission-aware APIs are adapters, not the rule semantics.
-2. **Keep/remove/merge:** retain metadata-based frontend fields, FieldResolver where behavior is explicitly needed, safe evaluation for dedicated expression features, row limits, and a meaningful compile/plan phase. Merge comparison implementations and payload checks. Remove silent fallbacks and frontend operator duplications. Investigate but don't pre-judge compile_service cache usefulness.
-3. **Python / Frappe / FlexiRule ownership:** use Python operator and datetime/Decimal primitives; selectively reuse Frappe `compare/cast` after verification; use Frappe metadata/search_link APIs for field/link UI; keep FlexiRule ownership of contains/null/collection/helper/link semantics and all schema/security validation.
-4. **Is compilation necessary?** A save-time transformation has value by avoiding recursive JSON interpretation each execution and allowing validation/cache. Arbitrary generated Python source is not required to realize that benefit. Move to a structured plan unless measurement proves current source compilation is necessary and it can be constrained safely.
-5. **Single authoritative operator definition?** No. Labels/field-type lists live in ConditionCompiler, runtime operation dispatch is spread across compiler custom branches and ConditionEvaluator, and frontend fallback lists duplicate the metadata.
-6. **Could same condition differ across layers/versions?** Yes, verified for the two evaluator implementations. The full v15/v16 matrix remains unverified even though safe_eval exists in both.
-7. **Frontend duplication?** Yes: DEFAULT_OPERATORS/DEFAULT_LABELS and payload-shape recognition duplicate backend contracts; value and metadata state can drift.
-8. **Concrete security/production risks?** Source-string interpolation of path references and overbroad generated-expression validation require hardening; malformed conditions/unknown operators can pass; safe-context permission semantics require explicit policy. There is no basis here to claim unrestricted Python or OS-level execution.
-9. **Safest sequence?** First reject unsafe/invalid inputs and test the sandbox boundary; then lock down semantics; then unify comparison; finally simplify frontend/cache layers behind tests.
-10. **Pre-release blockers vs later work?** P0 malformed/untrusted input handling and operator fallback, P1 consistent comparison/type/error semantics and supported-version verification are release requirements. UI de-duplication and measured cache cleanup follow once the backend contract is stable.
-
-## 14. Unresolved questions and limitations
-
-- Is arbitrary resolver/formula syntax an intended first-class feature inside condition RHS values, and what is its supported grammar and trust boundary?
-- Are users who can create rules trusted to query any DocType, or must condition evaluation mirror the current runtime user's readable records? This determines safe-context policy for `get_all`.
-- Should “like” mean literal case-sensitive substring, case-insensitive substring, or SQL-style wildcard pattern?
-- What is the intended semantic distinction between is_set and is_empty; and should an empty optional condition pass, or should an empty condition be prohibited except in Entry Condition?
-- Are `regex`, `is`/`is not`, `has_changed`, `has_field` and `is_submittable` supported public operators, legacy internals, or candidates for removal?
-- Is Frappe 16 an official supported target for this release, and are there runtime paths/test jobs beyond the inspected CI workflow that exercise it?
-- Does `compile_service` have a production caller outside the direct code-search results? A dynamic call-site audit and run-time trace are needed before deleting it.
-- This audit is based on source and the observed CI result, not a local executable checkout. No database was read, no stored Rule definitions were inventoried, and no new tests were executed. The source-supported findings are sufficient to recommend remediation; the open points must be resolved with focused reproductions and the actual data corpus.
-
-## 15. Closing recommendation
-
-**Partially redesign the condition comparison system.** Keep FlexiRule in control of rule semantics, keep Frappe's metadata and safe-evaluation infrastructure where it satisfies verified needs, and reduce the current system to one strict semantic definition shared by normal conditions and collection predicates. The important goal is not a smaller line count or maximal use of Frappe APIs; it is that a saved condition has one defined meaning, invalid conditions cannot turn into a pass, and reference/value handling is safe and testable across the supported Frappe versions.
-
-This report is the review deliverable. No remediation has been implemented on this branch.
+**Final recommendation:** use one schema-validated structured condition plan, one versioned operator contract, one evaluator with explicit document/row context, and explicit runtime diagnostics. Keep the saved JSON tree authoritative and compiled plans derived. Do not implement broad algebraic compaction until behavior is demonstrated equivalent by tests.
