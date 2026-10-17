@@ -104,7 +104,7 @@
 										<button
 											class="toolbar-btn"
 											@click="ruleStore.next_config_node()"
-											:disabled="currentNodeIndex >= totalNodes - 1"
+											:disabled="isSaving || currentNodeIndex >= totalNodes - 1"
 											:title="__('Next')"
 										>
 											<i class="fa fa-chevron-right"></i>
