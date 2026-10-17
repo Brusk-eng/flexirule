@@ -66,7 +66,6 @@
 					<!-- Operator -->
 					<div class="filter-col operator-col">
 						<SelectControl
-							class="form-control input-xs"
 							:df="{
 								fieldtype: 'Select',
 								label: '',
