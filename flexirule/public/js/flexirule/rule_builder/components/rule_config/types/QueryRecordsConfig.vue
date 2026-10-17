@@ -888,14 +888,13 @@ onMounted(async () => {
 	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
-		applyFetchRecordsFrappe15Defaults();
 		// Establish the dependency baseline before asynchronous metadata loads.
 		// A real field/result-shape edit during loading must still invalidate it.
 		lastSchemaRefreshSignature = getSchemaRefreshSignature();
 		schemaRefreshInitialized = true;
-		// Apply the Frappe 15 permission default on initialization as well as on
-		// operation changes. Existing Fetch Records actions may predate this
-		// default and otherwise fail validation before the save-time fallback.
+		// Do not mutate a persisted action just by opening its configuration.
+		// Defaults apply when the user selects Fetch Records or explicitly saves
+		// a valid edit; whole-rule save also normalizes the backend-declared default.
 		if (mode.value === "Query Doc") {
 			// Read the saved target's metadata for rendering, but don't reconcile
 			// and rewrite the saved action during initialization. Reconciliation
@@ -1727,9 +1726,10 @@ function applyFetchRecordsFrappe15Defaults() {
 	if (mode.value !== "Fetch Records" || !isFrappe15.value) return;
 	const current = props.node.data.ignore_permissions;
 	// Frappe 15's Fetch Records Query Builder path cannot provide native
-	// record-level read permission enforcement. This mode therefore defaults to
-	// the explicit audited bypass. Normalizing this required default while the
-	// modal opens must not mark an otherwise untouched action as user-edited.
+	// record-level read permission enforcement. Apply the explicit audited-bypass
+	// default when the user changes the operation to Fetch Records. Opening an
+	// existing modal is intentionally non-mutating; valid modal saves and the
+	// whole-rule save path normalize existing legacy values separately.
 	if (![true, 1, "1"].includes(current)) {
 		props.node.data.ignore_permissions = 1;
 	}
