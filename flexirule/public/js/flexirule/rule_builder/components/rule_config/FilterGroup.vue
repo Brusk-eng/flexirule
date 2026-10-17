@@ -1086,7 +1086,10 @@ onMounted(async () => {
 /* Generic filters may include a DocType picker in addition to the three
  * standard controls; reserve a dedicated column only when that picker exists. */
 .filter-row-main:has(.doctype-col) {
-	grid-template-columns: minmax(120px, 0.9fr) minmax(150px, 1.1fr) minmax(105px, 0.75fr) minmax(220px, 2fr) auto;
+	grid-template-columns: minmax(120px, 0.9fr) minmax(150px, 1.1fr) minmax(105px, 0.75fr) minmax(
+			220px,
+			2fr
+		) auto;
 }
 
 /* ─── Column Sizing ─── */
