@@ -92,7 +92,7 @@
 										<button
 											class="toolbar-btn"
 											@click="ruleStore.prev_config_node()"
-											:disabled="currentNodeIndex <= 0"
+											:disabled="isSaving || currentNodeIndex <= 0"
 											:title="__('Previous')"
 										>
 											<i class="fa fa-chevron-left"></i>
@@ -142,6 +142,7 @@
 											(!isMobile || !isEditingLabel)
 										"
 										class="toolbar-btn save-action"
+										:disabled="isSaving"
 										@click="save"
 										:title="__('Save Changes')"
 									>
@@ -197,7 +198,7 @@
 																ruleStore.prev_config_node();
 																closeOverflow();
 															"
-															:disabled="currentNodeIndex <= 0"
+															:disabled="isSaving || currentNodeIndex <= 0"
 														>
 															<i class="fa fa-chevron-left"></i>
 															<span>{{ __("Previous Action") }}</span>
@@ -607,7 +608,7 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const { draftNode, panelRefs, save, cancel, isDirty, showValidation } = useRuleConfig(props, emit);
+const { draftNode, panelRefs, save, cancel, isDirty, isSaving, showValidation } = useRuleConfig(props, emit);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,
@@ -728,7 +729,7 @@ function handleTouchMove(e) {
 }
 
 function handleTouchEnd() {
-	if (!isMobile.value || !isSwiping.value) return;
+	if (!isMobile.value || !isSwiping.value || isSaving.value) return;
 
 	const diffX = touchCurrentX.value - touchStartX.value;
 
@@ -977,7 +978,7 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (currentNodeIndex.value > 0) ruleStore.prev_config_node();
+				if (!isSaving.value && currentNodeIndex.value > 0) ruleStore.prev_config_node();
 			},
 		}),
 		registerShortcut({
@@ -986,7 +987,7 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (currentNodeIndex.value > 0) ruleStore.prev_config_node();
+				if (!isSaving.value && currentNodeIndex.value > 0) ruleStore.prev_config_node();
 			},
 		}),
 		registerShortcut({
@@ -995,7 +996,7 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
+				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
 			},
 		}),
 		registerShortcut({
@@ -1004,7 +1005,7 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
+				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
 			},
 		}),
 		registerShortcut({
