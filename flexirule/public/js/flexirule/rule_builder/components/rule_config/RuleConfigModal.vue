@@ -104,7 +104,9 @@
 										<button
 											class="toolbar-btn"
 											@click="ruleStore.next_config_node()"
-											:disabled="isSaving || currentNodeIndex >= totalNodes - 1"
+											:disabled="
+												isSaving || currentNodeIndex >= totalNodes - 1
+											"
 											:title="__('Next')"
 										>
 											<i class="fa fa-chevron-right"></i>
@@ -198,7 +200,9 @@
 																ruleStore.prev_config_node();
 																closeOverflow();
 															"
-															:disabled="isSaving || currentNodeIndex <= 0"
+															:disabled="
+															isSaving || currentNodeIndex <= 0
+														"
 														>
 															<i class="fa fa-chevron-left"></i>
 															<span>{{ __("Previous Action") }}</span>
@@ -608,7 +612,10 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const { draftNode, panelRefs, save, cancel, isDirty, isSaving, showValidation } = useRuleConfig(props, emit);
+const { draftNode, panelRefs, save, cancel, isDirty, isSaving, showValidation } = useRuleConfig(
+	props,
+	emit
+);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,
@@ -996,7 +1003,8 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
+				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1)
+					ruleStore.next_config_node();
 			},
 		}),
 		registerShortcut({
@@ -1005,7 +1013,8 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1) ruleStore.next_config_node();
+				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1)
+					ruleStore.next_config_node();
 			},
 		}),
 		registerShortcut({
