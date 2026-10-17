@@ -105,7 +105,8 @@
 											class="toolbar-btn"
 											@click="ruleStore.next_config_node()"
 											:disabled="
-												isSaving || currentNodeIndex >= totalNodes - 1
+												isSaving ||
+												currentNodeIndex >= totalNodes - 1
 											"
 											:title="__('Next')"
 										>
@@ -201,8 +202,8 @@
 																closeOverflow();
 															"
 															:disabled="
-															isSaving || currentNodeIndex <= 0
-														"
+																isSaving || currentNodeIndex <= 0
+															"
 														>
 															<i class="fa fa-chevron-left"></i>
 															<span>{{ __("Previous Action") }}</span>
