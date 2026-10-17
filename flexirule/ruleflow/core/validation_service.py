@@ -222,9 +222,7 @@ def _validate_single_action(rule, action, errors, warnings) -> dict:
 			handler_context = f"{action_type} / {_safe_get(action, 'operation')}"
 		for err in handler_errors:
 			errors.append(
-				_("Action '{0}' ({1}) validation failed: {2}").format(
-					action_label, handler_context, err
-				)
+				_("Action '{0}' ({1}) validation failed: {2}").format(action_label, handler_context, err)
 			)
 
 	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings, "mode": "node"}
