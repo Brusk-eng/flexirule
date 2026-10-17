@@ -113,6 +113,30 @@ import { runConfigSaveLifecycle } from "./config_save_lifecycle.mjs";
 	assert.equal(commitCalls, 0);
 }
 
+// Editing the same draft object while validation is pending must invalidate the
+// save, because edits made after validation started have not been validated.
+{
+	const draft = { id: "action-a", data: { limit: 10 } };
+	const validatedSnapshot = JSON.stringify(draft);
+	let releaseValidation;
+	let commitCalls = 0;
+	const validationPending = new Promise((resolve) => {
+		releaseValidation = resolve;
+	});
+	const saving = runConfigSaveLifecycle({
+		isLoading: () => false,
+		isContextCurrent: () => JSON.stringify(draft) === validatedSnapshot,
+		validate: () => validationPending,
+		commit: () => {
+			commitCalls += 1;
+		},
+	});
+	draft.data.limit = 20;
+	releaseValidation({ valid: true });
+	assert.deepEqual(await saving, { status: "blocked-stale-context" });
+	assert.equal(commitCalls, 0);
+}
+
 // Closing/cancelling the modal while validation is pending must not commit.
 {
 	let modalOpen = true;
