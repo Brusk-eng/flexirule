@@ -53,8 +53,8 @@ def export_rule(rule_name):
 				"on_error": action.on_error,
 				"next_step_if_true": action.next_step_if_true,
 				"next_step_if_false": action.next_step_if_false,
-				"position_x": action.position_x,
-				"position_y": action.position_y,
+				"position_x": getattr(action, "position_x", None),
+				"position_y": getattr(action, "position_y", None),
 			}
 		)
 

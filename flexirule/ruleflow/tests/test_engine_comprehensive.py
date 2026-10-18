@@ -37,10 +37,13 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 	def tearDown(self):
 		if hasattr(self, "_test_prefix"):
 			rules = frappe.get_all(
-				"Rule", filters={"rule_name": ["like", f"{self._test_prefix}%"]}, pluck="name"
+				"Rule", filters={"rule_name": ["like", f"{self._test_prefix}%"]}, fields=["name", "is_active"]
 			)
 			for r in rules:
-				frappe.delete_doc("Rule", r, force=True, ignore_permissions=True)
+				if r.is_active:
+					frappe.db.set_value("Rule", r.name, "is_active", 0, update_modified=False)
+			for r in rules:
+				frappe.delete_doc("Rule", r.name, force=True, ignore_permissions=True)
 			logs = frappe.get_all(
 				"Rule Execution Log", filters={"rule": ["like", f"{self._test_prefix}%"]}, pluck="name"
 			)

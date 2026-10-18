@@ -1,3 +1,5 @@
+import uuid
+
 import frappe
 
 from flexirule.ruleflow.tests.builder import RuleBuilder
@@ -5,10 +7,26 @@ from flexirule.ruleflow.tests.test_case import FlexiRuleTestCase
 
 
 class TestSubRuleActivation(FlexiRuleTestCase):
+	def setUp(self):
+		super().setUp()
+		self._test_prefix = f"FRX_ACT_{uuid.uuid4().hex[:8]}"
+
+	def tearDown(self):
+		if hasattr(self, "_test_prefix"):
+			rules = frappe.get_all(
+				"Rule", filters={"rule_name": ["like", f"{self._test_prefix}%"]}, fields=["name", "is_active"]
+			)
+			for r in rules:
+				if r.is_active:
+					frappe.db.set_value("Rule", r.name, "is_active", 0, update_modified=False)
+			for r in rules:
+				frappe.delete_doc("Rule", r.name, force=True, ignore_permissions=True)
+		super().tearDown()
+
 	def test_subrule_activation_sequence(self):
 		# 1. Create Inactive Sub-Rule
 		sub_rule = (
-			RuleBuilder("Inactive Sub Rule")
+			RuleBuilder(f"{self._test_prefix}_Inactive_Sub_Rule")
 			.document_type("ToDo")
 			.subrule()
 			.active(0)
@@ -22,7 +40,7 @@ class TestSubRuleActivation(FlexiRuleTestCase):
 		# 2. Create Inactive Parent Rule referencing Inactive Sub-Rule
 		# This should now succeed
 		parent_builder = (
-			RuleBuilder("Inactive Parent Rule")
+			RuleBuilder(f"{self._test_prefix}_Inactive_Parent_Rule")
 			.document_type("ToDo")
 			.active(0)
 			.entry_action(next_step="call_sub")
