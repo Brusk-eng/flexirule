@@ -1,4 +1,5 @@
 import json
+import uuid
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -6,9 +7,8 @@ from frappe.tests.utils import FrappeTestCase
 
 class TestRuleCycles(FrappeTestCase):
 	def setUp(self):
-		frappe.db.delete("Rule")
-		frappe.db.delete("Rule Action")
-		frappe.db.delete("Rule Execution Log")
+		super().setUp()
+		self._test_prefix = f"FRX_CYCLE_{uuid.uuid4().hex[:8]}"
 
 	def create_rule(self, name, actions=None, trigger_condition=None):
 		if actions is None:
@@ -17,7 +17,7 @@ class TestRuleCycles(FrappeTestCase):
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": name,
+				"rule_name": f"{self._test_prefix}_{name}",
 				"document_type": "Note",
 				"trigger_type": "Callable Event",
 				"is_active": 0,
