@@ -191,7 +191,9 @@ class TestProcessSync(FrappeTestCase):
 			}
 		]
 
-		updated_json_path = self.create_test_process_json(self._process_name("UpdateProcess"), updated_operations)
+		updated_json_path = self.create_test_process_json(
+			self._process_name("UpdateProcess"), updated_operations
+		)
 
 		# Import the updated process
 		import_process_from_file(updated_json_path, "Ruleflow")
@@ -239,7 +241,9 @@ class TestProcessSync(FrappeTestCase):
 			},
 		]
 
-		updated_json_path = self.create_test_process_json(self._process_name("AddOpProcess"), additional_operations)
+		updated_json_path = self.create_test_process_json(
+			self._process_name("AddOpProcess"), additional_operations
+		)
 
 		# Import the updated process
 		import_process_from_file(updated_json_path, "Ruleflow")
@@ -300,7 +304,9 @@ class TestProcessSync(FrappeTestCase):
 			}
 		]
 
-		updated_json_path = self.create_test_process_json(self._process_name("RemoveOpProcess"), updated_operations)
+		updated_json_path = self.create_test_process_json(
+			self._process_name("RemoveOpProcess"), updated_operations
+		)
 		import_process_from_file(updated_json_path, "Ruleflow")
 
 		updated_process_doc = frappe.get_doc("Process", self._process_name("RemoveOpProcess"))
@@ -309,6 +315,12 @@ class TestProcessSync(FrappeTestCase):
 
 	def test_sync_processes_for_app_prunes_missing_standard_process(self):
 		"""Missing file-backed Process docs should be removed during app sync."""
+		test_module = f"{self._test_prefix}MODULE"
+		if not frappe.db.exists("Module Def", test_module):
+			frappe.get_doc(
+				{"doctype": "Module Def", "module_name": test_module, "app_name": "flexirule"}
+			).insert(ignore_permissions=True)
+
 		original_in_import = getattr(frappe.flags, "in_import", False)
 		frappe.flags.in_import = True
 		try:
@@ -316,7 +328,7 @@ class TestProcessSync(FrappeTestCase):
 				{
 					"doctype": "Process",
 					"process_name": self._process_name("PruneMissingProcess"),
-					"module": "Ruleflow",
+					"module": test_module,
 					"is_standard": "Yes",
 				}
 			).insert(ignore_permissions=True)
@@ -325,9 +337,14 @@ class TestProcessSync(FrappeTestCase):
 
 		self.assertTrue(frappe.db.exists("Process", process.name))
 
-		sync_processes_for_app("flexirule")
+		from flexirule.ruleflow.core.process_sync import _prune_missing_standard_processes
+
+		_prune_missing_standard_processes([test_module], set())
 
 		self.assertFalse(frappe.db.exists("Process", process.name))
+
+		if frappe.db.exists("Module Def", test_module):
+			frappe.delete_doc("Module Def", test_module, force=True, ignore_permissions=True)
 
 	def test_import_process_from_file_missing_name(self):
 		"""Test importing a process with missing name"""
@@ -499,7 +516,9 @@ class TestProcessSync(FrappeTestCase):
 			}
 		]
 
-		json_path = self.create_test_process_json(self._process_name("ComprehensiveProcess"), operations_with_all_fields)
+		json_path = self.create_test_process_json(
+			self._process_name("ComprehensiveProcess"), operations_with_all_fields
+		)
 
 		# Import the process
 		import_process_from_file(json_path, "Ruleflow")

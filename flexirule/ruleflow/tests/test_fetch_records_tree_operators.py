@@ -1,6 +1,9 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import uuid
+from typing import ClassVar
+
 import frappe
 from frappe.database.operator_map import OPERATOR_MAP
 from frappe.database.utils import NestedSetHierarchy
@@ -9,33 +12,44 @@ from frappe.tests.utils import FrappeTestCase
 from flexirule.ruleflow.core.action_handlers.query_records import QueryRecordsHandler
 from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
-TREE_DOCTYPE = "Fetch Records Tree Test Node"
-
 
 class TestFetchRecordsTreeOperators(FrappeTestCase):
 	"""Database integration coverage for Fetch Records nested-set filters on Frappe 15 and 16."""
 
+	_created_doctypes: ClassVar[list[str]] = []
+	_created_records: ClassVar[list[tuple[str, str]]] = []
+	tree_doctype: ClassVar[str] = ""
+
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		cls._created_doctypes = []
+		cls._created_records = []
+		cls.addClassCleanup(cls._cleanup_resources)
+		cls.tree_doctype = f"Fetch Tree Node {uuid.uuid4().hex[:8].upper()}"
 		cls._setup_tree_doctype()
 		cls._setup_tree_records()
 
 	@classmethod
-	def tearDownClass(cls):
-		frappe.db.delete(TREE_DOCTYPE)
-		if frappe.db.exists("DocType", TREE_DOCTYPE):
-			frappe.delete_doc("DocType", TREE_DOCTYPE, force=True, ignore_permissions=True)
+	def _cleanup_resources(cls):
+		for doctype, docname in reversed(cls._created_records):
+			if frappe.db.exists(doctype, docname):
+				frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
+		cls._created_records.clear()
+
+		for dt in reversed(cls._created_doctypes):
+			if frappe.db.exists("DocType", dt):
+				frappe.delete_doc(dt, force=True, ignore_permissions=True)
+		cls._created_doctypes.clear()
 		frappe.db.commit()
-		super().tearDownClass()
 
 	@classmethod
 	def _setup_tree_doctype(cls):
-		if not frappe.db.exists("DocType", TREE_DOCTYPE):
+		if not frappe.db.exists("DocType", cls.tree_doctype):
 			frappe.get_doc(
 				{
 					"doctype": "DocType",
-					"name": TREE_DOCTYPE,
+					"name": cls.tree_doctype,
 					"module": "RuleFlow",
 					"custom": 1,
 					"is_tree": 1,
@@ -45,7 +59,7 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 						{
 							"fieldname": "parent_fetch_records_tree_test_node",
 							"fieldtype": "Link",
-							"options": TREE_DOCTYPE,
+							"options": cls.tree_doctype,
 							"label": "Parent Tree Node",
 						},
 						{"fieldname": "old_parent", "fieldtype": "Data", "label": "Old Parent"},
@@ -55,41 +69,50 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 					],
 				}
 			).insert(ignore_permissions=True)
+			cls._created_doctypes.append(cls.tree_doctype)
 		frappe.db.commit()
 
 	@classmethod
 	def _setup_tree_records(cls):
-		frappe.db.delete(TREE_DOCTYPE)
-		cls.root = frappe.get_doc({"doctype": TREE_DOCTYPE, "tree_label": "Root", "is_group": 1}).insert(
+		cls.root = frappe.get_doc({"doctype": cls.tree_doctype, "tree_label": "Root", "is_group": 1}).insert(
 			ignore_permissions=True
 		)
+		cls._created_records.append((cls.tree_doctype, cls.root.name))
+
 		cls.child_a = frappe.get_doc(
 			{
-				"doctype": TREE_DOCTYPE,
+				"doctype": cls.tree_doctype,
 				"tree_label": "Child A",
 				"parent_fetch_records_tree_test_node": cls.root.name,
 				"is_group": 1,
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append((cls.tree_doctype, cls.child_a.name))
+
 		cls.grandchild_a = frappe.get_doc(
 			{
-				"doctype": TREE_DOCTYPE,
+				"doctype": cls.tree_doctype,
 				"tree_label": "Grandchild A",
 				"parent_fetch_records_tree_test_node": cls.child_a.name,
 				"is_group": 0,
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append((cls.tree_doctype, cls.grandchild_a.name))
+
 		cls.child_b = frappe.get_doc(
 			{
-				"doctype": TREE_DOCTYPE,
+				"doctype": cls.tree_doctype,
 				"tree_label": "Child B",
 				"parent_fetch_records_tree_test_node": cls.root.name,
 				"is_group": 0,
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append((cls.tree_doctype, cls.child_b.name))
+
 		cls.other_root = frappe.get_doc(
-			{"doctype": TREE_DOCTYPE, "tree_label": "Other Root", "is_group": 1}
+			{"doctype": cls.tree_doctype, "tree_label": "Other Root", "is_group": 1}
 		).insert(ignore_permissions=True)
+		cls._created_records.append((cls.tree_doctype, cls.other_root.name))
 		frappe.db.commit()
 
 	def test_fetch_records_operator_contract_matches_portable_frappe_query_builder_operators(self):
@@ -138,16 +161,16 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 		for operator in ("<>", "regex", "ilike", "previous", "next"):
 			with self.subTest(operator=operator):
 				errors = handler._validate_resolved_fetch_filter_operators(
-					[[TREE_DOCTYPE, "tree_label", operator, "Root"]],
-					TREE_DOCTYPE,
+					[[self.tree_doctype, "tree_label", operator, "Root"]],
+					self.tree_doctype,
 				)
 				self.assertTrue(any("is not supported by Fetch Records" in error for error in errors))
 
 	def test_resolved_is_values_and_legacy_tree_targets_are_validated(self):
 		handler = QueryRecordsHandler()
 		is_errors = handler._validate_resolved_fetch_filter_operators(
-			[[TREE_DOCTYPE, "tree_label", "is", "empty"]],
-			TREE_DOCTYPE,
+			[[self.tree_doctype, "tree_label", "is", "empty"]],
+			self.tree_doctype,
 		)
 		self.assertTrue(any("must be 'set' or 'not set'" in error for error in is_errors))
 
@@ -158,8 +181,8 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 		self.assertTrue(any("requires a Tree DocType" in error for error in tree_errors))
 
 		valid_errors = handler._validate_resolved_fetch_filter_operators(
-			[[TREE_DOCTYPE, "name", "descendants of", self.root.name]],
-			TREE_DOCTYPE,
+			[[self.tree_doctype, "name", "descendants of", self.root.name]],
+			self.tree_doctype,
 		)
 		self.assertEqual(valid_errors, [])
 
@@ -207,7 +230,7 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 				"operator": "descendants of",
 				"value": {"mode": "static", "value": self.root.name},
 			},
-			reference_doctype=TREE_DOCTYPE,
+			reference_doctype=self.tree_doctype,
 		)
 		self.assertEqual(valid_tree_name, [])
 
@@ -218,13 +241,13 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 				"operator": "ancestors of",
 				"value": {"mode": "static", "value": self.child_a.name},
 			},
-			reference_doctype=TREE_DOCTYPE,
+			reference_doctype=self.tree_doctype,
 		)
 		self.assertEqual(valid_tree_link, [])
 
 	def _run_filter(self, filters):
 		rows = execute_query(
-			TREE_DOCTYPE,
+			self.tree_doctype,
 			{"fields": ["name"], "filters": filters},
 			ignore_permissions=True,
 		)

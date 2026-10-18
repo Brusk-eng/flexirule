@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import unittest
+from typing import ClassVar
 
 import frappe
 from frappe.query_builder.functions import Abs, Avg, Coalesce, Concat, Count, Extract, Max, Min, Now, Sum
@@ -18,26 +19,30 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 	the actual installed Frappe v15 / MariaDB environment.
 	"""
 
+	_created_doctypes: ClassVar[list[str]] = []
+	_created_records: ClassVar[list[tuple[str, str]]] = []
+
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		cls._created_doctypes = []
+		cls._created_records = []
+		cls.addClassCleanup(cls._cleanup_resources)
 		cls._setup_test_doctypes()
 		cls._setup_test_records()
 
 	@classmethod
-	def tearDownClass(cls):
-		frappe.db.delete("QB Test Child")
-		frappe.db.delete("QB Test Parent")
-		frappe.db.delete("QB Test Target")
-		frappe.db.delete("QB Test Category")
-		frappe.db.delete("QB Test Tree")
+	def _cleanup_resources(cls):
+		for doctype, docname in reversed(cls._created_records):
+			if frappe.db.exists(doctype, docname):
+				frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
+		cls._created_records.clear()
 
-		for dt in ["QB Test Parent", "QB Test Child", "QB Test Target", "QB Test Category", "QB Test Tree"]:
+		for dt in reversed(cls._created_doctypes):
 			if frappe.db.exists("DocType", dt):
-				frappe.delete_doc("DocType", dt, force=True, ignore_permissions=True)
-
+				frappe.delete_doc(dt, force=True, ignore_permissions=True)
+		cls._created_doctypes.clear()
 		frappe.db.commit()
-		super().tearDownClass()
 
 	@classmethod
 	def _setup_test_doctypes(cls):
@@ -55,6 +60,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 					],
 				}
 			).insert(ignore_permissions=True)
+			cls._created_doctypes.append("QB Test Target")
 
 		# 2. Target DocType 2 for Multiple Link relationships
 		if not frappe.db.exists("DocType", "QB Test Category"):
@@ -75,6 +81,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 					],
 				}
 			).insert(ignore_permissions=True)
+			cls._created_doctypes.append("QB Test Category")
 
 		# 3. Child Table DocType
 		if not frappe.db.exists("DocType", "QB Test Child"):
@@ -93,6 +100,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 					],
 				}
 			).insert(ignore_permissions=True)
+			cls._created_doctypes.append("QB Test Child")
 
 		# 4. Parent DocType (with nullable_text field for null/set testing)
 		if not frappe.db.exists("DocType", "QB Test Parent"):
@@ -128,6 +136,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 					],
 				}
 			).insert(ignore_permissions=True)
+			cls._created_doctypes.append("QB Test Parent")
 
 		# 5. Tree DocType for Hierarchy testing
 		if not frappe.db.exists("DocType", "QB Test Tree"):
@@ -154,30 +163,30 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 					],
 				}
 			).insert(ignore_permissions=True)
+			cls._created_doctypes.append("QB Test Tree")
 
 		frappe.db.commit()
 
 	@classmethod
 	def _setup_test_records(cls):
-		frappe.db.delete("QB Test Child")
-		frappe.db.delete("QB Test Parent")
-		frappe.db.delete("QB Test Target")
-		frappe.db.delete("QB Test Category")
-		frappe.db.delete("QB Test Tree")
-
 		cls.target1 = frappe.get_doc(
 			{"doctype": "QB Test Target", "target_name": "T1", "territory": "North"}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Target", cls.target1.name))
 		cls.target2 = frappe.get_doc(
 			{"doctype": "QB Test Target", "target_name": "T2", "territory": "South"}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Target", cls.target2.name))
 
 		cls.cat1 = frappe.get_doc(
 			{"doctype": "QB Test Category", "category_name": "Cat 1", "group_code": "GRP-A"}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Category", cls.cat1.name))
+
 		cls.cat2 = frappe.get_doc(
 			{"doctype": "QB Test Category", "category_name": "Cat 2", "group_code": "GRP-B"}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Category", cls.cat2.name))
 
 		# P1: nullable_text="A", target_link=T1, category_link=Cat1, two duplicate ITEM-001 rows
 		cls.p1 = frappe.get_doc(
@@ -196,6 +205,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				],
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Parent", cls.p1.name))
 
 		# P2: nullable_text=None, target_link=T2, category_link=Cat2
 		cls.p2 = frappe.get_doc(
@@ -210,6 +220,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				"items": [{"item_code": "ITEM-001", "qty": 1, "rate": 10, "amount": 10}],
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Parent", cls.p2.name))
 
 		# P3: nullable_text="C", target_link=None, category_link=None
 		cls.p3 = frappe.get_doc(
@@ -224,11 +235,14 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				"items": [],
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Parent", cls.p3.name))
 
 		# Tree Hierarchy Setup
 		cls.root = frappe.get_doc({"doctype": "QB Test Tree", "tree_name": "Root", "is_group": 1}).insert(
 			ignore_permissions=True
 		)
+		cls._created_records.append(("QB Test Tree", cls.root.name))
+
 		cls.child_a = frappe.get_doc(
 			{
 				"doctype": "QB Test Tree",
@@ -237,6 +251,8 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				"is_group": 1,
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Tree", cls.child_a.name))
+
 		cls.grandchild_a = frappe.get_doc(
 			{
 				"doctype": "QB Test Tree",
@@ -245,6 +261,8 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				"is_group": 0,
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Tree", cls.grandchild_a.name))
+
 		cls.child_b = frappe.get_doc(
 			{
 				"doctype": "QB Test Tree",
@@ -253,6 +271,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				"is_group": 0,
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Test Tree", cls.child_b.name))
 		frappe.db.commit()
 
 	# -------------------------------------------------------------------------

@@ -95,7 +95,9 @@ class RuleBuilder:
 			action_id=action_id,
 			action_type="Condition",
 			action_label=label,
-			condition_json=json.dumps(condition_expr) if isinstance(condition_expr, dict | list) else condition_expr,
+			condition_json=json.dumps(condition_expr)
+			if isinstance(condition_expr, dict | list)
+			else condition_expr,
 			next_step_if_true=next_true,
 			next_step_if_false=next_false,
 		)
@@ -119,10 +121,6 @@ class RuleBuilder:
 		)
 
 	def build(self, do_not_save=False):
-		from flexirule.ruleflow.tests.test_doctypes import setup_test_doctypes
-
-		setup_test_doctypes()
-
 		if self._replace_existing and frappe.db.exists("Rule", self.rule_name):
 			frappe.delete_doc("Rule", self.rule_name, force=1)
 

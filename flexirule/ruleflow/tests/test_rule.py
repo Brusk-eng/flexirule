@@ -2,6 +2,13 @@
 # See license.txt
 
 import json
+
+# On IntegrationTestCase, the doctype test records and all
+# link-field test record depdendencies are recursively loaded
+# Use these module variables to add/remove to/from that list
+# EXTRA_TEST_RECORD_DEPENDENCIES = ["...]  # eg. ["User"]
+# IGNORE_TEST_RECORD_DEPENDENCIES = ["..."]  # eg. ["User"]
+import uuid
 from unittest.mock import patch
 
 import frappe
@@ -13,23 +20,26 @@ from flexirule.ruleflow.core.coordinator import RuleCoordinator
 from flexirule.ruleflow.core.engine import RuleEngine
 from flexirule.ruleflow.hooks import execute_rules, execute_rules_from_event, get_excluded_doctypes
 
-# On IntegrationTestCase, the doctype test records and all
-# link-field test record depdendencies are recursively loaded
-# Use these module variables to add/remove to/from that list
-# EXTRA_TEST_RECORD_DEPENDENCIES = ["...]  # eg. ["User"]
-# IGNORE_TEST_RECORD_DEPENDENCIES = ["..."]  # eg. ["User"]
-
 
 class TestRule(FrappeTestCase):
+	def setUp(self):
+		super().setUp()
+		self._test_prefix = f"FRX_RULE_VAL_{uuid.uuid4().hex[:8]}"
+
 	def tearDown(self):
+		if hasattr(self, "_test_prefix"):
+			rules = frappe.get_all(
+				"Rule", filters={"rule_name": ["like", f"{self._test_prefix}%"]}, pluck="name"
+			)
+			for r in rules:
+				frappe.delete_doc("Rule", r, force=True, ignore_permissions=True)
 		super().tearDown()
-		frappe.db.delete("Rule", {"rule_name": ["like", "Test Rule Validation%"]})
 
 	def test_active_rule_requires_next_step(self):
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Test Rule Validation Missing False Path",
+				"rule_name": f"{self._test_prefix}_Missing_False_Path",
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",

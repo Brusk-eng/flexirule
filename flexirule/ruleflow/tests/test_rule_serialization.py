@@ -9,49 +9,25 @@ from flexirule.ruleflow.api import validate_rule_document
 class TestRuleSerialization(FrappeTestCase):
 	def test_serialized_payload_keys(self):
 		"""
-		Verify that the rule payload contains the correct canonical keys
+		Verify that a serialized Rule document contains expected canonical fields
 		and does NOT contain deprecated fields like 'is_sub_rule'.
 		"""
-		# Canonical keys expected in the Rule payload from useRuleStore.js
-		payload = {
-			"rule_name": "SERIALIZATION_TEST",
-			"is_active": 0,
-			"trigger_type": "DocType Event",
-			"document_type": "ToDo",
-			"trigger_event": "Validate",
-			"trigger_condition": None,
-			"exposed_as_subrule": 0,
-			"execution_mode": "Synchronous",
-			"max_execution_time": 30,
-			"debug_mode": 0,
-			"description": "",
-			"priority": "10",
-			"skip_for_roles": [],
-			"permissions": [],
-			"actions": [],
-			"visual_data": "{}",
-		}
-		expected_keys = [
-			"rule_name",
-			"is_active",
-			"trigger_type",
-			"document_type",
-			"trigger_event",
-			"trigger_condition",
-			"exposed_as_subrule",
-			"execution_mode",
-			"max_execution_time",
-			"debug_mode",
-			"description",
-			"priority",
-			"skip_for_roles",
-			"permissions",
-			"actions",
-			"visual_data",
-		]
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "TEST_SERIALIZATION_RULE",
+				"document_type": "ToDo",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Validate",
+				"actions": [],
+			}
+		)
+		doc_dict = rule.as_dict()
 
-		self.assertEqual(set(payload), set(expected_keys))
-		self.assertNotIn("is_sub_rule", payload)
+		self.assertIn("rule_name", doc_dict)
+		self.assertIn("is_active", doc_dict)
+		self.assertIn("exposed_as_subrule", doc_dict)
+		self.assertNotIn("is_sub_rule", doc_dict)
 
 	def test_payload_structure_compliance(self):
 		"""

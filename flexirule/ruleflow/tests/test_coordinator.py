@@ -21,17 +21,25 @@ class TestRuleCoordinator(FrappeTestCase):
 
 	def setUp(self):
 		super().setUp()
-		# Clean up any existing test rules
-		frappe.db.delete("Rule", {"rule_name": ["like", "Test%"]})
-		frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test%"]})
+		import uuid
+
+		self._test_prefix = f"FRX_COORD_{uuid.uuid4().hex[:8]}"
 		RuleCoordinator.clear_cache()
 
 	def tearDown(self):
-		super().tearDown()
-		# Clean up test rules after each test
-		frappe.db.delete("Rule", {"rule_name": ["like", "Test%"]})
-		frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test%"]})
+		if hasattr(self, "_test_prefix"):
+			rules = frappe.get_all(
+				"Rule", filters={"rule_name": ["like", f"{self._test_prefix}%"]}, pluck="name"
+			)
+			for r in rules:
+				frappe.delete_doc("Rule", r, force=True, ignore_permissions=True)
+			logs = frappe.get_all(
+				"Rule Execution Log", filters={"rule": ["like", f"{self._test_prefix}%"]}, pluck="name"
+			)
+			for l in logs:
+				frappe.delete_doc("Rule Execution Log", l, force=True, ignore_permissions=True)
 		RuleCoordinator.clear_cache()
+		super().tearDown()
 
 	def create_test_rule(
 		self,
@@ -42,6 +50,8 @@ class TestRuleCoordinator(FrappeTestCase):
 		trigger_condition=None,
 		actions=None,
 	):
+		if not name.startswith(self._test_prefix):
+			name = f"{self._test_prefix}_{name}"
 		"""Helper to create test rules"""
 		meta = frappe.get_meta(doctype)
 		target_field = "description"
