@@ -13,9 +13,10 @@ def make_test_contact(**kwargs):
 		"phone": "+1234567890",
 		"status": "Open",
 	}
+	do_not_save = kwargs.pop("do_not_save", False)
 	defaults.update(kwargs)
 	doc = frappe.get_doc(defaults)
-	if not kwargs.get("do_not_save"):
+	if not do_not_save:
 		doc.insert(ignore_permissions=True)
 	return doc
 
