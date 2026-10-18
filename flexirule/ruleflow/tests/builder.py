@@ -119,6 +119,10 @@ class RuleBuilder:
 		)
 
 	def build(self, do_not_save=False):
+		from flexirule.ruleflow.tests.test_doctypes import setup_test_doctypes
+
+		setup_test_doctypes()
+
 		if self._replace_existing and frappe.db.exists("Rule", self.rule_name):
 			frappe.delete_doc("Rule", self.rule_name, force=1)
 
