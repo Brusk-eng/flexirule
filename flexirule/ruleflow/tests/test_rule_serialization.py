@@ -138,3 +138,64 @@ class TestRuleSerialization(FrappeTestCase):
 		self.assertEqual(len(imported_doc.actions), 2)
 		self.assertEqual(imported_doc.actions[0].action_id, "root")
 		self.assertEqual(imported_doc.actions[1].action_id, "stop_1")
+
+	def test_import_rule_overwrite_clears_stale_actions(self):
+		"""
+		Verify import_rule(overwrite=True) removes stale actions and updates action ordering.
+		"""
+		rule_name = f"{self._test_prefix}_Overwrite_Rule"
+
+		# Create initial rule with 3 actions
+		initial_rule = (
+			RuleBuilder(rule_name)
+			.document_type("ToDo")
+			.active(0)
+			.entry_action(next_step="assign_1")
+			.assignment(
+				"Set Description",
+				[{"target": "doc.description", "operator": "set", "value": "A"}],
+				next_step="stop_1",
+				action_id="assign_1",
+			)
+			.stop("Success", action_id="stop_1")
+			.build()
+		)
+		self.assertEqual(len(initial_rule.actions), 3)
+
+		# Build updated rule export with only 2 actions
+		updated_export = {
+			"flexirule_version": "1.0",
+			"rule": {
+				"rule_name": rule_name,
+				"document_type": "ToDo",
+				"trigger_event": "Validate",
+				"priority": "10",
+				"is_active": 0,
+				"actions": [
+					{
+						"action_id": "root",
+						"action_label": "New Start",
+						"action_type": "Entry Action",
+						"is_enabled": 1,
+						"next_step_if_true": "stop_1",
+					},
+					{
+						"action_id": "stop_1",
+						"action_label": "New Stop",
+						"action_type": "Stop",
+						"is_enabled": 1,
+					},
+				],
+			},
+		}
+
+		from flexirule.ruleflow.utils.import_export import import_rule
+
+		imported_name = import_rule(updated_export, overwrite=True)
+		self.assertEqual(imported_name, rule_name)
+
+		updated_doc = frappe.get_doc("Rule", imported_name)
+		self.assertEqual(len(updated_doc.actions), 2)
+		action_ids = [a.action_id for a in updated_doc.actions]
+		self.assertEqual(action_ids, ["root", "stop_1"])
+		self.assertNotIn("assign_1", action_ids)

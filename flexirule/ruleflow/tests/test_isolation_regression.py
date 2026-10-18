@@ -20,21 +20,22 @@ class TestIsolationRegression(FrappeTestCase):
 		super().setUp()
 		self._test_prefix = f"FRX_REG_{uuid.uuid4().hex[:8]}"
 
+	def _cleanup_rules_for_prefix(self, prefix: str):
+		rules = frappe.get_all(
+			"Rule", filters={"rule_name": ["like", f"{prefix}%"]}, fields=["name", "is_active"]
+		)
+		for r in rules:
+			if r.is_active:
+				frappe.db.set_value("Rule", r.name, "is_active", 0, update_modified=False)
+		for r in rules:
+			frappe.delete_doc("Rule", r.name, force=True, ignore_permissions=True)
+		logs = frappe.get_all("Rule Execution Log", filters={"rule": ["like", f"{prefix}%"]}, pluck="name")
+		for l in logs:
+			frappe.delete_doc("Rule Execution Log", l, force=True, ignore_permissions=True)
+
 	def tearDown(self):
 		if hasattr(self, "_test_prefix"):
-			rules = frappe.get_all(
-				"Rule", filters={"rule_name": ["like", f"{self._test_prefix}%"]}, fields=["name", "is_active"]
-			)
-			for r in rules:
-				if r.is_active:
-					frappe.db.set_value("Rule", r.name, "is_active", 0, update_modified=False)
-			for r in rules:
-				frappe.delete_doc("Rule", r.name, force=True, ignore_permissions=True)
-			logs = frappe.get_all(
-				"Rule Execution Log", filters={"rule": ["like", f"{self._test_prefix}%"]}, pluck="name"
-			)
-			for l in logs:
-				frappe.delete_doc("Rule Execution Log", l, force=True, ignore_permissions=True)
+			self._cleanup_rules_for_prefix(self._test_prefix)
 		super().tearDown()
 
 	def test_workspace_configuration_contains_no_test_doctype_references(self):
@@ -85,9 +86,10 @@ class TestIsolationRegression(FrappeTestCase):
 				)
 
 	def test_cleanup_deactivates_and_removes_active_rules_safely_on_failure(self):
-		"""Verify teardown safely deactivates and cleans up active sub-rules even if a test fails midway."""
-		sub_name = f"{self._test_prefix}_Sub"
-		parent_name = f"{self._test_prefix}_Parent"
+		"""Verify cleanup helper safely deactivates and removes active sub-rules."""
+		custom_prefix = f"FRX_HELPER_{uuid.uuid4().hex[:8]}"
+		sub_name = f"{custom_prefix}_Sub"
+		parent_name = f"{custom_prefix}_Parent"
 
 		sub_rule = (
 			RuleBuilder(sub_name)
@@ -111,16 +113,17 @@ class TestIsolationRegression(FrappeTestCase):
 		self.assertTrue(frappe.db.exists("Rule", sub_rule.name))
 		self.assertTrue(frappe.db.exists("Rule", parent_rule.name))
 
-		# Run tearDown logic to simulate post-failure cleanup
-		self.tearDown()
+		# Run cleanup helper directly
+		self._cleanup_rules_for_prefix(custom_prefix)
 
 		# Verify rules were deactivated and deleted without throwing ValidationError
 		self.assertFalse(frappe.db.exists("Rule", sub_rule.name))
 		self.assertFalse(frappe.db.exists("Rule", parent_rule.name))
 
 	def test_partial_setup_failure_recovery(self):
-		"""Verify cleanup recovers and removes created resources if setup fails midway through."""
-		r1_name = f"{self._test_prefix}_R1"
+		"""Verify cleanup helper recovers and removes created resources if setup fails midway through."""
+		custom_prefix = f"FRX_HELPER_PARTIAL_{uuid.uuid4().hex[:8]}"
+		r1_name = f"{custom_prefix}_R1"
 		r1 = RuleBuilder(r1_name).document_type("ToDo").active(0).entry_action().build()
 		self.assertTrue(frappe.db.exists("Rule", r1.name))
 
@@ -128,6 +131,6 @@ class TestIsolationRegression(FrappeTestCase):
 		try:
 			raise RuntimeError("Simulated failure mid-setup")
 		except RuntimeError:
-			self.tearDown()
+			self._cleanup_rules_for_prefix(custom_prefix)
 
 		self.assertFalse(frappe.db.exists("Rule", r1.name))

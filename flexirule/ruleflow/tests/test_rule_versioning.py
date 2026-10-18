@@ -23,6 +23,10 @@ class TestRuleVersioning(FrappeTestCase):
 	SAVEPOINT_NAME = "test_rule_versioning"
 
 	def setUp(self):
+		super().setUp()
+		import uuid
+
+		self._test_prefix = f"FRX_VER_{uuid.uuid4().hex[:8]}"
 		frappe.set_user("Administrator")
 		frappe.db.savepoint(self.SAVEPOINT_NAME)
 
@@ -30,6 +34,7 @@ class TestRuleVersioning(FrappeTestCase):
 		frappe.db.rollback(save_point=self.SAVEPOINT_NAME)
 		RuleCoordinator.clear_cache()
 		frappe.set_user("Administrator")
+		super().tearDown()
 
 	def _transition_rule(self, rule_name, target_status):
 		from flexirule.ruleflow.api import transition_rule
@@ -74,10 +79,12 @@ class TestRuleVersioning(FrappeTestCase):
 
 	def test_base_rule_name_strips_version_suffix(self):
 		"""If rule_name already ends with _v<N>, base_rule_name strips it."""
+		base = f"{self._test_prefix}_FOO"
+		rule_name = f"{base}_v3"
 		rule = (
-			RuleBuilder("FOO_v3")
+			RuleBuilder(rule_name)
 			.replace_existing(False)
-			.document_type("Test Contact")
+			.document_type("ToDo")
 			.subrule()
 			.active(0)
 			.entry_action(next_step="stop_node")
@@ -85,7 +92,7 @@ class TestRuleVersioning(FrappeTestCase):
 			.build()
 		)
 		rule.reload()
-		self.assertEqual(rule.base_rule_name, "FOO")
+		self.assertEqual(rule.base_rule_name, base)
 
 	def test_amend_rule_sets_version_lineage(self):
 		"""amend_rule should set previous_version and base_rule_name on the new draft."""
