@@ -62,6 +62,7 @@ class RuleBuilder:
 			"return_type": kwargs.get("return_type"),
 			"mutation_mode": kwargs.get("mutation_mode"),
 			"condition_json": kwargs.get("condition_json"),
+			"condition": kwargs.get("condition"),
 			"value_template": kwargs.get("value_template"),
 			"reference_doctype": kwargs.get("reference_doctype"),
 			"rule": kwargs.get("rule"),
@@ -80,18 +81,21 @@ class RuleBuilder:
 		)
 
 	def condition(self, label, condition_expr, next_true=None, next_false=None, action_id=None):
-		# Very basic conversion if it's a string, otherwise assume it's JSON
 		if isinstance(condition_expr, str):
-			# This is a simplification. Real engine uses condition_json or compiled_expression.
-			# For builder, we might want to support both.
-			pass
+			return self.add_action(
+				action_id=action_id,
+				action_type="Condition",
+				action_label=label,
+				condition=condition_expr,
+				next_step_if_true=next_true,
+				next_step_if_false=next_false,
+			)
 
 		return self.add_action(
 			action_id=action_id,
 			action_type="Condition",
 			action_label=label,
-			condition_json=condition_expr if not isinstance(condition_expr, str) else None,
-			# If we want to support raw python strings, we might need another field or handle it in engine
+			condition_json=json.dumps(condition_expr) if isinstance(condition_expr, (dict, list)) else condition_expr,
 			next_step_if_true=next_true,
 			next_step_if_false=next_false,
 		)
@@ -115,10 +119,6 @@ class RuleBuilder:
 		)
 
 	def build(self, do_not_save=False):
-		from flexirule.ruleflow.tests.test_doctypes import setup_test_doctypes
-
-		setup_test_doctypes()
-
 		if self._replace_existing and frappe.db.exists("Rule", self.rule_name):
 			frappe.delete_doc("Rule", self.rule_name, force=1)
 
