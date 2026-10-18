@@ -9,7 +9,7 @@ class TestSubRuleActivation(FlexiRuleTestCase):
 		# 1. Create Inactive Sub-Rule
 		sub_rule = (
 			RuleBuilder("Inactive Sub Rule")
-			.document_type("Test Contact")
+			.document_type("ToDo")
 			.subrule()
 			.active(0)
 			.entry_action(next_step="stop_node")
@@ -23,7 +23,7 @@ class TestSubRuleActivation(FlexiRuleTestCase):
 		# This should now succeed
 		parent_builder = (
 			RuleBuilder("Inactive Parent Rule")
-			.document_type("Test Contact")
+			.document_type("ToDo")
 			.active(0)
 			.entry_action(next_step="call_sub")
 			.sub_rule_call("Call Sub", sub_rule.name, action_id="call_sub", next_step="stop_1")

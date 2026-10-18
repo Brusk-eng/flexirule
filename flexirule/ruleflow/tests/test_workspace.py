@@ -52,7 +52,7 @@ class TestRuleFlowWorkspace(unittest.TestCase):
 			{
 				"doctype": "Rule",
 				"rule_name": rule_name,
-				"document_type": "Test Contact",
+				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Before Save",
 				"is_active": 1,

@@ -43,7 +43,7 @@ class TestRuleVersioning(FrappeTestCase):
 		return (
 			RuleBuilder(name)
 			.replace_existing(False)
-			.document_type("Test Contact")
+			.document_type("ToDo")
 			.subrule()
 			.active(active)
 			.entry_action(next_step="stop_node")
@@ -56,7 +56,7 @@ class TestRuleVersioning(FrappeTestCase):
 		return (
 			RuleBuilder(name)
 			.replace_existing(False)
-			.document_type("Test Contact")
+			.document_type("ToDo")
 			.active(active)
 			.entry_action(next_step="call_sub")
 			.sub_rule_call("Call Sub", sub_rule_target, action_id="call_sub", next_step="stop_1")
