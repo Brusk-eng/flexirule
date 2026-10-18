@@ -179,6 +179,8 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 			).insert(ignore_permissions=True)
 			cls._created_doctypes.append(cls.tree_dt)
 
+		# Commit required for dynamic DDL schema creation in Frappe so MariaDB table definitions
+		# and DocType metadata are immediately visible across test query execution.
 		frappe.db.commit()
 
 	@classmethod
@@ -288,7 +290,6 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 			}
 		).insert(ignore_permissions=True)
 		cls._created_records.append((cls.tree_dt, cls.child_b.name))
-		frappe.db.commit()
 
 	# -------------------------------------------------------------------------
 	# 1. Basic get_query() Behavior & Fields
@@ -607,7 +608,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 	# 6. Record Locking, Permissions & Security
 	# -------------------------------------------------------------------------
 	def test_13_record_locking_and_transactions(self):
-		frappe.db.begin()
+		frappe.db.savepoint("test_record_lock")
 
 		q_lock1 = frappe.qb.get_query(
 			self.parent_dt, fields=["name"], limit=1, for_update=True, skip_locked=True
@@ -623,7 +624,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		res2 = q_lock2.run(as_dict=True)
 		self.assertIsInstance(res2, list)
 
-		frappe.db.rollback()
+		frappe.db.rollback(save_point="test_record_lock")
 
 	def test_14_permissions_and_security(self):
 		with self.assertRaises(TypeError):

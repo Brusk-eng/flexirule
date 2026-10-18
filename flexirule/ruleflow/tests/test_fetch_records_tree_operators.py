@@ -70,6 +70,8 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 				}
 			).insert(ignore_permissions=True)
 			cls._created_doctypes.append(cls.tree_doctype)
+		# Commit required for dynamic DDL schema creation in Frappe so MariaDB table definitions
+		# and DocType metadata are immediately visible across test query execution.
 		frappe.db.commit()
 
 	@classmethod
@@ -113,7 +115,6 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 			{"doctype": cls.tree_doctype, "tree_label": "Other Root", "is_group": 1}
 		).insert(ignore_permissions=True)
 		cls._created_records.append((cls.tree_doctype, cls.other_root.name))
-		frappe.db.commit()
 
 	def test_fetch_records_operator_contract_matches_portable_frappe_query_builder_operators(self):
 		handler = QueryRecordsHandler()
