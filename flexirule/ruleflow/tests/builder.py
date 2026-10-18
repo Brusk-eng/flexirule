@@ -95,7 +95,7 @@ class RuleBuilder:
 			action_id=action_id,
 			action_type="Condition",
 			action_label=label,
-			condition_json=json.dumps(condition_expr) if isinstance(condition_expr, (dict, list)) else condition_expr,
+			condition_json=json.dumps(condition_expr) if isinstance(condition_expr, dict | list) else condition_expr,
 			next_step_if_true=next_true,
 			next_step_if_false=next_false,
 		)
