@@ -8,7 +8,6 @@ Tests for FlexiRule Process Sync
 import json
 import shutil
 import tempfile
-import unittest
 import uuid
 from pathlib import Path
 
@@ -32,6 +31,12 @@ class TestProcessSync(FrappeTestCase):
 		self._temp_dirs = []
 
 	def tearDown(self):
+		for process_name in frappe.get_all(
+			"Process",
+			filters={"process_name": ["like", f"{self._test_prefix}%"]},
+			pluck="name",
+		):
+			frappe.delete_doc("Process", process_name, force=True, ignore_permissions=True)
 		for temp_dir in self._temp_dirs:
 			shutil.rmtree(temp_dir, ignore_errors=True)
 		super().tearDown()
