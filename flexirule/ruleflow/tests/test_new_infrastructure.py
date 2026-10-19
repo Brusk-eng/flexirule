@@ -9,7 +9,7 @@ class TestOrchestration(FlexiRuleTestCase):
 	def test_contact_validation_workflow_success(self):
 		# 1. Setup
 		rule = Workflows.contact_validation()
-		contact = make_test_contact(email_id="  USER@Example.Com  ")
+		contact = make_test_contact(test_case=self, email_id="  USER@Example.Com  ")
 
 		# 2. Execute
 		result = self.execute_rule(rule.name, contact)
@@ -21,7 +21,7 @@ class TestOrchestration(FlexiRuleTestCase):
 
 	def test_contact_validation_workflow_failure(self):
 		rule = Workflows.contact_validation()
-		contact = make_test_contact(email_id="", do_not_save=True)
+		contact = make_test_contact(test_case=self, email_id="", do_not_save=True)
 
 		with self.assertRaises(frappe.ValidationError):
 			self.execute_rule(rule.name, contact)
@@ -35,7 +35,7 @@ class TestOrchestration(FlexiRuleTestCase):
 			"Parent Customer Flow", sub_rule=sub_rule.name, check_credit=True
 		)
 
-		customer = make_test_customer(credit_limit=5000)
+		customer = make_test_customer(test_case=self, credit_limit=5000)
 
 		# 3. Execute
 		result = self.execute_rule(parent_rule.name, customer)
@@ -47,7 +47,7 @@ class TestOrchestration(FlexiRuleTestCase):
 
 	def test_credit_limit_exceeded(self):
 		rule = Workflows.customer_workflow(check_credit=True)
-		customer = make_test_customer(credit_limit=15000, do_not_save=True)
+		customer = make_test_customer(test_case=self, credit_limit=15000, do_not_save=True)
 
 		with self.assertRaises(frappe.ValidationError):
 			self.execute_rule(rule.name, customer)
