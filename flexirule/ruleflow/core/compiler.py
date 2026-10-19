@@ -133,23 +133,33 @@ class ConditionCompiler:
 			return ""
 
 		if isinstance(conditions, str):
+			conditions_str = conditions.strip()
+			if not conditions_str:
+				return ""
 			try:
-				conditions = json.loads(conditions)
+				parsed = json.loads(conditions_str)
 				# Handle double-encoded JSON (e.g. '"{\\"op\\": ...}"')
-				if isinstance(conditions, str):
+				if isinstance(parsed, str):
 					try:
-						conditions = json.loads(conditions)
+						parsed = json.loads(parsed)
 					except Exception:
 						pass
-			except Exception as e:
-				raise ValueError(f"Invalid JSON format: {e!s}")
+				if isinstance(parsed, dict | list):
+					conditions = parsed
+				elif isinstance(parsed, str) and parsed.strip():
+					return parsed.strip()
+				else:
+					return conditions_str
+			except Exception:
+				# Raw python condition expression string
+				return conditions_str
 
 		# Wrap list in AND group (legacy/root support)
 		if isinstance(conditions, list):
 			conditions = {"op": "and", "conditions": conditions}
 
 		if not isinstance(conditions, dict):
-			raise ValueError("Condition must be a dictionary or list")
+			return str(conditions)
 
 		compiled = self._compile_node(
 			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}

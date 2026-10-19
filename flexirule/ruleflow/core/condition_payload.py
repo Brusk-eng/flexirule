@@ -10,8 +10,8 @@ from typing import Any
 CONDITION_CONFIG_KEYS = ("condition", "condition_tree", "condition_json")
 
 
-def parse_condition_payload(value: Any) -> dict | list | None:
-	"""Parse a condition payload from dict/list/JSON string.
+def parse_condition_payload(value: Any) -> dict | list | str | None:
+	"""Parse a condition payload from dict/list/JSON string/raw expression string.
 
 	Returns None when the payload is missing or invalid.
 	"""
@@ -27,8 +27,12 @@ def parse_condition_payload(value: Any) -> dict | list | None:
 	if not isinstance(value, str):
 		return None
 
+	val_str = value.strip()
+	if not val_str:
+		return None
+
 	try:
-		parsed = json.loads(value)
+		parsed = json.loads(val_str)
 		# Support double-encoded JSON payloads
 		if isinstance(parsed, str):
 			try:
@@ -39,10 +43,12 @@ def parse_condition_payload(value: Any) -> dict | list | None:
 			return dict(parsed)
 		if isinstance(parsed, list):
 			return list(parsed)
+		if isinstance(parsed, str) and parsed.strip():
+			return parsed.strip()
 	except Exception:
-		return None
+		return val_str
 
-	return None
+	return val_str
 
 
 def extract_condition_payload_from_config(config_value: Any) -> dict | list | None:
