@@ -371,7 +371,7 @@ class TestRuleSerialization(FrappeTestCase):
 		self.assertEqual(res_legacy.get("status"), "Success")
 		self.assertIn("Match Stop", [s.get("action") for s in res_legacy.get("path_trace", [])])
 
-		# 4. Absent condition and explicitly empty condition
+		# 4. Explicitly empty condition ({}) -> compiles to "True" and executes true branch
 		rule_empty_name = f"{self._test_prefix}_Empty_Cond"
 		rule_empty = (
 			RuleBuilder(rule_empty_name)
@@ -380,7 +380,7 @@ class TestRuleSerialization(FrappeTestCase):
 			.entry_action(next_step="cond_empty")
 			.condition(
 				"Empty Cond",
-				"",
+				{},
 				next_true="stop_true",
 				next_false="stop_false",
 				action_id="cond_empty",
@@ -392,7 +392,7 @@ class TestRuleSerialization(FrappeTestCase):
 
 		reloaded_empty = frappe.get_doc("Rule", rule_empty.name)
 		cond_action_empty = next(a for a in reloaded_empty.actions if a.action_id == "cond_empty")
-		self.assertIn(cond_action_empty.compiled_expression, (None, "True"))
+		self.assertEqual(cond_action_empty.compiled_expression, "True")
 
 		RuleEngine(reloaded_empty).execute(todo_match)
 		res_empty = getattr(frappe.local, "execution_payload", {})

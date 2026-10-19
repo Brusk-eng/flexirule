@@ -136,21 +136,24 @@ class ConditionCompiler:
 			conditions_str = conditions.strip()
 			if not conditions_str:
 				return ""
-			try:
-				parsed = json.loads(conditions_str)
-				# Handle double-encoded JSON (e.g. '"{\\"op\\": ...}"')
-				if isinstance(parsed, str):
-					try:
-						parsed = json.loads(parsed)
-					except Exception:
-						pass
-				if isinstance(parsed, dict | list):
-					conditions = parsed
-				elif isinstance(parsed, str) and parsed.strip():
-					return parsed.strip()
-				else:
-					return conditions_str
-			except Exception:
+			if conditions_str.startswith(("{", "[")):
+				try:
+					parsed = json.loads(conditions_str)
+					# Handle double-encoded JSON (e.g. '"{\\"op\\": ...}"')
+					if isinstance(parsed, str) and parsed.strip().startswith(("{", "[")):
+						try:
+							parsed = json.loads(parsed)
+						except Exception:
+							pass
+					if isinstance(parsed, dict | list):
+						conditions = parsed
+					elif isinstance(parsed, str) and parsed.strip():
+						return parsed.strip()
+					else:
+						return conditions_str
+				except Exception as e:
+					raise ValueError(f"Invalid JSON format in condition payload: {e!s}")
+			else:
 				# Raw python condition expression string
 				return conditions_str
 

@@ -51,15 +51,15 @@ def parse_condition_payload(value: Any) -> dict | list | str | None:
 	return val_str
 
 
-def extract_condition_payload_from_config(config_value: Any) -> dict | list | None:
+def extract_condition_payload_from_config(config_value: Any) -> dict | list | str | None:
 	"""Extract condition payload from Action.config.
 
 	Supports:
-	- direct condition tree in config
+	- direct condition tree or raw string in config
 	- nested keys: condition / condition_tree / condition_json
 	"""
 	config_payload = parse_condition_payload(config_value)
-	if isinstance(config_payload, list):
+	if isinstance(config_payload, list | str):
 		return config_payload
 
 	if not isinstance(config_payload, Mapping):
@@ -82,7 +82,7 @@ def extract_condition_payload_from_config(config_value: Any) -> dict | list | No
 	return None
 
 
-def get_condition_payload(action_or_dict: Any) -> dict | list | None:
+def get_condition_payload(action_or_dict: Any) -> dict | list | str | None:
 	"""Resolve the effective condition payload for a Condition action.
 
 	Canonical source: action.config
@@ -95,9 +95,21 @@ def get_condition_payload(action_or_dict: Any) -> dict | list | None:
 	return parse_condition_payload(_safe_get(action_or_dict, "condition_json"))
 
 
-def set_condition_payload_on_action(action_or_dict: Any, payload: dict | list) -> None:
+def set_condition_payload_on_action(action_or_dict: Any, payload: dict | list | str) -> None:
 	"""Persist canonical condition payload to Action.config."""
-	serialized = json.dumps(payload, ensure_ascii=False)
+	if isinstance(payload, str):
+		val = payload.strip()
+		try:
+			parsed = json.loads(val)
+			if isinstance(parsed, dict | list):
+				serialized = json.dumps(parsed, ensure_ascii=False)
+			else:
+				serialized = json.dumps({"condition": val}, ensure_ascii=False)
+		except Exception:
+			serialized = json.dumps({"condition": val}, ensure_ascii=False)
+	else:
+		serialized = json.dumps(payload, ensure_ascii=False)
+
 	_safe_set(action_or_dict, "config", serialized)
 
 
