@@ -23,6 +23,10 @@ class TestRuleVersioning(FrappeTestCase):
 	SAVEPOINT_NAME = "test_rule_versioning"
 
 	def setUp(self):
+		super().setUp()
+		import uuid
+
+		self._test_prefix = f"FRX_VER_{uuid.uuid4().hex[:8]}"
 		frappe.set_user("Administrator")
 		frappe.db.savepoint(self.SAVEPOINT_NAME)
 
@@ -30,6 +34,7 @@ class TestRuleVersioning(FrappeTestCase):
 		frappe.db.rollback(save_point=self.SAVEPOINT_NAME)
 		RuleCoordinator.clear_cache()
 		frappe.set_user("Administrator")
+		super().tearDown()
 
 	def _transition_rule(self, rule_name, target_status):
 		from flexirule.ruleflow.api import transition_rule
@@ -40,10 +45,14 @@ class TestRuleVersioning(FrappeTestCase):
 
 	def _create_callable_sub_rule(self, name, active=0):
 		"""Create a minimal Callable Event sub-rule."""
+		if not name.startswith(self._test_prefix):
+			rule_name = f"{self._test_prefix}_{name}"
+		else:
+			rule_name = name
 		return (
-			RuleBuilder(name)
+			RuleBuilder(rule_name)
 			.replace_existing(False)
-			.document_type("Test Contact")
+			.document_type("ToDo")
 			.subrule()
 			.active(active)
 			.entry_action(next_step="stop_node")
@@ -53,10 +62,14 @@ class TestRuleVersioning(FrappeTestCase):
 
 	def _create_parent_rule(self, name, sub_rule_target, active=0):
 		"""Create a parent rule that calls a sub-rule by its logical name."""
+		if not name.startswith(self._test_prefix):
+			rule_name = f"{self._test_prefix}_{name}"
+		else:
+			rule_name = name
 		return (
-			RuleBuilder(name)
+			RuleBuilder(rule_name)
 			.replace_existing(False)
-			.document_type("Test Contact")
+			.document_type("ToDo")
 			.active(active)
 			.entry_action(next_step="call_sub")
 			.sub_rule_call("Call Sub", sub_rule_target, action_id="call_sub", next_step="stop_1")
@@ -70,14 +83,16 @@ class TestRuleVersioning(FrappeTestCase):
 		"""New rules should auto-populate base_rule_name from rule_name."""
 		rule = self._create_callable_sub_rule("MY_CREDIT_CHECK")
 		rule.reload()
-		self.assertEqual(rule.base_rule_name, "MY_CREDIT_CHECK")
+		self.assertEqual(rule.base_rule_name, f"{self._test_prefix}_MY_CREDIT_CHECK")
 
 	def test_base_rule_name_strips_version_suffix(self):
 		"""If rule_name already ends with _v<N>, base_rule_name strips it."""
+		base = f"{self._test_prefix}_FOO"
+		rule_name = f"{base}_v3"
 		rule = (
-			RuleBuilder("FOO_v3")
+			RuleBuilder(rule_name)
 			.replace_existing(False)
-			.document_type("Test Contact")
+			.document_type("ToDo")
 			.subrule()
 			.active(0)
 			.entry_action(next_step="stop_node")
@@ -85,7 +100,7 @@ class TestRuleVersioning(FrappeTestCase):
 			.build()
 		)
 		rule.reload()
-		self.assertEqual(rule.base_rule_name, "FOO")
+		self.assertEqual(rule.base_rule_name, base)
 
 	def test_amend_rule_sets_version_lineage(self):
 		"""amend_rule should set previous_version and base_rule_name on the new draft."""
@@ -98,9 +113,9 @@ class TestRuleVersioning(FrappeTestCase):
 		new_doc = frappe.get_doc("Rule", new_name)
 
 		self.assertEqual(new_doc.previous_version, original.name)
-		self.assertEqual(new_doc.base_rule_name, "AMEND_TEST")
+		self.assertEqual(new_doc.base_rule_name, f"{self._test_prefix}_AMEND_TEST")
 		self.assertEqual(new_doc.version, 2)
-		self.assertEqual(new_doc.rule_name, "AMEND_TEST_V2")
+		self.assertEqual(new_doc.rule_name, f"{self._test_prefix}_AMEND_TEST_V2")
 		self.assertEqual(new_doc.is_active, 0)
 
 	def test_amend_creates_correct_chain(self):
@@ -123,7 +138,7 @@ class TestRuleVersioning(FrappeTestCase):
 		v3 = frappe.get_doc("Rule", v3_name)
 		self.assertEqual(v3.previous_version, v2.name)
 		self.assertEqual(v3.version, 3)
-		self.assertEqual(v3.base_rule_name, "CHAIN_TEST")
+		self.assertEqual(v3.base_rule_name, f"{self._test_prefix}_CHAIN_TEST")
 
 	# ── Version promotion via transition_rule ─────────────────
 
@@ -137,7 +152,7 @@ class TestRuleVersioning(FrappeTestCase):
 
 		v2_name = amend_rule(v1.name)
 		v2 = frappe.get_doc("Rule", v2_name)
-		self.assertEqual(v2.rule_name, "PROMO_TEST_V2")
+		self.assertEqual(v2.rule_name, f"{self._test_prefix}_PROMO_TEST_V2")
 
 		self._transition_rule(v2.name, "Active")
 
@@ -180,7 +195,7 @@ class TestRuleVersioning(FrappeTestCase):
 			sub_rule.save()
 
 		self.assertIn("Cannot deactivate", str(cm.exception))
-		self.assertIn("DEACT_PARENT", str(cm.exception))
+		self.assertIn(parent.name, str(cm.exception))
 
 	def test_deactivation_allowed_when_no_active_parents(self):
 		"""Can deactivate a sub-rule when no active parent references it."""
@@ -352,14 +367,14 @@ class TestRuleVersioning(FrappeTestCase):
 
 		v1 = self._create_callable_sub_rule("PROMO_TEST", active=1)
 		registry = RuleCoordinator.get_runtime_registry()
-		self.assertEqual(registry["active_sub_rules"].get("PROMO_TEST"), v1.name)
+		self.assertEqual(registry["active_sub_rules"].get(v1.base_rule_name), v1.name)
 
 		v2_name = amend_rule(v1.name)
 		v2 = frappe.get_doc("Rule", v2_name)
 		self._transition_rule(v2.name, "Active")
 
 		registry = RuleCoordinator.get_runtime_registry()
-		self.assertEqual(registry["active_sub_rules"].get("PROMO_TEST"), v2.name)
+		self.assertEqual(registry["active_sub_rules"].get(v1.base_rule_name), v2.name)
 
 	def test_rollback_reactivates_previous_version(self):
 		"""Rollback is a normal activation of the previous version."""
@@ -375,7 +390,7 @@ class TestRuleVersioning(FrappeTestCase):
 		self.assertEqual(v1.is_active, 1)
 		self.assertEqual(v2.is_active, 0)
 		self.assertEqual(
-			RuleCoordinator.get_runtime_registry()["active_sub_rules"].get("PROMO_TEST"), v1.name
+			RuleCoordinator.get_runtime_registry()["active_sub_rules"].get(v1.base_rule_name), v1.name
 		)
 
 	def test_activation_blocks_incompatible_sub_rule_contract(self):
@@ -403,7 +418,9 @@ class TestRuleVersioning(FrappeTestCase):
 		"""Migration should convert versioned sub-rule links to logical base names."""
 		from flexirule.patches.migrate_rules_to_logical_names import execute
 
-		target = self._create_callable_sub_rule("MIGRATE_TARGET_v3", active=1)
+		base = f"{self._test_prefix}_MIGRATE_TARGET"
+		target_name = f"{base}_v3"
+		target = self._create_callable_sub_rule(target_name, active=1)
 		parent = self._create_parent_rule("MIGRATE_PARENT", target.name, active=0)
 
 		execute()
@@ -411,6 +428,6 @@ class TestRuleVersioning(FrappeTestCase):
 		target.reload()
 		parent.reload()
 		sub_action = next(a for a in parent.actions if a.action_type == "Sub-Rule")
-		self.assertEqual(target.base_rule_name, "MIGRATE_TARGET")
+		self.assertEqual(target.base_rule_name, base)
 		self.assertEqual(target.version, 3)
-		self.assertEqual(sub_action.rule, "MIGRATE_TARGET")
+		self.assertEqual(sub_action.rule, base)

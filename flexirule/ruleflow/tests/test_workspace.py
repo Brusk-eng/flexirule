@@ -52,7 +52,7 @@ class TestRuleFlowWorkspace(unittest.TestCase):
 			{
 				"doctype": "Rule",
 				"rule_name": rule_name,
-				"document_type": "Test Contact",
+				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Before Save",
 				"is_active": 1,
@@ -69,4 +69,6 @@ class TestRuleFlowWorkspace(unittest.TestCase):
 			self.assertIsInstance(activity_chart, dict)
 			self.assertIn("labels", activity_chart)
 		finally:
-			frappe.delete_doc("Rule", rule.name, ignore_permissions=True)
+			if frappe.db.exists("Rule", rule.name):
+				frappe.db.set_value("Rule", rule.name, "is_active", 0, update_modified=False)
+				frappe.delete_doc("Rule", rule.name, force=True, ignore_permissions=True)

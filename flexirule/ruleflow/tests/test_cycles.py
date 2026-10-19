@@ -10,14 +10,36 @@ class TestRuleCycles(FrappeTestCase):
 		super().setUp()
 		self._test_prefix = f"FRX_CYCLE_{uuid.uuid4().hex[:8]}"
 
+	def tearDown(self):
+		if hasattr(self, "_test_prefix"):
+			rules = frappe.get_all(
+				"Rule", filters={"rule_name": ["like", f"{self._test_prefix}%"]}, fields=["name", "is_active"]
+			)
+			for r in rules:
+				if r.is_active:
+					frappe.db.set_value("Rule", r.name, "is_active", 0, update_modified=False)
+			for r in rules:
+				frappe.delete_doc("Rule", r.name, force=True, ignore_permissions=True)
+			logs = frappe.get_all(
+				"Rule Execution Log", filters={"rule": ["like", f"{self._test_prefix}%"]}, pluck="name"
+			)
+			for l in logs:
+				frappe.delete_doc("Rule Execution Log", l, force=True, ignore_permissions=True)
+		super().tearDown()
+
 	def create_rule(self, name, actions=None, trigger_condition=None):
+		if not name.startswith(self._test_prefix):
+			rule_name = f"{self._test_prefix}_{name}"
+		else:
+			rule_name = name
+
 		if actions is None:
 			actions = [{"action_id": "root", "action_type": "Entry Action", "action_label": "Start"}]
 
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": f"{self._test_prefix}_{name}",
+				"rule_name": rule_name,
 				"document_type": "Note",
 				"trigger_type": "Callable Event",
 				"is_active": 0,
