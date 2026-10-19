@@ -1,35 +1,34 @@
 name: Start Jules Task
 
 on:
-  # ChatGPT can hand off a prompt by posting a /jules comment on an issue or PR.
+  # The GitHub connector can hand off a task through an authorized /jules comment.
   issue_comment:
     types: [created]
-  # Retain a direct/manual fallback for testing and non-ChatGPT callers.
+  # Manual and API callers provide the base branch and prompt explicitly.
   workflow_dispatch:
     inputs:
       prompt:
-        description: "Task prompt for Jules"
+        description: "Complete task prompt for Jules"
         required: true
         type: string
-      title:
+      base_branch:
+        description: "Repository branch Jules should start from"
+        required: true
+        type: string
+        default: develop
+      task_title:
         description: "Optional Jules session title"
         required: false
         type: string
         default: "FlexiRule task"
-      starting_branch:
-        description: "Branch Jules should use as its starting point"
-        required: true
-        type: choice
-        options:
-          - develop
-        default: develop
 
 permissions:
   contents: read
-  issues: read
+  issues: write
   pull-requests: read
 
 concurrency:
+  # Do not cancel a task that has already been submitted to Jules.
   group: jules-task-${{ github.run_id }}
   cancel-in-progress: false
 
@@ -53,36 +52,75 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           INPUT_PROMPT: ${{ inputs.prompt }}
-          INPUT_TITLE: ${{ inputs.title }}
-          INPUT_BRANCH: ${{ inputs.starting_branch }}
+          INPUT_TITLE: ${{ inputs.task_title }}
+          INPUT_BRANCH: ${{ inputs.base_branch }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           python - <<'PY'
           import json
           import os
+          import re
+          import subprocess
+          import urllib.error
+          import urllib.parse
+          import urllib.request
           from pathlib import Path
 
           event_name = os.environ["EVENT_NAME"]
           if event_name == "issue_comment":
-              body = os.environ.get("COMMENT_BODY", "")
-              lines = body.splitlines()
-              if not lines or lines[0].strip() not in ("/jules", "/jules run"):
+              lines = os.environ.get("COMMENT_BODY", "").splitlines()
+              if not lines:
                   raise SystemExit("Use /jules on the first line, followed by the task prompt.")
+              command = lines[0].strip()
+              match = re.fullmatch(r"/jules(?:\s+--base-branch\s+(\S+))?(?:\s+run)?", command)
+              if not match:
+                  raise SystemExit("Use '/jules' or '/jules --base-branch <branch>' on the first line.")
+              branch = match.group(1) or "develop"
               prompt = "\n".join(lines[1:]).strip()
               title = (os.environ.get("ISSUE_TITLE") or "FlexiRule task").strip()
-              branch = "develop"
           else:
               prompt = os.environ.get("INPUT_PROMPT", "").strip()
               title = (os.environ.get("INPUT_TITLE") or "FlexiRule task").strip()
-              branch = os.environ.get("INPUT_BRANCH") or "develop"
+              branch = (os.environ.get("INPUT_BRANCH") or "develop").strip()
 
           if not prompt:
               raise SystemExit("The Jules prompt is empty.")
           if len(prompt) > 20000:
               raise SystemExit("The Jules prompt exceeds the 20,000-character limit.")
-          if branch != "develop":
-              raise SystemExit("Only the develop starting branch is currently permitted.")
-          title = title[:120] or "FlexiRule task"
+          if not branch or len(branch) > 255 or branch.startswith("-"):
+              raise SystemExit("The base branch name is invalid.")
+          try:
+              subprocess.run(
+                  ["git", "check-ref-format", "--branch", branch],
+                  check=True, capture_output=True, text=True,
+              )
+          except subprocess.CalledProcessError:
+              raise SystemExit("The base branch is not a valid Git branch name.")
 
+          # Verify the requested branch exists in this repository before contacting Jules.
+          owner_repo = os.environ["GITHUB_REPOSITORY"]
+          encoded_branch = urllib.parse.quote(branch, safe="")
+          url = f"https://api.github.com/repos/{owner_repo}/branches/{encoded_branch}"
+          request = urllib.request.Request(
+              url,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  branch_data = json.load(response)
+          except urllib.error.HTTPError as exc:
+              if exc.code == 404:
+                  raise SystemExit(f"Base branch '{branch}' does not exist in {owner_repo}.")
+              raise SystemExit(f"Could not verify base branch (GitHub API HTTP {exc.code}).")
+          except (urllib.error.URLError, TimeoutError):
+              raise SystemExit("Could not verify the base branch with the GitHub API.")
+
+          title = title[:120] or "FlexiRule task"
           payload = {
               "prompt": prompt,
               "title": title,
@@ -97,6 +135,9 @@ jobs:
               json.dumps(payload, ensure_ascii=False),
               encoding="utf-8",
           )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"task_title={title}\n")
+              output.write(f"base_branch={branch}\n")
           print(f"Prepared Jules request: title={title!r}, branch={branch}, prompt_chars={len(prompt)}")
           PY
 
@@ -126,6 +167,7 @@ jobs:
 
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
           response = json.loads(Path("jules-response.json").read_text(encoding="utf-8"))
@@ -135,6 +177,9 @@ jobs:
           )
           if not session_id:
               raise SystemExit("Jules API returned success but no session ID.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"session_id={session_id}\n")
+              output.write(f"session_url={session_url}\n")
           print(f"Jules session created: {session_id}")
           if session_url:
               print(f"Session URL: {session_url}")
@@ -143,10 +188,57 @@ jobs:
           PY
 
       - name: Publish handoff summary
-        if: ${{ github.event_name == 'issue_comment' && success() }}
+        if: ${{ success() }}
         env:
+          EVENT_NAME: ${{ github.event_name }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TASK_TITLE: ${{ steps.request.outputs.task_title }}
+          BASE_BRANCH: ${{ steps.request.outputs.base_branch }}
+          SESSION_URL: ${{ steps.create.outputs.session_url }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          echo "Jules session creation succeeded for ${REPOSITORY} issue/PR #${ISSUE_NUMBER}."
-          echo "Open this workflow run's logs for the Jules session URL."
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          lines = [
+              "### Jules task submitted",
+              "",
+              f"**Task:** {os.environ['TASK_TITLE']}",
+              f"**Base branch:** `{os.environ['BASE_BRANCH']}`",
+              f"**Jules session:** {os.environ['SESSION_URL']}",
+              f"**Workflow run:** {os.environ['RUN_URL']}",
+              "",
+              "Jules is configured to create a pull request automatically. Review its changes and CI before merging.",
+          ]
+          print("\n".join(lines))
+          if os.environ["EVENT_NAME"] != "issue_comment":
+              raise SystemExit(0)
+
+          repository = os.environ["REPOSITORY"]
+          issue_number = os.environ["ISSUE_NUMBER"]
+          if not issue_number or issue_number == "None":
+              raise SystemExit(0)
+          url = f"https://api.github.com/repos/{repository}/issues/{issue_number}/comments"
+          request = urllib.request.Request(
+              url,
+              data=json.dumps({"body": "\n".join(lines)}).encode("utf-8"),
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "Content-Type": "application/json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  print(f"Published Jules handoff comment (HTTP {response.status}).")
+          except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+              # Session creation has already succeeded; don't misreport it as a failed launch.
+              print(f"::warning::Jules session started, but the GitHub handoff comment could not be published: {type(exc).__name__}")
+          PY
