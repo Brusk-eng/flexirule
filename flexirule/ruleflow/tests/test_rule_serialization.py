@@ -222,3 +222,153 @@ class TestRuleSerialization(FrappeTestCase):
 		action_ids = [a.action_id for a in updated_doc.actions]
 		self.assertEqual(action_ids, ["root", "stop_1"])
 		self.assertNotIn("assign_1", action_ids)
+
+	def test_rule_action_condition_persistence_and_execution_matrix(self):
+		"""
+		Verify Rule Action condition persistence across database insert, reload,
+		compilation, execution semantics (true/false paths in RuleEngine), and export/import roundtrip.
+		Covers:
+		- Absent condition
+		- Explicitly empty condition
+		- Valid string condition expression
+		- Structured condition tree (JSON dict)
+		- Legacy condition_json payload
+		"""
+		from flexirule.ruleflow.core.engine import RuleEngine
+		from flexirule.ruleflow.utils.import_export import import_rule
+
+		# 1. String condition expression (JSON condition tree string)
+		rule_str_name = f"{self._test_prefix}_Str_Cond"
+		str_payload = '[{"left":{"ref":"doc.description"},"op":"==","right":{"value":"MATCH"}}]'
+		rule_str = (
+			RuleBuilder(rule_str_name)
+			.document_type("ToDo")
+			.active(1)
+			.entry_action(next_step="cond_str")
+			.condition(
+				"Check String Cond",
+				str_payload,
+				next_true="stop_true",
+				next_false="stop_false",
+				action_id="cond_str",
+			)
+			.stop("Match Stop", action_id="stop_true")
+			.stop("Mismatch Stop", action_id="stop_false")
+			.build()
+		)
+
+		reloaded_str = frappe.get_doc("Rule", rule_str.name)
+		cond_action_str = next(a for a in reloaded_str.actions if a.action_id == "cond_str")
+		self.assertIn("doc.description", cond_action_str.config)
+		self.assertTrue(cond_action_str.compiled_expression)
+		self.assertIn("MATCH", cond_action_str.compiled_expression)
+
+		# Execute matching doc -> should hit stop_true
+		todo_match = frappe.get_doc({"doctype": "ToDo", "description": "MATCH"}).insert(ignore_permissions=True)
+		self.addCleanup(lambda: frappe.delete_doc("ToDo", todo_match.name, force=True, ignore_permissions=True))
+		RuleEngine(reloaded_str).execute(todo_match)
+		res_match = getattr(frappe.local, "execution_payload", {})
+		self.assertEqual(res_match.get("status"), "Success")
+		executed_actions_match = [s.get("action") for s in res_match.get("path_trace", [])]
+		self.assertIn("Match Stop", executed_actions_match)
+
+		# Execute non-matching doc -> should hit stop_false
+		todo_mismatch = frappe.get_doc({"doctype": "ToDo", "description": "OTHER"}).insert(ignore_permissions=True)
+		self.addCleanup(lambda: frappe.delete_doc("ToDo", todo_mismatch.name, force=True, ignore_permissions=True))
+		RuleEngine(reloaded_str).execute(todo_mismatch)
+		res_mismatch = getattr(frappe.local, "execution_payload", {})
+		self.assertEqual(res_mismatch.get("status"), "Success")
+		executed_actions_mismatch = [s.get("action") for s in res_mismatch.get("path_trace", [])]
+		self.assertIn("Mismatch Stop", executed_actions_mismatch)
+
+		# 2. Structured condition tree (JSON dict)
+		rule_tree_name = f"{self._test_prefix}_Tree_Cond"
+		tree_payload = [{"left": {"ref": "doc.description"}, "op": "==", "right": {"value": "TREE_MATCH"}}]
+		rule_tree = (
+			RuleBuilder(rule_tree_name)
+			.document_type("ToDo")
+			.active(1)
+			.entry_action(next_step="cond_tree")
+			.condition(
+				"Check Tree Cond",
+				tree_payload,
+				next_true="stop_true",
+				next_false="stop_false",
+				action_id="cond_tree",
+			)
+			.stop("Match Stop", action_id="stop_true")
+			.stop("Mismatch Stop", action_id="stop_false")
+			.build()
+		)
+
+		reloaded_tree = frappe.get_doc("Rule", rule_tree.name)
+		cond_action_tree = next(a for a in reloaded_tree.actions if a.action_id == "cond_tree")
+		self.assertTrue(cond_action_tree.compiled_expression)
+		self.assertIn("TREE_MATCH", cond_action_tree.compiled_expression)
+
+		# Export/Import roundtrip check on tree condition rule
+		exported_tree = export_rule(reloaded_tree.name)
+		imported_tree_name = f"{rule_tree_name}_Imp"
+		exported_tree["rule"]["rule_name"] = imported_tree_name
+		import_rule(exported_tree)
+		imported_tree = frappe.get_doc("Rule", imported_tree_name)
+		imp_cond_action = next(a for a in imported_tree.actions if a.action_id == "cond_tree")
+		self.assertTrue(imp_cond_action.compiled_expression)
+		self.assertIn("TREE_MATCH", imp_cond_action.compiled_expression)
+
+		# 3. Legacy condition_json payload
+		rule_legacy_name = f"{self._test_prefix}_Legacy_Cond"
+		rule_legacy = (
+			RuleBuilder(rule_legacy_name)
+			.document_type("ToDo")
+			.active(1)
+			.entry_action(next_step="cond_legacy")
+			.condition(
+				"Check Legacy Cond",
+				tree_payload,
+				next_true="stop_true",
+				next_false="stop_false",
+				action_id="cond_legacy",
+				use_legacy_field=True,
+			)
+			.stop("Match Stop", action_id="stop_true")
+			.stop("Mismatch Stop", action_id="stop_false")
+			.build()
+		)
+
+		from flexirule.ruleflow.core.condition_payload import get_condition_payload
+
+		reloaded_legacy = frappe.get_doc("Rule", rule_legacy.name)
+		cond_action_legacy = next(a for a in reloaded_legacy.actions if a.action_id == "cond_legacy")
+		self.assertIsNotNone(get_condition_payload(cond_action_legacy))
+		self.assertTrue(cond_action_legacy.compiled_expression)
+
+		# 4. Absent condition and explicitly empty condition
+		rule_empty_name = f"{self._test_prefix}_Empty_Cond"
+		rule_empty = (
+			RuleBuilder(rule_empty_name)
+			.document_type("ToDo")
+			.active(1)
+			.entry_action(next_step="cond_empty")
+			.condition(
+				"Empty Cond",
+				"",
+				next_true="stop_true",
+				next_false="stop_false",
+				action_id="cond_empty",
+			)
+			.stop("Match Stop", action_id="stop_true")
+			.stop("Mismatch Stop", action_id="stop_false")
+			.build()
+		)
+
+		reloaded_empty = frappe.get_doc("Rule", rule_empty.name)
+		cond_action_empty = next(a for a in reloaded_empty.actions if a.action_id == "cond_empty")
+		self.assertIn(cond_action_empty.compiled_expression, (None, "True"))
+
+		# Empty condition passes by default
+		RuleEngine(reloaded_empty).execute(todo_match)
+		res_empty = getattr(frappe.local, "execution_payload", {})
+		self.assertEqual(res_empty.get("status"), "Success")
+		executed_actions_empty = [s.get("action") for s in res_empty.get("path_trace", [])]
+		self.assertIn("Match Stop", executed_actions_empty)

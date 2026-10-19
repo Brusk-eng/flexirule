@@ -48,6 +48,21 @@ class RuleBuilder:
 		return self
 
 	def add_action(self, **kwargs):
+		config_val = kwargs.get("config")
+		condition_val = kwargs.get("condition")
+		condition_json_val = kwargs.get("condition_json")
+
+		# If condition was passed directly to add_action, incorporate it into config unless config was explicitly set
+		if condition_val is not None and config_val is None:
+			if isinstance(condition_val, dict | list):
+				config_val = json.dumps(condition_val)
+			elif isinstance(condition_val, str):
+				try:
+					parsed = json.loads(condition_val)
+					config_val = json.dumps(parsed)
+				except Exception:
+					config_val = json.dumps({"condition": condition_val})
+
 		action = {
 			"action_id": kwargs.get("action_id") or f"action_{len(self._actions) + 1}",
 			"action_type": kwargs.get("action_type"),
@@ -55,14 +70,13 @@ class RuleBuilder:
 			"is_enabled": 1,
 			"next_step_if_true": kwargs.get("next_step_if_true"),
 			"next_step_if_false": kwargs.get("next_step_if_false"),
-			"config": kwargs.get("config", "{}"),
+			"config": config_val if config_val is not None else "{}",
 			"operation": kwargs.get("operation"),
 			"process_name": kwargs.get("process_name"),
 			"return_variable": kwargs.get("return_variable"),
 			"return_type": kwargs.get("return_type"),
 			"mutation_mode": kwargs.get("mutation_mode"),
-			"condition_json": kwargs.get("condition_json"),
-			"condition": kwargs.get("condition"),
+			"condition_json": condition_json_val,
 			"value_template": kwargs.get("value_template"),
 			"reference_doctype": kwargs.get("reference_doctype"),
 			"rule": kwargs.get("rule"),
@@ -80,24 +94,38 @@ class RuleBuilder:
 			action_id=action_id, action_type="Stop", action_label=label, operation=operation
 		)
 
-	def condition(self, label, condition_expr, next_true=None, next_false=None, action_id=None):
-		if isinstance(condition_expr, str):
+	def condition(self, label, condition_expr, next_true=None, next_false=None, action_id=None, use_legacy_field=False):
+		if use_legacy_field:
+			cond_json = (
+				json.dumps(condition_expr)
+				if isinstance(condition_expr, dict | list)
+				else condition_expr
+			)
 			return self.add_action(
 				action_id=action_id,
 				action_type="Condition",
 				action_label=label,
-				condition=condition_expr,
+				condition_json=cond_json,
 				next_step_if_true=next_true,
 				next_step_if_false=next_false,
 			)
+
+		if isinstance(condition_expr, dict | list):
+			config_payload = json.dumps(condition_expr)
+		elif isinstance(condition_expr, str):
+			try:
+				parsed = json.loads(condition_expr)
+				config_payload = json.dumps(parsed)
+			except Exception:
+				config_payload = json.dumps({"condition": condition_expr})
+		else:
+			config_payload = "{}"
 
 		return self.add_action(
 			action_id=action_id,
 			action_type="Condition",
 			action_label=label,
-			condition_json=json.dumps(condition_expr)
-			if isinstance(condition_expr, dict | list)
-			else condition_expr,
+			config=config_payload,
 			next_step_if_true=next_true,
 			next_step_if_false=next_false,
 		)
