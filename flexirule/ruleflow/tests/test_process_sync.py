@@ -6,9 +6,9 @@ Tests for FlexiRule Process Sync
 """
 
 import json
-import os
+import shutil
 import tempfile
-import unittest
+import uuid
 from pathlib import Path
 
 import frappe
@@ -27,17 +27,22 @@ class TestProcessSync(FrappeTestCase):
 
 	def setUp(self):
 		super().setUp()
-		# Clean up any test processes
-		processes = frappe.get_all("Process", filters={"process_name": ["like", "Test%"]}, pluck="name")
-		for process_name in processes:
-			frappe.delete_doc("Process", process_name, force=True)
+		self._test_prefix = f"FRX_TEST_PROCESS_{uuid.uuid4().hex[:8].upper()}_"
+		self._temp_dirs = []
 
 	def tearDown(self):
+		for process_name in frappe.get_all(
+			"Process",
+			filters={"process_name": ["like", f"{self._test_prefix}%"]},
+			pluck="name",
+		):
+			frappe.delete_doc("Process", process_name, force=True, ignore_permissions=True)
+		for temp_dir in self._temp_dirs:
+			shutil.rmtree(temp_dir, ignore_errors=True)
 		super().tearDown()
-		# Clean up any test processes created during tests
-		processes = frappe.get_all("Process", filters={"process_name": ["like", "Test%"]}, pluck="name")
-		for process_name in processes:
-			frappe.delete_doc("Process", process_name, force=True)
+
+	def _process_name(self, suffix):
+		return f"{self._test_prefix}{suffix}"
 
 	def create_test_process_json(self, process_name, operations=None):
 		"""Helper to create a temporary process JSON file"""
@@ -67,7 +72,8 @@ class TestProcessSync(FrappeTestCase):
 
 		# Create a temporary file
 		temp_dir = tempfile.mkdtemp()
-		json_file_path = os.path.join(temp_dir, f"{process_name.lower()}.json")
+		self._temp_dirs.append(temp_dir)
+		json_file_path = Path(temp_dir) / f"{process_name.lower()}.json"
 
 		with open(json_file_path, "w") as f:
 			json.dump(process_data, f, indent=2)
@@ -143,17 +149,17 @@ class TestProcessSync(FrappeTestCase):
 
 	def test_import_process_from_file_new(self):
 		"""Test importing a new process from a JSON file"""
-		json_path = self.create_test_process_json("TestNewProcess")
+		json_path = self.create_test_process_json(self._process_name("NewProcess"))
 
 		# Import the process
 		import_process_from_file(json_path, "Ruleflow")
 
 		# Check if the process was created
-		self.assertTrue(frappe.db.exists("Process", "TestNewProcess"))
+		self.assertTrue(frappe.db.exists("Process", self._process_name("NewProcess")))
 
 		# Verify the process details
-		process_doc = frappe.get_doc("Process", "TestNewProcess")
-		self.assertEqual(process_doc.process_name, "TestNewProcess")
+		process_doc = frappe.get_doc("Process", self._process_name("NewProcess"))
+		self.assertEqual(process_doc.process_name, self._process_name("NewProcess"))
 		self.assertEqual(process_doc.module, "Ruleflow")
 		self.assertEqual(len(process_doc.operations), 1)
 		self.assertEqual(process_doc.operations[0].func_name, "test_operation")
@@ -161,11 +167,11 @@ class TestProcessSync(FrappeTestCase):
 	def test_import_process_from_file_update(self):
 		"""Test updating an existing process from a JSON file"""
 		# First, create the process
-		json_path = self.create_test_process_json("TestUpdateProcess")
+		json_path = self.create_test_process_json(self._process_name("UpdateProcess"))
 		import_process_from_file(json_path, "Ruleflow")
 
 		# Verify initial state
-		process_doc = frappe.get_doc("Process", "TestUpdateProcess")
+		process_doc = frappe.get_doc("Process", self._process_name("UpdateProcess"))
 		self.assertEqual(len(process_doc.operations), 1)
 		self.assertEqual(process_doc.operations[0].label, "Test Operation")
 
@@ -185,24 +191,26 @@ class TestProcessSync(FrappeTestCase):
 			}
 		]
 
-		updated_json_path = self.create_test_process_json("TestUpdateProcess", updated_operations)
+		updated_json_path = self.create_test_process_json(
+			self._process_name("UpdateProcess"), updated_operations
+		)
 
 		# Import the updated process
 		import_process_from_file(updated_json_path, "Ruleflow")
 
 		# Verify the update
-		updated_process_doc = frappe.get_doc("Process", "TestUpdateProcess")
+		updated_process_doc = frappe.get_doc("Process", self._process_name("UpdateProcess"))
 		self.assertEqual(len(updated_process_doc.operations), 1)
 		self.assertEqual(updated_process_doc.operations[0].label, "Updated Test Operation")
 
 	def test_import_process_from_file_add_operation(self):
 		"""Test adding a new operation to an existing process"""
 		# First, create the process
-		json_path = self.create_test_process_json("TestAddOpProcess")
+		json_path = self.create_test_process_json(self._process_name("AddOpProcess"))
 		import_process_from_file(json_path, "Ruleflow")
 
 		# Verify initial state
-		process_doc = frappe.get_doc("Process", "TestAddOpProcess")
+		process_doc = frappe.get_doc("Process", self._process_name("AddOpProcess"))
 		self.assertEqual(len(process_doc.operations), 1)
 
 		# Create updated JSON with additional operation
@@ -233,13 +241,15 @@ class TestProcessSync(FrappeTestCase):
 			},
 		]
 
-		updated_json_path = self.create_test_process_json("TestAddOpProcess", additional_operations)
+		updated_json_path = self.create_test_process_json(
+			self._process_name("AddOpProcess"), additional_operations
+		)
 
 		# Import the updated process
 		import_process_from_file(updated_json_path, "Ruleflow")
 
 		# Verify the addition
-		updated_process_doc = frappe.get_doc("Process", "TestAddOpProcess")
+		updated_process_doc = frappe.get_doc("Process", self._process_name("AddOpProcess"))
 		self.assertEqual(len(updated_process_doc.operations), 2)
 
 		# Check that both operations exist
@@ -276,7 +286,7 @@ class TestProcessSync(FrappeTestCase):
 			},
 		]
 
-		json_path = self.create_test_process_json("TestRemoveOpProcess", initial_operations)
+		json_path = self.create_test_process_json(self._process_name("RemoveOpProcess"), initial_operations)
 		import_process_from_file(json_path, "Ruleflow")
 
 		updated_operations = [
@@ -294,23 +304,31 @@ class TestProcessSync(FrappeTestCase):
 			}
 		]
 
-		updated_json_path = self.create_test_process_json("TestRemoveOpProcess", updated_operations)
+		updated_json_path = self.create_test_process_json(
+			self._process_name("RemoveOpProcess"), updated_operations
+		)
 		import_process_from_file(updated_json_path, "Ruleflow")
 
-		updated_process_doc = frappe.get_doc("Process", "TestRemoveOpProcess")
+		updated_process_doc = frappe.get_doc("Process", self._process_name("RemoveOpProcess"))
 		operation_names = [op.func_name for op in updated_process_doc.operations]
 		self.assertEqual(operation_names, ["test_operation"])
 
 	def test_sync_processes_for_app_prunes_missing_standard_process(self):
 		"""Missing file-backed Process docs should be removed during app sync."""
+		test_module = f"{self._test_prefix}MODULE"
+		if not frappe.db.exists("Module Def", test_module):
+			frappe.get_doc(
+				{"doctype": "Module Def", "module_name": test_module, "app_name": "flexirule"}
+			).insert(ignore_permissions=True)
+
 		original_in_import = getattr(frappe.flags, "in_import", False)
 		frappe.flags.in_import = True
 		try:
 			process = frappe.get_doc(
 				{
 					"doctype": "Process",
-					"process_name": "TestPruneMissingProcess",
-					"module": "Ruleflow",
+					"process_name": self._process_name("PruneMissingProcess"),
+					"module": test_module,
 					"is_standard": "Yes",
 				}
 			).insert(ignore_permissions=True)
@@ -319,9 +337,14 @@ class TestProcessSync(FrappeTestCase):
 
 		self.assertTrue(frappe.db.exists("Process", process.name))
 
-		sync_processes_for_app("flexirule")
+		from flexirule.ruleflow.core.process_sync import _prune_missing_standard_processes
+
+		_prune_missing_standard_processes([test_module], set())
 
 		self.assertFalse(frappe.db.exists("Process", process.name))
+
+		if frappe.db.exists("Module Def", test_module):
+			frappe.delete_doc("Module Def", test_module, force=True, ignore_permissions=True)
 
 	def test_import_process_from_file_missing_name(self):
 		"""Test importing a process with missing name"""
@@ -329,7 +352,8 @@ class TestProcessSync(FrappeTestCase):
 		process_data = {"module": "Ruleflow", "is_standard": "Yes", "operations": []}
 
 		temp_dir = tempfile.mkdtemp()
-		json_file_path = os.path.join(temp_dir, "missing_name.json")
+		self._temp_dirs.append(temp_dir)
+		json_file_path = Path(temp_dir) / "missing_name.json"
 
 		with open(json_file_path, "w") as f:
 			json.dump(process_data, f, indent=2)
@@ -346,7 +370,7 @@ class TestProcessSync(FrappeTestCase):
 
 	def test_import_process_from_file_missing_module(self):
 		"""Test importing a process with missing module"""
-		json_path = self.create_test_process_json("TestMissingModuleProcess")
+		json_path = self.create_test_process_json(self._process_name("MissingModuleProcess"))
 
 		# Read the JSON and remove module
 		with open(json_path) as f:
@@ -364,12 +388,12 @@ class TestProcessSync(FrappeTestCase):
 		import_process_from_file(json_path, "NonExistentModule")
 
 		# Process should not be created
-		self.assertFalse(frappe.db.exists("Process", "TestMissingModuleProcess"))
+		self.assertFalse(frappe.db.exists("Process", self._process_name("MissingModuleProcess")))
 
 	def test_import_process_from_file_rejects_legacy_operation_shape(self):
 		"""Hard cutover: process operations without contract_v2 should fail."""
 		process_data = {
-			"process_name": "TestLegacyOperationShape",
+			"process_name": self._process_name("LegacyOperationShape"),
 			"module": "Ruleflow",
 			"is_standard": "Yes",
 			"operations": [
@@ -384,7 +408,8 @@ class TestProcessSync(FrappeTestCase):
 		}
 
 		temp_dir = tempfile.mkdtemp()
-		json_file_path = os.path.join(temp_dir, "testlegacyoperationshape.json")
+		self._temp_dirs.append(temp_dir)
+		json_file_path = Path(temp_dir) / "testlegacyoperationshape.json"
 		with open(json_file_path, "w") as f:
 			json.dump(process_data, f, indent=2)
 
@@ -394,11 +419,11 @@ class TestProcessSync(FrappeTestCase):
 	def test_get_process_json_path_existing(self):
 		"""Test getting JSON path for an existing process"""
 		# Create a process first
-		json_path = self.create_test_process_json("TestGetPathProcess")
+		json_path = self.create_test_process_json(self._process_name("GetPathProcess"))
 		import_process_from_file(json_path, "Ruleflow")
 
 		# Get the JSON path
-		retrieved_path = get_process_json_path("TestGetPathProcess", "Ruleflow")
+		retrieved_path = get_process_json_path(self._process_name("GetPathProcess"), "Ruleflow")
 		# In developer mode, importing a standard Process may export it to app files.
 		if retrieved_path is None:
 			self.assertIsNone(retrieved_path)
@@ -431,7 +456,7 @@ class TestProcessSync(FrappeTestCase):
 		"""Test importing process with case insensitive module matching"""
 		# Create a process with lowercase module name in JSON
 		process_data = {
-			"process_name": "TestCaseInsensitive",
+			"process_name": self._process_name("CaseInsensitive"),
 			"module": "ruleflow",  # lowercase
 			"is_standard": "Yes",
 			"operations": [
@@ -453,7 +478,8 @@ class TestProcessSync(FrappeTestCase):
 		}
 
 		temp_dir = tempfile.mkdtemp()
-		json_file_path = os.path.join(temp_dir, "testcaseinsensitive.json")
+		self._temp_dirs.append(temp_dir)
+		json_file_path = Path(temp_dir) / "testcaseinsensitive.json"
 
 		with open(json_file_path, "w") as f:
 			json.dump(process_data, f, indent=2)
@@ -464,7 +490,7 @@ class TestProcessSync(FrappeTestCase):
 		import_process_from_file(json_path, "Ruleflow")  # Capital R
 
 		# Check if the process was created
-		self.assertTrue(frappe.db.exists("Process", "TestCaseInsensitive"))
+		self.assertTrue(frappe.db.exists("Process", self._process_name("CaseInsensitive")))
 
 	def test_import_process_from_file_with_all_operation_fields(self):
 		"""Test importing process with all operation fields defined"""
@@ -490,16 +516,18 @@ class TestProcessSync(FrappeTestCase):
 			}
 		]
 
-		json_path = self.create_test_process_json("TestComprehensiveProcess", operations_with_all_fields)
+		json_path = self.create_test_process_json(
+			self._process_name("ComprehensiveProcess"), operations_with_all_fields
+		)
 
 		# Import the process
 		import_process_from_file(json_path, "Ruleflow")
 
 		# Check if the process was created
-		self.assertTrue(frappe.db.exists("Process", "TestComprehensiveProcess"))
+		self.assertTrue(frappe.db.exists("Process", self._process_name("ComprehensiveProcess")))
 
 		# Verify all operation fields were imported
-		process_doc = frappe.get_doc("Process", "TestComprehensiveProcess")
+		process_doc = frappe.get_doc("Process", self._process_name("ComprehensiveProcess"))
 		operation = process_doc.operations[0]
 
 		self.assertEqual(operation.func_name, "comprehensive_operation")
@@ -548,16 +576,16 @@ class TestProcessSync(FrappeTestCase):
 			}
 		]
 
-		json_path = self.create_test_process_json("TestDisabledOpProcess", operations)
+		json_path = self.create_test_process_json(self._process_name("DisabledOpProcess"), operations)
 
 		# Import the process
 		import_process_from_file(json_path, "Ruleflow")
 
 		# Check if the process was created
-		self.assertTrue(frappe.db.exists("Process", "TestDisabledOpProcess"))
+		self.assertTrue(frappe.db.exists("Process", self._process_name("DisabledOpProcess")))
 
 		# Verify the operation is disabled
-		process_doc = frappe.get_doc("Process", "TestDisabledOpProcess")
+		process_doc = frappe.get_doc("Process", self._process_name("DisabledOpProcess"))
 		operation = process_doc.operations[0]
 
 		self.assertEqual(operation.func_name, "disabled_operation")
@@ -567,7 +595,8 @@ class TestProcessSync(FrappeTestCase):
 		"""Test importing process from invalid JSON file"""
 		# Create an invalid JSON file
 		temp_dir = tempfile.mkdtemp()
-		json_file_path = os.path.join(temp_dir, "invalid.json")
+		self._temp_dirs.append(temp_dir)
+		json_file_path = Path(temp_dir) / "invalid.json"
 
 		with open(json_file_path, "w") as f:
 			f.write("{ invalid json ")  # Invalid JSON
@@ -600,7 +629,7 @@ class TestProcessSync(FrappeTestCase):
 				"transactional": 0,
 			}
 		]
-		json_path = self.create_test_process_json("TestTimestampGuard", initial_operations)
+		json_path = self.create_test_process_json(self._process_name("TimestampGuard"), initial_operations)
 		import_process_from_file(json_path, "Ruleflow")
 
 		with open(json_path) as f:
@@ -612,5 +641,5 @@ class TestProcessSync(FrappeTestCase):
 			json.dump(stale_data, f, indent=2)
 
 		import_process_from_file(json_path, "Ruleflow")
-		doc = frappe.get_doc("Process", "TestTimestampGuard")
+		doc = frappe.get_doc("Process", self._process_name("TimestampGuard"))
 		self.assertEqual(doc.operations[0].label, "Current Label")

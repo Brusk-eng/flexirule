@@ -3,7 +3,7 @@ import frappe
 from flexirule.ruleflow.tests.test_doctypes import setup_test_doctypes
 
 
-def make_test_contact(**kwargs):
+def make_test_contact(test_case=None, **kwargs):
 	setup_test_doctypes()
 	defaults = {
 		"doctype": "Test Contact",
@@ -13,15 +13,25 @@ def make_test_contact(**kwargs):
 		"phone": "+1234567890",
 		"status": "Open",
 	}
+	do_not_save = kwargs.pop("do_not_save", False)
 	defaults.update(kwargs)
 	doc = frappe.get_doc(defaults)
-	if not kwargs.get("do_not_save"):
+	if not do_not_save:
 		doc.insert(ignore_permissions=True)
+		if test_case and hasattr(test_case, "addCleanup"):
+			test_case.addCleanup(
+				lambda dt=doc.doctype, dn=doc.name: (
+					frappe.delete_doc(dt, dn, force=True, ignore_permissions=True)
+					if frappe.db.exists(dt, dn)
+					else None
+				)
+			)
 	return doc
 
 
-def make_test_customer(**kwargs):
+def make_test_customer(test_case=None, **kwargs):
 	setup_test_doctypes()
+	do_not_save = kwargs.pop("do_not_save", False)
 	defaults = {
 		"doctype": "Test Customer",
 		"customer_name": "Acme Corp",
@@ -33,13 +43,22 @@ def make_test_customer(**kwargs):
 	}
 	defaults.update(kwargs)
 	doc = frappe.get_doc(defaults)
-	if not kwargs.get("do_not_save"):
+	if not do_not_save:
 		doc.insert(ignore_permissions=True)
+		if test_case and hasattr(test_case, "addCleanup"):
+			test_case.addCleanup(
+				lambda dt=doc.doctype, dn=doc.name: (
+					frappe.delete_doc(dt, dn, force=True, ignore_permissions=True)
+					if frappe.db.exists(dt, dn)
+					else None
+				)
+			)
 	return doc
 
 
-def make_test_lead(**kwargs):
+def make_test_lead(test_case=None, **kwargs):
 	setup_test_doctypes()
+	do_not_save = kwargs.pop("do_not_save", False)
 	defaults = {
 		"doctype": "Test Lead",
 		"first_name": "Jane",
@@ -48,6 +67,14 @@ def make_test_lead(**kwargs):
 	}
 	defaults.update(kwargs)
 	doc = frappe.get_doc(defaults)
-	if not kwargs.get("do_not_save"):
+	if not do_not_save:
 		doc.insert(ignore_permissions=True)
+		if test_case and hasattr(test_case, "addCleanup"):
+			test_case.addCleanup(
+				lambda dt=doc.doctype, dn=doc.name: (
+					frappe.delete_doc(dt, dn, force=True, ignore_permissions=True)
+					if frappe.db.exists(dt, dn)
+					else None
+				)
+			)
 	return doc

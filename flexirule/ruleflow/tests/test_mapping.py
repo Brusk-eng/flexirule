@@ -20,17 +20,10 @@ class TestMapping(unittest.TestCase):
 		result = apply_input_mapping(context, mapping, config)
 		self.assertEqual(result["threshold"], 500)
 
-		# Test nested mapping
+		# Test list index mapping
 		mapping = '{"item_name": "doc.items.0.name"}'
-		# Note: mapping.py resolve_path might allow list index if getattr fails?
-		# Let's check implementation. resolve_path uses .get() for dict or getattr.
-		# It does NOT explicitly handle list indices yet.
-		# Wait, I should verify implementation supports lists if needed.
-		# Implementation:
-		# if isinstance(current, dict): current.get(part)
-		# else: getattr(current, part, None)
-		# So "0" as key for list won't work unless I update resolve_path.
-		# For now, let's stick to dict/object access.
+		result = apply_input_mapping(context, mapping, config)
+		self.assertEqual(result["item_name"], "A")
 
 		# Test missing path
 		mapping = '{"threshold": "doc.invalid"}'

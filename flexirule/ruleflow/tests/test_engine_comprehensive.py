@@ -30,15 +30,26 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 
 	def setUp(self):
 		super().setUp()
-		# Clean up any existing test rules
-		frappe.db.delete("Rule", {"rule_name": ["like", "Test%"]})
-		frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test%"]})
+		import uuid
+
+		self._test_prefix = f"FRX_ENG_COMP_{uuid.uuid4().hex[:8]}"
 
 	def tearDown(self):
+		if hasattr(self, "_test_prefix"):
+			rules = frappe.get_all(
+				"Rule", filters={"rule_name": ["like", f"{self._test_prefix}%"]}, fields=["name", "is_active"]
+			)
+			for r in rules:
+				if r.is_active:
+					frappe.db.set_value("Rule", r.name, "is_active", 0, update_modified=False)
+			for r in rules:
+				frappe.delete_doc("Rule", r.name, force=True, ignore_permissions=True)
+			logs = frappe.get_all(
+				"Rule Execution Log", filters={"rule": ["like", f"{self._test_prefix}%"]}, pluck="name"
+			)
+			for l in logs:
+				frappe.delete_doc("Rule Execution Log", l, force=True, ignore_permissions=True)
 		super().tearDown()
-		# Clean up test rules after each test
-		frappe.db.delete("Rule", {"rule_name": ["like", "Test%"]})
-		frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test%"]})
 
 	def create_test_rule(
 		self,
@@ -51,6 +62,8 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 		exposed_as_subrule=0,
 		priority=10,
 	):
+		if not name.startswith(self._test_prefix):
+			name = f"{self._test_prefix}_{name}"
 		"""Helper to create test rules"""
 		if actions is None:
 			actions = [

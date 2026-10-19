@@ -132,29 +132,33 @@ class ConditionCompiler:
 		if not conditions:
 			return ""
 
-		if isinstance(conditions, str):
-			try:
-				conditions = json.loads(conditions)
-				# Handle double-encoded JSON (e.g. '"{\\"op\\": ...}"')
-				if isinstance(conditions, str):
-					try:
-						conditions = json.loads(conditions)
-					except Exception:
-						pass
-			except Exception as e:
-				raise ValueError(f"Invalid JSON format: {e!s}")
+		from flexirule.ruleflow.core.condition_payload import parse_condition_payload
 
-		# Wrap list in AND group (legacy/root support)
-		if isinstance(conditions, list):
-			conditions = {"op": "and", "conditions": conditions}
+		parsed = parse_condition_payload(conditions)
+		if parsed is None:
+			return ""
 
-		if not isinstance(conditions, dict):
-			raise ValueError("Condition must be a dictionary or list")
+		if isinstance(parsed, str):
+			is_valid, err = self.validate(parsed)
+			if not is_valid:
+				raise ValueError(f"Invalid condition expression: {err}")
+			return parsed
+
+		if isinstance(parsed, list):
+			conditions_tree = {"op": "and", "conditions": parsed}
+		elif isinstance(parsed, dict):
+			conditions_tree = parsed
+		else:
+			raise ValueError(f"Unsupported condition payload type: {type(conditions).__name__}")
 
 		compiled = self._compile_node(
-			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+			conditions_tree, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
 		)
-		return compiled if compiled else "True"
+		result = compiled if compiled else "True"
+		is_valid, err = self.validate(result)
+		if not is_valid:
+			raise ValueError(f"Invalid compiled condition expression: {err}")
+		return result
 
 	def _compile_node(self, node, scopes=None):
 		if not isinstance(node, dict):

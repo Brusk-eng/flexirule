@@ -48,13 +48,22 @@ def export_rule(rule_name):
 				"action_label": action.action_label,
 				"action_type": action.action_type,
 				"is_enabled": action.is_enabled,
-				"configuration": action.config,
+				"config": action.config,
+				"condition": getattr(action, "condition", None),
+				"condition_json": getattr(action, "condition_json", None),
 				"compiled_expression": action.compiled_expression,
+				"operation": getattr(action, "operation", None),
+				"process_name": getattr(action, "process_name", None),
+				"return_variable": getattr(action, "return_variable", None),
+				"return_type": getattr(action, "return_type", None),
+				"mutation_mode": getattr(action, "mutation_mode", None),
+				"reference_doctype": getattr(action, "reference_doctype", None),
+				"value_template": getattr(action, "value_template", None),
 				"on_error": action.on_error,
 				"next_step_if_true": action.next_step_if_true,
 				"next_step_if_false": action.next_step_if_false,
-				"position_x": action.position_x,
-				"position_y": action.position_y,
+				"position_x": getattr(action, "position_x", None),
+				"position_y": getattr(action, "position_y", None),
 			}
 		)
 
@@ -111,6 +120,8 @@ def import_rule(import_data, overwrite=False):
 
 	# Add actions
 	for action_data in rule_data.get("actions", []):
+		if action_data.get("configuration") and not action_data.get("config"):
+			action_data["config"] = action_data.pop("configuration")
 		if action_data.get("condition_expression") and not action_data.get("compiled_expression"):
 			action_data["compiled_expression"] = action_data.pop("condition_expression")
 		rule.append("actions", action_data)

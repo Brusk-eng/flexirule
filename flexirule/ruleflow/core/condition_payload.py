@@ -10,10 +10,15 @@ from typing import Any
 CONDITION_CONFIG_KEYS = ("condition", "condition_tree", "condition_json")
 
 
-def parse_condition_payload(value: Any) -> dict | list | None:
-	"""Parse a condition payload from dict/list/JSON string.
+def parse_condition_payload(value: Any) -> dict | list | str | None:
+	"""Parse a condition payload from dict, list, JSON string, or raw Python expression string.
 
-	Returns None when the payload is missing or invalid.
+	Contract:
+	- Dict or list payloads return as dict or list.
+	- JSON strings starting with '{' or '[' are parsed as structured condition trees.
+	  If parsing fails on a string starting with '{' or '[', ValueError is raised for malformed JSON.
+	- Non-JSON strings (not starting with '{' or '[') are treated as raw Python condition expression strings.
+	- None or empty/whitespace strings return None.
 	"""
 	if value in (None, ""):
 		return None
@@ -25,35 +30,42 @@ def parse_condition_payload(value: Any) -> dict | list | None:
 		return list(value)
 
 	if not isinstance(value, str):
+		raise ValueError(f"Unsupported condition payload type: {type(value).__name__}")
+
+	val_str = value.strip()
+	if not val_str:
 		return None
 
-	try:
-		parsed = json.loads(value)
-		# Support double-encoded JSON payloads
-		if isinstance(parsed, str):
-			try:
-				parsed = json.loads(parsed)
-			except Exception:
-				pass
-		if isinstance(parsed, Mapping):
-			return dict(parsed)
-		if isinstance(parsed, list):
-			return list(parsed)
-	except Exception:
-		return None
+	if val_str.startswith(("{", "[")):
+		try:
+			parsed = json.loads(val_str)
+			# Support double-encoded JSON payloads
+			if isinstance(parsed, str) and parsed.strip().startswith(("{", "[")):
+				try:
+					parsed = json.loads(parsed)
+				except Exception:
+					pass
+			if isinstance(parsed, Mapping):
+				return dict(parsed)
+			if isinstance(parsed, list):
+				return list(parsed)
+			if isinstance(parsed, str) and parsed.strip():
+				return parsed.strip()
+		except Exception as exc:
+			raise ValueError(f"Invalid JSON format in condition payload: {exc!s}") from exc
 
-	return None
+	return val_str
 
 
-def extract_condition_payload_from_config(config_value: Any) -> dict | list | None:
+def extract_condition_payload_from_config(config_value: Any) -> dict | list | str | None:
 	"""Extract condition payload from Action.config.
 
 	Supports:
-	- direct condition tree in config
+	- direct condition tree or raw string in config
 	- nested keys: condition / condition_tree / condition_json
 	"""
 	config_payload = parse_condition_payload(config_value)
-	if isinstance(config_payload, list):
+	if isinstance(config_payload, list | str):
 		return config_payload
 
 	if not isinstance(config_payload, Mapping):
@@ -76,7 +88,7 @@ def extract_condition_payload_from_config(config_value: Any) -> dict | list | No
 	return None
 
 
-def get_condition_payload(action_or_dict: Any) -> dict | list | None:
+def get_condition_payload(action_or_dict: Any) -> dict | list | str | None:
 	"""Resolve the effective condition payload for a Condition action.
 
 	Canonical source: action.config
@@ -89,9 +101,21 @@ def get_condition_payload(action_or_dict: Any) -> dict | list | None:
 	return parse_condition_payload(_safe_get(action_or_dict, "condition_json"))
 
 
-def set_condition_payload_on_action(action_or_dict: Any, payload: dict | list) -> None:
+def set_condition_payload_on_action(action_or_dict: Any, payload: dict | list | str) -> None:
 	"""Persist canonical condition payload to Action.config."""
-	serialized = json.dumps(payload, ensure_ascii=False)
+	if isinstance(payload, str):
+		val = payload.strip()
+		try:
+			parsed = json.loads(val)
+			if isinstance(parsed, dict | list):
+				serialized = json.dumps(parsed, ensure_ascii=False)
+			else:
+				serialized = json.dumps({"condition": val}, ensure_ascii=False)
+		except Exception:
+			serialized = json.dumps({"condition": val}, ensure_ascii=False)
+	else:
+		serialized = json.dumps(payload, ensure_ascii=False)
+
 	_safe_set(action_or_dict, "config", serialized)
 
 

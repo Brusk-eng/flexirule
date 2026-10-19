@@ -1311,21 +1311,21 @@ class Rule(Document):
 			if normalize_action_type(action.action_type) != "Condition":
 				continue
 
-			condition_payload = get_condition_payload(action)
-			if condition_payload is None:
-				# Keep strict behavior for malformed/non-empty JSON strings
-				raw_config = action.get("config")
-				raw_legacy = action.get("condition_json")
-				if raw_config not in (None, ""):
-					condition_payload = raw_config
-				elif raw_legacy not in (None, ""):
-					condition_payload = raw_legacy
-
-			if condition_payload in (None, ""):
-				action.compiled_expression = None
-				continue
-
 			try:
+				condition_payload = get_condition_payload(action)
+				if condition_payload is None:
+					# Keep strict behavior for malformed/non-empty JSON strings
+					raw_config = action.get("config")
+					raw_legacy = action.get("condition_json")
+					if raw_config not in (None, ""):
+						condition_payload = raw_config
+					elif raw_legacy not in (None, ""):
+						condition_payload = raw_legacy
+
+				if condition_payload in (None, ""):
+					action.compiled_expression = None
+					continue
+
 				action.compiled_expression = compiler.compile(condition_payload)
 
 				# Persist canonical payload in config for deprecated-condition_json migration.

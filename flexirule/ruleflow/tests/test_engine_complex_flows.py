@@ -1,6 +1,8 @@
 # Copyright (c) 2025, FlexiRule and contributors
 # For license information, please see license.txt
 
+import uuid
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
@@ -10,17 +12,30 @@ from flexirule.ruleflow.core.exceptions import CycleDetectedError
 
 class TestComplexFlows(FrappeTestCase):
 	def setUp(self):
+		super().setUp()
+		self._test_prefix = f"FRX_FLOW_{uuid.uuid4().hex[:8]}"
 		self.cleanup()
 		self.create_test_data()
 
 	def tearDown(self):
 		self.cleanup()
+		super().tearDown()
 
 	def cleanup(self):
-		frappe.db.delete("Rule", {"rule_name": ["like", "Test %"]})
-		frappe.db.delete("Rule Action", {"parent": ["like", "Test %"]})
-		frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test %"]})
-		# frappe.db.commit() removed for test isolation
+		if hasattr(self, "_test_prefix"):
+			rules = frappe.get_all(
+				"Rule", filters={"rule_name": ["like", f"{self._test_prefix}%"]}, fields=["name", "is_active"]
+			)
+			for r in rules:
+				if r.is_active:
+					frappe.db.set_value("Rule", r.name, "is_active", 0, update_modified=False)
+			for r in rules:
+				frappe.delete_doc("Rule", r.name, force=True, ignore_permissions=True)
+			logs = frappe.get_all(
+				"Rule Execution Log", filters={"rule": ["like", f"{self._test_prefix}%"]}, pluck="name"
+			)
+			for l in logs:
+				frappe.delete_doc("Rule Execution Log", l, force=True, ignore_permissions=True)
 
 	def create_test_data(self):
 		# Create a dummy doctype or use User
@@ -42,7 +57,7 @@ class TestComplexFlows(FrappeTestCase):
 		rule_b = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Test Child Rule",
+				"rule_name": f"{self._test_prefix}_Child_Rule",
 				"document_type": self.doctype,
 				"trigger_type": "Callable Event",
 				"priority": 0,
@@ -85,7 +100,7 @@ class TestComplexFlows(FrappeTestCase):
 		rule_a = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Test Parent Rule",
+				"rule_name": f"{self._test_prefix}_Parent_Rule",
 				"document_type": self.doctype,
 				"trigger_type": "Callable Event",
 				"priority": 0,
@@ -122,7 +137,7 @@ class TestComplexFlows(FrappeTestCase):
 		rule_a = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Test Cycle A",
+				"rule_name": f"{self._test_prefix}_Cycle_A",
 				"document_type": self.doctype,
 				"trigger_type": "Callable Event",
 				"priority": 0,
@@ -135,7 +150,7 @@ class TestComplexFlows(FrappeTestCase):
 		rule_b = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Test Cycle B",
+				"rule_name": f"{self._test_prefix}_Cycle_B",
 				"document_type": self.doctype,
 				"trigger_type": "Callable Event",
 				"priority": 0,
@@ -168,7 +183,7 @@ class TestComplexFlows(FrappeTestCase):
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Test Analytics",
+				"rule_name": f"{self._test_prefix}_Analytics",
 				"document_type": self.doctype,
 				"trigger_type": "Callable Event",
 				"priority": 0,

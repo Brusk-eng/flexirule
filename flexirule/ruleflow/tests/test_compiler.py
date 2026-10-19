@@ -273,3 +273,35 @@ class TestConditionCompiler(FrappeTestCase):
 		"""Test compiling None conditions"""
 		result = self.compiler.compile(None)
 		self.assertEqual(result, "")
+
+	def test_compile_malformed_json_raises_value_error(self):
+		"""Test compiling malformed JSON condition tree raises ValueError."""
+		malformed_json = '{"op": "and", "conditions": ['
+		with self.assertRaises(ValueError):
+			self.compiler.compile(malformed_json)
+
+	def test_compile_valid_raw_expression_string(self):
+		"""Test compiling a valid raw Python condition expression string."""
+		raw_expr = "doc.status == 'Open'"
+		result = self.compiler.compile(raw_expr)
+		self.assertEqual(result, "doc.status == 'Open'")
+
+		# Verify AST validation passes on raw string
+		is_valid, error = self.compiler.validate(result)
+		self.assertTrue(is_valid)
+		self.assertIsNone(error)
+
+	def test_compile_json_scalar_values(self):
+		"""Test compiling scalar values."""
+		self.assertEqual(self.compiler.compile("foo"), "foo")
+		self.assertEqual(self.compiler.compile("123"), "123")
+
+	def test_compile_empty_string(self):
+		"""Test compiling empty or whitespace strings."""
+		self.assertEqual(self.compiler.compile(""), "")
+		self.assertEqual(self.compiler.compile("   "), "")
+
+	def test_compile_unsupported_type_raises_value_error(self):
+		"""Test compiling non-dict/non-list/non-string object raises ValueError."""
+		with self.assertRaises(ValueError):
+			self.compiler.compile(123)

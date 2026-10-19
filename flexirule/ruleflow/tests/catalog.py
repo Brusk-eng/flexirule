@@ -67,6 +67,9 @@ class ActionBlocks:
 class Workflows:
 	@staticmethod
 	def contact_validation(rule_name="Contact Validation", **kwargs):
+		from flexirule.ruleflow.tests.test_doctypes import setup_test_doctypes
+
+		setup_test_doctypes()
 		builder = RuleBuilder(rule_name).document_type("Test Contact").subrule()
 
 		last_step = "success_stop"
@@ -83,6 +86,9 @@ class Workflows:
 
 	@staticmethod
 	def customer_workflow(rule_name="Customer Flow", **kwargs):
+		from flexirule.ruleflow.tests.test_doctypes import setup_test_doctypes
+
+		setup_test_doctypes()
 		builder = RuleBuilder(rule_name).document_type("Test Customer")
 
 		last_step = "customer_stop"
