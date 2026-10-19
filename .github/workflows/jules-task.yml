@@ -215,7 +215,10 @@ jobs:
               "",
               "Jules is configured to create a pull request automatically. Review its changes and CI before merging.",
           ]
-          print("\n".join(lines))
+          summary = "\n".join(lines) + "\n"
+          print(summary)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
+              output.write(summary)
           if os.environ["EVENT_NAME"] != "issue_comment":
               raise SystemExit(0)
 
