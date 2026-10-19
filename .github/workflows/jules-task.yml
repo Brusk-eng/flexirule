@@ -1,0 +1,152 @@
+name: Start Jules Task
+
+on:
+  # ChatGPT can hand off a prompt by posting a /jules comment on an issue or PR.
+  issue_comment:
+    types: [created]
+  # Retain a direct/manual fallback for testing and non-ChatGPT callers.
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Task prompt for Jules"
+        required: true
+        type: string
+      title:
+        description: "Optional Jules session title"
+        required: false
+        type: string
+        default: "FlexiRule task"
+      starting_branch:
+        description: "Branch Jules should use as its starting point"
+        required: true
+        type: choice
+        options:
+          - develop
+        default: develop
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: jules-task-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  start-jules:
+    name: Create Jules session
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'issue_comment' &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+        startsWith(github.event.comment.body, '/jules')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate and prepare request
+        id: request
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          INPUT_PROMPT: ${{ inputs.prompt }}
+          INPUT_TITLE: ${{ inputs.title }}
+          INPUT_BRANCH: ${{ inputs.starting_branch }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          event_name = os.environ["EVENT_NAME"]
+          if event_name == "issue_comment":
+              body = os.environ.get("COMMENT_BODY", "")
+              lines = body.splitlines()
+              if not lines or lines[0].strip() not in ("/jules", "/jules run"):
+                  raise SystemExit("Use /jules on the first line, followed by the task prompt.")
+              prompt = "\n".join(lines[1:]).strip()
+              title = (os.environ.get("ISSUE_TITLE") or "FlexiRule task").strip()
+              branch = "develop"
+          else:
+              prompt = os.environ.get("INPUT_PROMPT", "").strip()
+              title = (os.environ.get("INPUT_TITLE") or "FlexiRule task").strip()
+              branch = os.environ.get("INPUT_BRANCH") or "develop"
+
+          if not prompt:
+              raise SystemExit("The Jules prompt is empty.")
+          if len(prompt) > 20000:
+              raise SystemExit("The Jules prompt exceeds the 20,000-character limit.")
+          if branch != "develop":
+              raise SystemExit("Only the develop starting branch is currently permitted.")
+          title = title[:120] or "FlexiRule task"
+
+          payload = {
+              "prompt": prompt,
+              "title": title,
+              "sourceContext": {
+                  "source": "sources/github/Sendipad/flexirule",
+                  "githubRepoContext": {"startingBranch": branch},
+              },
+              "automationMode": "AUTO_CREATE_PR",
+              "requirePlanApproval": False,
+          }
+          Path("jules-request.json").write_text(
+              json.dumps(payload, ensure_ascii=False),
+              encoding="utf-8",
+          )
+          print(f"Prepared Jules request: title={title!r}, branch={branch}, prompt_chars={len(prompt)}")
+          PY
+
+      - name: Create Jules session
+        id: create
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        run: |
+          if [ -z "${JULES_API_KEY:-}" ]; then
+            echo "::error::The JULES_API_KEY repository secret is not configured."
+            exit 1
+          fi
+
+          http_code="$(curl --silent --show-error \
+            --output jules-response.json \
+            --write-out '%{http_code}' \
+            --request POST \
+            --url 'https://jules.googleapis.com/v1alpha/sessions' \
+            --header "x-goog-api-key: ${JULES_API_KEY}" \
+            --header 'Content-Type: application/json' \
+            --data-binary @jules-request.json)"
+
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "::error::Jules API returned HTTP $http_code. Response details are omitted to avoid leaking sensitive data."
+            exit 1
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          response = json.loads(Path("jules-response.json").read_text(encoding="utf-8"))
+          session_id = response.get("id") or response.get("name", "").removeprefix("sessions/")
+          session_url = response.get("url") or (
+              f"https://jules.google.com/session/{session_id}" if session_id else ""
+          )
+          if not session_id:
+              raise SystemExit("Jules API returned success but no session ID.")
+          print(f"Jules session created: {session_id}")
+          if session_url:
+              print(f"Session URL: {session_url}")
+          if response.get("state"):
+              print(f"State: {response['state']}")
+          PY
+
+      - name: Publish handoff summary
+        if: ${{ github.event_name == 'issue_comment' && success() }}
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "Jules session creation succeeded for ${REPOSITORY} issue/PR #${ISSUE_NUMBER}."
+          echo "Open this workflow run's logs for the Jules session URL."
