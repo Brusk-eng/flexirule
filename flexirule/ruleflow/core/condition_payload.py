@@ -30,7 +30,7 @@ def parse_condition_payload(value: Any) -> dict | list | str | None:
 		return list(value)
 
 	if not isinstance(value, str):
-		return None
+		raise ValueError(f"Unsupported condition payload type: {type(value).__name__}")
 
 	val_str = value.strip()
 	if not val_str:

@@ -132,53 +132,27 @@ class ConditionCompiler:
 		if not conditions:
 			return ""
 
-		if isinstance(conditions, str):
-			conditions_str = conditions.strip()
-			if not conditions_str:
-				return ""
-			if conditions_str.startswith(("{", "[")):
-				try:
-					parsed = json.loads(conditions_str)
-					# Handle double-encoded JSON (e.g. '"{\\"op\\": ...}"')
-					if isinstance(parsed, str) and parsed.strip().startswith(("{", "[")):
-						try:
-							parsed = json.loads(parsed)
-						except Exception:
-							pass
-					if isinstance(parsed, dict | list):
-						conditions = parsed
-					elif isinstance(parsed, str) and parsed.strip():
-						compiled_str = parsed.strip()
-						is_valid, err = self.validate(compiled_str)
-						if not is_valid:
-							raise ValueError(f"Invalid condition expression: {err}")
-						return compiled_str
-					else:
-						compiled_str = conditions_str
-						is_valid, err = self.validate(compiled_str)
-						if not is_valid:
-							raise ValueError(f"Invalid condition expression: {err}")
-						return compiled_str
-				except ValueError:
-					raise
-				except Exception as e:
-					raise ValueError(f"Invalid JSON format in condition payload: {e!s}")
-			else:
-				# Raw python condition expression string
-				is_valid, err = self.validate(conditions_str)
-				if not is_valid:
-					raise ValueError(f"Invalid condition expression: {err}")
-				return conditions_str
+		from flexirule.ruleflow.core.condition_payload import parse_condition_payload
 
-		# Wrap list in AND group (legacy/root support)
-		if isinstance(conditions, list):
-			conditions = {"op": "and", "conditions": conditions}
+		parsed = parse_condition_payload(conditions)
+		if parsed is None:
+			return ""
 
-		if not isinstance(conditions, dict):
-			return str(conditions)
+		if isinstance(parsed, str):
+			is_valid, err = self.validate(parsed)
+			if not is_valid:
+				raise ValueError(f"Invalid condition expression: {err}")
+			return parsed
+
+		if isinstance(parsed, list):
+			conditions_tree = {"op": "and", "conditions": parsed}
+		elif isinstance(parsed, dict):
+			conditions_tree = parsed
+		else:
+			raise ValueError(f"Unsupported condition payload type: {type(conditions).__name__}")
 
 		compiled = self._compile_node(
-			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+			conditions_tree, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
 		)
 		result = compiled if compiled else "True"
 		is_valid, err = self.validate(result)

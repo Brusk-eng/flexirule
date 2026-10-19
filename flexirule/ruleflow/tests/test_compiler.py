@@ -300,3 +300,8 @@ class TestConditionCompiler(FrappeTestCase):
 		"""Test compiling empty or whitespace strings."""
 		self.assertEqual(self.compiler.compile(""), "")
 		self.assertEqual(self.compiler.compile("   "), "")
+
+	def test_compile_unsupported_type_raises_value_error(self):
+		"""Test compiling non-dict/non-list/non-string object raises ValueError."""
+		with self.assertRaises(ValueError):
+			self.compiler.compile(123)  # type: ignore[arg-type]
