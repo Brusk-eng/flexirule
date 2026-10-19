@@ -120,7 +120,7 @@ jobs:
           except (urllib.error.URLError, TimeoutError):
               raise SystemExit("Could not verify the base branch with the GitHub API.")
 
-          title = title[:120] or "FlexiRule task"
+          title = " ".join(title.split())[:120] or "FlexiRule task"
           payload = {
               "prompt": prompt,
               "title": title,
