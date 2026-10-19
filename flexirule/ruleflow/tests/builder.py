@@ -94,12 +94,12 @@ class RuleBuilder:
 			action_id=action_id, action_type="Stop", action_label=label, operation=operation
 		)
 
-	def condition(self, label, condition_expr, next_true=None, next_false=None, action_id=None, use_legacy_field=False):
+	def condition(
+		self, label, condition_expr, next_true=None, next_false=None, action_id=None, use_legacy_field=False
+	):
 		if use_legacy_field:
 			cond_json = (
-				json.dumps(condition_expr)
-				if isinstance(condition_expr, dict | list)
-				else condition_expr
+				json.dumps(condition_expr) if isinstance(condition_expr, dict | list) else condition_expr
 			)
 			return self.add_action(
 				action_id=action_id,

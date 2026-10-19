@@ -264,8 +264,12 @@ class TestRuleSerialization(FrappeTestCase):
 		self.assertIn("MATCH", cond_action_str.compiled_expression)
 
 		# Execute matching doc -> should hit stop_true
-		todo_match = frappe.get_doc({"doctype": "ToDo", "description": "MATCH"}).insert(ignore_permissions=True)
-		self.addCleanup(lambda: frappe.delete_doc("ToDo", todo_match.name, force=True, ignore_permissions=True))
+		todo_match = frappe.get_doc({"doctype": "ToDo", "description": "MATCH"}).insert(
+			ignore_permissions=True
+		)
+		self.addCleanup(
+			lambda: frappe.delete_doc("ToDo", todo_match.name, force=True, ignore_permissions=True)
+		)
 		RuleEngine(reloaded_str).execute(todo_match)
 		res_match = getattr(frappe.local, "execution_payload", {})
 		self.assertEqual(res_match.get("status"), "Success")
@@ -273,8 +277,12 @@ class TestRuleSerialization(FrappeTestCase):
 		self.assertIn("Match Stop", executed_actions_match)
 
 		# Execute non-matching doc -> should hit stop_false
-		todo_mismatch = frappe.get_doc({"doctype": "ToDo", "description": "OTHER"}).insert(ignore_permissions=True)
-		self.addCleanup(lambda: frappe.delete_doc("ToDo", todo_mismatch.name, force=True, ignore_permissions=True))
+		todo_mismatch = frappe.get_doc({"doctype": "ToDo", "description": "OTHER"}).insert(
+			ignore_permissions=True
+		)
+		self.addCleanup(
+			lambda: frappe.delete_doc("ToDo", todo_mismatch.name, force=True, ignore_permissions=True)
+		)
 		RuleEngine(reloaded_str).execute(todo_mismatch)
 		res_mismatch = getattr(frappe.local, "execution_payload", {})
 		self.assertEqual(res_mismatch.get("status"), "Success")

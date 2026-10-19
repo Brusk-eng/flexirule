@@ -20,9 +20,11 @@ def make_test_contact(test_case=None, **kwargs):
 		doc.insert(ignore_permissions=True)
 		if test_case and hasattr(test_case, "addCleanup"):
 			test_case.addCleanup(
-				lambda dt=doc.doctype, dn=doc.name: frappe.delete_doc(dt, dn, force=True, ignore_permissions=True)
-				if frappe.db.exists(dt, dn)
-				else None
+				lambda dt=doc.doctype, dn=doc.name: (
+					frappe.delete_doc(dt, dn, force=True, ignore_permissions=True)
+					if frappe.db.exists(dt, dn)
+					else None
+				)
 			)
 	return doc
 
@@ -45,9 +47,11 @@ def make_test_customer(test_case=None, **kwargs):
 		doc.insert(ignore_permissions=True)
 		if test_case and hasattr(test_case, "addCleanup"):
 			test_case.addCleanup(
-				lambda dt=doc.doctype, dn=doc.name: frappe.delete_doc(dt, dn, force=True, ignore_permissions=True)
-				if frappe.db.exists(dt, dn)
-				else None
+				lambda dt=doc.doctype, dn=doc.name: (
+					frappe.delete_doc(dt, dn, force=True, ignore_permissions=True)
+					if frappe.db.exists(dt, dn)
+					else None
+				)
 			)
 	return doc
 
@@ -67,8 +71,10 @@ def make_test_lead(test_case=None, **kwargs):
 		doc.insert(ignore_permissions=True)
 		if test_case and hasattr(test_case, "addCleanup"):
 			test_case.addCleanup(
-				lambda dt=doc.doctype, dn=doc.name: frappe.delete_doc(dt, dn, force=True, ignore_permissions=True)
-				if frappe.db.exists(dt, dn)
-				else None
+				lambda dt=doc.doctype, dn=doc.name: (
+					frappe.delete_doc(dt, dn, force=True, ignore_permissions=True)
+					if frappe.db.exists(dt, dn)
+					else None
+				)
 			)
 	return doc
