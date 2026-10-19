@@ -134,3 +134,48 @@ class TestIsolationRegression(FrappeTestCase):
 			self._cleanup_rules_for_prefix(custom_prefix)
 
 		self.assertFalse(frappe.db.exists("Rule", r1.name))
+
+	def test_dynamic_doctype_partial_setup_cleanup_recovery(self):
+		"""Verify cleanup recovers every successfully created dynamic DocType if setup fails mid-way."""
+		created_doctypes: list[str] = []
+		created_records: list[tuple[str, str]] = []
+
+		def _cleanup_partial():
+			for doctype, docname in reversed(created_records):
+				if frappe.db.exists(doctype, docname):
+					frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
+			created_records.clear()
+
+			for dt in reversed(created_doctypes):
+				if frappe.db.exists("DocType", dt):
+					frappe.delete_doc("DocType", dt, force=True, ignore_permissions=True)
+			created_doctypes.clear()
+			frappe.clear_cache()
+			frappe.db.commit()
+
+		run_id = uuid.uuid4().hex[:8].upper()
+		dt1 = f"QB Partial Target {run_id}"
+
+		try:
+			# Step 1: Create DocType 1 successfully
+			frappe.get_doc(
+				{
+					"doctype": "DocType",
+					"name": dt1,
+					"module": "RuleFlow",
+					"custom": 1,
+					"fields": [{"fieldname": "title", "fieldtype": "Data", "label": "Title"}],
+				}
+			).insert(ignore_permissions=True)
+			created_doctypes.append(dt1)
+			frappe.db.commit()
+
+			self.assertTrue(frappe.db.exists("DocType", dt1))
+
+			# Step 2: Simulate failure while creating DocType 2
+			raise RuntimeError("Simulated failure during second DocType creation")
+		except RuntimeError:
+			_cleanup_partial()
+
+		# Assert that DocType 1 was safely cleaned up and no orphaned schema remains
+		self.assertFalse(frappe.db.exists("DocType", dt1))

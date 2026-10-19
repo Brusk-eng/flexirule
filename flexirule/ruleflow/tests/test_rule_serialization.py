@@ -1,3 +1,4 @@
+import json
 import unittest
 import uuid
 
@@ -111,16 +112,24 @@ class TestRuleSerialization(FrappeTestCase):
 
 	def test_export_import_roundtrip_contract(self):
 		"""
-		Verify full round-trip export -> import rule serialization integrity.
+		Verify full round-trip export -> import rule serialization integrity,
+		including action configuration, condition JSON, assignment config, and branching links.
 		"""
 		source_name = f"{self._test_prefix}_Source_Rule"
 		target_name = f"{self._test_prefix}_Imported_Rule"
+
+		cond_expr = [{"left": {"ref": "doc.description"}, "op": "!=", "right": {"value": ""}}]
+		assign_config = [{"target": "doc.description", "operator": "set", "value": "Roundtrip Value"}]
 
 		source_rule = (
 			RuleBuilder(source_name)
 			.document_type("ToDo")
 			.active(0)
-			.entry_action(next_step="stop_1")
+			.entry_action(next_step="cond_1")
+			.condition(
+				"Check Description", cond_expr, next_true="assign_1", next_false="stop_1", action_id="cond_1"
+			)
+			.assignment("Set Description", assign_config, next_step="stop_1", action_id="assign_1")
 			.stop("Success Stop", action_id="stop_1")
 			.build()
 		)
@@ -135,9 +144,23 @@ class TestRuleSerialization(FrappeTestCase):
 
 		imported_doc = frappe.get_doc("Rule", imported_name)
 		self.assertEqual(imported_doc.document_type, "ToDo")
-		self.assertEqual(len(imported_doc.actions), 2)
-		self.assertEqual(imported_doc.actions[0].action_id, "root")
-		self.assertEqual(imported_doc.actions[1].action_id, "stop_1")
+		self.assertEqual(len(imported_doc.actions), 4)
+
+		action_ids = [a.action_id for a in imported_doc.actions]
+		self.assertEqual(action_ids, ["root", "cond_1", "assign_1", "stop_1"])
+
+		# Verify branching links and configuration JSON on Condition action
+		cond_act = imported_doc.actions[1]
+		self.assertEqual(cond_act.action_id, "cond_1")
+		self.assertEqual(cond_act.next_step_if_true, "assign_1")
+		self.assertEqual(cond_act.next_step_if_false, "stop_1")
+
+		# Verify assignment action configuration
+		assign_act = imported_doc.actions[2]
+		self.assertEqual(assign_act.action_id, "assign_1")
+		self.assertEqual(assign_act.next_step_if_true, "stop_1")
+		parsed_config = json.loads(assign_act.config)
+		self.assertEqual(parsed_config[0]["value"], "Roundtrip Value")
 
 	def test_import_rule_overwrite_clears_stale_actions(self):
 		"""
