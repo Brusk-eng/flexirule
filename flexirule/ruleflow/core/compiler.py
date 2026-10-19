@@ -148,13 +148,26 @@ class ConditionCompiler:
 					if isinstance(parsed, dict | list):
 						conditions = parsed
 					elif isinstance(parsed, str) and parsed.strip():
-						return parsed.strip()
+						compiled_str = parsed.strip()
+						is_valid, err = self.validate(compiled_str)
+						if not is_valid:
+							raise ValueError(f"Invalid condition expression: {err}")
+						return compiled_str
 					else:
-						return conditions_str
+						compiled_str = conditions_str
+						is_valid, err = self.validate(compiled_str)
+						if not is_valid:
+							raise ValueError(f"Invalid condition expression: {err}")
+						return compiled_str
+				except ValueError:
+					raise
 				except Exception as e:
 					raise ValueError(f"Invalid JSON format in condition payload: {e!s}")
 			else:
 				# Raw python condition expression string
+				is_valid, err = self.validate(conditions_str)
+				if not is_valid:
+					raise ValueError(f"Invalid condition expression: {err}")
 				return conditions_str
 
 		# Wrap list in AND group (legacy/root support)
@@ -167,7 +180,11 @@ class ConditionCompiler:
 		compiled = self._compile_node(
 			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
 		)
-		return compiled if compiled else "True"
+		result = compiled if compiled else "True"
+		is_valid, err = self.validate(result)
+		if not is_valid:
+			raise ValueError(f"Invalid compiled condition expression: {err}")
+		return result
 
 	def _compile_node(self, node, scopes=None):
 		if not isinstance(node, dict):

@@ -52,16 +52,8 @@ class RuleBuilder:
 		condition_val = kwargs.get("condition")
 		condition_json_val = kwargs.get("condition_json")
 
-		# If condition was passed directly to add_action, incorporate it into config unless config was explicitly set
 		if condition_val is not None and config_val is None:
-			if isinstance(condition_val, dict | list):
-				config_val = json.dumps(condition_val)
-			elif isinstance(condition_val, str):
-				try:
-					parsed = json.loads(condition_val)
-					config_val = json.dumps(parsed)
-				except Exception:
-					config_val = json.dumps({"condition": condition_val})
+			config_val = _normalize_condition_input(condition_val)
 
 		action = {
 			"action_id": kwargs.get("action_id") or f"action_{len(self._actions) + 1}",
@@ -110,17 +102,7 @@ class RuleBuilder:
 				next_step_if_false=next_false,
 			)
 
-		if isinstance(condition_expr, dict | list):
-			config_payload = json.dumps(condition_expr)
-		elif isinstance(condition_expr, str):
-			try:
-				parsed = json.loads(condition_expr)
-				config_payload = json.dumps(parsed)
-			except Exception:
-				config_payload = json.dumps({"condition": condition_expr})
-		else:
-			config_payload = "{}"
-
+		config_payload = _normalize_condition_input(condition_expr)
 		return self.add_action(
 			action_id=action_id,
 			action_type="Condition",
@@ -175,3 +157,27 @@ class RuleBuilder:
 		"""Allows adding a pre-defined set of actions."""
 		block_func(self, **kwargs)
 		return self
+
+
+def _normalize_condition_input(condition_val) -> str:
+	"""Normalize condition payload into config JSON string for test builder."""
+	if condition_val is None:
+		return "{}"
+
+	if isinstance(condition_val, dict | list):
+		return json.dumps(condition_val)
+
+	if isinstance(condition_val, str):
+		val_str = condition_val.strip()
+		if not val_str:
+			return "{}"
+		if val_str.startswith(("{", "[")):
+			try:
+				parsed = json.loads(val_str)
+				if isinstance(parsed, dict | list):
+					return json.dumps(parsed)
+			except Exception:
+				pass
+		return json.dumps({"condition": val_str})
+
+	return "{}"

@@ -326,6 +326,17 @@ class TestRuleSerialization(FrappeTestCase):
 		self.assertTrue(cond_action_tree.compiled_expression)
 		self.assertIn("MATCH", cond_action_tree.compiled_expression)
 
+		# Execution on structured tree rule: true branch on match, false branch on mismatch
+		RuleEngine(reloaded_tree).execute(todo_match)
+		res_tree_match = getattr(frappe.local, "execution_payload", {})
+		self.assertEqual(res_tree_match.get("status"), "Success")
+		self.assertIn("Match Stop", [s.get("action") for s in res_tree_match.get("path_trace", [])])
+
+		RuleEngine(reloaded_tree).execute(todo_mismatch)
+		res_tree_mismatch = getattr(frappe.local, "execution_payload", {})
+		self.assertEqual(res_tree_mismatch.get("status"), "Success")
+		self.assertIn("Mismatch Stop", [s.get("action") for s in res_tree_mismatch.get("path_trace", [])])
+
 		# Export / Import round-trip and execution verification on structured tree rule
 		exported_tree = export_rule(reloaded_tree.name)
 		imp_tree_name = f"{rule_tree_name}_Imp"
@@ -341,7 +352,12 @@ class TestRuleSerialization(FrappeTestCase):
 		self.assertEqual(res_imp_tree.get("status"), "Success")
 		self.assertIn("Match Stop", [s.get("action") for s in res_imp_tree.get("path_trace", [])])
 
-		# 3. Legacy condition_json payload
+		RuleEngine(imported_tree).execute(todo_mismatch)
+		res_imp_tree_mis = getattr(frappe.local, "execution_payload", {})
+		self.assertEqual(res_imp_tree_mis.get("status"), "Success")
+		self.assertIn("Mismatch Stop", [s.get("action") for s in res_imp_tree_mis.get("path_trace", [])])
+
+		# 3. Legacy condition_json payload export/import round-trip and execution verification
 		rule_legacy_name = f"{self._test_prefix}_Legacy_Cond"
 		rule_legacy = (
 			RuleBuilder(rule_legacy_name)
@@ -370,6 +386,40 @@ class TestRuleSerialization(FrappeTestCase):
 		res_legacy = getattr(frappe.local, "execution_payload", {})
 		self.assertEqual(res_legacy.get("status"), "Success")
 		self.assertIn("Match Stop", [s.get("action") for s in res_legacy.get("path_trace", [])])
+
+		# Export / Import round-trip on legacy condition rule
+		exported_legacy = export_rule(reloaded_legacy.name)
+		imp_legacy_name = f"{rule_legacy_name}_Imp"
+		exported_legacy["rule"]["rule_name"] = imp_legacy_name
+		import_rule(exported_legacy)
+		imported_legacy = frappe.get_doc("Rule", imp_legacy_name)
+		imp_legacy_action = next(a for a in imported_legacy.actions if a.action_id == "cond_legacy")
+		self.assertTrue(imp_legacy_action.compiled_expression)
+
+		RuleEngine(imported_legacy).execute(todo_match)
+		res_imp_legacy = getattr(frappe.local, "execution_payload", {})
+		self.assertEqual(res_imp_legacy.get("status"), "Success")
+		self.assertIn("Match Stop", [s.get("action") for s in res_imp_legacy.get("path_trace", [])])
+
+		# 4. Malformed structured JSON payload rejected during Rule save/validation
+		malformed_builder = (
+			RuleBuilder(f"{self._test_prefix}_Malformed_Rule")
+			.document_type("ToDo")
+			.active(0)
+			.entry_action(next_step="cond_malformed")
+			.add_action(
+				action_id="cond_malformed",
+				action_type="Condition",
+				action_label="Malformed Cond",
+				config='{"op": "and", "conditions": [',
+				next_step_if_true="stop_true",
+				next_step_if_false="stop_false",
+			)
+			.stop("Match Stop", action_id="stop_true")
+			.stop("Mismatch Stop", action_id="stop_false")
+		)
+		with self.assertRaises(frappe.ValidationError):
+			malformed_builder.build()
 
 		# 4. Explicitly empty condition ({}) -> compiles to "True" and executes true branch
 		rule_empty_name = f"{self._test_prefix}_Empty_Cond"

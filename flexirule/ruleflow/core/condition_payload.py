@@ -11,9 +11,14 @@ CONDITION_CONFIG_KEYS = ("condition", "condition_tree", "condition_json")
 
 
 def parse_condition_payload(value: Any) -> dict | list | str | None:
-	"""Parse a condition payload from dict/list/JSON string/raw expression string.
+	"""Parse a condition payload from dict, list, JSON string, or raw Python expression string.
 
-	Returns None when the payload is missing or invalid.
+	Contract:
+	- Dict or list payloads return as dict or list.
+	- JSON strings starting with '{' or '[' are parsed as structured condition trees.
+	  If parsing fails on a string starting with '{' or '[', ValueError is raised for malformed JSON.
+	- Non-JSON strings (not starting with '{' or '[') are treated as raw Python condition expression strings.
+	- None or empty/whitespace strings return None.
 	"""
 	if value in (None, ""):
 		return None
@@ -31,22 +36,23 @@ def parse_condition_payload(value: Any) -> dict | list | str | None:
 	if not val_str:
 		return None
 
-	try:
-		parsed = json.loads(val_str)
-		# Support double-encoded JSON payloads
-		if isinstance(parsed, str):
-			try:
-				parsed = json.loads(parsed)
-			except Exception:
-				pass
-		if isinstance(parsed, Mapping):
-			return dict(parsed)
-		if isinstance(parsed, list):
-			return list(parsed)
-		if isinstance(parsed, str) and parsed.strip():
-			return parsed.strip()
-	except Exception:
-		return val_str
+	if val_str.startswith(("{", "[")):
+		try:
+			parsed = json.loads(val_str)
+			# Support double-encoded JSON payloads
+			if isinstance(parsed, str) and parsed.strip().startswith(("{", "[")):
+				try:
+					parsed = json.loads(parsed)
+				except Exception:
+					pass
+			if isinstance(parsed, Mapping):
+				return dict(parsed)
+			if isinstance(parsed, list):
+				return list(parsed)
+			if isinstance(parsed, str) and parsed.strip():
+				return parsed.strip()
+		except Exception as exc:
+			raise ValueError(f"Invalid JSON format in condition payload: {exc!s}") from exc
 
 	return val_str
 
