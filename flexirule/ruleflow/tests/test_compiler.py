@@ -304,4 +304,4 @@ class TestConditionCompiler(FrappeTestCase):
 	def test_compile_unsupported_type_raises_value_error(self):
 		"""Test compiling non-dict/non-list/non-string object raises ValueError."""
 		with self.assertRaises(ValueError):
-			self.compiler.compile(123)  # type: ignore[arg-type]
+			self.compiler.compile(123)
