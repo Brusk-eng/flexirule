@@ -35,9 +35,7 @@ class BaseConditionCandidate(ABC):
 	candidate_name: str
 
 	@abstractmethod
-	def prepare(
-		self, condition_payload: Any, metadata_context: dict | None = None
-	) -> PreparedCondition:
+	def prepare(self, condition_payload: Any, metadata_context: dict | None = None) -> PreparedCondition:
 		"""Prepare a condition payload for execution.
 
 		Measures preparation time separately from execution time.
@@ -103,9 +101,7 @@ class ConditionComparisonHarness:
 		disagreements = []
 
 		if not agrees:
-			disagreements.append(
-				f"Semantic disagreement detected across candidates: {candidate_outputs}"
-			)
+			disagreements.append(f"Semantic disagreement detected across candidates: {candidate_outputs}")
 
 		errors = {name: res.error for name, res in eval_results.items() if res.error is not None}
 

@@ -121,9 +121,7 @@ class ApproachACandidate(BaseConditionCandidate):
 	def __init__(self):
 		self.compiler = ConditionCompiler()
 
-	def prepare(
-		self, condition_payload: Any, metadata_context: dict | None = None
-	) -> PreparedCondition:
+	def prepare(self, condition_payload: Any, metadata_context: dict | None = None) -> PreparedCondition:
 		start_time = time.perf_counter()
 		expression = self.compiler.compile(condition_payload)
 		prep_time = time.perf_counter() - start_time
@@ -184,9 +182,7 @@ class ApproachAExperimentalCodeObjectCandidate(BaseConditionCandidate):
 	def __init__(self):
 		self.compiler = ConditionCompiler()
 
-	def prepare(
-		self, condition_payload: Any, metadata_context: dict | None = None
-	) -> PreparedCondition:
+	def prepare(self, condition_payload: Any, metadata_context: dict | None = None) -> PreparedCondition:
 		start_time = time.perf_counter()
 		expression = self.compiler.compile(condition_payload)
 

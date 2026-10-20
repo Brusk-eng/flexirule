@@ -28,9 +28,7 @@ class OperandResolver(ABC):
 	"""Abstract base class for plan operand resolvers."""
 
 	@abstractmethod
-	def resolve_value(
-		self, doc: Any, row: Any = None, extra_context: dict | None = None
-	) -> Any:
+	def resolve_value(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> Any:
 		pass
 
 
@@ -41,9 +39,7 @@ class RefOperand(OperandResolver):
 	scope: str
 	subpath: str
 
-	def resolve_value(
-		self, doc: Any, row: Any = None, extra_context: dict | None = None
-	) -> Any:
+	def resolve_value(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> Any:
 		target = doc
 		if self.scope == "row" or self.scope == "item":
 			target = row if row is not None else doc
@@ -72,9 +68,7 @@ class LiteralOperand(OperandResolver):
 
 	value: Any
 
-	def resolve_value(
-		self, doc: Any, row: Any = None, extra_context: dict | None = None
-	) -> Any:
+	def resolve_value(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> Any:
 		if isinstance(self.value, dict) and "mode" in self.value:
 			mode = (self.value.get("mode") or "static").strip().lower()
 			if mode in {"static", "link", "dynamic_link"}:
@@ -90,9 +84,7 @@ class PlanNode(ABC):
 	"""Abstract base class for condition plan nodes."""
 
 	@abstractmethod
-	def evaluate(
-		self, doc: Any, row: Any = None, extra_context: dict | None = None
-	) -> bool:
+	def evaluate(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> bool:
 		pass
 
 
@@ -103,9 +95,7 @@ class GroupPlanNode(PlanNode):
 	op: str  # "and" or "or"
 	conditions: list[PlanNode]
 
-	def evaluate(
-		self, doc: Any, row: Any = None, extra_context: dict | None = None
-	) -> bool:
+	def evaluate(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> bool:
 		if not self.conditions:
 			return True
 
@@ -150,17 +140,17 @@ class LeafPlanNode(PlanNode):
 			or (isinstance(a, str) and not a.strip())
 			or (isinstance(a, list | tuple | dict | set) and len(a) == 0)
 		),
-		"is_not_empty": lambda a, b: not (
-			a is None
-			or a == ""
-			or (isinstance(a, str) and not a.strip())
-			or (isinstance(a, list | tuple | dict | set) and len(a) == 0)
+		"is_not_empty": lambda a, b: (
+			not (
+				a is None
+				or a == ""
+				or (isinstance(a, str) and not a.strip())
+				or (isinstance(a, list | tuple | dict | set) and len(a) == 0)
+			)
 		),
 	}
 
-	def evaluate(
-		self, doc: Any, row: Any = None, extra_context: dict | None = None
-	) -> bool:
+	def evaluate(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> bool:
 		left_val = self.left.resolve_value(doc, row, extra_context) if self.left else None
 
 		if self.op in ["is_set", "is_not_set", "is_empty", "is_not_empty"]:
@@ -183,11 +173,7 @@ class LeafPlanNode(PlanNode):
 			return bool(meta.has_field(str(right_val))) if meta else False
 
 		# Link / Dynamic Link Tuple handling
-		if (
-			isinstance(right_val, list | tuple)
-			and len(right_val) == 2
-			and isinstance(right_val[0], str)
-		):
+		if isinstance(right_val, list | tuple) and len(right_val) == 2 and isinstance(right_val[0], str):
 			is_link_tuple = False
 			if self.op in ["==", "!="]:
 				is_link_tuple = True
@@ -200,7 +186,13 @@ class LeafPlanNode(PlanNode):
 		if self.op in {"length_eq", "length_gt", "length_gte", "length_lt", "length_lte"}:
 			length = 0
 			if left_val is not None:
-				length = len(left_val.strip()) if isinstance(left_val, str) else len(left_val) if hasattr(left_val, "__len__") else 0
+				length = (
+					len(left_val.strip())
+					if isinstance(left_val, str)
+					else len(left_val)
+					if hasattr(left_val, "__len__")
+					else 0
+				)
 			target_len = int(right_val) if right_val is not None else 0
 			if self.op == "length_eq":
 				return length == target_len
@@ -229,9 +221,7 @@ class CollectionPlanNode(PlanNode):
 	alias: str
 	where: PlanNode
 
-	def evaluate(
-		self, doc: Any, row: Any = None, extra_context: dict | None = None
-	) -> bool:
+	def evaluate(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> bool:
 		path = self.collection_path
 		if path.startswith(("doc.", "row.")):
 			path = path.split(".", 1)[1]
@@ -351,9 +341,7 @@ class ApproachBCandidate(BaseConditionCandidate):
 	def __init__(self):
 		self.builder = ExecutionPlanBuilder()
 
-	def prepare(
-		self, condition_payload: Any, metadata_context: dict | None = None
-	) -> PreparedCondition:
+	def prepare(self, condition_payload: Any, metadata_context: dict | None = None) -> PreparedCondition:
 		start_time = time.perf_counter()
 		plan = self.builder.build_plan(condition_payload)
 		prep_time = time.perf_counter() - start_time

@@ -55,9 +55,7 @@ class BenchmarkRunner:
 
 		for fix in fixtures:
 			total_cases += 1
-			check_match = self.harness.check_semantic_agreement(
-				fix.condition_payload, fix.matching_doc
-			)
+			check_match = self.harness.check_semantic_agreement(fix.condition_payload, fix.matching_doc)
 			check_non_match = self.harness.check_semantic_agreement(
 				fix.condition_payload, fix.non_matching_doc
 			)
@@ -117,9 +115,7 @@ class BenchmarkRunner:
 					batch_durations.append(elapsed)
 
 				# Compute per-execution time stats
-				per_exec_times_us = [
-					(d / self.iterations_per_batch) * 1e6 for d in batch_durations
-				]
+				per_exec_times_us = [(d / self.iterations_per_batch) * 1e6 for d in batch_durations]
 				sorted_times = sorted(per_exec_times_us)
 
 				median_us = statistics.median(sorted_times)
@@ -144,9 +140,13 @@ class BenchmarkRunner:
 				}
 
 			# Calculate speedup ratios
-			a_time = candidate_metrics[self.candidate_a.candidate_name]["median_us_per_exec"]
-			a_exp_time = candidate_metrics[self.candidate_a_exp.candidate_name]["median_us_per_exec"]
-			b_time = candidate_metrics[self.candidate_b.candidate_name]["median_us_per_exec"]
+			a_val = candidate_metrics[self.candidate_a.candidate_name]["median_us_per_exec"]
+			a_exp_val = candidate_metrics[self.candidate_a_exp.candidate_name]["median_us_per_exec"]
+			b_val = candidate_metrics[self.candidate_b.candidate_name]["median_us_per_exec"]
+
+			a_time = float(a_val) if isinstance(a_val, int | float) else 0.0
+			a_exp_time = float(a_exp_val) if isinstance(a_exp_val, int | float) else 0.0
+			b_time = float(b_val) if isinstance(b_val, int | float) else 0.0
 
 			speedup_b_vs_a = round(a_time / b_time, 2) if b_time > 0 else 0.0
 			speedup_b_vs_a_exp = round(a_exp_time / b_time, 2) if b_time > 0 else 0.0
@@ -166,9 +166,7 @@ class BenchmarkRunner:
 
 		return {"fixtures": fixture_benchmark_results}
 
-	def run_amortized_benchmarks(
-		self, execution_counts: list[int] | None = None
-	) -> dict:
+	def run_amortized_benchmarks(self, execution_counts: list[int] | None = None) -> dict:
 		"""Secondary benchmark calculating total amortized cost (Prep + N * Exec)."""
 		if execution_counts is None:
 			execution_counts = [1, 10, 100, 1000]
@@ -178,10 +176,11 @@ class BenchmarkRunner:
 
 		for fix in fixtures:
 			prepared_map = self.harness.prepare_all(fix.condition_payload)
-			fix_amortized = {
+			counts_dict: dict[str, Any] = {}
+			fix_amortized: dict[str, Any] = {
 				"fixture_id": fix.fixture_id,
 				"tier": fix.tier,
-				"counts": {},
+				"counts": counts_dict,
 			}
 
 			for N in execution_counts:
@@ -208,7 +207,7 @@ class BenchmarkRunner:
 						"cost_per_eval_us": round((total_amortized_ms / N) * 1000.0, 3),
 					}
 
-				fix_amortized["counts"][str(N)] = count_metrics
+				counts_dict[str(N)] = count_metrics
 
 			amortized_results.append(fix_amortized)
 
@@ -252,10 +251,14 @@ def run_benchmark():
 
 
 if __name__ == "__main__":
-	sites_path = "/home/jules/frappe-bench/sites" if os.path.exists("/home/jules/frappe-bench/sites") else "sites"
+	sites_path = (
+		"/home/jules/frappe-bench/sites" if os.path.exists("/home/jules/frappe-bench/sites") else "sites"
+	)
 	frappe.init(site="test_site", sites_path=sites_path)
 	runner = BenchmarkRunner(iterations_per_batch=10000, num_batches=5)
-	output_file = os.path.join(os.path.dirname(__file__), "../../../../reports/condition_benchmark_results.json")
+	output_file = os.path.join(
+		os.path.dirname(__file__), "../../../../reports/condition_benchmark_results.json"
+	)
 	output_file = os.path.abspath(output_file)
 	runner.run_full_suite_and_export(output_file)
 	print(f"Benchmark run complete. Results saved to {output_file}")
