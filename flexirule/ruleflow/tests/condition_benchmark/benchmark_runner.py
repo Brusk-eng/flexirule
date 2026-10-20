@@ -170,7 +170,7 @@ class BenchmarkRunner:
 			(fix.non_matching_doc, fix.expected_non_matching_result),
 		]
 		for index in range(self.warmup_iterations):
-			doc, expected = contexts[(index + start_offset) % len(contexts)]
+			doc, expected = contexts[index % len(contexts)]
 			try:
 				result = candidate.evaluate(prep, doc)
 			except Exception as exc:
@@ -200,7 +200,7 @@ class BenchmarkRunner:
 		start_time = time.perf_counter()
 
 		for index in range(iterations):
-			doc, expected = contexts[index % len(contexts)]
+			doc, expected = contexts[(index + start_offset) % len(contexts)]
 			try:
 				result = candidate.evaluate(prep, doc)
 			except Exception as exc:
