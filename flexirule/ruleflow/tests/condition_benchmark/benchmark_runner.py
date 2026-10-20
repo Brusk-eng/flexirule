@@ -520,6 +520,8 @@ class BenchmarkRunner:
 		md_lines.append("**Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)  ")
 		md_lines.append("**Branch:** `feat/condition-benchmark`  ")
 		md_lines.append(f"**Report Location:** `{output_markdown_path}`  ")
+		md_lines.append(f"**Benchmark Protocol:** v{full_payload.get('benchmark_protocol_version', 'unknown')}  ")
+		md_lines.append("**Measurement Protocol:** repeated preparation medians; repeated timed batches; rotating candidate order; alternating matching/non-matching documents; correctness gate  ")
 		md_lines.append("**Raw Results Data:** `reports/condition_benchmark_results.json`  ")
 		md_lines.append("")
 		md_lines.append("---")
