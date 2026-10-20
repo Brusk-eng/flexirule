@@ -601,7 +601,6 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("## 3. Primary Prepared-Execution Benchmark Results")
 		md_lines.append("")
-		methodology = primary.get("methodology", {})
 		md_lines.append(
 			"**Methodology:** Preparation was measured separately using repeated samples and the median. "
 			f"Each batch contains {self.iterations_per_batch:,} evaluations and there are {self.num_batches} repeated batches. "
@@ -749,6 +748,12 @@ class BenchmarkRunner:
 		}
 
 		full_payload = {
+			"benchmark_protocol_version": 2,
+			"measurement_protocol": (
+				"Repeated median preparation samples; primary and amortized execution use "
+				"repeated timed batches, rotating candidate order, alternating matching and "
+				"non-matching documents, and semantic correctness gates."
+			),
 			"environment": env_info,
 			"correctness_suite": correctness,
 			"primary_benchmark": primary,
