@@ -1,7 +1,7 @@
 {
   "benchmark_protocol_version": 1,
-  "result_status": "superseded",
-  "result_warning": "Do not use these historical timings for comparisons. Protocol v1's amortized benchmark used one sample per execution count, omitted semantic correctness gating, and used fixed candidate order. Re-run with benchmark protocol v2 to obtain valid comparative measurements.",
+  "result_status": "historical_superseded",
+  "result_warning": "Generated before benchmark protocol v2. Amortized results were single-sample, had no correctness gate, used fixed candidate order, and evaluated matching documents only. Run the current benchmark runner in the project's Frappe bench to create new results.",
   "environment": {
     "python_version": "3.12.13",
     "platform": "Linux-6.8.0-x86_64-with-glibc2.39",

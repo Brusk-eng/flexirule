@@ -103,21 +103,18 @@ class BenchmarkRunner:
 		}
 
 	def _check_fixture_correctness(self, fix) -> tuple[bool, dict]:
-		"""Gate timing on agreement with each fixture's expected matching and non-matching results."""
+		"""Gate timing on agreement with expected matching and non-matching results."""
 		check_match = self.harness.check_semantic_agreement(
-			fix.condition_payload,
-			fix.matching_doc,
+			fix.condition_payload, fix.matching_doc,
 			expected_result=fix.expected_matching_result,
 		)
 		check_non_match = self.harness.check_semantic_agreement(
-			fix.condition_payload,
-			fix.non_matching_doc,
+			fix.condition_payload, fix.non_matching_doc,
 			expected_result=fix.expected_non_matching_result,
 		)
 		passed = check_match["is_correct"] and check_non_match["is_correct"]
 		failures = (
-			check_match["disagreements"]
-			+ check_non_match["disagreements"]
+			check_match["disagreements"] + check_non_match["disagreements"]
 			+ list(check_match["errors"].values())
 			+ list(check_non_match["errors"].values())
 		)
@@ -128,43 +125,38 @@ class BenchmarkRunner:
 		}
 
 	def _prepare_all_with_median(self, condition_payload: Any) -> dict[str, Any]:
-		"""Prepare repeatedly and report the median preparation duration, not one noisy sample."""
+		"""Use repeated preparation timings to reduce one-sample noise."""
 		sample_count = max(3, self.num_batches)
-		preparation_runs = [
-			self.harness.prepare_all(condition_payload) for _ in range(sample_count)
-		]
-		prepared = preparation_runs[-1]
-
+		runs = [self.harness.prepare_all(condition_payload) for _ in range(sample_count)]
+		prepared = runs[-1]
 		for candidate in self.candidates:
 			name = candidate.candidate_name
 			prep = prepared[name]
 			samples = [
-				run[name].preparation_time_seconds
-				for run in preparation_runs
+				run[name].preparation_time_seconds for run in runs
 				if name in run and not run[name].error
 			]
 			if prep.error:
 				continue
 			if len(samples) != sample_count:
 				prep.error = (
-					"Preparation did not succeed in every repeated preparation sample "
+					"Preparation did not succeed in every repeated sample "
 					f"({len(samples)}/{sample_count})"
 				)
 				continue
 			prep.preparation_time_seconds = statistics.median(samples)
 			prep.metadata["preparation_samples_seconds"] = samples
-
 		return prepared
 
 	def _rotated_candidates(self, offset: int) -> list[BaseConditionCandidate]:
-		"""Rotate candidate order between batches to reduce systematic order bias."""
+		"""Rotate order between timed batches to reduce candidate-order bias."""
 		if not self.candidates:
 			return []
 		shift = offset % len(self.candidates)
 		return self.candidates[shift:] + self.candidates[:shift]
 
 	def _warm_up_candidate(self, candidate, prep, fix) -> str | None:
-		"""Warm both branches and reject candidates that do not preserve fixture results."""
+		"""Warm both matching and non-matching paths and check their results."""
 		contexts = [
 			(fix.matching_doc, fix.expected_matching_result),
 			(fix.non_matching_doc, fix.expected_non_matching_result),
@@ -178,197 +170,150 @@ class BenchmarkRunner:
 			if result.error:
 				return f"Warm-up evaluation failed: {result.error}"
 			if result.result != expected:
-				return (
-					"Warm-up result mismatch: "
-					f"expected {expected!r}, got {result.result!r}"
-				)
+				return f"Warm-up result mismatch: expected {expected!r}, got {result.result!r}"
 		return None
 
 	def _time_evaluation_batch(
 		self, candidate, prep, fix, iterations: int, start_offset: int = 0
 	) -> tuple[float, int, str | None, float]:
-		"""Time full candidate calls and sum each result's evaluator-core timer."""
+		"""Measure full candidate-call latency plus the candidate-reported core timer."""
 		contexts = [
 			(fix.matching_doc, fix.expected_matching_result),
 			(fix.non_matching_doc, fix.expected_non_matching_result),
 		]
-		successful_evaluations = 0
-		last_result = None
-		last_expected = None
-		core_execution_seconds = 0.0
-		batch_error = None
-		start_time = time.perf_counter()
-
+		successful = 0
+		core_seconds = 0.0
+		error = None
+		started = time.perf_counter()
 		for index in range(iterations):
 			doc, expected = contexts[(index + start_offset) % len(contexts)]
 			try:
 				result = candidate.evaluate(prep, doc)
 			except Exception as exc:
-				batch_error = f"Evaluation exception: {exc!s}"
+				error = f"Evaluation exception: {exc!s}"
 				break
 			if result.error:
-				batch_error = f"Evaluation error: {result.error}"
+				error = f"Evaluation error: {result.error}"
 				break
-			last_result = result.result
-			last_expected = expected
-			core_execution_seconds += result.execution_time_seconds
-			successful_evaluations += 1
-
-		elapsed = time.perf_counter() - start_time
-		if batch_error is None and successful_evaluations != iterations:
-			batch_error = (
-				f"Incomplete evaluations ({successful_evaluations}/{iterations})"
-			)
-		if batch_error is None and last_result != last_expected:
-			batch_error = (
-				f"Final result mismatch: expected {last_expected!r}, got {last_result!r}"
-			)
-		return elapsed, successful_evaluations, batch_error, core_execution_seconds
+			if result.result != expected:
+				error = (
+					"Timed result mismatch: "
+					f"expected {expected!r}, got {result.result!r}"
+				)
+				break
+			core_seconds += result.execution_time_seconds
+			successful += 1
+		elapsed = time.perf_counter() - started
+		if error is None and successful != iterations:
+			error = f"Incomplete evaluations ({successful}/{iterations})"
+		return elapsed, successful, error, core_seconds
 
 	def run_primary_benchmarks(self) -> dict:
-		"""Compare full candidate-call cost using repeated, order-rotated batches."""
-		fixtures = get_all_fixtures()
-		fixture_benchmark_results = []
-
-		for fix in fixtures:
-			correctness_passed, correctness_detail = self._check_fixture_correctness(fix)
-			prepared_map = self._prepare_all_with_median(fix.condition_payload)
-			candidate_metrics: dict[str, Any] = {}
-			states: dict[str, dict[str, Any]] = {}
-
+		"""Compare whole candidate-call latency using repeated and order-rotated batches."""
+		fixture_results = []
+		for fix in get_all_fixtures():
+			correct, detail = self._check_fixture_correctness(fix)
+			prepared = self._prepare_all_with_median(fix.condition_payload)
+			states = {}
 			for candidate in self.candidates:
 				name = candidate.candidate_name
-				prep = prepared_map[name]
+				prep = prepared[name]
 				state = {
-					"prep": prep,
-					"samples_us": [],
-					"samples_core_us": [],
-					"durations_seconds": [],
-					"successful_evaluations": 0,
-					"error": None,
+					"prep": prep, "samples_us": [], "core_samples_us": [],
+					"durations": [], "successful": 0, "error": prep.error,
 				}
-				if prep.error:
-					state["error"] = prep.error
-				elif not correctness_passed:
+				if not state["error"] and not correct:
 					state["error"] = "Skipped: semantic correctness gate failed"
 				states[name] = state
 
-			# Warm every eligible candidate before the timed batches.
-			if correctness_passed:
+			if correct:
 				for candidate in self._rotated_candidates(0):
 					name = candidate.candidate_name
 					state = states[name]
-					if state["error"]:
-						continue
-					state["error"] = self._warm_up_candidate(
-						candidate, state["prep"], fix
-					)
+					if not state["error"]:
+						state["error"] = self._warm_up_candidate(candidate, state["prep"], fix)
 
-				# Each candidate sees the same workload; candidate order rotates each batch.
 				for batch_index in range(self.num_batches):
 					for candidate in self._rotated_candidates(batch_index):
 						name = candidate.candidate_name
 						state = states[name]
 						if state["error"]:
 							continue
-						elapsed, successful, batch_error, core_elapsed = self._time_evaluation_batch(
+						elapsed, successful, error, core = self._time_evaluation_batch(
 							candidate, state["prep"], fix, self.iterations_per_batch,
 							start_offset=batch_index,
 						)
-						if batch_error:
-							state["error"] = (
-								f"Batch {batch_index + 1} failed: {batch_error}"
-							)
+						if error:
+							state["error"] = f"Batch {batch_index + 1} failed: {error}"
 							continue
-						state["samples_us"].append(
-							elapsed / self.iterations_per_batch * 1e6
-						)
-						state["samples_core_us"].append(
-							core_elapsed / self.iterations_per_batch * 1e6
-						)
-						state["durations_seconds"].append(elapsed)
-						state["successful_evaluations"] += successful
+						state["samples_us"].append(elapsed / self.iterations_per_batch * 1e6)
+						state["core_samples_us"].append(core / self.iterations_per_batch * 1e6)
+						state["durations"].append(elapsed)
+						state["successful"] += successful
 
+			metrics = {}
 			for candidate in self.candidates:
 				name = candidate.candidate_name
 				state = states[name]
 				prep = state["prep"]
 				samples = state["samples_us"]
 				common = {
-					"preparation_time_ms": round(
-						prep.preparation_time_seconds * 1000.0, 4
-					),
+					"preparation_time_ms": round(prep.preparation_time_seconds * 1000.0, 4),
 					"iterations_per_batch": self.iterations_per_batch,
 					"total_batches_attempted": self.num_batches,
 					"valid_batches": len(samples),
-					"successful_evaluations": state["successful_evaluations"],
+					"successful_evaluations": state["successful"],
 				}
-
 				if state["error"] or len(samples) != self.num_batches:
-					candidate_metrics[name] = {
+					metrics[name] = {
 						"is_valid_measurement": False,
-						"error": state["error"]
-						or f"Only {len(samples)}/{self.num_batches} batches succeeded",
+						"error": state["error"] or f"Only {len(samples)}/{self.num_batches} batches succeeded",
 						**common,
 					}
 					continue
-
-				sorted_times = sorted(samples)
-				median_us = statistics.median(sorted_times)
-				candidate_metrics[name] = {
+				sorted_samples = sorted(samples)
+				metrics[name] = {
 					"is_valid_measurement": True,
 					"error": None,
 					**common,
-					"median_us_per_exec": round(median_us, 3),
-					"median_core_us_per_exec": round(
-						statistics.median(state["samples_core_us"]), 3
-					),
+					"median_us_per_exec": round(statistics.median(samples), 3),
+					"median_core_us_per_exec": round(statistics.median(state["core_samples_us"]), 3),
 					"mean_us_per_exec": round(statistics.mean(samples), 3),
 					"min_us_per_exec": round(min(samples), 3),
 					"max_us_per_exec": round(max(samples), 3),
 					"p95_us_per_exec": round(
-						sorted_times[int(0.95 * len(sorted_times))]
-						if len(sorted_times) >= 5 else max(sorted_times),
-						3,
+						sorted_samples[int(0.95 * len(sorted_samples))]
+						if len(sorted_samples) >= 5 else max(sorted_samples), 3
 					),
-					"valid_batch_durations_seconds": [
-						round(value, 4) for value in state["durations_seconds"]
-					],
+					"valid_batch_durations_seconds": [round(v, 4) for v in state["durations"]],
 				}
 
-			a_metric = candidate_metrics.get(self.candidate_a.candidate_name, {})
-			b_metric = candidate_metrics.get(self.candidate_b.candidate_name, {})
-			c_metric = candidate_metrics.get(self.candidate_c.candidate_name, {})
-
 			def speedup(numerator_metric, denominator_metric):
-				if not (
-					numerator_metric.get("is_valid_measurement")
-					and denominator_metric.get("is_valid_measurement")
-				):
+				if not (numerator_metric.get("is_valid_measurement") and denominator_metric.get("is_valid_measurement")):
 					return None
 				numerator = numerator_metric.get("median_us_per_exec")
 				denominator = denominator_metric.get("median_us_per_exec")
-				if not isinstance(numerator, int | float) or not isinstance(
-					denominator, int | float
-				) or denominator <= 0:
+				if not isinstance(numerator, int | float) or not isinstance(denominator, int | float) or denominator <= 0:
 					return None
 				return round(numerator / denominator, 2)
 
-			fixture_benchmark_results.append({
+			a = metrics.get(self.candidate_a.candidate_name, {})
+			b = metrics.get(self.candidate_b.candidate_name, {})
+			c = metrics.get(self.candidate_c.candidate_name, {})
+			fixture_results.append({
 				"fixture_id": fix.fixture_id,
 				"tier": fix.tier,
 				"description": fix.description,
-				"correctness_gate_passed": correctness_passed,
-				"correctness_failures": correctness_detail["failures"],
+				"correctness_gate_passed": correct,
+				"correctness_failures": detail["failures"],
 				"timed_workload": "alternating matching and non-matching documents",
 				"leaf_count": fix.leaf_count,
 				"nesting_depth": fix.nesting_depth,
-				"speedup_ratio_b_vs_primary_a": speedup(a_metric, b_metric),
-				"speedup_ratio_c_vs_primary_a": speedup(a_metric, c_metric),
-				"speedup_ratio_b_vs_c": speedup(c_metric, b_metric),
-				"candidate_metrics": candidate_metrics,
+				"speedup_ratio_b_vs_primary_a": speedup(a, b),
+				"speedup_ratio_c_vs_primary_a": speedup(a, c),
+				"speedup_ratio_b_vs_c": speedup(c, b),
+				"candidate_metrics": metrics,
 			})
-
 		return {
 			"methodology": {
 				"iterations_per_batch": self.iterations_per_batch,
@@ -376,132 +321,94 @@ class BenchmarkRunner:
 				"warmup_iterations_per_candidate": self.warmup_iterations,
 				"candidate_order": "rotated between batches",
 				"document_workload": "alternating matching and non-matching documents",
-				"timed_scope": "entire candidate.evaluate call, including candidate-specific per-call setup",
+				"timed_scope": "whole candidate.evaluate() call; core timer reported separately",
 				"preparation_time_samples": max(3, self.num_batches),
 			},
-			"fixtures": fixture_benchmark_results,
+			"fixtures": fixture_results,
 		}
 
 	def run_amortized_benchmarks(self, execution_counts: list[int] | None = None) -> dict:
-		"""Estimate preparation + N evaluations using repeated batches and correctness gates."""
+		"""Estimate median preparation + N-evaluation cost with repeated timing and parity gates."""
 		if execution_counts is None:
 			execution_counts = [1, 10, 100, 1000]
-		if any(type(count) is not int or count <= 0 for count in execution_counts):
+		if any(type(n) is not int or n <= 0 for n in execution_counts):
 			raise ValueError("execution_counts must contain positive integers")
 
-		fixtures = get_all_fixtures()
-		amortized_results = []
-
-		for fix in fixtures:
-			correctness_passed, correctness_detail = self._check_fixture_correctness(fix)
-			prepared_map = self._prepare_all_with_median(fix.condition_payload)
-			candidate_errors: dict[str, str | None] = {}
-
+		results = []
+		for fix in get_all_fixtures():
+			correct, detail = self._check_fixture_correctness(fix)
+			prepared = self._prepare_all_with_median(fix.condition_payload)
+			candidate_errors = {}
 			for candidate in self.candidates:
 				name = candidate.candidate_name
-				prep = prepared_map[name]
+				prep = prepared[name]
 				if prep.error:
 					candidate_errors[name] = prep.error
-				elif not correctness_passed:
-					candidate_errors[name] = (
-						"Skipped: semantic correctness gate failed; see correctness_failures"
-					)
+				elif not correct:
+					candidate_errors[name] = "Skipped: semantic correctness gate failed; see correctness_failures"
 				else:
 					candidate_errors[name] = self._warm_up_candidate(candidate, prep, fix)
 
-			counts_dict: dict[str, Any] = {}
-			for count_index, count in enumerate(execution_counts):
-				execution_samples: dict[str, list[float]] = {
-					candidate.candidate_name: [] for candidate in self.candidates
-				}
-				core_execution_samples: dict[str, list[float]] = {
-					candidate.candidate_name: [] for candidate in self.candidates
-				}
-				batch_errors: dict[str, str] = {
-					name: error for name, error in candidate_errors.items() if error
-				}
-
-				if correctness_passed:
+			count_results = {}
+			for count_index, n in enumerate(execution_counts):
+				exec_samples = {candidate.candidate_name: [] for candidate in self.candidates}
+				core_samples = {candidate.candidate_name: [] for candidate in self.candidates}
+				errors = {name: error for name, error in candidate_errors.items() if error}
+				if correct:
 					for batch_index in range(self.num_batches):
-						order_offset = batch_index + count_index
-						for candidate in self._rotated_candidates(order_offset):
+						for candidate in self._rotated_candidates(batch_index + count_index):
 							name = candidate.candidate_name
-							if batch_errors.get(name):
+							if errors.get(name):
 								continue
-							prep = prepared_map[name]
-							elapsed, _, batch_error, core_elapsed = self._time_evaluation_batch(
-								candidate, prep, fix, count, start_offset=batch_index
+							elapsed, _, error, core = self._time_evaluation_batch(
+								candidate, prepared[name], fix, n, start_offset=batch_index
 							)
-							if batch_error:
-								batch_errors[name] = (
-									f"Sample {batch_index + 1}/{self.num_batches} failed: "
-									f"{batch_error}"
-								)
+							if error:
+								errors[name] = f"Sample {batch_index + 1}/{self.num_batches} failed: {error}"
 								continue
-							execution_samples[name].append(elapsed)
-							core_execution_samples[name].append(core_elapsed)
+							exec_samples[name].append(elapsed)
+							core_samples[name].append(core)
 
-				count_metrics = {}
+				one_count = {}
 				for candidate in self.candidates:
 					name = candidate.candidate_name
-					prep = prepared_map[name]
-					samples = execution_samples[name]
+					prep = prepared[name]
+					samples = exec_samples[name]
 					common = {
-						"prep_time_ms": round(
-							prep.preparation_time_seconds * 1000.0, 4
-						),
+						"prep_time_ms": round(prep.preparation_time_seconds * 1000.0, 4),
 						"valid_batches": len(samples),
 						"total_batches_attempted": self.num_batches,
 					}
-					if batch_errors.get(name) or len(samples) != self.num_batches:
-						count_metrics[name] = {
+					if errors.get(name) or len(samples) != self.num_batches:
+						one_count[name] = {
 							"is_valid": False,
-							"error": batch_errors.get(name)
-							or f"Only {len(samples)}/{self.num_batches} repeated samples succeeded",
+							"error": errors.get(name) or f"Only {len(samples)}/{self.num_batches} samples succeeded",
 							**common,
 						}
 						continue
-
-					median_execution_seconds = statistics.median(samples)
-					total_amortized_seconds = (
-						prep.preparation_time_seconds + median_execution_seconds
-					)
-					count_metrics[name] = {
+					median_execution = statistics.median(samples)
+					total = prep.preparation_time_seconds + median_execution
+					one_count[name] = {
 						"is_valid": True,
 						**common,
-						"n_exec_time_ms": round(
-							median_execution_seconds * 1000.0, 4
-						),
-						"median_exec_us_per_eval": round(
-							median_execution_seconds / count * 1e6, 3
-						),
-						"median_core_exec_us_per_eval": round(
-							statistics.median(core_execution_samples[name]) / count * 1e6,
-							3,
-						),
-						"total_amortized_cost_ms": round(
-							total_amortized_seconds * 1000.0, 4
-						),
-						"cost_per_eval_us": round(
-							total_amortized_seconds / count * 1e6, 3
-						),
-						"sample_execution_times_ms": [
-							round(sample * 1000.0, 4) for sample in samples
-						],
+						"n_exec_time_ms": round(median_execution * 1000.0, 4),
+						"median_exec_us_per_eval": round(median_execution / n * 1e6, 3),
+						"median_core_exec_us_per_eval": round(statistics.median(core_samples[name]) / n * 1e6, 3),
+						"total_amortized_cost_ms": round(total * 1000.0, 4),
+						"cost_per_eval_us": round(total / n * 1e6, 3),
+						"sample_execution_times_ms": [round(v * 1000.0, 4) for v in samples],
 					}
+				count_results[str(n)] = one_count
 
-				counts_dict[str(count)] = count_metrics
-
-			amortized_results.append({
+			results.append({
 				"fixture_id": fix.fixture_id,
 				"tier": fix.tier,
-				"correctness_gate_passed": correctness_passed,
-				"correctness_failures": correctness_detail["failures"],
+				"correctness_gate_passed": correct,
+				"correctness_failures": detail["failures"],
 				"candidate_order": "rotated between repeated samples",
 				"document_workload": "alternating matching and non-matching documents",
-				"counts": counts_dict,
+				"counts": count_results,
 			})
-
 		return {
 			"methodology": {
 				"execution_counts": execution_counts,
@@ -512,7 +419,7 @@ class BenchmarkRunner:
 				"candidate_order": "rotated between samples",
 				"document_workload": "alternating matching and non-matching documents",
 			},
-			"amortized": amortized_results,
+			"amortized": results,
 		}
 
 	def generate_markdown_report(self, full_payload: dict, output_markdown_path: str) -> str:
@@ -541,7 +448,7 @@ class BenchmarkRunner:
 		md_lines.append("**Branch:** `feat/condition-benchmark`  ")
 		md_lines.append(f"**Report Location:** `{output_markdown_path}`  ")
 		md_lines.append(f"**Benchmark Protocol:** v{full_payload.get('benchmark_protocol_version', 'unknown')}  ")
-		md_lines.append("**Measurement Protocol:** repeated preparation medians; repeated timed batches; rotating candidate order; alternating matching/non-matching documents; correctness gate  ")
+		md_lines.append("**Measurement Protocol:** repeated medians, rotating order, alternating matching/non-matching documents, correctness gate  ")
 		md_lines.append("**Raw Results Data:** `reports/condition_benchmark_results.json`  ")
 		md_lines.append("")
 		md_lines.append("---")
@@ -554,7 +461,7 @@ class BenchmarkRunner:
 		)
 		md_lines.append("")
 		md_lines.append(
-			f"- **Approach A — Precompiled Python Expression (`{cand_a_name}`):** Evaluating a Python expression string "
+			f"- **Approach A — Generated Python Expression (`frappe.safe_eval`; restricted compilation on every evaluation) (`{cand_a_name}`):** Evaluating a Python expression string "
 			"generated from a condition tree using installed Frappe v15 restricted evaluation (`frappe.safe_eval`). "
 			f"Includes an isolated experimental diagnostic (`{cand_a_exp_name}`) for evaluating precompiled RestrictedPython code objects."
 		)
@@ -624,10 +531,10 @@ class BenchmarkRunner:
 		md_lines.append("## 3. Primary Prepared-Execution Benchmark Results")
 		md_lines.append("")
 		md_lines.append(
-			"**Methodology:** Preparation was measured separately using repeated samples and the median. "
-			f"Each batch contains {self.iterations_per_batch:,} evaluations and there are {self.num_batches} repeated batches. "
-			"Within each batch the same matching and non-matching documents alternate; candidate order rotates between batches. "
-			"The timed scope is the entire candidate.evaluate() call, including candidate-specific per-call setup."
+			"**Methodology:** Preparation time is the median of repeated samples and is excluded from primary execution timing. "
+			f"Each of {self.num_batches} batches contains {self.iterations_per_batch:,} evaluations. Matching and non-matching documents alternate, "
+			"candidate order rotates across batches, and the timer covers the entire candidate.evaluate() call. "
+			"Each table cell shows full-call latency, followed by the candidate-reported inner evaluator timer in parentheses."
 		)
 		md_lines.append("")
 		md_lines.append(
@@ -646,14 +553,22 @@ class BenchmarkRunner:
 			b_m = metrics.get(cand_b_name, {})
 			c_m = metrics.get(cand_c_name, {})
 
-			a_str = f"{a_m.get('median_us_per_exec')} µs/op" if a_m.get("is_valid_measurement") else "INVALID"
-			a_exp_str = (
-				f"{a_exp_m.get('median_us_per_exec')} µs/op"
-				if a_exp_m.get("is_valid_measurement")
-				else "INVALID"
+			a_str = (
+				f"{a_m.get('median_us_per_exec')} µs/op (core {a_m.get('median_core_us_per_exec')} µs/op)"
+				if a_m.get("is_valid_measurement") else "INVALID"
 			)
-			b_str = f"{b_m.get('median_us_per_exec')} µs/op" if b_m.get("is_valid_measurement") else "INVALID"
-			c_str = f"{c_m.get('median_us_per_exec')} µs/op" if c_m.get("is_valid_measurement") else "INVALID"
+			a_exp_str = (
+				f"{a_exp_m.get('median_us_per_exec')} µs/op (core {a_exp_m.get('median_core_us_per_exec')} µs/op)"
+				if a_exp_m.get("is_valid_measurement") else "INVALID"
+			)
+			b_str = (
+				f"{b_m.get('median_us_per_exec')} µs/op (core {b_m.get('median_core_us_per_exec')} µs/op)"
+				if b_m.get("is_valid_measurement") else "INVALID"
+			)
+			c_str = (
+				f"{c_m.get('median_us_per_exec')} µs/op (core {c_m.get('median_core_us_per_exec')} µs/op)"
+				if c_m.get("is_valid_measurement") else "INVALID"
+			)
 
 			sp_b_a_str = (
 				f"**{item.get('speedup_ratio_b_vs_primary_a')}x**"
@@ -699,8 +614,9 @@ class BenchmarkRunner:
 		md_lines.append("## 5. Amortized Total Cost Measurements")
 		md_lines.append("")
 		md_lines.append(
-			"Estimates one preparation plus N evaluations. Preparation time is the median of repeated preparation samples; "
-			"execution time is the median total duration across repeated N-evaluation batches. Timing is gated by fixture correctness."
+			"Estimates one preparation plus N evaluations. Preparation time is the median of repeated samples; "
+			"execution time is the median total duration across repeated N-evaluation batches. "
+			"Fixtures that fail semantic parity are excluded. Core-only timing diagnostics are also retained in raw JSON."
 		)
 		md_lines.append("")
 		md_lines.append(
@@ -737,9 +653,9 @@ class BenchmarkRunner:
 			"production `frappe.safe_eval` result, because standard Frappe APIs do not expose code object caching."
 		)
 		md_lines.append(
-			f"2. **Coverage Scope:** {correctness.get('agreed_cases', 0)} of {correctness.get('total_cases', 0)} fixtures passed the semantic correctness gate. "
-			"Fixtures that fail the gate are excluded from both performance benchmarks. A finite fixture suite does not constitute formal proof of universal equivalence; "
-			"untested operators and edge cases must still be verified before production migration."
+			f"2. **Coverage Scope:** {correctness.get('agreed_cases', 0)} of {correctness.get('total_cases', 0)} fixtures passed semantic correctness tests. "
+			"Fixtures that fail the gate are excluded from performance measurements. A finite fixture suite does not prove universal equivalence "
+			"for all possible condition expressions; edge cases and untested operators still require verification."
 		)
 		md_lines.append(
 			"3. **Production Isolation Confirmation:** **No production code, evaluators, controllers, persistence contracts, or DocTypes were modified.** "
@@ -772,9 +688,8 @@ class BenchmarkRunner:
 		full_payload = {
 			"benchmark_protocol_version": 2,
 			"measurement_protocol": (
-				"Repeated median preparation samples; primary and amortized execution use "
-				"repeated timed batches, rotating candidate order, alternating matching and "
-				"non-matching documents, and semantic correctness gates."
+				"Repeated preparation medians; repeated timed batches; rotating candidate order; "
+				"alternating matching/non-matching documents; semantic correctness gate."
 			),
 			"environment": env_info,
 			"correctness_suite": correctness,

@@ -1,6 +1,6 @@
 # FlexiRule — Condition Backend Comparison Benchmark Report
 
-> **SUPERSEDED HISTORICAL OUTPUT — DO NOT USE THESE TIMINGS TO COMPARE APPROACHES.** This report was generated with benchmark protocol v1. Its amortized measurements used a single sample per execution count, omitted the semantic correctness gate, and did not control candidate-order bias. The benchmark runner has since been corrected to protocol v2. Re-run the benchmark in the project's Frappe bench to replace these historical tables. The old numbers are retained only to document why the previous result was unreliable.
+> **SUPERSEDED HISTORICAL RESULTS — DO NOT USE THESE TIMINGS TO PICK A WINNER.** This report was generated with benchmark protocol v1. Its amortized measurements used one sample per execution count, omitted the semantic-correctness gate, and ran candidates in a fixed order. The runner now uses protocol v2: repeated preparation and execution samples, candidate-order rotation, alternating matching/non-matching inputs, and explicit correctness gates. The project's Frappe bench must run the updated benchmark to produce replacement numbers. The old tables below are preserved only as historical diagnostic evidence.
 
 
 **Date:** 2026-10-20
@@ -171,5 +171,5 @@ $$\text{Total Amortized Cost} = \text{Preparation Time} + (N \times \text{Execut
 ## 6. Architectural Analysis & Diagnostic Note
 
 1. **Approach A Experimental Code-Object Diagnostic:** Evaluating precompiled RestrictedPython code objects via `eval(code_obj)` eliminates string parsing and AST compilation overhead. However, it is labeled strictly as a **lower-level diagnostic**, NOT as the primary production `frappe.safe_eval` result, because standard Frappe APIs do not expose code object caching.
-2. **Coverage Scope:** The historical protocol-v1 run passed only 12 of 13 fixtures; `edge_case_has_changed` failed semantic parity. These historical timing tables are superseded and must not be used to establish a performance winner. A finite fixture suite also cannot prove equivalence for all possible conditions.
+2. **Coverage Scope:** The historical protocol-v1 run passed only 12 of 13 fixtures; `edge_case_has_changed` failed semantic parity. These historical timings are superseded and must not be used to select a performance winner. A finite fixture suite also cannot prove universal equivalence for all possible condition expressions.
 3. **Production Isolation Confirmation:** **No production code, evaluators, controllers, persistence contracts, or DocTypes were modified.** All candidate evaluators and test harnesses reside isolated in `flexirule/ruleflow/tests/condition_benchmark/`.
