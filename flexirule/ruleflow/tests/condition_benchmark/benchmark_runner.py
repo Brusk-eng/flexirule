@@ -170,7 +170,7 @@ class BenchmarkRunner:
 			(fix.non_matching_doc, fix.expected_non_matching_result),
 		]
 		for index in range(self.warmup_iterations):
-			doc, expected = contexts[index % len(contexts)]
+			doc, expected = contexts[(index + start_offset) % len(contexts)]
 			try:
 				result = candidate.evaluate(prep, doc)
 			except Exception as exc:
@@ -184,7 +184,9 @@ class BenchmarkRunner:
 				)
 		return None
 
-	def _time_evaluation_batch(self, candidate, prep, fix, iterations: int) -> tuple[float, int, str | None]:
+	def _time_evaluation_batch(
+		self, candidate, prep, fix, iterations: int, start_offset: int = 0
+	) -> tuple[float, int, str | None]:
 		"""Time a fixed workload alternating matching and non-matching documents."""
 		contexts = [
 			(fix.matching_doc, fix.expected_matching_result),
@@ -267,7 +269,8 @@ class BenchmarkRunner:
 						if state["error"]:
 							continue
 						elapsed, successful, batch_error = self._time_evaluation_batch(
-							candidate, state["prep"], fix, self.iterations_per_batch
+							candidate, state["prep"], fix, self.iterations_per_batch,
+							start_offset=batch_index,
 						)
 						if batch_error:
 							state["error"] = (
@@ -415,7 +418,7 @@ class BenchmarkRunner:
 								continue
 							prep = prepared_map[name]
 							elapsed, _, batch_error = self._time_evaluation_batch(
-								candidate, prep, fix, count
+								candidate, prep, fix, count, start_offset=batch_index
 							)
 							if batch_error:
 								batch_errors[name] = (
