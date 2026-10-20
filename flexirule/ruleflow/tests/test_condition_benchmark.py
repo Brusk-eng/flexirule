@@ -9,11 +9,59 @@ from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_a import (
 	ApproachACandidate,
 	ApproachAExperimentalCodeObjectCandidate,
 )
-from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_b import ApproachBCandidate
+from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_b import (
+	ApproachBCandidate,
+	ExecutionPlanBuilder,
+)
 from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
+	BaseConditionCandidate,
 	ConditionComparisonHarness,
+	EvaluationResult,
+	PreparedCondition,
 )
 from flexirule.ruleflow.tests.condition_benchmark.fixtures import get_all_fixtures
+
+
+class DummyCandidate(BaseConditionCandidate):
+	def __init__(
+		self,
+		name: str,
+		result: bool | None = None,
+		prep_error: str | None = None,
+		eval_error: str | None = None,
+		fail_after_eval_count: int | None = None,
+	):
+		self.candidate_name = name
+		self.forced_result = result
+		self.prep_error = prep_error
+		self.eval_error = eval_error
+		self.fail_after_eval_count = fail_after_eval_count
+		self.eval_count = 0
+
+	def prepare(self, condition_payload, metadata_context=None) -> PreparedCondition:
+		if self.prep_error:
+			raise ValueError(self.prep_error)
+		return PreparedCondition(
+			candidate_name=self.candidate_name, prepared_object="dummy", preparation_time_seconds=0.001
+		)
+
+	def evaluate(self, prepared_condition, document_context, execution_context=None) -> EvaluationResult:
+		self.eval_count += 1
+		if self.fail_after_eval_count is not None and self.eval_count > self.fail_after_eval_count:
+			raise RuntimeError("Injected evaluation failure after threshold")
+		if self.eval_error:
+			raise RuntimeError(self.eval_error)
+
+		res = self.forced_result
+		if res is None:
+			res = getattr(document_context, "status", "Open") == "Open"
+
+		return EvaluationResult(
+			candidate_name=self.candidate_name,
+			result=res,
+			execution_time_seconds=0.001,
+			error=None,
+		)
 
 
 class TestConditionBenchmark(FrappeTestCase):
@@ -26,6 +74,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.candidate_b = ApproachBCandidate()
 		self.candidates = [self.candidate_a, self.candidate_a_exp, self.candidate_b]
 		self.harness = ConditionComparisonHarness(self.candidates)
+		self.builder = ExecutionPlanBuilder()
 
 	def test_candidates_prepare_and_evaluate_simple_fixture(self):
 		fixtures = get_all_fixtures()
@@ -50,15 +99,165 @@ class TestConditionBenchmark(FrappeTestCase):
 		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
 		suite_results = runner.run_semantic_correctness_suite()
 		self.assertTrue(
-			suite_results["all_agreed"],
-			f"Disagreements found across candidates: {suite_results['results']}",
+			suite_results["all_correct"],
+			f"Disagreements or correctness errors found across candidates: {suite_results['results']}",
 		)
 
-	def test_benchmark_runner_full_suite_export(self):
-		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
-		payload = runner.run_full_suite_and_export("reports/test_benchmark_results.json")
+	def test_correctness_gate_normal_success(self):
+		c1 = DummyCandidate("C1", result=True)
+		c2 = DummyCandidate("C2", result=True)
+		harness = ConditionComparisonHarness([c1, c2])
+		check = harness.check_semantic_agreement({}, {}, expected_result=True)
+		self.assertTrue(check["is_correct"])
+		self.assertTrue(check["agrees"])
+		self.assertTrue(check["matches_expected"])
 
-		self.assertIn("environment", payload)
-		self.assertIn("correctness_suite", payload)
-		self.assertIn("primary_benchmark", payload)
-		self.assertIn("amortized_benchmark", payload)
+	def test_correctness_gate_preparation_failure(self):
+		c1 = DummyCandidate("C1", result=True)
+		c2 = DummyCandidate("C2", prep_error="Prep failed")
+		harness = ConditionComparisonHarness([c1, c2])
+		check = harness.check_semantic_agreement({}, {}, expected_result=True)
+		self.assertFalse(check["is_correct"])
+		self.assertIn("C2", check["errors"])
+
+	def test_correctness_gate_evaluation_failure(self):
+		c1 = DummyCandidate("C1", result=True)
+		c2 = DummyCandidate("C2", eval_error="Eval crashed")
+		harness = ConditionComparisonHarness([c1, c2])
+		check = harness.check_semantic_agreement({}, {}, expected_result=True)
+		self.assertFalse(check["is_correct"])
+		self.assertIn("C2", check["errors"])
+
+	def test_correctness_gate_semantic_disagreement(self):
+		c1 = DummyCandidate("C1", result=True)
+		c2 = DummyCandidate("C2", result=False)
+		harness = ConditionComparisonHarness([c1, c2])
+		check = harness.check_semantic_agreement({}, {}, expected_result=True)
+		self.assertFalse(check["is_correct"])
+		self.assertFalse(check["agrees"])
+
+	def test_correctness_gate_agreed_incorrect_result(self):
+		c1 = DummyCandidate("C1", result=False)
+		c2 = DummyCandidate("C2", result=False)
+		harness = ConditionComparisonHarness([c1, c2])
+		check = harness.check_semantic_agreement({}, {}, expected_result=True)
+		self.assertFalse(check["is_correct"])
+		self.assertTrue(check["agrees"])
+		self.assertFalse(check["matches_expected"])
+
+	def test_correctness_gate_all_candidates_failing(self):
+		c1 = DummyCandidate("C1", eval_error="Err1")
+		c2 = DummyCandidate("C2", eval_error="Err2")
+		harness = ConditionComparisonHarness([c1, c2])
+		check = harness.check_semantic_agreement({}, {}, expected_result=True)
+		self.assertFalse(check["is_correct"])
+		self.assertEqual(len(check["candidate_results"]), 0)
+
+	def test_measurement_warmup_failure_invalidates_candidate(self):
+		# Correctness check uses 2 evals. Set fail_after_eval_count=2 so correctness passes but warmup (eval 3) fails.
+		c1 = DummyCandidate("C1", fail_after_eval_count=2)
+		c2 = DummyCandidate("C2")
+		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=2, warmup_iterations=5)
+		runner.candidates = [c1, c2]
+		runner.candidate_a = c1
+		runner.candidate_b = c2
+		runner.harness = ConditionComparisonHarness([c1, c2])
+
+		results = runner.run_primary_benchmarks()
+		fix_metric = results["fixtures"][0]["candidate_metrics"]["C1"]
+		self.assertFalse(fix_metric["is_valid_measurement"])
+		self.assertIn("Warm-up", fix_metric["error"])
+		self.assertIsNone(results["fixtures"][0]["speedup_ratio_b_vs_primary_a"])
+
+	def test_measurement_batch_failure_invalidates_batch(self):
+		c1 = DummyCandidate(
+			"C1", result=True, fail_after_eval_count=15
+		)  # succeeds warmup (5), fails in batch 1
+		c2 = DummyCandidate("C2", result=True)
+		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=2, warmup_iterations=5)
+		runner.candidates = [c1, c2]
+		runner.candidate_a = c1
+		runner.candidate_b = c2
+		runner.harness = ConditionComparisonHarness([c1, c2])
+
+		results = runner.run_primary_benchmarks()
+		fix_metric = results["fixtures"][0]["candidate_metrics"]["C1"]
+		self.assertFalse(fix_metric["is_valid_measurement"])
+		self.assertIn("failed", fix_metric["error"])
+
+	def test_plan_validation_unsupported_logical_operator(self):
+		payload = {"op": "invalid_logic", "conditions": []}
+		with self.assertRaises(ValueError) as cm:
+			self.builder.build_plan(payload)
+		self.assertIn("Unsupported logical operator", str(cm.exception))
+
+	def test_plan_validation_unsupported_comparison_operator(self):
+		payload = {
+			"op": "and",
+			"conditions": [
+				{"left": {"ref": "doc.status"}, "op": "invalid_comparison_op", "right": {"value": "X"}}
+			],
+		}
+		with self.assertRaises(ValueError) as cm:
+			self.builder.build_plan(payload)
+		self.assertIn("Unsupported condition comparison operator", str(cm.exception))
+
+	def test_plan_validation_invalid_operand_scope(self):
+		payload = {
+			"op": "and",
+			"conditions": [
+				{"left": {"ref": "forbidden_scope.status"}, "op": "==", "right": {"value": "Open"}}
+			],
+		}
+		with self.assertRaises(ValueError) as cm:
+			self.builder.build_plan(payload)
+		self.assertIn("Invalid operand scope", str(cm.exception))
+
+	def test_plan_validation_malformed_collection_node(self):
+		payload = {"collection": "", "op": "any", "where": {"op": "and", "conditions": []}}
+		with self.assertRaises(ValueError) as cm:
+			self.builder.build_plan(payload)
+		self.assertIn("Collection condition requires a non-empty 'collection'", str(cm.exception))
+
+		payload_no_where = {"collection": "doc.items", "op": "any"}
+		with self.assertRaises(ValueError) as cm:
+			self.builder.build_plan(payload_no_where)
+		self.assertIn("Collection condition requires a valid dict 'where'", str(cm.exception))
+
+	def test_plan_validation_invalid_child_node_in_conditions_list(self):
+		payload = {"op": "and", "conditions": ["not_a_dict_node"]}
+		with self.assertRaises(ValueError) as cm:
+			self.builder.build_plan(payload)
+		self.assertIn("Invalid child condition node at index 0", str(cm.exception))
+
+	def test_plan_empty_group_semantics(self):
+		and_plan = self.builder.build_plan({"op": "and", "conditions": []})
+		self.assertTrue(and_plan.root_node.evaluate(frappe._dict()))
+
+		or_plan = self.builder.build_plan({"op": "or", "conditions": []})
+		self.assertFalse(or_plan.root_node.evaluate(frappe._dict()))
+
+	def test_benchmark_runner_full_suite_export(self):
+		import os
+		import tempfile
+
+		with tempfile.TemporaryDirectory() as tmp_dir:
+			json_path = os.path.join(tmp_dir, "benchmark_results.json")
+			md_path = os.path.join(tmp_dir, "condition-backend-comparison-benchmark.md")
+
+			runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
+			payload = runner.run_full_suite_and_export(json_path)
+
+			self.assertIn("environment", payload)
+			self.assertIn("correctness_suite", payload)
+			self.assertIn("primary_benchmark", payload)
+			self.assertIn("amortized_benchmark", payload)
+
+			self.assertTrue(os.path.exists(json_path))
+			self.assertTrue(os.path.exists(md_path))
+
+			with open(md_path, encoding="utf-8") as f:
+				md_content = f.read()
+
+			self.assertIn("# FlexiRule — Condition Backend Comparison Benchmark Report", md_content)
+			self.assertIn("Tier 1 — Simple", md_content)

@@ -22,6 +22,44 @@ from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 )
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
+SUPPORTED_LOGICAL_OPERATORS = {"and", "or"}
+SUPPORTED_COLLECTION_LOGIC = {"any", "all", "none"}
+SUPPORTED_LEAF_OPERATORS = {
+	"==",
+	"!=",
+	">",
+	"<",
+	">=",
+	"<=",
+	"in",
+	"not in",
+	"not_in",
+	"contains",
+	"not_contains",
+	"is_set",
+	"is_not_set",
+	"is_empty",
+	"is_not_empty",
+	"is_submittable",
+	"has_field",
+	"length_eq",
+	"length_gt",
+	"length_gte",
+	"length_lt",
+	"length_lte",
+	"has_changed",
+}
+DEFAULT_ALLOWED_SCOPES = {
+	"doc",
+	"old_doc",
+	"row",
+	"item",
+	"vars",
+	"caller",
+	"rule",
+	"doctype",
+}
+
 
 # --- AST / Plan Data Model ---
 class OperandResolver(ABC):
@@ -96,10 +134,11 @@ class GroupPlanNode(PlanNode):
 	conditions: list[PlanNode]
 
 	def evaluate(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> bool:
-		if not self.conditions:
-			return True
-
 		op_lower = self.op.lower()
+		if not self.conditions:
+			# Empty AND group -> True (logical identity); Empty OR group -> False
+			return True if op_lower == "and" else False
+
 		if op_lower == "or":
 			for child in self.conditions:
 				if child.evaluate(doc, row, extra_context):
@@ -148,12 +187,13 @@ class LeafPlanNode(PlanNode):
 				or (isinstance(a, list | tuple | dict | set) and len(a) == 0)
 			)
 		),
+		"has_changed": lambda a, b: True,  # Deprecated operator: passes unconditionally
 	}
 
 	def evaluate(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> bool:
 		left_val = self.left.resolve_value(doc, row, extra_context) if self.left else None
 
-		if self.op in ["is_set", "is_not_set", "is_empty", "is_not_empty"]:
+		if self.op in ["is_set", "is_not_set", "is_empty", "is_not_empty", "has_changed"]:
 			return self.OPERATOR_MAP[self.op](left_val, None)
 
 		if self.op == "is_submittable":
@@ -272,7 +312,6 @@ class ExecutionPlanBuilder:
 			return ConditionExecutionPlan(root_node=None)
 
 		if isinstance(parsed, str):
-			# Raw string expressions are not structured plans
 			raise ValueError("Approach B execution plan requires structured JSON condition tree")
 
 		if isinstance(parsed, list):
@@ -282,44 +321,105 @@ class ExecutionPlanBuilder:
 		else:
 			raise ValueError(f"Unsupported payload type: {type(parsed).__name__}")
 
-		root = self._build_node(tree)
+		root = self._build_node(tree, allowed_scopes=set(DEFAULT_ALLOWED_SCOPES))
 		return ConditionExecutionPlan(root_node=root)
 
-	def _build_node(self, node: dict) -> PlanNode:
+	def _build_node(self, node: dict, allowed_scopes: set[str]) -> PlanNode:
 		if not isinstance(node, dict):
-			return GroupPlanNode(op="and", conditions=[])
+			raise ValueError(f"Invalid condition node shape: expected dict, got {type(node).__name__}")
 
-		if "collection" in node and "where" in node:
-			collection_path = node.get("collection") or ""
+		# 1. Collection Node
+		if "collection" in node or (node.get("op") in SUPPORTED_COLLECTION_LOGIC and "where" in node):
+			collection_path = node.get("collection")
+			if not collection_path or not isinstance(collection_path, str) or not collection_path.strip():
+				raise ValueError(
+					"Collection condition requires a non-empty 'collection' reference (e.g. 'doc.items')"
+				)
+
 			logic = (node.get("op") or "any").lower()
+			if logic not in SUPPORTED_COLLECTION_LOGIC:
+				raise ValueError(f"Unsupported collection logic operator: '{node.get('op')}'")
+
 			alias = node.get("alias") or "row"
-			where_node = self._build_node(node.get("where") or {})
+			where_payload = node.get("where")
+			if not where_payload or not isinstance(where_payload, dict):
+				raise ValueError("Collection condition requires a valid dict 'where' clause")
+
+			# Push collection alias to allowed scopes for child 'where' tree
+			child_scopes = set(allowed_scopes)
+			child_scopes.add(alias)
+
+			where_node = self._build_node(where_payload, allowed_scopes=child_scopes)
 			return CollectionPlanNode(
 				collection_path=collection_path, logic=logic, alias=alias, where=where_node
 			)
 
-		if "conditions" in node and isinstance(node["conditions"], list):
-			op = (node.get("op") or node.get("logical_operator") or "and").lower()
-			children = [self._build_node(c) for c in node["conditions"] if isinstance(c, dict)]
+		# 2. Group Node
+		if "conditions" in node:
+			conditions_list = node.get("conditions")
+			if not isinstance(conditions_list, list):
+				raise ValueError("Group node 'conditions' field must be a list")
+
+			op_raw = node.get("op") or node.get("logical_operator") or "and"
+			if not isinstance(op_raw, str):
+				raise ValueError("Logical operator must be a string")
+
+			op = op_raw.lower()
+			if op not in SUPPORTED_LOGICAL_OPERATORS:
+				raise ValueError(f"Unsupported logical operator: '{op_raw}'")
+
+			children = []
+			for idx, child in enumerate(conditions_list):
+				if not isinstance(child, dict):
+					raise ValueError(
+						f"Invalid child condition node at index {idx}: expected dict, got {type(child).__name__}"
+					)
+				children.append(self._build_node(child, allowed_scopes=allowed_scopes))
+
 			return GroupPlanNode(op=op, conditions=children)
 
+		# 3. Leaf Condition Node
 		if "left" in node:
-			left_op = self._build_operand(node.get("left"))
-			op = node.get("op", "==")
-			right_op = self._build_operand(node.get("right")) if "right" in node else None
-			return LeafPlanNode(left=left_op, op=op, right=right_op)
+			left_data = node.get("left")
+			if left_data is None:
+				raise ValueError("Leaf condition node requires a non-null 'left' operand")
 
-		return GroupPlanNode(op="and", conditions=[])
+			left_op = self._build_operand(left_data, allowed_scopes=allowed_scopes)
 
-	def _build_operand(self, operand_data: Any) -> OperandResolver:
+			op_raw = node.get("op", "==")
+			if not isinstance(op_raw, str):
+				raise ValueError("Comparison operator must be a string")
+
+			op = op_raw.lower()
+			if op_raw not in SUPPORTED_LEAF_OPERATORS and op not in SUPPORTED_LEAF_OPERATORS:
+				raise ValueError(f"Unsupported condition comparison operator: '{op_raw}'")
+
+			right_op = None
+			if "right" in node:
+				right_op = self._build_operand(node.get("right"), allowed_scopes=allowed_scopes)
+
+			return LeafPlanNode(left=left_op, op=op_raw, right=right_op)
+
+		raise ValueError(f"Malformed or unrecognized condition node payload: {node}")
+
+	def _build_operand(self, operand_data: Any, allowed_scopes: set[str]) -> OperandResolver:
 		if not isinstance(operand_data, dict):
 			return LiteralOperand(value=operand_data)
 
 		if "ref" in operand_data:
-			ref_path = str(operand_data["ref"] or "")
+			ref_path = str(operand_data["ref"] or "").strip()
+			if not ref_path:
+				raise ValueError("Reference operand contains an empty 'ref' path")
+
 			parts = ref_path.split(".", 1)
-			scope = parts[0] if parts else "doc"
+			scope = parts[0]
 			subpath = parts[1] if len(parts) > 1 else ""
+
+			if scope not in allowed_scopes:
+				raise ValueError(
+					f"Invalid operand scope: '{scope}'. Allowed scopes: {sorted(allowed_scopes)}"
+				)
+
 			return RefOperand(scope=scope, subpath=subpath)
 
 		if "value" in operand_data:

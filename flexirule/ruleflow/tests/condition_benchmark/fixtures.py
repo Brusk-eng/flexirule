@@ -313,7 +313,7 @@ def get_all_fixtures() -> list[BenchmarkFixture]:
 	)
 	fixtures.append(tier5)
 
-	# --- Edge Case: Null vs Empty String ---
+	# --- Edge Case 1: Null vs Empty String ---
 	edge1 = BenchmarkFixture(
 		fixture_id="edge_case_is_set_null_empty",
 		tier="Edge Case — Null / Empty",
@@ -334,7 +334,7 @@ def get_all_fixtures() -> list[BenchmarkFixture]:
 	)
 	fixtures.append(edge1)
 
-	# --- Edge Case: Link Tuple ---
+	# --- Edge Case 2: Link Tuple ---
 	edge2 = BenchmarkFixture(
 		fixture_id="edge_case_link_tuple",
 		tier="Edge Case — Link Tuple",
@@ -355,5 +355,122 @@ def get_all_fixtures() -> list[BenchmarkFixture]:
 		nesting_depth=1,
 	)
 	fixtures.append(edge2)
+
+	# --- Edge Case 3: Membership ('in' / 'not_in') ---
+	edge3 = BenchmarkFixture(
+		fixture_id="edge_case_membership_in_not_in",
+		tier="Edge Case — Membership",
+		description="Checking 'in' and 'not_in' with list operand",
+		condition_payload={
+			"op": "and",
+			"conditions": [
+				{
+					"left": {"ref": "doc.status"},
+					"op": "in",
+					"right": {"value": ["Open", "Pending", "Draft"]},
+				},
+				{
+					"left": {"ref": "doc.priority"},
+					"op": "not in",
+					"right": {"value": ["Low", "Trivial"]},
+				},
+			],
+		},
+		matching_doc=frappe._dict({"status": "Pending", "priority": "High"}),
+		non_matching_doc=frappe._dict({"status": "Closed", "priority": "High"}),
+		leaf_count=2,
+		nesting_depth=1,
+	)
+	fixtures.append(edge3)
+
+	# --- Edge Case 4: Substring Contains ---
+	edge4 = BenchmarkFixture(
+		fixture_id="edge_case_contains_not_contains",
+		tier="Edge Case — Substring",
+		description="Checking 'contains' and 'not_contains' on string fields",
+		condition_payload={
+			"op": "and",
+			"conditions": [
+				{
+					"left": {"ref": "doc.subject"},
+					"op": "contains",
+					"right": {"value": "URGENT"},
+				},
+				{
+					"left": {"ref": "doc.subject"},
+					"op": "not_contains",
+					"right": {"value": "SPAM"},
+				},
+			],
+		},
+		matching_doc=frappe._dict({"subject": "URGENT: Server issue"}),
+		non_matching_doc=frappe._dict({"subject": "URGENT: SPAM detected"}),
+		leaf_count=2,
+		nesting_depth=1,
+	)
+	fixtures.append(edge4)
+
+	# --- Edge Case 5: Collection All / None ---
+	edge5 = BenchmarkFixture(
+		fixture_id="edge_case_collection_all_and_none",
+		tier="Edge Case — Collection All/None",
+		description="Collection condition verifying 'all' items are verified",
+		condition_payload={
+			"op": "and",
+			"conditions": [
+				{
+					"collection": "doc.items",
+					"op": "all",
+					"alias": "item",
+					"where": {
+						"left": {"ref": "item.is_verified"},
+						"op": "==",
+						"right": {"value": 1},
+					},
+				}
+			],
+		},
+		matching_doc=frappe._dict(
+			{
+				"items": [
+					frappe._dict({"item_code": "I1", "is_verified": 1}),
+					frappe._dict({"item_code": "I2", "is_verified": 1}),
+				]
+			}
+		),
+		non_matching_doc=frappe._dict(
+			{
+				"items": [
+					frappe._dict({"item_code": "I1", "is_verified": 1}),
+					frappe._dict({"item_code": "I2", "is_verified": 0}),
+				]
+			}
+		),
+		leaf_count=1,
+		nesting_depth=2,
+	)
+	fixtures.append(edge5)
+
+	# --- Edge Case 6: Length Operators ---
+	edge6 = BenchmarkFixture(
+		fixture_id="edge_case_length_gt_eq",
+		tier="Edge Case — Length",
+		description="Checking length_gt and length_eq on text fields",
+		condition_payload={
+			"op": "and",
+			"conditions": [
+				{
+					"left": {"ref": "doc.title"},
+					"op": "length_gt",
+					"right": {"value": 5},
+				}
+			],
+		},
+		matching_doc=frappe._dict({"title": "Detailed Title"}),
+		non_matching_doc=frappe._dict({"title": "Tiny"}),
+		leaf_count=1,
+		nesting_depth=1,
+	)
+	fixtures.append(edge6)
 
 	return fixtures
