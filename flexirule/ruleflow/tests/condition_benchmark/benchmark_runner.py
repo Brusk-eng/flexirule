@@ -601,9 +601,12 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("## 3. Primary Prepared-Execution Benchmark Results")
 		md_lines.append("")
+		methodology = primary.get("methodology", {})
 		md_lines.append(
-			"**Methodology:** Preparation (compilation / plan building) was performed **outside** the timed loop. "
-			f"The timed loop measured prepared execution over 5 batches of 10,000 iterations each ({self.iterations_per_batch:,} iterations x {self.num_batches} batches)."
+			"**Methodology:** Preparation was measured separately using repeated samples and the median. "
+			f"Each batch contains {self.iterations_per_batch:,} evaluations and there are {self.num_batches} repeated batches. "
+			"Within each batch the same matching and non-matching documents alternate; candidate order rotates between batches. "
+			"The timed scope is the entire candidate.evaluate() call, including candidate-specific per-call setup."
 		)
 		md_lines.append("")
 		md_lines.append(
@@ -674,7 +677,10 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("## 5. Amortized Total Cost Measurements")
 		md_lines.append("")
-		md_lines.append("Calculates total cost for 1 preparation followed by N evaluations:")
+		md_lines.append(
+			"Estimates one preparation plus N evaluations. Preparation time is the median of repeated preparation samples; "
+			"execution time is the median total duration across repeated N-evaluation batches. Timing is gated by fixture correctness."
+		)
 		md_lines.append("")
 		md_lines.append(
 			"$$\\text{Total Amortized Cost} = \\text{Preparation Time} + (N \\times \\text{Execution Time})$$"
@@ -710,9 +716,9 @@ class BenchmarkRunner:
 			"production `frappe.safe_eval` result, because standard Frappe APIs do not expose code object caching."
 		)
 		md_lines.append(
-			"2. **Coverage Scope:** While all 11 fixtures passed 100% semantic correctness tests, a finite fixture suite does not constitute formal "
-			"mathematical proof of universal equivalence for all possible condition expressions. Edge cases or untested custom operators must be verified "
-			"before production migration."
+			f"2. **Coverage Scope:** {correctness.get('agreed_cases', 0)} of {correctness.get('total_cases', 0)} fixtures passed the semantic correctness gate. "
+			"Fixtures that fail the gate are excluded from both performance benchmarks. A finite fixture suite does not constitute formal proof of universal equivalence; "
+			"untested operators and edge cases must still be verified before production migration."
 		)
 		md_lines.append(
 			"3. **Production Isolation Confirmation:** **No production code, evaluators, controllers, persistence contracts, or DocTypes were modified.** "
