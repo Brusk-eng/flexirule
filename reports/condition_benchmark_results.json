@@ -1,0 +1,1179 @@
+{
+  "environment": {
+    "python_version": "3.12.13",
+    "platform": "Linux-6.8.0-x86_64-with-glibc2.39",
+    "frappe_version": "15.123.1",
+    "flexirule_version": "1.0.0-beta.3",
+    "timestamp_utc": "2026-10-20T15:44:25Z"
+  },
+  "correctness_suite": {
+    "total_cases": 7,
+    "agreed_cases": 7,
+    "all_agreed": true,
+    "results": [
+      {
+        "fixture_id": "tier1_simple_equality",
+        "tier": "Tier 1 \u2014 Simple",
+        "agrees": true,
+        "matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": true
+        },
+        "non_matching_doc_check": {
+          "Approach A (frappe.safe_eval)": false,
+          "Approach A (Experimental Restricted Code Object)": false,
+          "Approach B (Normalized Execution Plan)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "tier2_typical_business_rule",
+        "tier": "Tier 2 \u2014 Typical Business Rule",
+        "agrees": true,
+        "matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": true
+        },
+        "non_matching_doc_check": {
+          "Approach A (frappe.safe_eval)": false,
+          "Approach A (Experimental Restricted Code Object)": false,
+          "Approach B (Normalized Execution Plan)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "tier3_nested_and_or_groups",
+        "tier": "Tier 3 \u2014 Nested Groups",
+        "agrees": true,
+        "matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": true
+        },
+        "non_matching_doc_check": {
+          "Approach A (frappe.safe_eval)": false,
+          "Approach A (Experimental Restricted Code Object)": false,
+          "Approach B (Normalized Execution Plan)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "tier4_deep_nested_complex",
+        "tier": "Tier 4 \u2014 Deep Nested Complex",
+        "agrees": true,
+        "matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": true
+        },
+        "non_matching_doc_check": {
+          "Approach A (frappe.safe_eval)": false,
+          "Approach A (Experimental Restricted Code Object)": false,
+          "Approach B (Normalized Execution Plan)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "tier5_collection_child_records",
+        "tier": "Tier 5 \u2014 Collection / Child Records",
+        "agrees": true,
+        "matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": true
+        },
+        "non_matching_doc_check": {
+          "Approach A (frappe.safe_eval)": false,
+          "Approach A (Experimental Restricted Code Object)": false,
+          "Approach B (Normalized Execution Plan)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "edge_case_is_set_null_empty",
+        "tier": "Edge Case \u2014 Null / Empty",
+        "agrees": true,
+        "matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": true
+        },
+        "non_matching_doc_check": {
+          "Approach A (frappe.safe_eval)": false,
+          "Approach A (Experimental Restricted Code Object)": false,
+          "Approach B (Normalized Execution Plan)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "edge_case_link_tuple",
+        "tier": "Edge Case \u2014 Link Tuple",
+        "agrees": true,
+        "matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": true
+        },
+        "non_matching_doc_check": {
+          "Approach A (frappe.safe_eval)": false,
+          "Approach A (Experimental Restricted Code Object)": false,
+          "Approach B (Normalized Execution Plan)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      }
+    ]
+  },
+  "primary_benchmark": {
+    "fixtures": [
+      {
+        "fixture_id": "tier1_simple_equality",
+        "tier": "Tier 1 \u2014 Simple",
+        "description": "Single leaf comparison for status equality",
+        "leaf_count": 1,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": 48.75,
+        "speedup_ratio_b_vs_experimental_a": 2.53,
+        "candidate_metrics": {
+          "Approach A (frappe.safe_eval)": {
+            "preparation_time_ms": 0.1593,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 175.195,
+            "mean_us_per_exec": 175.606,
+            "min_us_per_exec": 174.166,
+            "max_us_per_exec": 177.682,
+            "p95_us_per_exec": 177.682,
+            "total_batch_time_seconds": [
+              1.7768,
+              1.7462,
+              1.7417,
+              1.7636,
+              1.7519
+            ]
+          },
+          "Approach A (Experimental Restricted Code Object)": {
+            "preparation_time_ms": 0.2644,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 9.092,
+            "mean_us_per_exec": 9.094,
+            "min_us_per_exec": 9.082,
+            "max_us_per_exec": 9.109,
+            "p95_us_per_exec": 9.109,
+            "total_batch_time_seconds": [
+              0.0908,
+              0.0909,
+              0.0911,
+              0.091,
+              0.0909
+            ]
+          },
+          "Approach B (Normalized Execution Plan)": {
+            "preparation_time_ms": 0.015,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 3.594,
+            "mean_us_per_exec": 3.591,
+            "min_us_per_exec": 3.542,
+            "max_us_per_exec": 3.624,
+            "p95_us_per_exec": 3.624,
+            "total_batch_time_seconds": [
+              0.0354,
+              0.0359,
+              0.0359,
+              0.0361,
+              0.0362
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "tier2_typical_business_rule",
+        "tier": "Tier 2 \u2014 Typical Business Rule",
+        "description": "Three leaf conditions joined by AND",
+        "leaf_count": 3,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": 59.21,
+        "speedup_ratio_b_vs_experimental_a": 1.78,
+        "candidate_metrics": {
+          "Approach A (frappe.safe_eval)": {
+            "preparation_time_ms": 0.3831,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 409.558,
+            "mean_us_per_exec": 410.266,
+            "min_us_per_exec": 408.703,
+            "max_us_per_exec": 413.322,
+            "p95_us_per_exec": 413.322,
+            "total_batch_time_seconds": [
+              4.1332,
+              4.087,
+              4.0944,
+              4.0956,
+              4.103
+            ]
+          },
+          "Approach A (Experimental Restricted Code Object)": {
+            "preparation_time_ms": 0.5629,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 12.302,
+            "mean_us_per_exec": 12.299,
+            "min_us_per_exec": 12.185,
+            "max_us_per_exec": 12.436,
+            "p95_us_per_exec": 12.436,
+            "total_batch_time_seconds": [
+              0.1233,
+              0.1225,
+              0.123,
+              0.1219,
+              0.1244
+            ]
+          },
+          "Approach B (Normalized Execution Plan)": {
+            "preparation_time_ms": 0.0286,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 6.917,
+            "mean_us_per_exec": 6.971,
+            "min_us_per_exec": 6.757,
+            "max_us_per_exec": 7.286,
+            "p95_us_per_exec": 7.286,
+            "total_batch_time_seconds": [
+              0.0713,
+              0.0729,
+              0.0692,
+              0.0677,
+              0.0676
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "tier3_nested_and_or_groups",
+        "tier": "Tier 3 \u2014 Nested Groups",
+        "description": "Nested AND/OR groups for status and total/priority",
+        "leaf_count": 4,
+        "nesting_depth": 2,
+        "speedup_ratio_b_vs_primary_a": 73.91,
+        "speedup_ratio_b_vs_experimental_a": 1.7,
+        "candidate_metrics": {
+          "Approach A (frappe.safe_eval)": {
+            "preparation_time_ms": 0.477,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 541.412,
+            "mean_us_per_exec": 541.522,
+            "min_us_per_exec": 540.451,
+            "max_us_per_exec": 542.913,
+            "p95_us_per_exec": 542.913,
+            "total_batch_time_seconds": [
+              5.4045,
+              5.4291,
+              5.4173,
+              5.4141,
+              5.411
+            ]
+          },
+          "Approach A (Experimental Restricted Code Object)": {
+            "preparation_time_ms": 0.6992,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 12.445,
+            "mean_us_per_exec": 12.646,
+            "min_us_per_exec": 12.419,
+            "max_us_per_exec": 13.052,
+            "p95_us_per_exec": 13.052,
+            "total_batch_time_seconds": [
+              0.1305,
+              0.1288,
+              0.1242,
+              0.1245,
+              0.1243
+            ]
+          },
+          "Approach B (Normalized Execution Plan)": {
+            "preparation_time_ms": 0.0349,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 7.325,
+            "mean_us_per_exec": 7.322,
+            "min_us_per_exec": 7.273,
+            "max_us_per_exec": 7.354,
+            "p95_us_per_exec": 7.354,
+            "total_batch_time_seconds": [
+              0.0735,
+              0.0731,
+              0.0733,
+              0.0727,
+              0.0735
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "tier4_deep_nested_complex",
+        "tier": "Tier 4 \u2014 Deep Nested Complex",
+        "description": "10 leaf conditions across 3 nested levels with mixed operators",
+        "leaf_count": 8,
+        "nesting_depth": 3,
+        "speedup_ratio_b_vs_primary_a": 91.75,
+        "speedup_ratio_b_vs_experimental_a": 1.49,
+        "candidate_metrics": {
+          "Approach A (frappe.safe_eval)": {
+            "preparation_time_ms": 0.7437,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 1149.274,
+            "mean_us_per_exec": 1169.297,
+            "min_us_per_exec": 1136.854,
+            "max_us_per_exec": 1261.394,
+            "p95_us_per_exec": 1261.394,
+            "total_batch_time_seconds": [
+              11.4268,
+              12.6139,
+              11.4927,
+              11.5628,
+              11.3685
+            ]
+          },
+          "Approach A (Experimental Restricted Code Object)": {
+            "preparation_time_ms": 1.501,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 18.603,
+            "mean_us_per_exec": 18.671,
+            "min_us_per_exec": 18.521,
+            "max_us_per_exec": 18.905,
+            "p95_us_per_exec": 18.905,
+            "total_batch_time_seconds": [
+              0.1856,
+              0.1891,
+              0.186,
+              0.1876,
+              0.1852
+            ]
+          },
+          "Approach B (Normalized Execution Plan)": {
+            "preparation_time_ms": 0.0472,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 12.526,
+            "mean_us_per_exec": 12.532,
+            "min_us_per_exec": 12.508,
+            "max_us_per_exec": 12.565,
+            "p95_us_per_exec": 12.565,
+            "total_batch_time_seconds": [
+              0.1251,
+              0.1251,
+              0.1254,
+              0.1256,
+              0.1253
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "tier5_collection_child_records",
+        "tier": "Tier 5 \u2014 Collection / Child Records",
+        "description": "Collection condition checking items child table with 'any' logic",
+        "leaf_count": 3,
+        "nesting_depth": 2,
+        "speedup_ratio_b_vs_primary_a": 65.89,
+        "speedup_ratio_b_vs_experimental_a": 1.61,
+        "candidate_metrics": {
+          "Approach A (frappe.safe_eval)": {
+            "preparation_time_ms": 0.4866,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 715.364,
+            "mean_us_per_exec": 715.705,
+            "min_us_per_exec": 712.314,
+            "max_us_per_exec": 718.194,
+            "p95_us_per_exec": 718.194,
+            "total_batch_time_seconds": [
+              7.1231,
+              7.1819,
+              7.1747,
+              7.1518,
+              7.1536
+            ]
+          },
+          "Approach A (Experimental Restricted Code Object)": {
+            "preparation_time_ms": 0.9049,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 17.511,
+            "mean_us_per_exec": 17.582,
+            "min_us_per_exec": 17.402,
+            "max_us_per_exec": 17.918,
+            "p95_us_per_exec": 17.918,
+            "total_batch_time_seconds": [
+              0.1751,
+              0.1741,
+              0.174,
+              0.1768,
+              0.1792
+            ]
+          },
+          "Approach B (Normalized Execution Plan)": {
+            "preparation_time_ms": 0.0398,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 10.857,
+            "mean_us_per_exec": 10.869,
+            "min_us_per_exec": 10.854,
+            "max_us_per_exec": 10.9,
+            "p95_us_per_exec": 10.9,
+            "total_batch_time_seconds": [
+              0.1086,
+              0.1086,
+              0.109,
+              0.1085,
+              0.1088
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "edge_case_is_set_null_empty",
+        "tier": "Edge Case \u2014 Null / Empty",
+        "description": "Checking is_set with null vs empty string vs non-empty string",
+        "leaf_count": 1,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": 110.18,
+        "speedup_ratio_b_vs_experimental_a": 3.87,
+        "candidate_metrics": {
+          "Approach A (frappe.safe_eval)": {
+            "preparation_time_ms": 0.2746,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 309.274,
+            "mean_us_per_exec": 309.274,
+            "min_us_per_exec": 308.243,
+            "max_us_per_exec": 310.813,
+            "p95_us_per_exec": 310.813,
+            "total_batch_time_seconds": [
+              3.0943,
+              3.0927,
+              3.0824,
+              3.0861,
+              3.1081
+            ]
+          },
+          "Approach A (Experimental Restricted Code Object)": {
+            "preparation_time_ms": 0.4677,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 10.866,
+            "mean_us_per_exec": 10.865,
+            "min_us_per_exec": 10.819,
+            "max_us_per_exec": 10.893,
+            "p95_us_per_exec": 10.893,
+            "total_batch_time_seconds": [
+              0.1087,
+              0.1082,
+              0.1086,
+              0.1089,
+              0.1089
+            ]
+          },
+          "Approach B (Normalized Execution Plan)": {
+            "preparation_time_ms": 0.0226,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 2.807,
+            "mean_us_per_exec": 2.87,
+            "min_us_per_exec": 2.792,
+            "max_us_per_exec": 3.096,
+            "p95_us_per_exec": 3.096,
+            "total_batch_time_seconds": [
+              0.0285,
+              0.031,
+              0.028,
+              0.0281,
+              0.0279
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "edge_case_link_tuple",
+        "tier": "Edge Case \u2014 Link Tuple",
+        "description": "Link tuple comparison for Customer link field",
+        "leaf_count": 1,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": 47.86,
+        "speedup_ratio_b_vs_experimental_a": 2.21,
+        "candidate_metrics": {
+          "Approach A (frappe.safe_eval)": {
+            "preparation_time_ms": 0.2796,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 242.873,
+            "mean_us_per_exec": 243.46,
+            "min_us_per_exec": 242.31,
+            "max_us_per_exec": 245.178,
+            "p95_us_per_exec": 245.178,
+            "total_batch_time_seconds": [
+              2.4518,
+              2.4231,
+              2.4233,
+              2.4287,
+              2.446
+            ]
+          },
+          "Approach A (Experimental Restricted Code Object)": {
+            "preparation_time_ms": 0.4191,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 11.194,
+            "mean_us_per_exec": 11.199,
+            "min_us_per_exec": 11.185,
+            "max_us_per_exec": 11.219,
+            "p95_us_per_exec": 11.219,
+            "total_batch_time_seconds": [
+              0.1121,
+              0.1119,
+              0.1122,
+              0.1119,
+              0.1118
+            ]
+          },
+          "Approach B (Normalized Execution Plan)": {
+            "preparation_time_ms": 0.022,
+            "iterations_per_batch": 10000,
+            "num_batches": 5,
+            "median_us_per_exec": 5.075,
+            "mean_us_per_exec": 5.091,
+            "min_us_per_exec": 5.033,
+            "max_us_per_exec": 5.166,
+            "p95_us_per_exec": 5.166,
+            "total_batch_time_seconds": [
+              0.0503,
+              0.0512,
+              0.0506,
+              0.0517,
+              0.0508
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "amortized_benchmark": {
+    "amortized": [
+      {
+        "fixture_id": "tier1_simple_equality",
+        "tier": "Tier 1 \u2014 Simple",
+        "counts": {
+          "1": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2695,
+              "n_exec_time_ms": 0.1807,
+              "total_amortized_cost_ms": 0.4502,
+              "cost_per_eval_us": 450.168
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.3233,
+              "n_exec_time_ms": 0.0128,
+              "total_amortized_cost_ms": 0.3361,
+              "cost_per_eval_us": 336.088
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0247,
+              "n_exec_time_ms": 0.0057,
+              "total_amortized_cost_ms": 0.0304,
+              "cost_per_eval_us": 30.385
+            }
+          },
+          "10": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2695,
+              "n_exec_time_ms": 1.784,
+              "total_amortized_cost_ms": 2.0535,
+              "cost_per_eval_us": 205.35
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.3233,
+              "n_exec_time_ms": 0.0952,
+              "total_amortized_cost_ms": 0.4186,
+              "cost_per_eval_us": 41.857
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0247,
+              "n_exec_time_ms": 0.0356,
+              "total_amortized_cost_ms": 0.0603,
+              "cost_per_eval_us": 6.027
+            }
+          },
+          "100": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2695,
+              "n_exec_time_ms": 17.8006,
+              "total_amortized_cost_ms": 18.0701,
+              "cost_per_eval_us": 180.701
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.3233,
+              "n_exec_time_ms": 0.8962,
+              "total_amortized_cost_ms": 1.2195,
+              "cost_per_eval_us": 12.195
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0247,
+              "n_exec_time_ms": 0.3205,
+              "total_amortized_cost_ms": 0.3453,
+              "cost_per_eval_us": 3.453
+            }
+          },
+          "1000": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2695,
+              "n_exec_time_ms": 178.3111,
+              "total_amortized_cost_ms": 178.5806,
+              "cost_per_eval_us": 178.581
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.3233,
+              "n_exec_time_ms": 9.1526,
+              "total_amortized_cost_ms": 9.4759,
+              "cost_per_eval_us": 9.476
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0247,
+              "n_exec_time_ms": 3.5214,
+              "total_amortized_cost_ms": 3.5461,
+              "cost_per_eval_us": 3.546
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "tier2_typical_business_rule",
+        "tier": "Tier 2 \u2014 Typical Business Rule",
+        "counts": {
+          "1": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.3064,
+              "n_exec_time_ms": 0.4514,
+              "total_amortized_cost_ms": 0.7579,
+              "cost_per_eval_us": 757.876
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.6045,
+              "n_exec_time_ms": 0.0165,
+              "total_amortized_cost_ms": 0.621,
+              "cost_per_eval_us": 621.013
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0305,
+              "n_exec_time_ms": 0.0091,
+              "total_amortized_cost_ms": 0.0396,
+              "cost_per_eval_us": 39.553
+            }
+          },
+          "10": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.3064,
+              "n_exec_time_ms": 4.1404,
+              "total_amortized_cost_ms": 4.4468,
+              "cost_per_eval_us": 444.684
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.6045,
+              "n_exec_time_ms": 0.1634,
+              "total_amortized_cost_ms": 0.7679,
+              "cost_per_eval_us": 76.794
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0305,
+              "n_exec_time_ms": 0.066,
+              "total_amortized_cost_ms": 0.0964,
+              "cost_per_eval_us": 9.643
+            }
+          },
+          "100": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.3064,
+              "n_exec_time_ms": 40.4517,
+              "total_amortized_cost_ms": 40.7582,
+              "cost_per_eval_us": 407.582
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.6045,
+              "n_exec_time_ms": 1.1784,
+              "total_amortized_cost_ms": 1.7829,
+              "cost_per_eval_us": 17.829
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0305,
+              "n_exec_time_ms": 0.628,
+              "total_amortized_cost_ms": 0.6585,
+              "cost_per_eval_us": 6.585
+            }
+          },
+          "1000": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.3064,
+              "n_exec_time_ms": 407.164,
+              "total_amortized_cost_ms": 407.4704,
+              "cost_per_eval_us": 407.47
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.6045,
+              "n_exec_time_ms": 11.9969,
+              "total_amortized_cost_ms": 12.6015,
+              "cost_per_eval_us": 12.601
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0305,
+              "n_exec_time_ms": 6.6826,
+              "total_amortized_cost_ms": 6.7131,
+              "cost_per_eval_us": 6.713
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "tier3_nested_and_or_groups",
+        "tier": "Tier 3 \u2014 Nested Groups",
+        "counts": {
+          "1": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.3759,
+              "n_exec_time_ms": 0.5711,
+              "total_amortized_cost_ms": 0.947,
+              "cost_per_eval_us": 947.007
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.683,
+              "n_exec_time_ms": 0.023,
+              "total_amortized_cost_ms": 0.706,
+              "cost_per_eval_us": 705.981
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0334,
+              "n_exec_time_ms": 0.0092,
+              "total_amortized_cost_ms": 0.0426,
+              "cost_per_eval_us": 42.552
+            }
+          },
+          "10": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.3759,
+              "n_exec_time_ms": 5.3351,
+              "total_amortized_cost_ms": 5.711,
+              "cost_per_eval_us": 571.097
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.683,
+              "n_exec_time_ms": 0.1282,
+              "total_amortized_cost_ms": 0.8112,
+              "cost_per_eval_us": 81.12
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0334,
+              "n_exec_time_ms": 0.071,
+              "total_amortized_cost_ms": 0.1044,
+              "cost_per_eval_us": 10.44
+            }
+          },
+          "100": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.3759,
+              "n_exec_time_ms": 54.6978,
+              "total_amortized_cost_ms": 55.0736,
+              "cost_per_eval_us": 550.736
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.683,
+              "n_exec_time_ms": 1.2035,
+              "total_amortized_cost_ms": 1.8865,
+              "cost_per_eval_us": 18.865
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0334,
+              "n_exec_time_ms": 0.7041,
+              "total_amortized_cost_ms": 0.7375,
+              "cost_per_eval_us": 7.375
+            }
+          },
+          "1000": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.3759,
+              "n_exec_time_ms": 537.1813,
+              "total_amortized_cost_ms": 537.5572,
+              "cost_per_eval_us": 537.557
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.683,
+              "n_exec_time_ms": 12.1104,
+              "total_amortized_cost_ms": 12.7934,
+              "cost_per_eval_us": 12.793
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0334,
+              "n_exec_time_ms": 7.6586,
+              "total_amortized_cost_ms": 7.692,
+              "cost_per_eval_us": 7.692
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "tier4_deep_nested_complex",
+        "tier": "Tier 4 \u2014 Deep Nested Complex",
+        "counts": {
+          "1": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.793,
+              "n_exec_time_ms": 1.1299,
+              "total_amortized_cost_ms": 1.9229,
+              "cost_per_eval_us": 1922.914
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 1.5005,
+              "n_exec_time_ms": 0.0231,
+              "total_amortized_cost_ms": 1.5237,
+              "cost_per_eval_us": 1523.655
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0525,
+              "n_exec_time_ms": 0.0149,
+              "total_amortized_cost_ms": 0.0674,
+              "cost_per_eval_us": 67.422
+            }
+          },
+          "10": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.793,
+              "n_exec_time_ms": 11.3754,
+              "total_amortized_cost_ms": 12.1684,
+              "cost_per_eval_us": 1216.844
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 1.5005,
+              "n_exec_time_ms": 0.186,
+              "total_amortized_cost_ms": 1.6866,
+              "cost_per_eval_us": 168.655
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0525,
+              "n_exec_time_ms": 0.1188,
+              "total_amortized_cost_ms": 0.1713,
+              "cost_per_eval_us": 17.133
+            }
+          },
+          "100": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.793,
+              "n_exec_time_ms": 113.9394,
+              "total_amortized_cost_ms": 114.7324,
+              "cost_per_eval_us": 1147.324
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 1.5005,
+              "n_exec_time_ms": 1.8701,
+              "total_amortized_cost_ms": 3.3706,
+              "cost_per_eval_us": 33.706
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0525,
+              "n_exec_time_ms": 1.2082,
+              "total_amortized_cost_ms": 1.2607,
+              "cost_per_eval_us": 12.607
+            }
+          },
+          "1000": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.793,
+              "n_exec_time_ms": 1130.7877,
+              "total_amortized_cost_ms": 1131.5807,
+              "cost_per_eval_us": 1131.581
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 1.5005,
+              "n_exec_time_ms": 18.1603,
+              "total_amortized_cost_ms": 19.6608,
+              "cost_per_eval_us": 19.661
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0525,
+              "n_exec_time_ms": 12.3562,
+              "total_amortized_cost_ms": 12.4087,
+              "cost_per_eval_us": 12.409
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "tier5_collection_child_records",
+        "tier": "Tier 5 \u2014 Collection / Child Records",
+        "counts": {
+          "1": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.5255,
+              "n_exec_time_ms": 0.7126,
+              "total_amortized_cost_ms": 1.2381,
+              "cost_per_eval_us": 1238.138
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.8683,
+              "n_exec_time_ms": 0.0215,
+              "total_amortized_cost_ms": 0.8898,
+              "cost_per_eval_us": 889.773
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0383,
+              "n_exec_time_ms": 0.0143,
+              "total_amortized_cost_ms": 0.0526,
+              "cost_per_eval_us": 52.607
+            }
+          },
+          "10": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.5255,
+              "n_exec_time_ms": 7.0496,
+              "total_amortized_cost_ms": 7.5751,
+              "cost_per_eval_us": 757.514
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.8683,
+              "n_exec_time_ms": 0.175,
+              "total_amortized_cost_ms": 1.0433,
+              "cost_per_eval_us": 104.328
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0383,
+              "n_exec_time_ms": 0.108,
+              "total_amortized_cost_ms": 0.1463,
+              "cost_per_eval_us": 14.629
+            }
+          },
+          "100": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.5255,
+              "n_exec_time_ms": 70.4669,
+              "total_amortized_cost_ms": 70.9924,
+              "cost_per_eval_us": 709.924
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.8683,
+              "n_exec_time_ms": 1.6688,
+              "total_amortized_cost_ms": 2.5371,
+              "cost_per_eval_us": 25.371
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0383,
+              "n_exec_time_ms": 1.0645,
+              "total_amortized_cost_ms": 1.1029,
+              "cost_per_eval_us": 11.029
+            }
+          },
+          "1000": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.5255,
+              "n_exec_time_ms": 714.5313,
+              "total_amortized_cost_ms": 715.0569,
+              "cost_per_eval_us": 715.057
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.8683,
+              "n_exec_time_ms": 17.1699,
+              "total_amortized_cost_ms": 18.0382,
+              "cost_per_eval_us": 18.038
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0383,
+              "n_exec_time_ms": 10.8775,
+              "total_amortized_cost_ms": 10.9158,
+              "cost_per_eval_us": 10.916
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "edge_case_is_set_null_empty",
+        "tier": "Edge Case \u2014 Null / Empty",
+        "counts": {
+          "1": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2476,
+              "n_exec_time_ms": 0.2877,
+              "total_amortized_cost_ms": 0.5353,
+              "cost_per_eval_us": 535.298
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.4276,
+              "n_exec_time_ms": 0.0138,
+              "total_amortized_cost_ms": 0.4414,
+              "cost_per_eval_us": 441.415
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0219,
+              "n_exec_time_ms": 0.0129,
+              "total_amortized_cost_ms": 0.0348,
+              "cost_per_eval_us": 34.798
+            }
+          },
+          "10": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2476,
+              "n_exec_time_ms": 3.0598,
+              "total_amortized_cost_ms": 3.3074,
+              "cost_per_eval_us": 330.737
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.4276,
+              "n_exec_time_ms": 0.1027,
+              "total_amortized_cost_ms": 0.5303,
+              "cost_per_eval_us": 53.027
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0219,
+              "n_exec_time_ms": 0.0268,
+              "total_amortized_cost_ms": 0.0487,
+              "cost_per_eval_us": 4.871
+            }
+          },
+          "100": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2476,
+              "n_exec_time_ms": 30.0062,
+              "total_amortized_cost_ms": 30.2538,
+              "cost_per_eval_us": 302.538
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.4276,
+              "n_exec_time_ms": 1.1074,
+              "total_amortized_cost_ms": 1.535,
+              "cost_per_eval_us": 15.35
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0219,
+              "n_exec_time_ms": 0.2885,
+              "total_amortized_cost_ms": 0.3104,
+              "cost_per_eval_us": 3.104
+            }
+          },
+          "1000": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2476,
+              "n_exec_time_ms": 301.581,
+              "total_amortized_cost_ms": 301.8285,
+              "cost_per_eval_us": 301.829
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.4276,
+              "n_exec_time_ms": 10.6492,
+              "total_amortized_cost_ms": 11.0767,
+              "cost_per_eval_us": 11.077
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0219,
+              "n_exec_time_ms": 2.6924,
+              "total_amortized_cost_ms": 2.7143,
+              "cost_per_eval_us": 2.714
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "edge_case_link_tuple",
+        "tier": "Edge Case \u2014 Link Tuple",
+        "counts": {
+          "1": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2518,
+              "n_exec_time_ms": 0.231,
+              "total_amortized_cost_ms": 0.4828,
+              "cost_per_eval_us": 482.772
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.3844,
+              "n_exec_time_ms": 0.0142,
+              "total_amortized_cost_ms": 0.3986,
+              "cost_per_eval_us": 398.569
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0229,
+              "n_exec_time_ms": 0.007,
+              "total_amortized_cost_ms": 0.03,
+              "cost_per_eval_us": 29.95
+            }
+          },
+          "10": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2518,
+              "n_exec_time_ms": 2.4857,
+              "total_amortized_cost_ms": 2.7375,
+              "cost_per_eval_us": 273.753
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.3844,
+              "n_exec_time_ms": 0.1077,
+              "total_amortized_cost_ms": 0.4921,
+              "cost_per_eval_us": 49.212
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0229,
+              "n_exec_time_ms": 0.049,
+              "total_amortized_cost_ms": 0.072,
+              "cost_per_eval_us": 7.196
+            }
+          },
+          "100": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2518,
+              "n_exec_time_ms": 24.1647,
+              "total_amortized_cost_ms": 24.4165,
+              "cost_per_eval_us": 244.165
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.3844,
+              "n_exec_time_ms": 1.0803,
+              "total_amortized_cost_ms": 1.4648,
+              "cost_per_eval_us": 14.648
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0229,
+              "n_exec_time_ms": 0.4577,
+              "total_amortized_cost_ms": 0.4806,
+              "cost_per_eval_us": 4.806
+            }
+          },
+          "1000": {
+            "Approach A (frappe.safe_eval)": {
+              "prep_time_ms": 0.2518,
+              "n_exec_time_ms": 243.4772,
+              "total_amortized_cost_ms": 243.729,
+              "cost_per_eval_us": 243.729
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "prep_time_ms": 0.3844,
+              "n_exec_time_ms": 11.0074,
+              "total_amortized_cost_ms": 11.3918,
+              "cost_per_eval_us": 11.392
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "prep_time_ms": 0.0229,
+              "n_exec_time_ms": 4.9782,
+              "total_amortized_cost_ms": 5.0011,
+              "cost_per_eval_us": 5.001
+            }
+          }
+        }
+      }
+    ]
+  }
+}
