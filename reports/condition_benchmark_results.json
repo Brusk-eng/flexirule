@@ -4,13 +4,13 @@
     "platform": "Linux-6.8.0-x86_64-with-glibc2.39",
     "frappe_version": "15.123.1",
     "flexirule_version": "1.0.0-beta.3",
-    "timestamp_utc": "2026-10-20T16:53:03Z"
+    "timestamp_utc": "2026-10-20T18:20:09Z"
   },
   "correctness_suite": {
-    "total_cases": 11,
-    "agreed_cases": 11,
-    "all_correct": true,
-    "all_agreed": true,
+    "total_cases": 13,
+    "agreed_cases": 12,
+    "all_correct": false,
+    "all_agreed": false,
     "results": [
       {
         "fixture_id": "tier1_simple_equality",
@@ -22,12 +22,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -42,12 +44,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -62,12 +66,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -82,12 +88,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -102,12 +110,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -122,12 +132,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -142,12 +154,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -162,12 +176,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -182,12 +198,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -202,12 +220,14 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -222,12 +242,60 @@
         "matching_doc_check": {
           "Approach A (frappe.safe_eval)": true,
           "Approach A (Experimental Restricted Code Object)": true,
-          "Approach B (Normalized Execution Plan)": true
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
         },
         "non_matching_doc_check": {
           "Approach A (frappe.safe_eval)": false,
           "Approach A (Experimental Restricted Code Object)": false,
-          "Approach B (Normalized Execution Plan)": false
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "edge_case_has_changed",
+        "tier": "Edge Case \u2014 Field Change",
+        "description": "Checking has_changed operator comparing doc and old_doc",
+        "is_correct": false,
+        "agrees": false,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
+        },
+        "non_matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
+        },
+        "disagreements": [
+          "Semantic disagreement detected across candidates: {'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}"
+        ],
+        "errors": {}
+      },
+      {
+        "fixture_id": "edge_case_none_vs_missing_field",
+        "tier": "Edge Case \u2014 Missing Field",
+        "description": "Checking is_not_set on missing field versus set field",
+        "is_correct": true,
+        "agrees": true,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Approach A (frappe.safe_eval)": true,
+          "Approach A (Experimental Restricted Code Object)": true,
+          "Approach B (Normalized Execution Plan)": true,
+          "Approach C (Direct JSON Tree Evaluator)": true
+        },
+        "non_matching_doc_check": {
+          "Approach A (frappe.safe_eval)": false,
+          "Approach A (Experimental Restricted Code Object)": false,
+          "Approach B (Normalized Execution Plan)": false,
+          "Approach C (Direct JSON Tree Evaluator)": false
         },
         "disagreements": [],
         "errors": {}
@@ -243,70 +311,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 1,
         "nesting_depth": 1,
-        "speedup_ratio_b_vs_primary_a": 46.89,
-        "speedup_ratio_b_vs_experimental_a": 2.5,
+        "speedup_ratio_b_vs_primary_a": 48.0,
+        "speedup_ratio_c_vs_primary_a": 31.3,
+        "speedup_ratio_b_vs_c": 1.53,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0972,
+            "preparation_time_ms": 0.1137,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 173.45,
-            "mean_us_per_exec": 173.642,
-            "min_us_per_exec": 173.28,
-            "max_us_per_exec": 174.42,
-            "p95_us_per_exec": 174.42,
+            "median_us_per_exec": 175.582,
+            "mean_us_per_exec": 176.342,
+            "min_us_per_exec": 174.8,
+            "max_us_per_exec": 180.113,
+            "p95_us_per_exec": 180.113,
             "valid_batch_durations_seconds": [
-              1.7345,
-              1.7328,
-              1.7345,
-              1.7361,
-              1.7442
+              1.8011,
+              1.7558,
+              1.7602,
+              1.752,
+              1.748
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.1949,
+            "preparation_time_ms": 0.2088,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 9.232,
-            "mean_us_per_exec": 9.227,
-            "min_us_per_exec": 9.189,
-            "max_us_per_exec": 9.259,
-            "p95_us_per_exec": 9.259,
+            "median_us_per_exec": 9.194,
+            "mean_us_per_exec": 9.187,
+            "min_us_per_exec": 9.148,
+            "max_us_per_exec": 9.21,
+            "p95_us_per_exec": 9.21,
             "valid_batch_durations_seconds": [
-              0.0923,
-              0.0923,
-              0.0922,
+              0.092,
+              0.0915,
+              0.0921,
               0.0919,
-              0.0926
+              0.0918
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0153,
+            "preparation_time_ms": 0.0161,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 3.699,
-            "mean_us_per_exec": 3.703,
-            "min_us_per_exec": 3.679,
-            "max_us_per_exec": 3.723,
-            "p95_us_per_exec": 3.723,
+            "median_us_per_exec": 3.658,
+            "mean_us_per_exec": 3.661,
+            "min_us_per_exec": 3.639,
+            "max_us_per_exec": 3.7,
+            "p95_us_per_exec": 3.7,
             "valid_batch_durations_seconds": [
-              0.0372,
-              0.0372,
-              0.0368,
+              0.0364,
               0.037,
-              0.037
+              0.0366,
+              0.0364,
+              0.0367
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0016,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 5.61,
+            "mean_us_per_exec": 5.616,
+            "min_us_per_exec": 5.591,
+            "max_us_per_exec": 5.652,
+            "p95_us_per_exec": 5.652,
+            "valid_batch_durations_seconds": [
+              0.0565,
+              0.056,
+              0.0559,
+              0.0561,
+              0.0563
             ]
           }
         }
@@ -318,70 +408,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 3,
         "nesting_depth": 1,
-        "speedup_ratio_b_vs_primary_a": 59.13,
-        "speedup_ratio_b_vs_experimental_a": 1.8,
+        "speedup_ratio_b_vs_primary_a": 59.46,
+        "speedup_ratio_c_vs_primary_a": 35.66,
+        "speedup_ratio_b_vs_c": 1.67,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.2648,
+            "preparation_time_ms": 0.2327,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 405.938,
-            "mean_us_per_exec": 466.431,
-            "min_us_per_exec": 403.72,
-            "max_us_per_exec": 642.562,
-            "p95_us_per_exec": 642.562,
+            "median_us_per_exec": 413.094,
+            "mean_us_per_exec": 412.975,
+            "min_us_per_exec": 410.811,
+            "max_us_per_exec": 415.26,
+            "p95_us_per_exec": 415.26,
             "valid_batch_durations_seconds": [
-              4.0391,
-              4.0372,
-              4.7602,
-              6.4256,
-              4.0594
+              4.1232,
+              4.1081,
+              4.1309,
+              4.1339,
+              4.1526
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.5308,
+            "preparation_time_ms": 0.5982,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 12.346,
-            "mean_us_per_exec": 12.355,
+            "median_us_per_exec": 12.414,
+            "mean_us_per_exec": 12.382,
             "min_us_per_exec": 12.319,
-            "max_us_per_exec": 12.391,
-            "p95_us_per_exec": 12.391,
+            "max_us_per_exec": 12.433,
+            "p95_us_per_exec": 12.433,
             "valid_batch_durations_seconds": [
-              0.1233,
-              0.1239,
+              0.1241,
+              0.1243,
+              0.1242,
               0.1232,
-              0.1239,
-              0.1235
+              0.1232
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0288,
+            "preparation_time_ms": 0.0305,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 6.865,
-            "mean_us_per_exec": 6.866,
-            "min_us_per_exec": 6.84,
-            "max_us_per_exec": 6.912,
-            "p95_us_per_exec": 6.912,
+            "median_us_per_exec": 6.947,
+            "mean_us_per_exec": 6.946,
+            "min_us_per_exec": 6.909,
+            "max_us_per_exec": 6.982,
+            "p95_us_per_exec": 6.982,
             "valid_batch_durations_seconds": [
               0.0691,
-              0.0687,
-              0.0684,
-              0.0687,
-              0.0685
+              0.0695,
+              0.0696,
+              0.0693,
+              0.0698
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.002,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 11.585,
+            "mean_us_per_exec": 11.686,
+            "min_us_per_exec": 11.524,
+            "max_us_per_exec": 11.985,
+            "p95_us_per_exec": 11.985,
+            "valid_batch_durations_seconds": [
+              0.1159,
+              0.1158,
+              0.1152,
+              0.1198,
+              0.1176
             ]
           }
         }
@@ -393,70 +505,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 4,
         "nesting_depth": 2,
-        "speedup_ratio_b_vs_primary_a": 70.5,
-        "speedup_ratio_b_vs_experimental_a": 1.66,
+        "speedup_ratio_b_vs_primary_a": 79.85,
+        "speedup_ratio_c_vs_primary_a": 45.44,
+        "speedup_ratio_b_vs_c": 1.76,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.2814,
+            "preparation_time_ms": 0.2989,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 540.835,
-            "mean_us_per_exec": 553.045,
-            "min_us_per_exec": 537.666,
-            "max_us_per_exec": 584.745,
-            "p95_us_per_exec": 584.745,
+            "median_us_per_exec": 588.872,
+            "mean_us_per_exec": 633.97,
+            "min_us_per_exec": 547.951,
+            "max_us_per_exec": 858.835,
+            "p95_us_per_exec": 858.835,
             "valid_batch_durations_seconds": [
-              5.4084,
-              5.3767,
-              5.407,
-              5.6128,
-              5.8474
+              5.8887,
+              6.1646,
+              5.4795,
+              5.5774,
+              8.5883
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.6625,
+            "preparation_time_ms": 0.6597,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 12.717,
-            "mean_us_per_exec": 12.766,
-            "min_us_per_exec": 12.414,
-            "max_us_per_exec": 13.088,
-            "p95_us_per_exec": 13.088,
+            "median_us_per_exec": 12.395,
+            "mean_us_per_exec": 12.374,
+            "min_us_per_exec": 12.273,
+            "max_us_per_exec": 12.472,
+            "p95_us_per_exec": 12.472,
             "valid_batch_durations_seconds": [
-              0.1309,
-              0.126,
-              0.1301,
-              0.1272,
-              0.1241
+              0.1242,
+              0.1247,
+              0.1231,
+              0.1239,
+              0.1227
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0354,
+            "preparation_time_ms": 0.036,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 7.671,
-            "mean_us_per_exec": 7.743,
-            "min_us_per_exec": 7.549,
-            "max_us_per_exec": 8.046,
-            "p95_us_per_exec": 8.046,
+            "median_us_per_exec": 7.375,
+            "mean_us_per_exec": 7.371,
+            "min_us_per_exec": 7.314,
+            "max_us_per_exec": 7.444,
+            "p95_us_per_exec": 7.444,
             "valid_batch_durations_seconds": [
-              0.0757,
-              0.0805,
-              0.0767,
-              0.0788,
-              0.0755
+              0.0738,
+              0.0744,
+              0.0737,
+              0.0734,
+              0.0731
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0017,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 12.96,
+            "mean_us_per_exec": 12.963,
+            "min_us_per_exec": 12.928,
+            "max_us_per_exec": 13.014,
+            "p95_us_per_exec": 13.014,
+            "valid_batch_durations_seconds": [
+              0.1296,
+              0.1295,
+              0.1293,
+              0.1301,
+              0.1296
             ]
           }
         }
@@ -468,70 +602,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 8,
         "nesting_depth": 3,
-        "speedup_ratio_b_vs_primary_a": 89.21,
-        "speedup_ratio_b_vs_experimental_a": 1.45,
+        "speedup_ratio_b_vs_primary_a": 96.71,
+        "speedup_ratio_c_vs_primary_a": 54.74,
+        "speedup_ratio_b_vs_c": 1.77,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.6333,
+            "preparation_time_ms": 0.624,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 1145.937,
-            "mean_us_per_exec": 1160.137,
-            "min_us_per_exec": 1120.339,
-            "max_us_per_exec": 1227.091,
-            "p95_us_per_exec": 1227.091,
+            "median_us_per_exec": 1194.186,
+            "mean_us_per_exec": 1264.947,
+            "min_us_per_exec": 1135.814,
+            "max_us_per_exec": 1626.025,
+            "p95_us_per_exec": 1626.025,
             "valid_batch_durations_seconds": [
-              12.2709,
-              11.4594,
-              11.2175,
-              11.2034,
-              11.8557
+              16.2602,
+              11.3581,
+              12.2561,
+              11.9419,
+              11.431
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 1.4493,
+            "preparation_time_ms": 1.4225,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 18.631,
-            "mean_us_per_exec": 18.724,
-            "min_us_per_exec": 18.495,
-            "max_us_per_exec": 19.252,
-            "p95_us_per_exec": 19.252,
+            "median_us_per_exec": 18.549,
+            "mean_us_per_exec": 18.557,
+            "min_us_per_exec": 18.459,
+            "max_us_per_exec": 18.7,
+            "p95_us_per_exec": 18.7,
             "valid_batch_durations_seconds": [
-              0.1852,
-              0.1863,
-              0.1849,
-              0.1873,
-              0.1925
+              0.1846,
+              0.1848,
+              0.1855,
+              0.187,
+              0.186
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0963,
+            "preparation_time_ms": 0.0587,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 12.845,
-            "mean_us_per_exec": 12.866,
-            "min_us_per_exec": 12.595,
-            "max_us_per_exec": 13.208,
-            "p95_us_per_exec": 13.208,
+            "median_us_per_exec": 12.348,
+            "mean_us_per_exec": 12.341,
+            "min_us_per_exec": 12.295,
+            "max_us_per_exec": 12.38,
+            "p95_us_per_exec": 12.38,
             "valid_batch_durations_seconds": [
-              0.1301,
-              0.1321,
-              0.1284,
-              0.1267,
-              0.1259
+              0.1235,
+              0.1233,
+              0.1238,
+              0.1235,
+              0.123
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0021,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 21.814,
+            "mean_us_per_exec": 21.819,
+            "min_us_per_exec": 21.662,
+            "max_us_per_exec": 22.041,
+            "p95_us_per_exec": 22.041,
+            "valid_batch_durations_seconds": [
+              0.2204,
+              0.2181,
+              0.2172,
+              0.2166,
+              0.2185
             ]
           }
         }
@@ -543,70 +699,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 3,
         "nesting_depth": 2,
-        "speedup_ratio_b_vs_primary_a": 65.76,
-        "speedup_ratio_b_vs_experimental_a": 1.59,
+        "speedup_ratio_b_vs_primary_a": 65.46,
+        "speedup_ratio_c_vs_primary_a": 39.08,
+        "speedup_ratio_b_vs_c": 1.67,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.3262,
+            "preparation_time_ms": 0.38,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 731.873,
-            "mean_us_per_exec": 779.184,
-            "min_us_per_exec": 708.469,
-            "max_us_per_exec": 966.982,
-            "p95_us_per_exec": 966.982,
+            "median_us_per_exec": 719.069,
+            "mean_us_per_exec": 867.77,
+            "min_us_per_exec": 714.987,
+            "max_us_per_exec": 1275.399,
+            "p95_us_per_exec": 1275.399,
             "valid_batch_durations_seconds": [
-              7.3187,
-              7.6612,
-              7.0847,
-              9.6698,
-              7.2248
+              7.1907,
+              9.1326,
+              12.754,
+              7.1499,
+              7.1614
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.8002,
+            "preparation_time_ms": 0.8142,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 17.716,
-            "mean_us_per_exec": 17.93,
-            "min_us_per_exec": 17.617,
-            "max_us_per_exec": 18.956,
-            "p95_us_per_exec": 18.956,
+            "median_us_per_exec": 17.519,
+            "mean_us_per_exec": 17.524,
+            "min_us_per_exec": 17.422,
+            "max_us_per_exec": 17.629,
+            "p95_us_per_exec": 17.629,
             "valid_batch_durations_seconds": [
-              0.1774,
-              0.1762,
-              0.1762,
-              0.1772,
-              0.1896
+              0.1752,
+              0.1742,
+              0.175,
+              0.1763,
+              0.1755
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0353,
+            "preparation_time_ms": 0.0395,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 11.129,
-            "mean_us_per_exec": 11.29,
-            "min_us_per_exec": 11.1,
-            "max_us_per_exec": 11.951,
-            "p95_us_per_exec": 11.951,
+            "median_us_per_exec": 10.985,
+            "mean_us_per_exec": 11.025,
+            "min_us_per_exec": 10.98,
+            "max_us_per_exec": 11.126,
+            "p95_us_per_exec": 11.126,
             "valid_batch_durations_seconds": [
-              0.1111,
-              0.111,
               0.1113,
-              0.1116,
-              0.1195
+              0.1098,
+              0.1098,
+              0.1098,
+              0.1105
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.002,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 18.398,
+            "mean_us_per_exec": 18.331,
+            "min_us_per_exec": 18.194,
+            "max_us_per_exec": 18.441,
+            "p95_us_per_exec": 18.441,
+            "valid_batch_durations_seconds": [
+              0.1842,
+              0.184,
+              0.1844,
+              0.1819,
+              0.1821
             ]
           }
         }
@@ -618,70 +796,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 1,
         "nesting_depth": 1,
-        "speedup_ratio_b_vs_primary_a": 93.15,
-        "speedup_ratio_b_vs_experimental_a": 3.28,
+        "speedup_ratio_b_vs_primary_a": 106.91,
+        "speedup_ratio_c_vs_primary_a": 67.36,
+        "speedup_ratio_b_vs_c": 1.59,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.1589,
+            "preparation_time_ms": 0.1893,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 306.192,
-            "mean_us_per_exec": 305.842,
-            "min_us_per_exec": 304.107,
-            "max_us_per_exec": 307.246,
-            "p95_us_per_exec": 307.246,
+            "median_us_per_exec": 305.123,
+            "mean_us_per_exec": 310.702,
+            "min_us_per_exec": 304.464,
+            "max_us_per_exec": 333.443,
+            "p95_us_per_exec": 333.443,
             "valid_batch_durations_seconds": [
-              3.0661,
-              3.0725,
-              3.0619,
-              3.0411,
-              3.0506
+              3.0582,
+              3.0446,
+              3.0466,
+              3.0512,
+              3.3344
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.3466,
+            "preparation_time_ms": 0.3389,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 10.781,
-            "mean_us_per_exec": 10.98,
-            "min_us_per_exec": 10.71,
-            "max_us_per_exec": 11.47,
-            "p95_us_per_exec": 11.47,
+            "median_us_per_exec": 10.785,
+            "mean_us_per_exec": 10.787,
+            "min_us_per_exec": 10.768,
+            "max_us_per_exec": 10.806,
+            "p95_us_per_exec": 10.806,
             "valid_batch_durations_seconds": [
-              0.1071,
               0.1078,
-              0.1072,
-              0.1147,
-              0.1122
+              0.1079,
+              0.1077,
+              0.1081,
+              0.108
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0231,
+            "preparation_time_ms": 0.0162,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 3.287,
-            "mean_us_per_exec": 3.158,
-            "min_us_per_exec": 2.92,
-            "max_us_per_exec": 3.303,
-            "p95_us_per_exec": 3.303,
+            "median_us_per_exec": 2.854,
+            "mean_us_per_exec": 2.852,
+            "min_us_per_exec": 2.793,
+            "max_us_per_exec": 2.905,
+            "p95_us_per_exec": 2.905,
             "valid_batch_durations_seconds": [
-              0.0292,
-              0.033,
-              0.0329,
-              0.0329,
-              0.0299
+              0.0279,
+              0.0288,
+              0.0285,
+              0.029,
+              0.0283
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0019,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 4.53,
+            "mean_us_per_exec": 4.54,
+            "min_us_per_exec": 4.514,
+            "max_us_per_exec": 4.587,
+            "p95_us_per_exec": 4.587,
+            "valid_batch_durations_seconds": [
+              0.0459,
+              0.0452,
+              0.0455,
+              0.0453,
+              0.0451
             ]
           }
         }
@@ -693,70 +893,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 1,
         "nesting_depth": 1,
-        "speedup_ratio_b_vs_primary_a": 46.63,
-        "speedup_ratio_b_vs_experimental_a": 2.18,
+        "speedup_ratio_b_vs_primary_a": 48.21,
+        "speedup_ratio_c_vs_primary_a": 35.59,
+        "speedup_ratio_b_vs_c": 1.35,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.1404,
+            "preparation_time_ms": 0.1528,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 241.864,
-            "mean_us_per_exec": 242.414,
-            "min_us_per_exec": 240.26,
-            "max_us_per_exec": 244.668,
-            "p95_us_per_exec": 244.668,
+            "median_us_per_exec": 246.964,
+            "mean_us_per_exec": 258.322,
+            "min_us_per_exec": 245.684,
+            "max_us_per_exec": 281.36,
+            "p95_us_per_exec": 281.36,
             "valid_batch_durations_seconds": [
-              2.4186,
-              2.4467,
-              2.436,
-              2.4026,
-              2.4168
+              2.4568,
+              2.4617,
+              2.8136,
+              2.7143,
+              2.4696
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.324,
+            "preparation_time_ms": 0.2825,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 11.304,
-            "mean_us_per_exec": 11.284,
-            "min_us_per_exec": 11.196,
-            "max_us_per_exec": 11.35,
-            "p95_us_per_exec": 11.35,
+            "median_us_per_exec": 11.337,
+            "mean_us_per_exec": 11.536,
+            "min_us_per_exec": 11.25,
+            "max_us_per_exec": 12.464,
+            "p95_us_per_exec": 12.464,
             "valid_batch_durations_seconds": [
-              0.1135,
-              0.1124,
-              0.113,
-              0.112,
-              0.1133
+              0.1127,
+              0.1136,
+              0.1125,
+              0.1134,
+              0.1246
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.02,
+            "preparation_time_ms": 0.0168,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 5.187,
-            "mean_us_per_exec": 5.187,
-            "min_us_per_exec": 5.133,
-            "max_us_per_exec": 5.258,
-            "p95_us_per_exec": 5.258,
+            "median_us_per_exec": 5.123,
+            "mean_us_per_exec": 5.243,
+            "min_us_per_exec": 5.011,
+            "max_us_per_exec": 5.603,
+            "p95_us_per_exec": 5.603,
             "valid_batch_durations_seconds": [
-              0.0522,
-              0.0526,
-              0.0519,
-              0.0513,
-              0.0513
+              0.056,
+              0.0536,
+              0.0501,
+              0.0512,
+              0.0511
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0018,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 6.939,
+            "mean_us_per_exec": 6.938,
+            "min_us_per_exec": 6.897,
+            "max_us_per_exec": 6.989,
+            "p95_us_per_exec": 6.989,
+            "valid_batch_durations_seconds": [
+              0.0699,
+              0.0692,
+              0.0694,
+              0.0694,
+              0.069
             ]
           }
         }
@@ -768,70 +990,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 2,
         "nesting_depth": 1,
-        "speedup_ratio_b_vs_primary_a": 62.54,
-        "speedup_ratio_b_vs_experimental_a": 1.82,
+        "speedup_ratio_b_vs_primary_a": 47.82,
+        "speedup_ratio_c_vs_primary_a": 45.3,
+        "speedup_ratio_b_vs_c": 1.06,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.2683,
+            "preparation_time_ms": 0.2328,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 374.049,
-            "mean_us_per_exec": 373.828,
-            "min_us_per_exec": 370.793,
-            "max_us_per_exec": 376.113,
-            "p95_us_per_exec": 376.113,
+            "median_us_per_exec": 448.753,
+            "mean_us_per_exec": 459.385,
+            "min_us_per_exec": 386.194,
+            "max_us_per_exec": 561.1,
+            "p95_us_per_exec": 561.1,
             "valid_batch_durations_seconds": [
-              3.7368,
-              3.745,
-              3.7611,
-              3.7079,
-              3.7405
+              4.4875,
+              4.4165,
+              4.5923,
+              5.611,
+              3.8619
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.4339,
+            "preparation_time_ms": 0.5025,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 10.9,
-            "mean_us_per_exec": 10.925,
-            "min_us_per_exec": 10.878,
-            "max_us_per_exec": 10.982,
-            "p95_us_per_exec": 10.982,
+            "median_us_per_exec": 11.381,
+            "mean_us_per_exec": 11.355,
+            "min_us_per_exec": 11.088,
+            "max_us_per_exec": 11.603,
+            "p95_us_per_exec": 11.603,
             "valid_batch_durations_seconds": [
-              0.1097,
-              0.1098,
-              0.1089,
-              0.109,
-              0.1088
+              0.1109,
+              0.1138,
+              0.1128,
+              0.116,
+              0.1142
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0225,
+            "preparation_time_ms": 0.0253,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 5.981,
-            "mean_us_per_exec": 5.984,
-            "min_us_per_exec": 5.974,
-            "max_us_per_exec": 6.001,
-            "p95_us_per_exec": 6.001,
+            "median_us_per_exec": 9.384,
+            "mean_us_per_exec": 8.876,
+            "min_us_per_exec": 6.01,
+            "max_us_per_exec": 11.475,
+            "p95_us_per_exec": 11.475,
             "valid_batch_durations_seconds": [
-              0.0597,
-              0.0598,
-              0.0598,
-              0.06,
-              0.0598
+              0.0601,
+              0.0678,
+              0.1073,
+              0.1148,
+              0.0938
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0018,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 9.907,
+            "mean_us_per_exec": 9.805,
+            "min_us_per_exec": 9.276,
+            "max_us_per_exec": 10.448,
+            "p95_us_per_exec": 10.448,
+            "valid_batch_durations_seconds": [
+              0.1045,
+              0.0992,
+              0.0991,
+              0.0947,
+              0.0928
             ]
           }
         }
@@ -843,70 +1087,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 2,
         "nesting_depth": 1,
-        "speedup_ratio_b_vs_primary_a": 101.1,
-        "speedup_ratio_b_vs_experimental_a": 2.52,
+        "speedup_ratio_b_vs_primary_a": 158.08,
+        "speedup_ratio_c_vs_primary_a": 101.59,
+        "speedup_ratio_b_vs_c": 1.56,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.2987,
+            "preparation_time_ms": 0.3051,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 576.268,
-            "mean_us_per_exec": 591.97,
-            "min_us_per_exec": 574.517,
-            "max_us_per_exec": 649.639,
-            "p95_us_per_exec": 649.639,
+            "median_us_per_exec": 877.982,
+            "mean_us_per_exec": 945.782,
+            "min_us_per_exec": 586.996,
+            "max_us_per_exec": 1342.004,
+            "p95_us_per_exec": 1342.004,
             "valid_batch_durations_seconds": [
-              5.7485,
-              5.7452,
-              5.7627,
-              5.8457,
-              6.4964
+              5.8955,
+              8.7798,
+              13.3238,
+              13.42,
+              5.87
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.6826,
+            "preparation_time_ms": 0.6235,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 14.365,
-            "mean_us_per_exec": 14.354,
-            "min_us_per_exec": 14.2,
-            "max_us_per_exec": 14.464,
-            "p95_us_per_exec": 14.464,
+            "median_us_per_exec": 14.205,
+            "mean_us_per_exec": 14.216,
+            "min_us_per_exec": 14.191,
+            "max_us_per_exec": 14.258,
+            "p95_us_per_exec": 14.258,
             "valid_batch_durations_seconds": [
-              0.1429,
-              0.142,
-              0.1446,
-              0.1437,
-              0.1445
+              0.1419,
+              0.1421,
+              0.1423,
+              0.1426,
+              0.142
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.023,
+            "preparation_time_ms": 0.0576,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 5.7,
-            "mean_us_per_exec": 5.952,
-            "min_us_per_exec": 5.591,
-            "max_us_per_exec": 6.975,
-            "p95_us_per_exec": 6.975,
+            "median_us_per_exec": 5.554,
+            "mean_us_per_exec": 5.561,
+            "min_us_per_exec": 5.508,
+            "max_us_per_exec": 5.623,
+            "p95_us_per_exec": 5.623,
             "valid_batch_durations_seconds": [
-              0.0587,
-              0.057,
-              0.0559,
-              0.0562,
-              0.0697
+              0.0551,
+              0.0555,
+              0.0555,
+              0.0558,
+              0.0562
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0035,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 8.642,
+            "mean_us_per_exec": 8.651,
+            "min_us_per_exec": 8.626,
+            "max_us_per_exec": 8.701,
+            "p95_us_per_exec": 8.701,
+            "valid_batch_durations_seconds": [
+              0.087,
+              0.0865,
+              0.0863,
+              0.0864,
+              0.0864
             ]
           }
         }
@@ -918,70 +1184,92 @@
         "correctness_gate_passed": true,
         "leaf_count": 1,
         "nesting_depth": 2,
-        "speedup_ratio_b_vs_primary_a": 70.47,
-        "speedup_ratio_b_vs_experimental_a": 1.91,
+        "speedup_ratio_b_vs_primary_a": 67.51,
+        "speedup_ratio_c_vs_primary_a": 44.17,
+        "speedup_ratio_b_vs_c": 1.53,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.2018,
+            "preparation_time_ms": 0.2058,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 488.591,
-            "mean_us_per_exec": 501.74,
-            "min_us_per_exec": 469.631,
-            "max_us_per_exec": 567.119,
-            "p95_us_per_exec": 567.119,
+            "median_us_per_exec": 469.16,
+            "mean_us_per_exec": 539.994,
+            "min_us_per_exec": 465.559,
+            "max_us_per_exec": 723.94,
+            "p95_us_per_exec": 723.94,
             "valid_batch_durations_seconds": [
-              4.8859,
-              4.6963,
-              4.8331,
-              5.0005,
-              5.6712
+              5.7416,
+              7.2394,
+              4.6916,
+              4.6556,
+              4.6715
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.5348,
+            "preparation_time_ms": 0.6081,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 13.27,
-            "mean_us_per_exec": 13.272,
-            "min_us_per_exec": 13.215,
-            "max_us_per_exec": 13.322,
-            "p95_us_per_exec": 13.322,
+            "median_us_per_exec": 13.229,
+            "mean_us_per_exec": 13.216,
+            "min_us_per_exec": 13.105,
+            "max_us_per_exec": 13.299,
+            "p95_us_per_exec": 13.299,
             "valid_batch_durations_seconds": [
-              0.1332,
-              0.1327,
-              0.1324,
-              0.1331,
-              0.1321
+              0.131,
+              0.133,
+              0.1315,
+              0.133,
+              0.1323
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0238,
+            "preparation_time_ms": 0.0265,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 6.933,
-            "mean_us_per_exec": 6.933,
-            "min_us_per_exec": 6.901,
-            "max_us_per_exec": 6.969,
-            "p95_us_per_exec": 6.969,
+            "median_us_per_exec": 6.95,
+            "mean_us_per_exec": 9.343,
+            "min_us_per_exec": 6.943,
+            "max_us_per_exec": 13.948,
+            "p95_us_per_exec": 13.948,
             "valid_batch_durations_seconds": [
               0.0694,
-              0.0692,
-              0.0693,
-              0.069,
-              0.0697
+              0.0695,
+              0.0695,
+              0.1395,
+              0.1193
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0021,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 10.621,
+            "mean_us_per_exec": 10.625,
+            "min_us_per_exec": 10.607,
+            "max_us_per_exec": 10.65,
+            "p95_us_per_exec": 10.65,
+            "valid_batch_durations_seconds": [
+              0.1061,
+              0.1062,
+              0.1061,
+              0.1065,
+              0.1064
             ]
           }
         }
@@ -993,70 +1281,226 @@
         "correctness_gate_passed": true,
         "leaf_count": 1,
         "nesting_depth": 1,
-        "speedup_ratio_b_vs_primary_a": 23.86,
-        "speedup_ratio_b_vs_experimental_a": 1.9,
+        "speedup_ratio_b_vs_primary_a": 19.97,
+        "speedup_ratio_c_vs_primary_a": 33.08,
+        "speedup_ratio_b_vs_c": 0.6,
         "candidate_metrics": {
           "Approach A (frappe.safe_eval)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.1288,
+            "preparation_time_ms": 0.119,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 213.947,
-            "mean_us_per_exec": 254.461,
-            "min_us_per_exec": 209.624,
-            "max_us_per_exec": 357.533,
-            "p95_us_per_exec": 357.533,
+            "median_us_per_exec": 412.309,
+            "mean_us_per_exec": 459.661,
+            "min_us_per_exec": 240.983,
+            "max_us_per_exec": 726.289,
+            "p95_us_per_exec": 726.289,
             "valid_batch_durations_seconds": [
-              2.1395,
-              2.0962,
-              2.113,
-              3.5753,
-              2.799
+              2.4098,
+              3.2747,
+              4.1231,
+              5.9125,
+              7.2629
             ]
           },
           "Approach A (Experimental Restricted Code Object)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.2467,
+            "preparation_time_ms": 0.2908,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 17.014,
-            "mean_us_per_exec": 17.235,
-            "min_us_per_exec": 14.842,
-            "max_us_per_exec": 20.874,
-            "p95_us_per_exec": 20.874,
+            "median_us_per_exec": 53.601,
+            "mean_us_per_exec": 54.313,
+            "min_us_per_exec": 52.817,
+            "max_us_per_exec": 56.752,
+            "p95_us_per_exec": 56.752,
             "valid_batch_durations_seconds": [
-              0.1701,
-              0.1768,
-              0.1484,
-              0.1576,
-              0.2087
+              0.5319,
+              0.536,
+              0.5675,
+              0.5521,
+              0.5282
             ]
           },
           "Approach B (Normalized Execution Plan)": {
             "is_valid_measurement": true,
             "error": null,
-            "preparation_time_ms": 0.0168,
+            "preparation_time_ms": 0.0181,
             "iterations_per_batch": 10000,
             "valid_batches": 5,
             "total_batches_attempted": 5,
             "successful_evaluations": 50000,
-            "median_us_per_exec": 8.965,
-            "mean_us_per_exec": 9.06,
-            "min_us_per_exec": 8.581,
-            "max_us_per_exec": 9.546,
-            "p95_us_per_exec": 9.546,
+            "median_us_per_exec": 20.644,
+            "mean_us_per_exec": 20.434,
+            "min_us_per_exec": 17.405,
+            "max_us_per_exec": 22.666,
+            "p95_us_per_exec": 22.666,
             "valid_batch_durations_seconds": [
-              0.0891,
-              0.0858,
-              0.0897,
-              0.0955,
-              0.093
+              0.2267,
+              0.2064,
+              0.2158,
+              0.1988,
+              0.1741
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0018,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 12.464,
+            "mean_us_per_exec": 12.667,
+            "min_us_per_exec": 12.039,
+            "max_us_per_exec": 13.369,
+            "p95_us_per_exec": 13.369,
+            "valid_batch_durations_seconds": [
+              0.1204,
+              0.1215,
+              0.1331,
+              0.1246,
+              0.1337
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "edge_case_has_changed",
+        "tier": "Edge Case \u2014 Field Change",
+        "description": "Checking has_changed operator comparing doc and old_doc",
+        "correctness_gate_passed": false,
+        "leaf_count": 1,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": null,
+        "speedup_ratio_c_vs_primary_a": null,
+        "speedup_ratio_b_vs_c": null,
+        "candidate_metrics": {
+          "Approach A (frappe.safe_eval)": {
+            "is_valid_measurement": false,
+            "error": "Skipped benchmark due to failed semantic correctness gate",
+            "preparation_time_ms": 0.1072,
+            "successful_evaluations": 0
+          },
+          "Approach A (Experimental Restricted Code Object)": {
+            "is_valid_measurement": false,
+            "error": "Skipped benchmark due to failed semantic correctness gate",
+            "preparation_time_ms": 0.2418,
+            "successful_evaluations": 0
+          },
+          "Approach B (Normalized Execution Plan)": {
+            "is_valid_measurement": false,
+            "error": "Skipped benchmark due to failed semantic correctness gate",
+            "preparation_time_ms": 0.0345,
+            "successful_evaluations": 0
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": false,
+            "error": "Skipped benchmark due to failed semantic correctness gate",
+            "preparation_time_ms": 0.0102,
+            "successful_evaluations": 0
+          }
+        }
+      },
+      {
+        "fixture_id": "edge_case_none_vs_missing_field",
+        "tier": "Edge Case \u2014 Missing Field",
+        "description": "Checking is_not_set on missing field versus set field",
+        "correctness_gate_passed": true,
+        "leaf_count": 1,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": 129.28,
+        "speedup_ratio_c_vs_primary_a": 153.31,
+        "speedup_ratio_b_vs_c": 0.84,
+        "candidate_metrics": {
+          "Approach A (frappe.safe_eval)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.3477,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 725.764,
+            "mean_us_per_exec": 701.063,
+            "min_us_per_exec": 570.934,
+            "max_us_per_exec": 845.381,
+            "p95_us_per_exec": 845.381,
+            "valid_batch_durations_seconds": [
+              5.7407,
+              7.2576,
+              5.7093,
+              7.8917,
+              8.4538
+            ]
+          },
+          "Approach A (Experimental Restricted Code Object)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.5256,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 23.682,
+            "mean_us_per_exec": 22.789,
+            "min_us_per_exec": 19.05,
+            "max_us_per_exec": 26.008,
+            "p95_us_per_exec": 26.008,
+            "valid_batch_durations_seconds": [
+              0.2095,
+              0.2368,
+              0.2601,
+              0.2425,
+              0.1905
+            ]
+          },
+          "Approach B (Normalized Execution Plan)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0264,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 5.614,
+            "mean_us_per_exec": 5.111,
+            "min_us_per_exec": 3.024,
+            "max_us_per_exec": 5.984,
+            "p95_us_per_exec": 5.984,
+            "valid_batch_durations_seconds": [
+              0.0561,
+              0.0594,
+              0.0598,
+              0.05,
+              0.0302
+            ]
+          },
+          "Approach C (Direct JSON Tree Evaluator)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0022,
+            "iterations_per_batch": 10000,
+            "valid_batches": 5,
+            "total_batches_attempted": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 4.734,
+            "mean_us_per_exec": 4.739,
+            "min_us_per_exec": 4.638,
+            "max_us_per_exec": 4.838,
+            "p95_us_per_exec": 4.838,
+            "valid_batch_durations_seconds": [
+              0.0479,
+              0.0473,
+              0.0464,
+              0.0484,
+              0.047
             ]
           }
         }
@@ -1072,93 +1516,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.548,
-              "n_exec_time_ms": 0.6744,
-              "total_amortized_cost_ms": 1.2224,
-              "cost_per_eval_us": 1222.423
+              "prep_time_ms": 0.2924,
+              "n_exec_time_ms": 0.2254,
+              "total_amortized_cost_ms": 0.5177,
+              "cost_per_eval_us": 517.715
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.6465,
-              "n_exec_time_ms": 0.0965,
-              "total_amortized_cost_ms": 0.743,
-              "cost_per_eval_us": 742.978
+              "prep_time_ms": 0.3116,
+              "n_exec_time_ms": 0.0197,
+              "total_amortized_cost_ms": 0.3313,
+              "cost_per_eval_us": 331.335
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0258,
-              "n_exec_time_ms": 0.0517,
-              "total_amortized_cost_ms": 0.0776,
-              "cost_per_eval_us": 77.555
+              "prep_time_ms": 0.0253,
+              "n_exec_time_ms": 0.0132,
+              "total_amortized_cost_ms": 0.0384,
+              "cost_per_eval_us": 38.418
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0018,
+              "n_exec_time_ms": 0.0138,
+              "total_amortized_cost_ms": 0.0156,
+              "cost_per_eval_us": 15.563
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.548,
-              "n_exec_time_ms": 5.1828,
-              "total_amortized_cost_ms": 5.7308,
-              "cost_per_eval_us": 573.082
+              "prep_time_ms": 0.2924,
+              "n_exec_time_ms": 1.8997,
+              "total_amortized_cost_ms": 2.1921,
+              "cost_per_eval_us": 219.21
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.6465,
-              "n_exec_time_ms": 0.1066,
-              "total_amortized_cost_ms": 0.7531,
-              "cost_per_eval_us": 75.311
+              "prep_time_ms": 0.3116,
+              "n_exec_time_ms": 0.1086,
+              "total_amortized_cost_ms": 0.4202,
+              "cost_per_eval_us": 42.02
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0258,
-              "n_exec_time_ms": 0.0491,
-              "total_amortized_cost_ms": 0.0749,
-              "cost_per_eval_us": 7.495
+              "prep_time_ms": 0.0253,
+              "n_exec_time_ms": 0.0446,
+              "total_amortized_cost_ms": 0.0698,
+              "cost_per_eval_us": 6.982
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0018,
+              "n_exec_time_ms": 0.065,
+              "total_amortized_cost_ms": 0.0668,
+              "cost_per_eval_us": 6.68
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.548,
-              "n_exec_time_ms": 44.086,
-              "total_amortized_cost_ms": 44.634,
-              "cost_per_eval_us": 446.34
+              "prep_time_ms": 0.2924,
+              "n_exec_time_ms": 19.4635,
+              "total_amortized_cost_ms": 19.7558,
+              "cost_per_eval_us": 197.558
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.6465,
-              "n_exec_time_ms": 1.4861,
-              "total_amortized_cost_ms": 2.1326,
-              "cost_per_eval_us": 21.326
+              "prep_time_ms": 0.3116,
+              "n_exec_time_ms": 0.9238,
+              "total_amortized_cost_ms": 1.2354,
+              "cost_per_eval_us": 12.354
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0258,
-              "n_exec_time_ms": 0.4972,
-              "total_amortized_cost_ms": 0.523,
-              "cost_per_eval_us": 5.23
+              "prep_time_ms": 0.0253,
+              "n_exec_time_ms": 0.4126,
+              "total_amortized_cost_ms": 0.4378,
+              "cost_per_eval_us": 4.378
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0018,
+              "n_exec_time_ms": 0.5999,
+              "total_amortized_cost_ms": 0.6017,
+              "cost_per_eval_us": 6.017
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.548,
-              "n_exec_time_ms": 396.9693,
-              "total_amortized_cost_ms": 397.5173,
-              "cost_per_eval_us": 397.517
+              "prep_time_ms": 0.2924,
+              "n_exec_time_ms": 186.3409,
+              "total_amortized_cost_ms": 186.6333,
+              "cost_per_eval_us": 186.633
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.6465,
-              "n_exec_time_ms": 19.7058,
-              "total_amortized_cost_ms": 20.3523,
-              "cost_per_eval_us": 20.352
+              "prep_time_ms": 0.3116,
+              "n_exec_time_ms": 9.8758,
+              "total_amortized_cost_ms": 10.1874,
+              "cost_per_eval_us": 10.187
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0258,
-              "n_exec_time_ms": 6.787,
-              "total_amortized_cost_ms": 6.8128,
-              "cost_per_eval_us": 6.813
+              "prep_time_ms": 0.0253,
+              "n_exec_time_ms": 3.8089,
+              "total_amortized_cost_ms": 3.8342,
+              "cost_per_eval_us": 3.834
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0018,
+              "n_exec_time_ms": 5.6784,
+              "total_amortized_cost_ms": 5.6802,
+              "cost_per_eval_us": 5.68
             }
           }
         }
@@ -1170,93 +1642,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.9093,
-              "n_exec_time_ms": 1.3838,
-              "total_amortized_cost_ms": 2.2931,
-              "cost_per_eval_us": 2293.096
+              "prep_time_ms": 0.3591,
+              "n_exec_time_ms": 0.558,
+              "total_amortized_cost_ms": 0.9171,
+              "cost_per_eval_us": 917.137
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.3156,
-              "n_exec_time_ms": 0.0527,
-              "total_amortized_cost_ms": 1.3683,
-              "cost_per_eval_us": 1368.306
+              "prep_time_ms": 0.6189,
+              "n_exec_time_ms": 0.0226,
+              "total_amortized_cost_ms": 0.6415,
+              "cost_per_eval_us": 641.537
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0377,
-              "n_exec_time_ms": 0.0424,
-              "total_amortized_cost_ms": 0.0801,
-              "cost_per_eval_us": 80.056
+              "prep_time_ms": 0.0415,
+              "n_exec_time_ms": 0.0212,
+              "total_amortized_cost_ms": 0.0627,
+              "cost_per_eval_us": 62.681
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.0257,
+              "total_amortized_cost_ms": 0.0278,
+              "cost_per_eval_us": 27.808
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.9093,
-              "n_exec_time_ms": 8.4621,
-              "total_amortized_cost_ms": 9.3714,
-              "cost_per_eval_us": 937.137
+              "prep_time_ms": 0.3591,
+              "n_exec_time_ms": 4.2695,
+              "total_amortized_cost_ms": 4.6286,
+              "cost_per_eval_us": 462.862
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.3156,
-              "n_exec_time_ms": 0.1844,
-              "total_amortized_cost_ms": 1.5,
-              "cost_per_eval_us": 150.003
+              "prep_time_ms": 0.6189,
+              "n_exec_time_ms": 0.1455,
+              "total_amortized_cost_ms": 0.7644,
+              "cost_per_eval_us": 76.439
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0377,
-              "n_exec_time_ms": 0.292,
-              "total_amortized_cost_ms": 0.3297,
-              "cost_per_eval_us": 32.973
+              "prep_time_ms": 0.0415,
+              "n_exec_time_ms": 0.0849,
+              "total_amortized_cost_ms": 0.1265,
+              "cost_per_eval_us": 12.646
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.1388,
+              "total_amortized_cost_ms": 0.141,
+              "cost_per_eval_us": 14.097
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.9093,
-              "n_exec_time_ms": 81.9196,
-              "total_amortized_cost_ms": 82.8289,
-              "cost_per_eval_us": 828.289
+              "prep_time_ms": 0.3591,
+              "n_exec_time_ms": 46.851,
+              "total_amortized_cost_ms": 47.2101,
+              "cost_per_eval_us": 472.101
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.3156,
-              "n_exec_time_ms": 3.0458,
-              "total_amortized_cost_ms": 4.3614,
-              "cost_per_eval_us": 43.614
+              "prep_time_ms": 0.6189,
+              "n_exec_time_ms": 1.3676,
+              "total_amortized_cost_ms": 1.9865,
+              "cost_per_eval_us": 19.865
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0377,
-              "n_exec_time_ms": 1.5308,
-              "total_amortized_cost_ms": 1.5685,
-              "cost_per_eval_us": 15.685
+              "prep_time_ms": 0.0415,
+              "n_exec_time_ms": 1.0777,
+              "total_amortized_cost_ms": 1.1192,
+              "cost_per_eval_us": 11.192
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 1.2877,
+              "total_amortized_cost_ms": 1.2898,
+              "cost_per_eval_us": 12.898
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.9093,
-              "n_exec_time_ms": 918.9864,
-              "total_amortized_cost_ms": 919.8958,
-              "cost_per_eval_us": 919.896
+              "prep_time_ms": 0.3591,
+              "n_exec_time_ms": 894.9803,
+              "total_amortized_cost_ms": 895.3394,
+              "cost_per_eval_us": 895.339
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.3156,
-              "n_exec_time_ms": 29.4268,
-              "total_amortized_cost_ms": 30.7424,
-              "cost_per_eval_us": 30.742
+              "prep_time_ms": 0.6189,
+              "n_exec_time_ms": 27.1913,
+              "total_amortized_cost_ms": 27.8102,
+              "cost_per_eval_us": 27.81
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0377,
-              "n_exec_time_ms": 10.9603,
-              "total_amortized_cost_ms": 10.998,
-              "cost_per_eval_us": 10.998
+              "prep_time_ms": 0.0415,
+              "n_exec_time_ms": 20.0386,
+              "total_amortized_cost_ms": 20.0801,
+              "cost_per_eval_us": 20.08
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 32.8241,
+              "total_amortized_cost_ms": 32.8262,
+              "cost_per_eval_us": 32.826
             }
           }
         }
@@ -1268,93 +1768,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 1.1398,
-              "n_exec_time_ms": 1.3149,
-              "total_amortized_cost_ms": 2.4547,
-              "cost_per_eval_us": 2454.662
+              "prep_time_ms": 0.9669,
+              "n_exec_time_ms": 1.29,
+              "total_amortized_cost_ms": 2.2569,
+              "cost_per_eval_us": 2256.9
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.9208,
-              "n_exec_time_ms": 0.0515,
-              "total_amortized_cost_ms": 1.9722,
-              "cost_per_eval_us": 1972.238
+              "prep_time_ms": 1.7621,
+              "n_exec_time_ms": 0.0664,
+              "total_amortized_cost_ms": 1.8285,
+              "cost_per_eval_us": 1828.517
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.1522,
-              "n_exec_time_ms": 0.054,
-              "total_amortized_cost_ms": 0.2062,
-              "cost_per_eval_us": 206.168
+              "prep_time_ms": 0.1328,
+              "n_exec_time_ms": 0.0216,
+              "total_amortized_cost_ms": 0.1544,
+              "cost_per_eval_us": 154.398
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0102,
+              "n_exec_time_ms": 0.0429,
+              "total_amortized_cost_ms": 0.053,
+              "cost_per_eval_us": 53.019
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 1.1398,
-              "n_exec_time_ms": 12.3743,
-              "total_amortized_cost_ms": 13.514,
-              "cost_per_eval_us": 1351.403
+              "prep_time_ms": 0.9669,
+              "n_exec_time_ms": 15.322,
+              "total_amortized_cost_ms": 16.2889,
+              "cost_per_eval_us": 1628.893
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.9208,
-              "n_exec_time_ms": 0.7164,
-              "total_amortized_cost_ms": 2.6371,
-              "cost_per_eval_us": 263.715
+              "prep_time_ms": 1.7621,
+              "n_exec_time_ms": 0.1543,
+              "total_amortized_cost_ms": 1.9164,
+              "cost_per_eval_us": 191.643
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.1522,
-              "n_exec_time_ms": 0.2687,
-              "total_amortized_cost_ms": 0.421,
-              "cost_per_eval_us": 42.096
+              "prep_time_ms": 0.1328,
+              "n_exec_time_ms": 0.2425,
+              "total_amortized_cost_ms": 0.3754,
+              "cost_per_eval_us": 37.536
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0102,
+              "n_exec_time_ms": 0.4794,
+              "total_amortized_cost_ms": 0.4895,
+              "cost_per_eval_us": 48.954
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 1.1398,
-              "n_exec_time_ms": 104.1561,
-              "total_amortized_cost_ms": 105.2959,
-              "cost_per_eval_us": 1052.959
+              "prep_time_ms": 0.9669,
+              "n_exec_time_ms": 106.3548,
+              "total_amortized_cost_ms": 107.3218,
+              "cost_per_eval_us": 1073.218
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.9208,
-              "n_exec_time_ms": 2.934,
-              "total_amortized_cost_ms": 4.8548,
-              "cost_per_eval_us": 48.548
+              "prep_time_ms": 1.7621,
+              "n_exec_time_ms": 2.3686,
+              "total_amortized_cost_ms": 4.1307,
+              "cost_per_eval_us": 41.307
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.1522,
-              "n_exec_time_ms": 1.895,
-              "total_amortized_cost_ms": 2.0472,
-              "cost_per_eval_us": 20.472
+              "prep_time_ms": 0.1328,
+              "n_exec_time_ms": 1.0996,
+              "total_amortized_cost_ms": 1.2325,
+              "cost_per_eval_us": 12.325
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0102,
+              "n_exec_time_ms": 1.926,
+              "total_amortized_cost_ms": 1.9362,
+              "cost_per_eval_us": 19.362
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 1.1398,
-              "n_exec_time_ms": 1330.0374,
-              "total_amortized_cost_ms": 1331.1772,
-              "cost_per_eval_us": 1331.177
+              "prep_time_ms": 0.9669,
+              "n_exec_time_ms": 1184.0575,
+              "total_amortized_cost_ms": 1185.0244,
+              "cost_per_eval_us": 1185.024
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.9208,
-              "n_exec_time_ms": 29.1196,
-              "total_amortized_cost_ms": 31.0404,
-              "cost_per_eval_us": 31.04
+              "prep_time_ms": 1.7621,
+              "n_exec_time_ms": 27.8094,
+              "total_amortized_cost_ms": 29.5715,
+              "cost_per_eval_us": 29.572
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.1522,
-              "n_exec_time_ms": 20.5097,
-              "total_amortized_cost_ms": 20.6619,
-              "cost_per_eval_us": 20.662
+              "prep_time_ms": 0.1328,
+              "n_exec_time_ms": 11.3487,
+              "total_amortized_cost_ms": 11.4815,
+              "cost_per_eval_us": 11.482
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0102,
+              "n_exec_time_ms": 13.1216,
+              "total_amortized_cost_ms": 13.1318,
+              "cost_per_eval_us": 13.132
             }
           }
         }
@@ -1366,93 +1894,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 1.4051,
-              "n_exec_time_ms": 3.8594,
-              "total_amortized_cost_ms": 5.2645,
-              "cost_per_eval_us": 5264.476
+              "prep_time_ms": 0.8437,
+              "n_exec_time_ms": 1.2646,
+              "total_amortized_cost_ms": 2.1083,
+              "cost_per_eval_us": 2108.305
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 2.9181,
-              "n_exec_time_ms": 0.1085,
-              "total_amortized_cost_ms": 3.0266,
-              "cost_per_eval_us": 3026.575
+              "prep_time_ms": 1.4381,
+              "n_exec_time_ms": 0.0386,
+              "total_amortized_cost_ms": 1.4768,
+              "cost_per_eval_us": 1476.755
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0655,
-              "n_exec_time_ms": 0.0348,
-              "total_amortized_cost_ms": 0.1003,
-              "cost_per_eval_us": 100.31
+              "prep_time_ms": 0.0665,
+              "n_exec_time_ms": 0.0335,
+              "total_amortized_cost_ms": 0.1001,
+              "cost_per_eval_us": 100.067
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.0421,
+              "total_amortized_cost_ms": 0.0442,
+              "cost_per_eval_us": 44.202
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 1.4051,
-              "n_exec_time_ms": 29.9899,
-              "total_amortized_cost_ms": 31.395,
-              "cost_per_eval_us": 3139.499
+              "prep_time_ms": 0.8437,
+              "n_exec_time_ms": 12.1265,
+              "total_amortized_cost_ms": 12.9702,
+              "cost_per_eval_us": 1297.023
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 2.9181,
-              "n_exec_time_ms": 0.5935,
-              "total_amortized_cost_ms": 3.5116,
-              "cost_per_eval_us": 351.159
+              "prep_time_ms": 1.4381,
+              "n_exec_time_ms": 0.2031,
+              "total_amortized_cost_ms": 1.6413,
+              "cost_per_eval_us": 164.126
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0655,
-              "n_exec_time_ms": 0.1852,
-              "total_amortized_cost_ms": 0.2507,
-              "cost_per_eval_us": 25.071
+              "prep_time_ms": 0.0665,
+              "n_exec_time_ms": 0.1952,
+              "total_amortized_cost_ms": 0.2618,
+              "cost_per_eval_us": 26.175
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.2803,
+              "total_amortized_cost_ms": 0.2824,
+              "cost_per_eval_us": 28.237
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 1.4051,
-              "n_exec_time_ms": 299.1525,
-              "total_amortized_cost_ms": 300.5577,
-              "cost_per_eval_us": 3005.577
+              "prep_time_ms": 0.8437,
+              "n_exec_time_ms": 121.629,
+              "total_amortized_cost_ms": 122.4727,
+              "cost_per_eval_us": 1224.727
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 2.9181,
-              "n_exec_time_ms": 6.0787,
-              "total_amortized_cost_ms": 8.9968,
-              "cost_per_eval_us": 89.968
+              "prep_time_ms": 1.4381,
+              "n_exec_time_ms": 2.0811,
+              "total_amortized_cost_ms": 3.5193,
+              "cost_per_eval_us": 35.193
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0655,
-              "n_exec_time_ms": 3.7983,
-              "total_amortized_cost_ms": 3.8638,
-              "cost_per_eval_us": 38.638
+              "prep_time_ms": 0.0665,
+              "n_exec_time_ms": 1.392,
+              "total_amortized_cost_ms": 1.4586,
+              "cost_per_eval_us": 14.586
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 2.3087,
+              "total_amortized_cost_ms": 2.3107,
+              "cost_per_eval_us": 23.107
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 1.4051,
-              "n_exec_time_ms": 2351.2314,
-              "total_amortized_cost_ms": 2352.6365,
-              "cost_per_eval_us": 2352.637
+              "prep_time_ms": 0.8437,
+              "n_exec_time_ms": 1204.6589,
+              "total_amortized_cost_ms": 1205.5027,
+              "cost_per_eval_us": 1205.503
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 2.9181,
-              "n_exec_time_ms": 38.7411,
-              "total_amortized_cost_ms": 41.6592,
-              "cost_per_eval_us": 41.659
+              "prep_time_ms": 1.4381,
+              "n_exec_time_ms": 19.1216,
+              "total_amortized_cost_ms": 20.5597,
+              "cost_per_eval_us": 20.56
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0655,
-              "n_exec_time_ms": 25.9228,
-              "total_amortized_cost_ms": 25.9883,
-              "cost_per_eval_us": 25.988
+              "prep_time_ms": 0.0665,
+              "n_exec_time_ms": 12.6168,
+              "total_amortized_cost_ms": 12.6833,
+              "cost_per_eval_us": 12.683
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 22.4579,
+              "total_amortized_cost_ms": 22.4599,
+              "cost_per_eval_us": 22.46
             }
           }
         }
@@ -1464,93 +2020,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.6829,
-              "n_exec_time_ms": 1.264,
-              "total_amortized_cost_ms": 1.9469,
-              "cost_per_eval_us": 1946.866
+              "prep_time_ms": 0.581,
+              "n_exec_time_ms": 0.8337,
+              "total_amortized_cost_ms": 1.4146,
+              "cost_per_eval_us": 1414.608
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.2156,
-              "n_exec_time_ms": 0.0896,
-              "total_amortized_cost_ms": 1.3052,
-              "cost_per_eval_us": 1305.152
+              "prep_time_ms": 1.0566,
+              "n_exec_time_ms": 0.0307,
+              "total_amortized_cost_ms": 1.0873,
+              "cost_per_eval_us": 1087.255
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0717,
-              "n_exec_time_ms": 0.1147,
-              "total_amortized_cost_ms": 0.1864,
-              "cost_per_eval_us": 186.42
+              "prep_time_ms": 0.0489,
+              "n_exec_time_ms": 0.0307,
+              "total_amortized_cost_ms": 0.0796,
+              "cost_per_eval_us": 79.633
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0022,
+              "n_exec_time_ms": 0.0338,
+              "total_amortized_cost_ms": 0.036,
+              "cost_per_eval_us": 35.972
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.6829,
-              "n_exec_time_ms": 14.6984,
-              "total_amortized_cost_ms": 15.3813,
-              "cost_per_eval_us": 1538.13
+              "prep_time_ms": 0.581,
+              "n_exec_time_ms": 7.5431,
+              "total_amortized_cost_ms": 8.1241,
+              "cost_per_eval_us": 812.41
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.2156,
-              "n_exec_time_ms": 0.5,
-              "total_amortized_cost_ms": 1.7155,
-              "cost_per_eval_us": 171.552
+              "prep_time_ms": 1.0566,
+              "n_exec_time_ms": 0.2573,
+              "total_amortized_cost_ms": 1.3139,
+              "cost_per_eval_us": 131.391
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0717,
-              "n_exec_time_ms": 0.288,
-              "total_amortized_cost_ms": 0.3596,
-              "cost_per_eval_us": 35.963
+              "prep_time_ms": 0.0489,
+              "n_exec_time_ms": 0.1449,
+              "total_amortized_cost_ms": 0.1938,
+              "cost_per_eval_us": 19.381
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0022,
+              "n_exec_time_ms": 0.2106,
+              "total_amortized_cost_ms": 0.2128,
+              "cost_per_eval_us": 21.276
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.6829,
-              "n_exec_time_ms": 97.733,
-              "total_amortized_cost_ms": 98.4159,
-              "cost_per_eval_us": 984.159
+              "prep_time_ms": 0.581,
+              "n_exec_time_ms": 76.4032,
+              "total_amortized_cost_ms": 76.9841,
+              "cost_per_eval_us": 769.841
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.2156,
-              "n_exec_time_ms": 1.8291,
-              "total_amortized_cost_ms": 3.0447,
-              "cost_per_eval_us": 30.447
+              "prep_time_ms": 1.0566,
+              "n_exec_time_ms": 2.3436,
+              "total_amortized_cost_ms": 3.4002,
+              "cost_per_eval_us": 34.002
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0717,
-              "n_exec_time_ms": 1.1181,
-              "total_amortized_cost_ms": 1.1898,
-              "cost_per_eval_us": 11.898
+              "prep_time_ms": 0.0489,
+              "n_exec_time_ms": 1.1287,
+              "total_amortized_cost_ms": 1.1776,
+              "cost_per_eval_us": 11.776
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0022,
+              "n_exec_time_ms": 1.8875,
+              "total_amortized_cost_ms": 1.8897,
+              "cost_per_eval_us": 18.897
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.6829,
-              "n_exec_time_ms": 895.7389,
-              "total_amortized_cost_ms": 896.4217,
-              "cost_per_eval_us": 896.422
+              "prep_time_ms": 0.581,
+              "n_exec_time_ms": 757.9942,
+              "total_amortized_cost_ms": 758.5752,
+              "cost_per_eval_us": 758.575
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.2156,
-              "n_exec_time_ms": 39.295,
-              "total_amortized_cost_ms": 40.5106,
-              "cost_per_eval_us": 40.511
+              "prep_time_ms": 1.0566,
+              "n_exec_time_ms": 17.9109,
+              "total_amortized_cost_ms": 18.9675,
+              "cost_per_eval_us": 18.968
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0717,
-              "n_exec_time_ms": 25.9711,
-              "total_amortized_cost_ms": 26.0428,
-              "cost_per_eval_us": 26.043
+              "prep_time_ms": 0.0489,
+              "n_exec_time_ms": 12.2428,
+              "total_amortized_cost_ms": 12.2917,
+              "cost_per_eval_us": 12.292
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0022,
+              "n_exec_time_ms": 19.7406,
+              "total_amortized_cost_ms": 19.7427,
+              "cost_per_eval_us": 19.743
             }
           }
         }
@@ -1562,93 +2146,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.5418,
-              "n_exec_time_ms": 0.8296,
-              "total_amortized_cost_ms": 1.3715,
-              "cost_per_eval_us": 1371.469
+              "prep_time_ms": 0.2912,
+              "n_exec_time_ms": 0.3845,
+              "total_amortized_cost_ms": 0.6757,
+              "cost_per_eval_us": 675.707
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.0949,
-              "n_exec_time_ms": 0.0469,
-              "total_amortized_cost_ms": 1.1419,
-              "cost_per_eval_us": 1141.88
+              "prep_time_ms": 0.5801,
+              "n_exec_time_ms": 0.0204,
+              "total_amortized_cost_ms": 0.6005,
+              "cost_per_eval_us": 600.51
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0514,
-              "n_exec_time_ms": 0.0123,
-              "total_amortized_cost_ms": 0.0637,
-              "cost_per_eval_us": 63.715
+              "prep_time_ms": 0.0288,
+              "n_exec_time_ms": 0.011,
+              "total_amortized_cost_ms": 0.0398,
+              "cost_per_eval_us": 39.788
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0019,
+              "n_exec_time_ms": 0.012,
+              "total_amortized_cost_ms": 0.0139,
+              "cost_per_eval_us": 13.871
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.5418,
-              "n_exec_time_ms": 7.5713,
-              "total_amortized_cost_ms": 8.1131,
-              "cost_per_eval_us": 811.315
+              "prep_time_ms": 0.2912,
+              "n_exec_time_ms": 3.4922,
+              "total_amortized_cost_ms": 3.7833,
+              "cost_per_eval_us": 378.334
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.0949,
-              "n_exec_time_ms": 0.291,
-              "total_amortized_cost_ms": 1.3859,
-              "cost_per_eval_us": 138.588
+              "prep_time_ms": 0.5801,
+              "n_exec_time_ms": 0.1168,
+              "total_amortized_cost_ms": 0.6969,
+              "cost_per_eval_us": 69.691
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0514,
-              "n_exec_time_ms": 0.0544,
-              "total_amortized_cost_ms": 0.1058,
-              "cost_per_eval_us": 10.583
+              "prep_time_ms": 0.0288,
+              "n_exec_time_ms": 0.0389,
+              "total_amortized_cost_ms": 0.0677,
+              "cost_per_eval_us": 6.768
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0019,
+              "n_exec_time_ms": 0.056,
+              "total_amortized_cost_ms": 0.0579,
+              "cost_per_eval_us": 5.792
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.5418,
-              "n_exec_time_ms": 64.5649,
-              "total_amortized_cost_ms": 65.1067,
-              "cost_per_eval_us": 651.067
+              "prep_time_ms": 0.2912,
+              "n_exec_time_ms": 33.3515,
+              "total_amortized_cost_ms": 33.6427,
+              "cost_per_eval_us": 336.427
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.0949,
-              "n_exec_time_ms": 3.5081,
-              "total_amortized_cost_ms": 4.603,
-              "cost_per_eval_us": 46.03
+              "prep_time_ms": 0.5801,
+              "n_exec_time_ms": 1.211,
+              "total_amortized_cost_ms": 1.7911,
+              "cost_per_eval_us": 17.911
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0514,
-              "n_exec_time_ms": 0.3144,
-              "total_amortized_cost_ms": 0.3658,
-              "cost_per_eval_us": 3.658
+              "prep_time_ms": 0.0288,
+              "n_exec_time_ms": 0.2934,
+              "total_amortized_cost_ms": 0.3222,
+              "cost_per_eval_us": 3.222
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0019,
+              "n_exec_time_ms": 0.5166,
+              "total_amortized_cost_ms": 0.5185,
+              "cost_per_eval_us": 5.185
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.5418,
-              "n_exec_time_ms": 387.1394,
-              "total_amortized_cost_ms": 387.6812,
-              "cost_per_eval_us": 387.681
+              "prep_time_ms": 0.2912,
+              "n_exec_time_ms": 337.8425,
+              "total_amortized_cost_ms": 338.1336,
+              "cost_per_eval_us": 338.134
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 1.0949,
-              "n_exec_time_ms": 10.6053,
-              "total_amortized_cost_ms": 11.7002,
-              "cost_per_eval_us": 11.7
+              "prep_time_ms": 0.5801,
+              "n_exec_time_ms": 11.4505,
+              "total_amortized_cost_ms": 12.0306,
+              "cost_per_eval_us": 12.031
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0514,
-              "n_exec_time_ms": 2.8997,
-              "total_amortized_cost_ms": 2.9511,
-              "cost_per_eval_us": 2.951
+              "prep_time_ms": 0.0288,
+              "n_exec_time_ms": 2.9471,
+              "total_amortized_cost_ms": 2.9759,
+              "cost_per_eval_us": 2.976
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0019,
+              "n_exec_time_ms": 4.5661,
+              "total_amortized_cost_ms": 4.568,
+              "cost_per_eval_us": 4.568
             }
           }
         }
@@ -1660,93 +2272,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.2601,
-              "n_exec_time_ms": 0.2771,
-              "total_amortized_cost_ms": 0.5372,
-              "cost_per_eval_us": 537.237
+              "prep_time_ms": 0.3486,
+              "n_exec_time_ms": 0.294,
+              "total_amortized_cost_ms": 0.6426,
+              "cost_per_eval_us": 642.567
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.339,
-              "n_exec_time_ms": 0.0192,
-              "total_amortized_cost_ms": 0.3582,
-              "cost_per_eval_us": 358.236
+              "prep_time_ms": 0.3744,
+              "n_exec_time_ms": 0.0205,
+              "total_amortized_cost_ms": 0.3949,
+              "cost_per_eval_us": 394.853
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0274,
-              "n_exec_time_ms": 0.013,
-              "total_amortized_cost_ms": 0.0404,
-              "cost_per_eval_us": 40.428
+              "prep_time_ms": 0.0253,
+              "n_exec_time_ms": 0.0151,
+              "total_amortized_cost_ms": 0.0403,
+              "cost_per_eval_us": 40.331
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.0156,
+              "total_amortized_cost_ms": 0.0176,
+              "cost_per_eval_us": 17.607
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.2601,
-              "n_exec_time_ms": 2.4579,
-              "total_amortized_cost_ms": 2.718,
-              "cost_per_eval_us": 271.803
+              "prep_time_ms": 0.3486,
+              "n_exec_time_ms": 2.8037,
+              "total_amortized_cost_ms": 3.1523,
+              "cost_per_eval_us": 315.23
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.339,
-              "n_exec_time_ms": 0.1157,
-              "total_amortized_cost_ms": 0.4547,
-              "cost_per_eval_us": 45.471
+              "prep_time_ms": 0.3744,
+              "n_exec_time_ms": 0.1192,
+              "total_amortized_cost_ms": 0.4936,
+              "cost_per_eval_us": 49.358
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0274,
-              "n_exec_time_ms": 0.0982,
-              "total_amortized_cost_ms": 0.1256,
-              "cost_per_eval_us": 12.562
+              "prep_time_ms": 0.0253,
+              "n_exec_time_ms": 0.1028,
+              "total_amortized_cost_ms": 0.1281,
+              "cost_per_eval_us": 12.81
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.0978,
+              "total_amortized_cost_ms": 0.0997,
+              "cost_per_eval_us": 9.973
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.2601,
-              "n_exec_time_ms": 23.5931,
-              "total_amortized_cost_ms": 23.8533,
-              "cost_per_eval_us": 238.533
+              "prep_time_ms": 0.3486,
+              "n_exec_time_ms": 26.4948,
+              "total_amortized_cost_ms": 26.8434,
+              "cost_per_eval_us": 268.434
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.339,
-              "n_exec_time_ms": 1.0953,
-              "total_amortized_cost_ms": 1.4343,
-              "cost_per_eval_us": 14.343
+              "prep_time_ms": 0.3744,
+              "n_exec_time_ms": 1.2557,
+              "total_amortized_cost_ms": 1.63,
+              "cost_per_eval_us": 16.3
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0274,
-              "n_exec_time_ms": 0.5383,
-              "total_amortized_cost_ms": 0.5657,
-              "cost_per_eval_us": 5.657
+              "prep_time_ms": 0.0253,
+              "n_exec_time_ms": 0.5462,
+              "total_amortized_cost_ms": 0.5715,
+              "cost_per_eval_us": 5.715
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.7486,
+              "total_amortized_cost_ms": 0.7505,
+              "cost_per_eval_us": 7.505
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.2601,
-              "n_exec_time_ms": 243.5662,
-              "total_amortized_cost_ms": 243.8263,
-              "cost_per_eval_us": 243.826
+              "prep_time_ms": 0.3486,
+              "n_exec_time_ms": 267.3538,
+              "total_amortized_cost_ms": 267.7024,
+              "cost_per_eval_us": 267.702
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.339,
-              "n_exec_time_ms": 11.3377,
-              "total_amortized_cost_ms": 11.6767,
-              "cost_per_eval_us": 11.677
+              "prep_time_ms": 0.3744,
+              "n_exec_time_ms": 11.7248,
+              "total_amortized_cost_ms": 12.0992,
+              "cost_per_eval_us": 12.099
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0274,
-              "n_exec_time_ms": 5.2456,
-              "total_amortized_cost_ms": 5.273,
-              "cost_per_eval_us": 5.273
+              "prep_time_ms": 0.0253,
+              "n_exec_time_ms": 5.0587,
+              "total_amortized_cost_ms": 5.084,
+              "cost_per_eval_us": 5.084
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 7.3046,
+              "total_amortized_cost_ms": 7.3066,
+              "cost_per_eval_us": 7.307
             }
           }
         }
@@ -1758,93 +2398,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.4317,
-              "n_exec_time_ms": 0.4208,
-              "total_amortized_cost_ms": 0.8526,
-              "cost_per_eval_us": 852.554
+              "prep_time_ms": 0.4363,
+              "n_exec_time_ms": 0.5003,
+              "total_amortized_cost_ms": 0.9367,
+              "cost_per_eval_us": 936.655
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.5252,
-              "n_exec_time_ms": 0.0225,
-              "total_amortized_cost_ms": 0.5477,
-              "cost_per_eval_us": 547.668
+              "prep_time_ms": 0.5409,
+              "n_exec_time_ms": 0.0218,
+              "total_amortized_cost_ms": 0.5627,
+              "cost_per_eval_us": 562.654
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.032,
-              "n_exec_time_ms": 0.0201,
-              "total_amortized_cost_ms": 0.052,
-              "cost_per_eval_us": 52.014
+              "prep_time_ms": 0.0313,
+              "n_exec_time_ms": 0.0206,
+              "total_amortized_cost_ms": 0.0519,
+              "cost_per_eval_us": 51.935
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.0223,
+              "total_amortized_cost_ms": 0.0243,
+              "cost_per_eval_us": 24.317
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.4317,
-              "n_exec_time_ms": 3.7343,
-              "total_amortized_cost_ms": 4.1661,
-              "cost_per_eval_us": 416.607
+              "prep_time_ms": 0.4363,
+              "n_exec_time_ms": 5.8758,
+              "total_amortized_cost_ms": 6.3121,
+              "cost_per_eval_us": 631.21
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.5252,
-              "n_exec_time_ms": 0.1108,
-              "total_amortized_cost_ms": 0.636,
-              "cost_per_eval_us": 63.604
+              "prep_time_ms": 0.5409,
+              "n_exec_time_ms": 0.1186,
+              "total_amortized_cost_ms": 0.6595,
+              "cost_per_eval_us": 65.948
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.032,
-              "n_exec_time_ms": 0.1149,
-              "total_amortized_cost_ms": 0.1469,
-              "cost_per_eval_us": 14.689
+              "prep_time_ms": 0.0313,
+              "n_exec_time_ms": 0.0729,
+              "total_amortized_cost_ms": 0.1042,
+              "cost_per_eval_us": 10.422
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.1103,
+              "total_amortized_cost_ms": 0.1122,
+              "cost_per_eval_us": 11.223
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.4317,
-              "n_exec_time_ms": 40.7931,
-              "total_amortized_cost_ms": 41.2248,
-              "cost_per_eval_us": 412.248
+              "prep_time_ms": 0.4363,
+              "n_exec_time_ms": 41.013,
+              "total_amortized_cost_ms": 41.4493,
+              "cost_per_eval_us": 414.493
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.5252,
-              "n_exec_time_ms": 1.4801,
-              "total_amortized_cost_ms": 2.0053,
-              "cost_per_eval_us": 20.053
+              "prep_time_ms": 0.5409,
+              "n_exec_time_ms": 1.1484,
+              "total_amortized_cost_ms": 1.6893,
+              "cost_per_eval_us": 16.893
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.032,
-              "n_exec_time_ms": 0.7939,
-              "total_amortized_cost_ms": 0.8258,
-              "cost_per_eval_us": 8.258
+              "prep_time_ms": 0.0313,
+              "n_exec_time_ms": 0.724,
+              "total_amortized_cost_ms": 0.7553,
+              "cost_per_eval_us": 7.553
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.982,
+              "total_amortized_cost_ms": 0.984,
+              "cost_per_eval_us": 9.84
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.4317,
-              "n_exec_time_ms": 413.0442,
-              "total_amortized_cost_ms": 413.476,
-              "cost_per_eval_us": 413.476
+              "prep_time_ms": 0.4363,
+              "n_exec_time_ms": 409.7867,
+              "total_amortized_cost_ms": 410.223,
+              "cost_per_eval_us": 410.223
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.5252,
-              "n_exec_time_ms": 10.7588,
-              "total_amortized_cost_ms": 11.284,
-              "cost_per_eval_us": 11.284
+              "prep_time_ms": 0.5409,
+              "n_exec_time_ms": 11.3395,
+              "total_amortized_cost_ms": 11.8804,
+              "cost_per_eval_us": 11.88
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.032,
-              "n_exec_time_ms": 5.8716,
-              "total_amortized_cost_ms": 5.9035,
-              "cost_per_eval_us": 5.904
+              "prep_time_ms": 0.0313,
+              "n_exec_time_ms": 6.0616,
+              "total_amortized_cost_ms": 6.0929,
+              "cost_per_eval_us": 6.093
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 9.4197,
+              "total_amortized_cost_ms": 9.4216,
+              "cost_per_eval_us": 9.422
             }
           }
         }
@@ -1856,93 +2524,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.4461,
-              "n_exec_time_ms": 0.5747,
-              "total_amortized_cost_ms": 1.0207,
-              "cost_per_eval_us": 1020.748
+              "prep_time_ms": 0.4368,
+              "n_exec_time_ms": 0.7877,
+              "total_amortized_cost_ms": 1.2245,
+              "cost_per_eval_us": 1224.502
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.7345,
-              "n_exec_time_ms": 0.0226,
-              "total_amortized_cost_ms": 0.7572,
-              "cost_per_eval_us": 757.179
+              "prep_time_ms": 0.7935,
+              "n_exec_time_ms": 0.0257,
+              "total_amortized_cost_ms": 0.8192,
+              "cost_per_eval_us": 819.179
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0315,
-              "n_exec_time_ms": 0.0172,
-              "total_amortized_cost_ms": 0.0487,
-              "cost_per_eval_us": 48.734
+              "prep_time_ms": 0.043,
+              "n_exec_time_ms": 0.0197,
+              "total_amortized_cost_ms": 0.0627,
+              "cost_per_eval_us": 62.728
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0024,
+              "n_exec_time_ms": 0.0219,
+              "total_amortized_cost_ms": 0.0243,
+              "cost_per_eval_us": 24.313
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.4461,
-              "n_exec_time_ms": 5.8205,
-              "total_amortized_cost_ms": 6.2665,
-              "cost_per_eval_us": 626.653
+              "prep_time_ms": 0.4368,
+              "n_exec_time_ms": 6.1359,
+              "total_amortized_cost_ms": 6.5727,
+              "cost_per_eval_us": 657.275
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.7345,
-              "n_exec_time_ms": 0.146,
-              "total_amortized_cost_ms": 0.8806,
-              "cost_per_eval_us": 88.059
+              "prep_time_ms": 0.7935,
+              "n_exec_time_ms": 0.1507,
+              "total_amortized_cost_ms": 0.9442,
+              "cost_per_eval_us": 94.418
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0315,
-              "n_exec_time_ms": 0.0667,
-              "total_amortized_cost_ms": 0.0982,
-              "cost_per_eval_us": 9.821
+              "prep_time_ms": 0.043,
+              "n_exec_time_ms": 0.0659,
+              "total_amortized_cost_ms": 0.1089,
+              "cost_per_eval_us": 10.887
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0024,
+              "n_exec_time_ms": 0.0956,
+              "total_amortized_cost_ms": 0.098,
+              "cost_per_eval_us": 9.797
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.4461,
-              "n_exec_time_ms": 57.1251,
-              "total_amortized_cost_ms": 57.5712,
-              "cost_per_eval_us": 575.712
+              "prep_time_ms": 0.4368,
+              "n_exec_time_ms": 61.0145,
+              "total_amortized_cost_ms": 61.4513,
+              "cost_per_eval_us": 614.513
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.7345,
-              "n_exec_time_ms": 1.4636,
-              "total_amortized_cost_ms": 2.1981,
-              "cost_per_eval_us": 21.981
+              "prep_time_ms": 0.7935,
+              "n_exec_time_ms": 1.5272,
+              "total_amortized_cost_ms": 2.3208,
+              "cost_per_eval_us": 23.208
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0315,
-              "n_exec_time_ms": 0.5786,
-              "total_amortized_cost_ms": 0.6101,
-              "cost_per_eval_us": 6.101
+              "prep_time_ms": 0.043,
+              "n_exec_time_ms": 0.5877,
+              "total_amortized_cost_ms": 0.6307,
+              "cost_per_eval_us": 6.307
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0024,
+              "n_exec_time_ms": 0.8341,
+              "total_amortized_cost_ms": 0.8365,
+              "cost_per_eval_us": 8.365
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.4461,
-              "n_exec_time_ms": 580.7258,
-              "total_amortized_cost_ms": 581.1719,
-              "cost_per_eval_us": 581.172
+              "prep_time_ms": 0.4368,
+              "n_exec_time_ms": 624.5021,
+              "total_amortized_cost_ms": 624.9389,
+              "cost_per_eval_us": 624.939
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.7345,
-              "n_exec_time_ms": 14.1847,
-              "total_amortized_cost_ms": 14.9192,
-              "cost_per_eval_us": 14.919
+              "prep_time_ms": 0.7935,
+              "n_exec_time_ms": 14.8692,
+              "total_amortized_cost_ms": 15.6627,
+              "cost_per_eval_us": 15.663
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0315,
-              "n_exec_time_ms": 5.5396,
-              "total_amortized_cost_ms": 5.5712,
-              "cost_per_eval_us": 5.571
+              "prep_time_ms": 0.043,
+              "n_exec_time_ms": 5.4992,
+              "total_amortized_cost_ms": 5.5422,
+              "cost_per_eval_us": 5.542
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0024,
+              "n_exec_time_ms": 8.8442,
+              "total_amortized_cost_ms": 8.8466,
+              "cost_per_eval_us": 8.847
             }
           }
         }
@@ -1954,93 +2650,121 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.3794,
-              "n_exec_time_ms": 0.5344,
-              "total_amortized_cost_ms": 0.9138,
-              "cost_per_eval_us": 913.816
+              "prep_time_ms": 0.428,
+              "n_exec_time_ms": 0.5868,
+              "total_amortized_cost_ms": 1.0149,
+              "cost_per_eval_us": 1014.864
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.5689,
-              "n_exec_time_ms": 0.0236,
-              "total_amortized_cost_ms": 0.5924,
-              "cost_per_eval_us": 592.437
+              "prep_time_ms": 0.5916,
+              "n_exec_time_ms": 0.0258,
+              "total_amortized_cost_ms": 0.6174,
+              "cost_per_eval_us": 617.391
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0306,
-              "n_exec_time_ms": 0.0225,
-              "total_amortized_cost_ms": 0.0531,
-              "cost_per_eval_us": 53.086
+              "prep_time_ms": 0.0321,
+              "n_exec_time_ms": 0.0302,
+              "total_amortized_cost_ms": 0.0623,
+              "cost_per_eval_us": 62.263
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.0232,
+              "total_amortized_cost_ms": 0.0252,
+              "cost_per_eval_us": 25.195
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.3794,
-              "n_exec_time_ms": 4.6428,
-              "total_amortized_cost_ms": 5.0222,
-              "cost_per_eval_us": 502.22
+              "prep_time_ms": 0.428,
+              "n_exec_time_ms": 5.1428,
+              "total_amortized_cost_ms": 5.5708,
+              "cost_per_eval_us": 557.081
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.5689,
-              "n_exec_time_ms": 0.2602,
-              "total_amortized_cost_ms": 0.8291,
-              "cost_per_eval_us": 82.908
+              "prep_time_ms": 0.5916,
+              "n_exec_time_ms": 0.1413,
+              "total_amortized_cost_ms": 0.7329,
+              "cost_per_eval_us": 73.287
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0306,
-              "n_exec_time_ms": 0.0892,
-              "total_amortized_cost_ms": 0.1198,
-              "cost_per_eval_us": 11.981
+              "prep_time_ms": 0.0321,
+              "n_exec_time_ms": 0.2136,
+              "total_amortized_cost_ms": 0.2456,
+              "cost_per_eval_us": 24.564
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.1305,
+              "total_amortized_cost_ms": 0.1324,
+              "cost_per_eval_us": 13.243
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.3794,
-              "n_exec_time_ms": 46.3943,
-              "total_amortized_cost_ms": 46.7737,
-              "cost_per_eval_us": 467.737
+              "prep_time_ms": 0.428,
+              "n_exec_time_ms": 49.8733,
+              "total_amortized_cost_ms": 50.3013,
+              "cost_per_eval_us": 503.013
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.5689,
-              "n_exec_time_ms": 1.4075,
-              "total_amortized_cost_ms": 1.9764,
-              "cost_per_eval_us": 19.764
+              "prep_time_ms": 0.5916,
+              "n_exec_time_ms": 1.3565,
+              "total_amortized_cost_ms": 1.9482,
+              "cost_per_eval_us": 19.482
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0306,
-              "n_exec_time_ms": 0.6917,
-              "total_amortized_cost_ms": 0.7223,
-              "cost_per_eval_us": 7.223
+              "prep_time_ms": 0.0321,
+              "n_exec_time_ms": 0.8479,
+              "total_amortized_cost_ms": 0.88,
+              "cost_per_eval_us": 8.8
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 1.0861,
+              "total_amortized_cost_ms": 1.0881,
+              "cost_per_eval_us": 10.881
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.3794,
-              "n_exec_time_ms": 464.4041,
-              "total_amortized_cost_ms": 464.7835,
-              "cost_per_eval_us": 464.783
+              "prep_time_ms": 0.428,
+              "n_exec_time_ms": 495.0674,
+              "total_amortized_cost_ms": 495.4954,
+              "cost_per_eval_us": 495.495
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.5689,
-              "n_exec_time_ms": 13.0344,
-              "total_amortized_cost_ms": 13.6032,
-              "cost_per_eval_us": 13.603
+              "prep_time_ms": 0.5916,
+              "n_exec_time_ms": 13.2412,
+              "total_amortized_cost_ms": 13.8328,
+              "cost_per_eval_us": 13.833
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0306,
-              "n_exec_time_ms": 7.1888,
-              "total_amortized_cost_ms": 7.2194,
-              "cost_per_eval_us": 7.219
+              "prep_time_ms": 0.0321,
+              "n_exec_time_ms": 7.1767,
+              "total_amortized_cost_ms": 7.2088,
+              "cost_per_eval_us": 7.209
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 10.6606,
+              "total_amortized_cost_ms": 10.6625,
+              "cost_per_eval_us": 10.663
             }
           }
         }
@@ -2052,93 +2776,373 @@
           "1": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.2625,
-              "n_exec_time_ms": 0.2574,
-              "total_amortized_cost_ms": 0.5199,
-              "cost_per_eval_us": 519.942
+              "prep_time_ms": 0.3773,
+              "n_exec_time_ms": 0.2716,
+              "total_amortized_cost_ms": 0.6489,
+              "cost_per_eval_us": 648.915
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.3587,
-              "n_exec_time_ms": 0.0175,
-              "total_amortized_cost_ms": 0.3762,
-              "cost_per_eval_us": 376.206
+              "prep_time_ms": 0.3432,
+              "n_exec_time_ms": 0.0189,
+              "total_amortized_cost_ms": 0.3621,
+              "cost_per_eval_us": 362.081
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0255,
-              "n_exec_time_ms": 0.0141,
-              "total_amortized_cost_ms": 0.0396,
-              "cost_per_eval_us": 39.598
+              "prep_time_ms": 0.0341,
+              "n_exec_time_ms": 0.013,
+              "total_amortized_cost_ms": 0.0471,
+              "cost_per_eval_us": 47.071
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.0136,
+              "total_amortized_cost_ms": 0.0158,
+              "cost_per_eval_us": 15.761
             }
           },
           "10": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.2625,
-              "n_exec_time_ms": 2.2148,
-              "total_amortized_cost_ms": 2.4773,
-              "cost_per_eval_us": 247.732
+              "prep_time_ms": 0.3773,
+              "n_exec_time_ms": 2.5692,
+              "total_amortized_cost_ms": 2.9466,
+              "cost_per_eval_us": 294.655
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.3587,
-              "n_exec_time_ms": 0.1,
-              "total_amortized_cost_ms": 0.4586,
-              "cost_per_eval_us": 45.863
+              "prep_time_ms": 0.3432,
+              "n_exec_time_ms": 0.1532,
+              "total_amortized_cost_ms": 0.4964,
+              "cost_per_eval_us": 49.639
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0255,
-              "n_exec_time_ms": 0.0495,
-              "total_amortized_cost_ms": 0.075,
-              "cost_per_eval_us": 7.502
+              "prep_time_ms": 0.0341,
+              "n_exec_time_ms": 0.0537,
+              "total_amortized_cost_ms": 0.0878,
+              "cost_per_eval_us": 8.779
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.0674,
+              "total_amortized_cost_ms": 0.0695,
+              "cost_per_eval_us": 6.947
             }
           },
           "100": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.2625,
-              "n_exec_time_ms": 21.703,
-              "total_amortized_cost_ms": 21.9656,
-              "cost_per_eval_us": 219.656
+              "prep_time_ms": 0.3773,
+              "n_exec_time_ms": 23.1082,
+              "total_amortized_cost_ms": 23.4855,
+              "cost_per_eval_us": 234.855
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.3587,
-              "n_exec_time_ms": 0.9446,
-              "total_amortized_cost_ms": 1.3033,
-              "cost_per_eval_us": 13.033
+              "prep_time_ms": 0.3432,
+              "n_exec_time_ms": 0.9949,
+              "total_amortized_cost_ms": 1.3381,
+              "cost_per_eval_us": 13.381
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0255,
-              "n_exec_time_ms": 0.502,
-              "total_amortized_cost_ms": 0.5276,
-              "cost_per_eval_us": 5.276
+              "prep_time_ms": 0.0341,
+              "n_exec_time_ms": 0.4998,
+              "total_amortized_cost_ms": 0.5339,
+              "cost_per_eval_us": 5.339
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.5532,
+              "total_amortized_cost_ms": 0.5553,
+              "cost_per_eval_us": 5.553
             }
           },
           "1000": {
             "Approach A (frappe.safe_eval)": {
               "is_valid": true,
-              "prep_time_ms": 0.2625,
-              "n_exec_time_ms": 210.0689,
-              "total_amortized_cost_ms": 210.3314,
-              "cost_per_eval_us": 210.331
+              "prep_time_ms": 0.3773,
+              "n_exec_time_ms": 227.3171,
+              "total_amortized_cost_ms": 227.6945,
+              "cost_per_eval_us": 227.694
             },
             "Approach A (Experimental Restricted Code Object)": {
               "is_valid": true,
-              "prep_time_ms": 0.3587,
-              "n_exec_time_ms": 9.2889,
-              "total_amortized_cost_ms": 9.6475,
-              "cost_per_eval_us": 9.648
+              "prep_time_ms": 0.3432,
+              "n_exec_time_ms": 9.7902,
+              "total_amortized_cost_ms": 10.1334,
+              "cost_per_eval_us": 10.133
             },
             "Approach B (Normalized Execution Plan)": {
               "is_valid": true,
-              "prep_time_ms": 0.0255,
-              "n_exec_time_ms": 3.8919,
-              "total_amortized_cost_ms": 3.9174,
-              "cost_per_eval_us": 3.917
+              "prep_time_ms": 0.0341,
+              "n_exec_time_ms": 3.7789,
+              "total_amortized_cost_ms": 3.813,
+              "cost_per_eval_us": 3.813
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 5.9229,
+              "total_amortized_cost_ms": 5.925,
+              "cost_per_eval_us": 5.925
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "edge_case_has_changed",
+        "tier": "Edge Case \u2014 Field Change",
+        "counts": {
+          "1": {
+            "Approach A (frappe.safe_eval)": {
+              "is_valid": true,
+              "prep_time_ms": 0.2734,
+              "n_exec_time_ms": 0.1081,
+              "total_amortized_cost_ms": 0.3815,
+              "cost_per_eval_us": 381.477
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "is_valid": true,
+              "prep_time_ms": 0.1517,
+              "n_exec_time_ms": 0.014,
+              "total_amortized_cost_ms": 0.1657,
+              "cost_per_eval_us": 165.658
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0224,
+              "n_exec_time_ms": 0.0299,
+              "total_amortized_cost_ms": 0.0522,
+              "cost_per_eval_us": 52.229
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.0136,
+              "total_amortized_cost_ms": 0.0157,
+              "cost_per_eval_us": 15.671
+            }
+          },
+          "10": {
+            "Approach A (frappe.safe_eval)": {
+              "is_valid": true,
+              "prep_time_ms": 0.2734,
+              "n_exec_time_ms": 0.7119,
+              "total_amortized_cost_ms": 0.9853,
+              "cost_per_eval_us": 98.53
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "is_valid": true,
+              "prep_time_ms": 0.1517,
+              "n_exec_time_ms": 0.0789,
+              "total_amortized_cost_ms": 0.2306,
+              "cost_per_eval_us": 23.063
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0224,
+              "n_exec_time_ms": 0.0427,
+              "total_amortized_cost_ms": 0.0651,
+              "cost_per_eval_us": 6.51
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.0641,
+              "total_amortized_cost_ms": 0.0662,
+              "cost_per_eval_us": 6.619
+            }
+          },
+          "100": {
+            "Approach A (frappe.safe_eval)": {
+              "is_valid": true,
+              "prep_time_ms": 0.2734,
+              "n_exec_time_ms": 6.1699,
+              "total_amortized_cost_ms": 6.4432,
+              "cost_per_eval_us": 64.432
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "is_valid": true,
+              "prep_time_ms": 0.1517,
+              "n_exec_time_ms": 0.8083,
+              "total_amortized_cost_ms": 0.96,
+              "cost_per_eval_us": 9.6
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0224,
+              "n_exec_time_ms": 0.3545,
+              "total_amortized_cost_ms": 0.3768,
+              "cost_per_eval_us": 3.768
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 0.6088,
+              "total_amortized_cost_ms": 0.6109,
+              "cost_per_eval_us": 6.109
+            }
+          },
+          "1000": {
+            "Approach A (frappe.safe_eval)": {
+              "is_valid": true,
+              "prep_time_ms": 0.2734,
+              "n_exec_time_ms": 61.0707,
+              "total_amortized_cost_ms": 61.344,
+              "cost_per_eval_us": 61.344
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "is_valid": true,
+              "prep_time_ms": 0.1517,
+              "n_exec_time_ms": 7.584,
+              "total_amortized_cost_ms": 7.7357,
+              "cost_per_eval_us": 7.736
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0224,
+              "n_exec_time_ms": 3.5905,
+              "total_amortized_cost_ms": 3.6128,
+              "cost_per_eval_us": 3.613
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0021,
+              "n_exec_time_ms": 5.812,
+              "total_amortized_cost_ms": 5.8141,
+              "cost_per_eval_us": 5.814
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "edge_case_none_vs_missing_field",
+        "tier": "Edge Case \u2014 Missing Field",
+        "counts": {
+          "1": {
+            "Approach A (frappe.safe_eval)": {
+              "is_valid": true,
+              "prep_time_ms": 0.2917,
+              "n_exec_time_ms": 0.3578,
+              "total_amortized_cost_ms": 0.6495,
+              "cost_per_eval_us": 649.496
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "is_valid": true,
+              "prep_time_ms": 0.5521,
+              "n_exec_time_ms": 0.0186,
+              "total_amortized_cost_ms": 0.5707,
+              "cost_per_eval_us": 570.719
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0276,
+              "n_exec_time_ms": 0.0114,
+              "total_amortized_cost_ms": 0.039,
+              "cost_per_eval_us": 39.008
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.013,
+              "total_amortized_cost_ms": 0.0151,
+              "cost_per_eval_us": 15.069
+            }
+          },
+          "10": {
+            "Approach A (frappe.safe_eval)": {
+              "is_valid": true,
+              "prep_time_ms": 0.2917,
+              "n_exec_time_ms": 3.3403,
+              "total_amortized_cost_ms": 3.6319,
+              "cost_per_eval_us": 363.195
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "is_valid": true,
+              "prep_time_ms": 0.5521,
+              "n_exec_time_ms": 0.1018,
+              "total_amortized_cost_ms": 0.6539,
+              "cost_per_eval_us": 65.386
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0276,
+              "n_exec_time_ms": 0.0363,
+              "total_amortized_cost_ms": 0.0639,
+              "cost_per_eval_us": 6.393
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.0555,
+              "total_amortized_cost_ms": 0.0575,
+              "cost_per_eval_us": 5.749
+            }
+          },
+          "100": {
+            "Approach A (frappe.safe_eval)": {
+              "is_valid": true,
+              "prep_time_ms": 0.2917,
+              "n_exec_time_ms": 32.3612,
+              "total_amortized_cost_ms": 32.6529,
+              "cost_per_eval_us": 326.529
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "is_valid": true,
+              "prep_time_ms": 0.5521,
+              "n_exec_time_ms": 0.9778,
+              "total_amortized_cost_ms": 1.5299,
+              "cost_per_eval_us": 15.299
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0276,
+              "n_exec_time_ms": 0.3399,
+              "total_amortized_cost_ms": 0.3675,
+              "cost_per_eval_us": 3.675
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 0.4457,
+              "total_amortized_cost_ms": 0.4477,
+              "cost_per_eval_us": 4.477
+            }
+          },
+          "1000": {
+            "Approach A (frappe.safe_eval)": {
+              "is_valid": true,
+              "prep_time_ms": 0.2917,
+              "n_exec_time_ms": 328.7542,
+              "total_amortized_cost_ms": 329.0458,
+              "cost_per_eval_us": 329.046
+            },
+            "Approach A (Experimental Restricted Code Object)": {
+              "is_valid": true,
+              "prep_time_ms": 0.5521,
+              "n_exec_time_ms": 9.6216,
+              "total_amortized_cost_ms": 10.1737,
+              "cost_per_eval_us": 10.174
+            },
+            "Approach B (Normalized Execution Plan)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0276,
+              "n_exec_time_ms": 2.8671,
+              "total_amortized_cost_ms": 2.8947,
+              "cost_per_eval_us": 2.895
+            },
+            "Approach C (Direct JSON Tree Evaluator)": {
+              "is_valid": true,
+              "prep_time_ms": 0.002,
+              "n_exec_time_ms": 4.617,
+              "total_amortized_cost_ms": 4.619,
+              "cost_per_eval_us": 4.619
             }
           }
         }

@@ -24,31 +24,60 @@ from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
 SUPPORTED_LOGICAL_OPERATORS = {"and", "or"}
 SUPPORTED_COLLECTION_LOGIC = {"any", "all", "none"}
-SUPPORTED_LEAF_OPERATORS = {
-	"==",
-	"!=",
-	">",
-	"<",
-	">=",
-	"<=",
-	"in",
-	"not in",
-	"not_in",
-	"contains",
-	"not_contains",
+
+OPERATOR_ALIAS_MAP = {
+	"==": "==",
+	"equals": "==",
+	"!=": "!=",
+	"not equals": "!=",
+	">": ">",
+	"greater than": ">",
+	"<": "<",
+	"less than": "<",
+	">=": ">=",
+	"greater or equal": ">=",
+	"<=": "<=",
+	"less or equal": "<=",
+	"in": "in",
+	"in list": "in",
+	"not in": "not in",
+	"not_in": "not in",
+	"not in list": "not in",
+	"contains": "contains",
+	"like": "contains",
+	"not_contains": "not_contains",
+	"not contains": "not_contains",
+	"not like": "not_contains",
+	"is_set": "is_set",
+	"is set": "is_set",
+	"is_not_set": "is_not_set",
+	"is not set": "is_not_set",
+	"is_empty": "is_empty",
+	"is empty": "is_empty",
+	"is_not_empty": "is_not_empty",
+	"is not empty": "is_not_empty",
+	"is_submittable": "is_submittable",
+	"is submittable": "is_submittable",
+	"has_field": "has_field",
+	"has field": "has_field",
+	"length_eq": "length_eq",
+	"length_gt": "length_gt",
+	"length_gte": "length_gte",
+	"length_lt": "length_lt",
+	"length_lte": "length_lte",
+	"has_changed": "has_changed",
+	"has changed": "has_changed",
+}
+
+UNARY_LEAF_OPERATORS = {
 	"is_set",
 	"is_not_set",
 	"is_empty",
 	"is_not_empty",
 	"is_submittable",
-	"has_field",
-	"length_eq",
-	"length_gt",
-	"length_gte",
-	"length_lt",
-	"length_lte",
 	"has_changed",
 }
+
 DEFAULT_ALLOWED_SCOPES = {
 	"doc",
 	"old_doc",
@@ -156,7 +185,7 @@ class LeafPlanNode(PlanNode):
 	"""Plan node for single leaf field comparison."""
 
 	left: OperandResolver
-	op: str
+	op: str  # Canonical normalized operator
 	right: OperandResolver | None
 
 	OPERATOR_MAP: ClassVar[dict[str, Callable[[Any, Any], bool]]] = {
@@ -168,7 +197,6 @@ class LeafPlanNode(PlanNode):
 		"<=": operator.le,
 		"in": lambda a, b: a in b if b is not None else False,
 		"not in": lambda a, b: a not in b if b is not None else True,
-		"not_in": lambda a, b: a not in b if b is not None else True,
 		"contains": lambda a, b: b in str(a) if a is not None else False,
 		"not_contains": lambda a, b: b not in str(a) if a is not None else True,
 		"is_set": lambda a, b: a is not None and a != "",
@@ -187,14 +215,23 @@ class LeafPlanNode(PlanNode):
 				or (isinstance(a, list | tuple | dict | set) and len(a) == 0)
 			)
 		),
-		"has_changed": lambda a, b: True,  # Deprecated operator: passes unconditionally
 	}
 
 	def evaluate(self, doc: Any, row: Any = None, extra_context: dict | None = None) -> bool:
 		left_val = self.left.resolve_value(doc, row, extra_context) if self.left else None
 
-		if self.op in ["is_set", "is_not_set", "is_empty", "is_not_empty", "has_changed"]:
+		if self.op in ["is_set", "is_not_set", "is_empty", "is_not_empty"]:
 			return self.OPERATOR_MAP[self.op](left_val, None)
+
+		if self.op == "has_changed":
+			# Evaluate field change between doc and old_doc
+			old_doc = getattr(doc, "_doc_before_save", None) or (
+				doc.get_doc_before_save() if hasattr(doc, "get_doc_before_save") else None
+			)
+			if old_doc is not None:
+				old_val = self.left.resolve_value(old_doc, row, extra_context) if self.left else None
+				return left_val != old_val
+			return bool(left_val is not None and left_val != "")
 
 		if self.op == "is_submittable":
 			if not left_val:
@@ -217,7 +254,7 @@ class LeafPlanNode(PlanNode):
 			is_link_tuple = False
 			if self.op in ["==", "!="]:
 				is_link_tuple = True
-			elif self.op in ["in", "not_in", "not in"] and isinstance(right_val[1], list | tuple):
+			elif self.op in ["in", "not in"] and isinstance(right_val[1], list | tuple):
 				is_link_tuple = True
 
 			if is_link_tuple:
@@ -245,7 +282,7 @@ class LeafPlanNode(PlanNode):
 			if self.op == "length_lte":
 				return length <= target_len
 
-		op_func = self.OPERATOR_MAP.get(self.op) or self.OPERATOR_MAP.get(self.op.replace(" ", "_"))
+		op_func = self.OPERATOR_MAP.get(self.op)
 		if not op_func:
 			return False
 
@@ -336,9 +373,13 @@ class ExecutionPlanBuilder:
 					"Collection condition requires a non-empty 'collection' reference (e.g. 'doc.items')"
 				)
 
-			logic = (node.get("op") or "any").lower()
+			logic_raw = node.get("op", "any")
+			if not isinstance(logic_raw, str):
+				raise ValueError("Collection logic operator must be a string")
+
+			logic = logic_raw.lower()
 			if logic not in SUPPORTED_COLLECTION_LOGIC:
-				raise ValueError(f"Unsupported collection logic operator: '{node.get('op')}'")
+				raise ValueError(f"Unsupported collection logic operator: '{logic_raw}'")
 
 			alias = node.get("alias") or "row"
 			where_payload = node.get("where")
@@ -390,15 +431,19 @@ class ExecutionPlanBuilder:
 			if not isinstance(op_raw, str):
 				raise ValueError("Comparison operator must be a string")
 
-			op = op_raw.lower()
-			if op_raw not in SUPPORTED_LEAF_OPERATORS and op not in SUPPORTED_LEAF_OPERATORS:
+			op_norm = OPERATOR_ALIAS_MAP.get(op_raw) or OPERATOR_ALIAS_MAP.get(op_raw.lower())
+			if not op_norm:
 				raise ValueError(f"Unsupported condition comparison operator: '{op_raw}'")
 
+			if op_norm not in UNARY_LEAF_OPERATORS:
+				if "right" not in node or node.get("right") is None:
+					raise ValueError(f"Binary operator '{op_raw}' requires a 'right' operand")
+
 			right_op = None
-			if "right" in node:
+			if "right" in node and node.get("right") is not None:
 				right_op = self._build_operand(node.get("right"), allowed_scopes=allowed_scopes)
 
-			return LeafPlanNode(left=left_op, op=op_raw, right=right_op)
+			return LeafPlanNode(left=left_op, op=op_norm, right=right_op)
 
 		raise ValueError(f"Malformed or unrecognized condition node payload: {node}")
 
@@ -425,7 +470,9 @@ class ExecutionPlanBuilder:
 		if "value" in operand_data:
 			return LiteralOperand(value=operand_data["value"])
 
-		return LiteralOperand(value=None)
+		raise ValueError(
+			f"Invalid operand definition: dict must contain 'ref' or 'value' key, got {operand_data}"
+		)
 
 
 # --- Candidate Adapter ---

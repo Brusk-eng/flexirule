@@ -473,4 +473,50 @@ def get_all_fixtures() -> list[BenchmarkFixture]:
 	)
 	fixtures.append(edge6)
 
+	# --- Edge Case 7: has_changed Operator ---
+	edge7 = BenchmarkFixture(
+		fixture_id="edge_case_has_changed",
+		tier="Edge Case — Field Change",
+		description="Checking has_changed operator comparing doc and old_doc",
+		condition_payload={
+			"op": "and",
+			"conditions": [
+				{
+					"left": {"ref": "doc.status"},
+					"op": "has_changed",
+				}
+			],
+		},
+		matching_doc=frappe._dict(
+			{"status": "Submitted", "_doc_before_save": frappe._dict({"status": "Draft"})}
+		),
+		non_matching_doc=frappe._dict(
+			{"status": "Submitted", "_doc_before_save": frappe._dict({"status": "Submitted"})}
+		),
+		leaf_count=1,
+		nesting_depth=1,
+	)
+	fixtures.append(edge7)
+
+	# --- Edge Case 8: None vs Missing Field ---
+	edge8 = BenchmarkFixture(
+		fixture_id="edge_case_none_vs_missing_field",
+		tier="Edge Case — Missing Field",
+		description="Checking is_not_set on missing field versus set field",
+		condition_payload={
+			"op": "and",
+			"conditions": [
+				{
+					"left": {"ref": "doc.missing_field"},
+					"op": "is_not_set",
+				}
+			],
+		},
+		matching_doc=frappe._dict({}),
+		non_matching_doc=frappe._dict({"missing_field": "Present"}),
+		leaf_count=1,
+		nesting_depth=1,
+	)
+	fixtures.append(edge8)
+
 	return fixtures

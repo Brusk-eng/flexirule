@@ -17,6 +17,7 @@ from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_a import (
 	ApproachAExperimentalCodeObjectCandidate,
 )
 from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_b import ApproachBCandidate
+from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_c import ApproachCCandidate
 from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 	BaseConditionCandidate,
 	ConditionComparisonHarness,
@@ -43,11 +44,13 @@ class BenchmarkRunner:
 		self.candidate_a: BaseConditionCandidate = ApproachACandidate()
 		self.candidate_a_exp: BaseConditionCandidate = ApproachAExperimentalCodeObjectCandidate()
 		self.candidate_b: BaseConditionCandidate = ApproachBCandidate()
+		self.candidate_c: BaseConditionCandidate = ApproachCCandidate()
 
 		self.candidates: list[BaseConditionCandidate] = [
 			self.candidate_a,
 			self.candidate_a_exp,
 			self.candidate_b,
+			self.candidate_c,
 		]
 		self.harness = ConditionComparisonHarness(self.candidates)
 
@@ -229,8 +232,8 @@ class BenchmarkRunner:
 
 			# Calculate speedup ratios safely
 			a_metric = candidate_metrics.get(self.candidate_a.candidate_name, {})
-			a_exp_metric = candidate_metrics.get(self.candidate_a_exp.candidate_name, {})
 			b_metric = candidate_metrics.get(self.candidate_b.candidate_name, {})
+			c_metric = candidate_metrics.get(self.candidate_c.candidate_name, {})
 
 			speedup_b_vs_a = None
 			if a_metric.get("is_valid_measurement") and b_metric.get("is_valid_measurement"):
@@ -241,14 +244,23 @@ class BenchmarkRunner:
 				if b_med > 0:
 					speedup_b_vs_a = round(a_med / b_med, 2)
 
-			speedup_b_vs_a_exp = None
-			if a_exp_metric.get("is_valid_measurement") and b_metric.get("is_valid_measurement"):
-				a_exp_val = a_exp_metric.get("median_us_per_exec")
+			speedup_c_vs_a = None
+			if a_metric.get("is_valid_measurement") and c_metric.get("is_valid_measurement"):
+				a_val = a_metric.get("median_us_per_exec")
+				c_val = c_metric.get("median_us_per_exec")
+				a_med = float(a_val) if isinstance(a_val, int | float) else 0.0
+				c_med = float(c_val) if isinstance(c_val, int | float) else 0.0
+				if c_med > 0:
+					speedup_c_vs_a = round(a_med / c_med, 2)
+
+			speedup_b_vs_c = None
+			if b_metric.get("is_valid_measurement") and c_metric.get("is_valid_measurement"):
 				b_val = b_metric.get("median_us_per_exec")
-				a_exp_med = float(a_exp_val) if isinstance(a_exp_val, int | float) else 0.0
+				c_val = c_metric.get("median_us_per_exec")
 				b_med = float(b_val) if isinstance(b_val, int | float) else 0.0
+				c_med = float(c_val) if isinstance(c_val, int | float) else 0.0
 				if b_med > 0:
-					speedup_b_vs_a_exp = round(a_exp_med / b_med, 2)
+					speedup_b_vs_c = round(c_med / b_med, 2)
 
 			fixture_benchmark_results.append(
 				{
@@ -259,7 +271,8 @@ class BenchmarkRunner:
 					"leaf_count": fix.leaf_count,
 					"nesting_depth": fix.nesting_depth,
 					"speedup_ratio_b_vs_primary_a": speedup_b_vs_a,
-					"speedup_ratio_b_vs_experimental_a": speedup_b_vs_a_exp,
+					"speedup_ratio_c_vs_primary_a": speedup_c_vs_a,
+					"speedup_ratio_b_vs_c": speedup_b_vs_c,
 					"candidate_metrics": candidate_metrics,
 				}
 			)
@@ -346,6 +359,7 @@ class BenchmarkRunner:
 		cand_a_name = self.candidate_a.candidate_name
 		cand_a_exp_name = self.candidate_a_exp.candidate_name
 		cand_b_name = self.candidate_b.candidate_name
+		cand_c_name = self.candidate_c.candidate_name
 
 		total_evals_completed = 0
 		for fix_res in primary["fixtures"]:
@@ -447,9 +461,9 @@ class BenchmarkRunner:
 		)
 		md_lines.append("")
 		md_lines.append(
-			"| Fixture ID | Tier | Leaf / Depth | Approach A (`safe_eval`) | Approach A Exp (`code_obj`) | Approach B (`plan`) | Speedup B vs Primary A | Speedup B vs Exp A |"
+			"| Fixture ID | Tier | Leaf / Depth | Approach A (`safe_eval`) | Approach A Exp (`code_obj`) | Approach B (`plan`) | Approach C (`json_tree`) | Speedup B vs Primary A | Speedup C vs Primary A | Speedup B vs C |"
 		)
-		md_lines.append("|---|---|---|---|---|---|---|---|")
+		md_lines.append("|---|---|---|---|---|---|---|---|---|---|")
 
 		for item in primary["fixtures"]:
 			fid = item["fixture_id"]
@@ -460,6 +474,7 @@ class BenchmarkRunner:
 			a_m = metrics.get(cand_a_name, {})
 			a_exp_m = metrics.get(cand_a_exp_name, {})
 			b_m = metrics.get(cand_b_name, {})
+			c_m = metrics.get(cand_c_name, {})
 
 			a_str = f"{a_m.get('median_us_per_exec')} µs/op" if a_m.get("is_valid_measurement") else "INVALID"
 			a_exp_str = (
@@ -468,20 +483,26 @@ class BenchmarkRunner:
 				else "INVALID"
 			)
 			b_str = f"{b_m.get('median_us_per_exec')} µs/op" if b_m.get("is_valid_measurement") else "INVALID"
+			c_str = f"{c_m.get('median_us_per_exec')} µs/op" if c_m.get("is_valid_measurement") else "INVALID"
 
-			sp_a_str = (
-				f"**{item['speedup_ratio_b_vs_primary_a']}x**"
+			sp_b_a_str = (
+				f"**{item.get('speedup_ratio_b_vs_primary_a')}x**"
 				if item.get("speedup_ratio_b_vs_primary_a") is not None
 				else "N/A"
 			)
-			sp_a_exp_str = (
-				f"**{item['speedup_ratio_b_vs_experimental_a']}x**"
-				if item.get("speedup_ratio_b_vs_experimental_a") is not None
+			sp_c_a_str = (
+				f"**{item.get('speedup_ratio_c_vs_primary_a')}x**"
+				if item.get("speedup_ratio_c_vs_primary_a") is not None
+				else "N/A"
+			)
+			sp_b_c_str = (
+				f"**{item.get('speedup_ratio_b_vs_c')}x**"
+				if item.get("speedup_ratio_b_vs_c") is not None
 				else "N/A"
 			)
 
 			md_lines.append(
-				f"| `{fid}` | {tier} | {ld} | {a_str} | {a_exp_str} | **{b_str}** | {sp_a_str} | {sp_a_exp_str} |"
+				f"| `{fid}` | {tier} | {ld} | {a_str} | {a_exp_str} | **{b_str}** | {c_str} | {sp_b_a_str} | {sp_c_a_str} | {sp_b_c_str} |"
 			)
 
 		md_lines.append("")
@@ -491,17 +512,16 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("Preparation time measured separately outside the execution loop:")
 		md_lines.append("")
-		md_lines.append(
-			"| Fixture ID | Approach A Preparation Time (ms) | Approach B Preparation Time (ms) |"
-		)
-		md_lines.append("|---|---|---|")
+		md_lines.append("| Fixture ID | Approach A Prep (ms) | Approach B Prep (ms) | Approach C Prep (ms) |")
+		md_lines.append("|---|---|---|---|")
 
 		for item in primary["fixtures"]:
 			fid = item["fixture_id"]
 			metrics = item["candidate_metrics"]
 			a_prep = metrics.get(cand_a_name, {}).get("preparation_time_ms", 0)
 			b_prep = metrics.get(cand_b_name, {}).get("preparation_time_ms", 0)
-			md_lines.append(f"| `{fid}` | {a_prep} ms | **{b_prep} ms** |")
+			c_prep = metrics.get(cand_c_name, {}).get("preparation_time_ms", 0)
+			md_lines.append(f"| `{fid}` | {a_prep} ms | **{b_prep} ms** | {c_prep} ms |")
 
 		md_lines.append("")
 		md_lines.append("---")
