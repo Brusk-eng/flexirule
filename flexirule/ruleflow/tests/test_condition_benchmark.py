@@ -232,9 +232,13 @@ class TestConditionBenchmark(FrappeTestCase):
 
 	def test_plan_empty_group_semantics(self):
 		and_plan = self.builder.build_plan({"op": "and", "conditions": []})
+		self.assertIsNotNone(and_plan.root_node)
+		assert and_plan.root_node is not None
 		self.assertTrue(and_plan.root_node.evaluate(frappe._dict()))
 
 		or_plan = self.builder.build_plan({"op": "or", "conditions": []})
+		self.assertIsNotNone(or_plan.root_node)
+		assert or_plan.root_node is not None
 		self.assertFalse(or_plan.root_node.evaluate(frappe._dict()))
 
 	def test_benchmark_runner_full_suite_export(self):

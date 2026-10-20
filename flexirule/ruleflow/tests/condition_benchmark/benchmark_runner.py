@@ -18,6 +18,7 @@ from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_a import (
 )
 from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_b import ApproachBCandidate
 from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
+	BaseConditionCandidate,
 	ConditionComparisonHarness,
 )
 from flexirule.ruleflow.tests.condition_benchmark.fixtures import (
@@ -39,11 +40,15 @@ class BenchmarkRunner:
 		self.num_batches = num_batches
 		self.warmup_iterations = warmup_iterations
 
-		self.candidate_a = ApproachACandidate()
-		self.candidate_a_exp = ApproachAExperimentalCodeObjectCandidate()
-		self.candidate_b = ApproachBCandidate()
+		self.candidate_a: BaseConditionCandidate = ApproachACandidate()
+		self.candidate_a_exp: BaseConditionCandidate = ApproachAExperimentalCodeObjectCandidate()
+		self.candidate_b: BaseConditionCandidate = ApproachBCandidate()
 
-		self.candidates = [self.candidate_a, self.candidate_a_exp, self.candidate_b]
+		self.candidates: list[BaseConditionCandidate] = [
+			self.candidate_a,
+			self.candidate_a_exp,
+			self.candidate_b,
+		]
 		self.harness = ConditionComparisonHarness(self.candidates)
 
 	def run_semantic_correctness_suite(self) -> dict:
