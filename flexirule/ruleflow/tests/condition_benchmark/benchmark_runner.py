@@ -186,8 +186,8 @@ class BenchmarkRunner:
 
 	def _time_evaluation_batch(
 		self, candidate, prep, fix, iterations: int, start_offset: int = 0
-	) -> tuple[float, int, str | None]:
-		"""Time a fixed workload alternating matching and non-matching documents."""
+	) -> tuple[float, int, str | None, float]:
+		"""Time full candidate calls and sum each result's evaluator-core timer."""
 		contexts = [
 			(fix.matching_doc, fix.expected_matching_result),
 			(fix.non_matching_doc, fix.expected_non_matching_result),
@@ -195,6 +195,7 @@ class BenchmarkRunner:
 		successful_evaluations = 0
 		last_result = None
 		last_expected = None
+		core_execution_seconds = 0.0
 		batch_error = None
 		start_time = time.perf_counter()
 
@@ -210,6 +211,7 @@ class BenchmarkRunner:
 				break
 			last_result = result.result
 			last_expected = expected
+			core_execution_seconds += result.execution_time_seconds
 			successful_evaluations += 1
 
 		elapsed = time.perf_counter() - start_time
@@ -221,7 +223,7 @@ class BenchmarkRunner:
 			batch_error = (
 				f"Final result mismatch: expected {last_expected!r}, got {last_result!r}"
 			)
-		return elapsed, successful_evaluations, batch_error
+		return elapsed, successful_evaluations, batch_error, core_execution_seconds
 
 	def run_primary_benchmarks(self) -> dict:
 		"""Compare full candidate-call cost using repeated, order-rotated batches."""
@@ -240,6 +242,7 @@ class BenchmarkRunner:
 				state = {
 					"prep": prep,
 					"samples_us": [],
+					"samples_core_us": [],
 					"durations_seconds": [],
 					"successful_evaluations": 0,
 					"error": None,
@@ -268,7 +271,7 @@ class BenchmarkRunner:
 						state = states[name]
 						if state["error"]:
 							continue
-						elapsed, successful, batch_error = self._time_evaluation_batch(
+						elapsed, successful, batch_error, core_elapsed = self._time_evaluation_batch(
 							candidate, state["prep"], fix, self.iterations_per_batch,
 							start_offset=batch_index,
 						)
@@ -279,6 +282,9 @@ class BenchmarkRunner:
 							continue
 						state["samples_us"].append(
 							elapsed / self.iterations_per_batch * 1e6
+						)
+						state["samples_core_us"].append(
+							core_elapsed / self.iterations_per_batch * 1e6
 						)
 						state["durations_seconds"].append(elapsed)
 						state["successful_evaluations"] += successful
@@ -314,6 +320,9 @@ class BenchmarkRunner:
 					"error": None,
 					**common,
 					"median_us_per_exec": round(median_us, 3),
+					"median_core_us_per_exec": round(
+						statistics.median(state["samples_core_us"]), 3
+					),
 					"mean_us_per_exec": round(statistics.mean(samples), 3),
 					"min_us_per_exec": round(min(samples), 3),
 					"max_us_per_exec": round(max(samples), 3),
@@ -405,6 +414,9 @@ class BenchmarkRunner:
 				execution_samples: dict[str, list[float]] = {
 					candidate.candidate_name: [] for candidate in self.candidates
 				}
+				core_execution_samples: dict[str, list[float]] = {
+					candidate.candidate_name: [] for candidate in self.candidates
+				}
 				batch_errors: dict[str, str] = {
 					name: error for name, error in candidate_errors.items() if error
 				}
@@ -417,7 +429,7 @@ class BenchmarkRunner:
 							if batch_errors.get(name):
 								continue
 							prep = prepared_map[name]
-							elapsed, _, batch_error = self._time_evaluation_batch(
+							elapsed, _, batch_error, core_elapsed = self._time_evaluation_batch(
 								candidate, prep, fix, count, start_offset=batch_index
 							)
 							if batch_error:
@@ -427,6 +439,7 @@ class BenchmarkRunner:
 								)
 								continue
 							execution_samples[name].append(elapsed)
+							core_execution_samples[name].append(core_elapsed)
 
 				count_metrics = {}
 				for candidate in self.candidates:
@@ -461,6 +474,10 @@ class BenchmarkRunner:
 						),
 						"median_exec_us_per_eval": round(
 							median_execution_seconds / count * 1e6, 3
+						),
+						"median_core_exec_us_per_eval": round(
+							statistics.median(core_execution_samples[name]) / count * 1e6,
+							3,
 						),
 						"total_amortized_cost_ms": round(
 							total_amortized_seconds * 1000.0, 4
