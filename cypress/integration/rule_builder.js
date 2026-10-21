@@ -194,5 +194,4 @@ describe("FlexiRule UI Test Suite", () => {
 				.should("be.a", "function");
 		});
 	});
-
 });
