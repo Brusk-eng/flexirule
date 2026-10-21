@@ -372,6 +372,7 @@ describe("FlexiRule UI Test Suite", () => {
 					await win.frappe.call({
 						method: "frappe.client.save",
 						args: { doc: invalidSaveDoc },
+						silent: true,
 					});
 				} catch (error) {
 					serverSaveError = [
