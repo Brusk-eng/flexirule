@@ -24,6 +24,23 @@ const RELEASE_DISABLED_ACTION_TYPES = new Set(["Loop", "Switch"]);
 const ACTION_TYPES_REQUIRING_FALSE_PATH = new Set(["Condition"]);
 const TERMINAL_ACTION_TYPES = new Set(["Stop"]);
 
+function hasGenuineWritesVars(writes_vars) {
+	if (!writes_vars) return false;
+	try {
+		const parsed = typeof writes_vars === "string" ? JSON.parse(writes_vars) : writes_vars;
+		if (!Array.isArray(parsed) || parsed.length === 0) return false;
+		return parsed.some((item) => {
+			if (typeof item === "string") return item.trim().length > 0;
+			if (item && typeof item === "object" && typeof item.fieldname === "string") {
+				return item.fieldname.trim().length > 0;
+			}
+			return false;
+		});
+	} catch (_e) {
+		return false;
+	}
+}
+
 /**
  * Validate variable dependencies across a list of actions in topological order.
  *
@@ -360,45 +377,34 @@ flexirule.validation.validate_action_types = function (
 			}
 		}
 
-		// Process validation: return_variable enforcement
+		const contractsApi = window.flexirule?.contracts;
+		const ctx = { operation: action.operation, processName: action.process_name };
+		const requiresVarFromContract =
+			contractsApi && typeof contractsApi.requiresReturnVariable === "function"
+				? contractsApi.requiresReturnVariable(action, ctx)
+				: false;
+
+		let processRequiresVar = false;
 		if (action_type === "Process" && action.process_name && action.operation) {
 			const op_key = `${action.process_name}:${action.operation}`;
 			const op_meta = operation_metadata[op_key] || {};
 
-			const writes_to_context = op_meta.writes_to === "Context";
-			const has_writes_vars = op_meta.writes_vars && op_meta.writes_vars !== "[]";
-			const has_output_schema = !!op_meta.output_schema;
+			const policy =
+				contractsApi && typeof contractsApi.getEffectiveActionPolicy === "function"
+					? contractsApi.getEffectiveActionPolicy(action_type, ctx)
+					: {};
 
-			if (
-				(writes_to_context || has_writes_vars || has_output_schema) &&
-				!action.return_variable
-			) {
-				errors.push(
-					__(
-						"Action '{0}' uses operation '{1}' which writes to context. Please specify a Return Variable Name.",
-						[label, action.operation]
-					)
-				);
+			if (policy.produces_result !== false) {
+				const writesToContext = op_meta.writes_to === "Context";
+				const genuineWritesVars = hasGenuineWritesVars(op_meta.writes_vars);
+				if (writesToContext || genuineWritesVars) {
+					processRequiresVar = true;
+				}
 			}
 		}
 
-		// Mutation mode requires return variable
-		if (action.mutation_mode && !action.return_variable) {
-			errors.push(
-				__("Action '{0}' has Mutation Mode set but no Return Variable Name is provided.", [
-					label,
-				])
-			);
-		}
-
-		// Return schema requires return variable
-		if ((action.return_type || action.resolved_output_schema) && !action.return_variable) {
-			errors.push(
-				__(
-					"Action '{0}' defines a Return Schema but no Return Variable Name is provided.",
-					[label]
-				)
-			);
+		if ((requiresVarFromContract || processRequiresVar) && !action.return_variable) {
+			errors.push(__("Action '{0}' requires a Return Variable Name.", [label]));
 		}
 	}
 
