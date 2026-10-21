@@ -196,7 +196,9 @@ describe("FlexiRule UI Test Suite", () => {
 	});
 
 	it("8. Empty mutation allowlists reject configured mutation modes", () => {
-		cy.create_test_rule_backend({ rule_name: `Rule_Empty_Mutation_Allowlist_${Date.now()}` }).then((doc) => {
+		cy.create_test_rule_backend({
+			rule_name: `Rule_Empty_Mutation_Allowlist_${Date.now()}`,
+		}).then((doc) => {
 			ruleBuilderPage.visitRule(doc.name);
 			ruleBuilderPage.openVisualBuilder();
 
@@ -211,7 +213,9 @@ describe("FlexiRule UI Test Suite", () => {
 					"an explicitly empty allowlist permits no mutation modes"
 				).to.equal(false);
 				expect(
-					contracts.isMutationModeAllowed("Set Context Variable", ["Set Context Variable"])
+					contracts.isMutationModeAllowed("Set Context Variable", [
+						"Set Context Variable",
+					])
 				).to.equal(true);
 				expect(contracts.isMutationModeAllowed(null, [])).to.equal(true);
 
@@ -231,9 +235,13 @@ describe("FlexiRule UI Test Suite", () => {
 					};
 					const result = contracts.validateAgainstContract(invalidAction);
 					expect(result.valid).to.equal(false);
-					expect(result.errors.join("\\n")).to.match(/Mutation mode .* is not allowed for Process/i);
+					expect(result.errors.join("\\n")).to.match(
+						/Mutation mode .* is not allowed for Process/i
+					);
 
-					contracts.applyOutputPolicyDefaults(invalidAction, { preserveUserChoices: true });
+					contracts.applyOutputPolicyDefaults(invalidAction, {
+						preserveUserChoices: true,
+					});
 					expect(invalidAction.mutation_mode).to.equal(null);
 				} finally {
 					processContract.allowed_mutations = originalAllowedMutations;
@@ -287,10 +295,12 @@ describe("FlexiRule UI Test Suite", () => {
 				});
 
 				const frontendContractResult = contracts.validateAgainstContract(node.data);
-				expect(contracts.requiresReturnVariable(node.data, {
-					processName,
-					operation: operationName,
-				})).to.equal(true);
+				expect(
+					contracts.requiresReturnVariable(node.data, {
+						processName,
+						operation: operationName,
+					})
+				).to.equal(true);
 				expect(frontendContractResult.valid).to.equal(false);
 				expect(frontendContractResult.errors.join("\\n")).to.match(/Return Variable Name/i);
 
@@ -318,7 +328,7 @@ describe("FlexiRule UI Test Suite", () => {
 							name: ruleDoc.name,
 							is_active: 0,
 							trigger_type: "DocType Event",
-						document_type: "Contact",
+							document_type: "Contact",
 							trigger_event: "After Save",
 							actions: [
 								{
@@ -345,7 +355,10 @@ describe("FlexiRule UI Test Suite", () => {
 			cy.get('button:contains("Save Rule")').click();
 			cy.get("@saveValidationMessage").should("have.been.called");
 			cy.get("@saveValidationMessage").should((stub) => {
-				const messages = stub.getCalls().map((call) => JSON.stringify(call.args[0])).join("\\n");
+				const messages = stub
+					.getCalls()
+					.map((call) => JSON.stringify(call.args[0]))
+					.join("\\n");
 				expect(messages).to.match(/Validation Error/i);
 				expect(messages).to.match(/Return Variable Name/i);
 			});
