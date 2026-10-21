@@ -347,6 +347,47 @@ describe("FlexiRule UI Test Suite", () => {
 				expect((backendValidation.message?.errors || []).join("\\n")).to.match(
 					/Missing Return Variable Process .*Return Variable Name/i
 				);
+
+				// Exercise the real Frappe document-save path too. Rule.validate()
+				// calls the same centralized rule validator on server-side saves.
+				const savedRuleResponse = await win.frappe.call({
+					method: "frappe.client.get",
+					args: { doctype: "Rule", name: ruleDoc.name },
+				});
+				const invalidSaveDoc = {
+					...savedRuleResponse.message,
+					actions: [
+						{
+							action_id: "root",
+							action_type: "Entry Action",
+							action_label: "Start",
+							is_enabled: 1,
+							next_step_if_true: processActionId,
+						},
+						processAction,
+					],
+				};
+				let serverSaveError = "";
+				try {
+					await win.frappe.call({
+						method: "frappe.client.save",
+						args: { doc: invalidSaveDoc },
+					});
+				} catch (error) {
+					serverSaveError = [
+						error?.message,
+						error?._server_messages,
+						error?.exc,
+						error?.responseText,
+					]
+						.map((value) =>
+							typeof value === "string" ? value : JSON.stringify(value ?? "")
+						)
+						.join("\\n");
+				}
+				expect(serverSaveError, "backend Rule save rejects the same missing return variable").to.match(
+					/Return Variable Name/i
+				);
 			});
 
 			cy.window().then((win) => {
