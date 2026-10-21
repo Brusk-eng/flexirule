@@ -19,15 +19,19 @@ describe("Process return-variable contract parity", () => {
 				expect(contracts, "shared contracts API").to.exist;
 				expect(contracts.isMutationModeAllowed).to.be.a("function");
 
-				const processContract = contracts.ACTION_TYPE_CONTRACT?.Process;
-				expect(processContract, "backend-provided Process contract").to.exist;
-				const originalAllowedMutations = processContract.allowed_mutations;
-				processContract.allowed_mutations = [];
+				const processName = "Validation";
+				const operationName = "on_field_change";
+				const operationContract =
+					contracts.PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operationName];
+				expect(operationContract, "backend-provided Process operation contract").to.exist;
+				expect(operationContract.policy).to.exist;
+				const originalAllowedMutations = operationContract.policy.allowed_mutations;
+				operationContract.policy.allowed_mutations = [];
 				try {
 					const invalidAction = {
 						action_type: "Process",
-						process_name: "__missing_test_process__",
-						operation: "__empty_mutation_allowlist_test__",
+						process_name: processName,
+						operation: operationName,
 						mutation_mode: "Set Context Variable",
 						return_variable: "result",
 					};
@@ -42,7 +46,7 @@ describe("Process return-variable contract parity", () => {
 					});
 					expect(invalidAction.mutation_mode).to.equal(null);
 				} finally {
-					processContract.allowed_mutations = originalAllowedMutations;
+					operationContract.policy.allowed_mutations = originalAllowedMutations;
 				}
 			});
 		});
