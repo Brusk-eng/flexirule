@@ -449,7 +449,13 @@ export function hasResolvedOutputSchema(value) {
 	let schema = value;
 	if (typeof schema === "string") {
 		const trimmed = schema.trim();
-		if (!trimmed || trimmed === "null" || trimmed === "[]" || trimmed === "{}" || trimmed === '""') {
+		if (
+			!trimmed ||
+			trimmed === "null" ||
+			trimmed === "[]" ||
+			trimmed === "{}" ||
+			trimmed === '""'
+		) {
 			return false;
 		}
 		try {
@@ -467,21 +473,23 @@ export function hasResolvedOutputSchema(value) {
 				field &&
 				typeof field === "object" &&
 				!Array.isArray(field) &&
-				Boolean(field.fieldname || field.key || field.name)
+				typeof field.fieldname === "string" &&
+				field.fieldname.trim().length > 0
 		);
 	}
 
 	if (Array.isArray(schema.fields)) {
 		return hasResolvedOutputSchema(schema.fields);
 	}
-	if (schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties)) {
+	if (
+		schema.properties &&
+		typeof schema.properties === "object" &&
+		!Array.isArray(schema.properties)
+	) {
 		return Object.keys(schema.properties).length > 0;
 	}
 
-	const keys = Object.keys(schema).filter(
-		(k) => k !== "type" && k !== "title" && k !== "description" && k !== "$schema"
-	);
-	return keys.length > 0;
+	return false;
 }
 
 export function requiresReturnVariable(nodeData, ctx = {}) {
@@ -506,16 +514,20 @@ export function requiresReturnVariable(nodeData, ctx = {}) {
 		return false;
 	}
 
-	if (nodeData.mutation_mode) {
-		return true;
+	const mutationMode = nodeData.mutation_mode;
+	if (mutationMode) {
+		const allowedMutations = policy.allowed_mutations || contract.allowed_mutations || [];
+		if (allowedMutations.length > 0 && allowedMutations.includes(mutationMode)) {
+			return true;
+		}
 	}
 
 	const supportsReturnSchema =
 		policy.supports_return_schema !== undefined
 			? policy.supports_return_schema
 			: contract.supports_return_schema !== undefined
-			? contract.supports_return_schema
-			: ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType);
+				? contract.supports_return_schema
+				: ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType);
 
 	if (supportsReturnSchema) {
 		const showReturnType =
@@ -1007,7 +1019,10 @@ export function validateAgainstContract(nodeData) {
 	}
 
 	if (
-		requiresReturnVariable(nodeData, { operation: nodeData.operation, processName: nodeData.process_name }) &&
+		requiresReturnVariable(nodeData, {
+			operation: nodeData.operation,
+			processName: nodeData.process_name,
+		}) &&
 		!nodeData.return_variable
 	) {
 		errors.push(__("Return Variable Name is required for this operation"));
