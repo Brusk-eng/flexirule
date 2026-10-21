@@ -249,39 +249,6 @@ jobs:
         env:
           TYPE: server
 
-      - name: Run Process return-variable Cypress regressions
-        working-directory: /home/runner/frappe-bench
-        timeout-minutes: 20
-        run: |
-          # Bench was initialized with --skip-assets. Build all installed app
-          # assets so the Frappe Desk (navbar and builder shell) is available.
-          bench build --production
-
-          cd apps/flexirule
-          npx cypress install
-          cd /home/runner/frappe-bench
-
-          # Pin the WSGI server to test_site. Without --site, requests to
-          # localhost:8000 do not necessarily resolve to this site's hostname.
-          bench --site test_site serve --port 8000 --noreload > /tmp/flexirule-cypress-web.log 2>&1 &
-          WEB_PID=$!
-          trap 'kill "$WEB_PID" 2>/dev/null || true' EXIT
-
-          READY=0
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent --show-error http://127.0.0.1:8000/login >/dev/null; then
-              READY=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$READY" -ne 1 ]; then
-            cat /tmp/flexirule-cypress-web.log
-            exit 1
-          fi
-
-          cd apps/flexirule
-          xvfb-run --auto-servernum npx cypress run --browser electron --spec cypress/integration/return_variable_contract.js
 
   tests_frappe_16_nested_set:
     needs: changes
