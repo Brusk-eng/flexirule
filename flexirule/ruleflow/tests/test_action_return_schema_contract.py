@@ -447,6 +447,56 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 				self.assertTrue(policy["require_return_variable"])
 				self.assertTrue(policy["has_genuine_write"])
 
+	def test_process_genuine_write_is_enforced_by_backend_when_produces_result_false(self):
+		import json
+
+		for writes_to, writes_vars in (
+			("Context", "[]"),
+			("None", '[{"fieldname": "target_var"}]'),
+		):
+			with self.subTest(writes_to=writes_to, writes_vars=writes_vars):
+				op_meta = {
+					"writes_to": writes_to,
+					"writes_vars": writes_vars,
+					"output_schema": "{}",
+					"action_overrides": json.dumps(
+						{
+							"contract_v2": {
+								"adapter_key": "lookup",
+								"capabilities": {"writes_to": writes_to},
+								"policy": {
+									"produces_result": False,
+									"require_return_variable": False,
+									"supports_return_schema": False,
+								},
+								"config_schema": {"type": "object"},
+								"result_schema": {},
+							}
+						}
+					),
+				}
+				action = {
+					"action_type": "Process",
+					"process_name": "SampleProc",
+					"operation": "write_op",
+					"action_label": "Test Process Write",
+					"return_variable": None,
+					"resolved_output_schema": "[]",
+				}
+				errors: list[str] = []
+				_validate_action_contracts(
+					action,
+					"Process",
+					"Test Process Write",
+					operation_metadata={"SampleProc:write_op": op_meta},
+					errors=errors,
+					mode="draft",
+				)
+				self.assertTrue(
+					any("requires Return Variable Name" in error for error in errors),
+					errors,
+				)
+
 	def test_dto_consistency_for_return_schema_action_types(self):
 		dto = ContractDTOBuilder.build()
 		expected_types = {"Query Records", "Document Action", "Process", "Sub-Rule"}
