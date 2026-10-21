@@ -484,9 +484,15 @@ export function hasResolvedOutputSchema(value) {
 	if (
 		schema.properties &&
 		typeof schema.properties === "object" &&
-		!Array.isArray(schema.properties)
+		!Array.isArray(schema.properties) &&
+		Object.keys(schema.properties).length > 0
 	) {
-		return Object.keys(schema.properties).length > 0;
+		return true;
+	}
+
+	// Valid type-only JSON Schemas are populated output contracts too.
+	if (["boolean", "array", "string", "number", "integer"].includes(schema.type)) {
+		return true;
 	}
 
 	return false;
@@ -518,10 +524,8 @@ export function requiresReturnVariable(nodeData, ctx = {}) {
 		}
 	}
 
-	if (policy.produces_result === false) {
-		return false;
-	}
-
+	// Genuine writes and explicit operation policy are requirements even
+	// when an operation does not produce a conventional result value.
 	const supportsReturnSchema =
 		policy.supports_return_schema !== undefined
 			? policy.supports_return_schema
@@ -539,7 +543,9 @@ export function requiresReturnVariable(nodeData, ctx = {}) {
 		const hasValidReturnType =
 			showReturnType && Boolean(returnType) && returnType !== "Yes / No";
 
-		const hasSchema = hasResolvedOutputSchema(nodeData.resolved_output_schema);
+		const hasSchema =
+			hasResolvedOutputSchema(nodeData.resolved_output_schema) ||
+			policy.has_operation_output_schema === true;
 
 		if (hasValidReturnType || hasSchema) {
 			return true;
