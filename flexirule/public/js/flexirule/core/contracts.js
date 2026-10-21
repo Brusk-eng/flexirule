@@ -510,16 +510,16 @@ export function requiresReturnVariable(nodeData, ctx = {}) {
 		return true;
 	}
 
-	if (policy.produces_result === false) {
-		return false;
-	}
-
 	const mutationMode = nodeData.mutation_mode;
 	if (mutationMode) {
 		const allowedMutations = policy.allowed_mutations || contract.allowed_mutations || [];
 		if (allowedMutations.length > 0 && allowedMutations.includes(mutationMode)) {
 			return true;
 		}
+	}
+
+	if (policy.produces_result === false) {
+		return false;
 	}
 
 	const supportsReturnSchema =
@@ -1152,6 +1152,23 @@ export function getActionTypeOptions() {
  */
 export function hasDynamicFields(actionType) {
 	return getContract(actionType).dynamic_fields || false;
+}
+
+if (typeof window !== "undefined") {
+	if (window.frappe?.provide) {
+		window.frappe.provide("flexirule.contracts");
+	} else {
+		window.flexirule = window.flexirule || {};
+		window.flexirule.contracts = window.flexirule.contracts || {};
+	}
+	Object.assign(window.flexirule.contracts, {
+		hasResolvedOutputSchema,
+		requiresReturnVariable,
+		validateAgainstContract,
+		getEffectiveActionPolicy,
+		getContract,
+		normalizeActionType,
+	});
 }
 
 export default ACTION_TYPE_CONTRACT;

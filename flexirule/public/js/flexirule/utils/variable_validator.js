@@ -24,6 +24,23 @@ const RELEASE_DISABLED_ACTION_TYPES = new Set(["Loop", "Switch"]);
 const ACTION_TYPES_REQUIRING_FALSE_PATH = new Set(["Condition"]);
 const TERMINAL_ACTION_TYPES = new Set(["Stop"]);
 
+function hasGenuineWritesVars(writes_vars) {
+	if (!writes_vars) return false;
+	try {
+		const parsed = typeof writes_vars === "string" ? JSON.parse(writes_vars) : writes_vars;
+		if (!Array.isArray(parsed) || parsed.length === 0) return false;
+		return parsed.some((item) => {
+			if (typeof item === "string") return item.trim().length > 0;
+			if (item && typeof item === "object" && typeof item.fieldname === "string") {
+				return item.fieldname.trim().length > 0;
+			}
+			return false;
+		});
+	} catch (_e) {
+		return false;
+	}
+}
+
 /**
  * Validate variable dependencies across a list of actions in topological order.
  *
@@ -360,53 +377,34 @@ flexirule.validation.validate_action_types = function (
 			}
 		}
 
-		// Process-specific validation: return_variable enforcement for genuine context writes
+		const contractsApi = window.flexirule?.contracts;
+		const ctx = { operation: action.operation, processName: action.process_name };
+		const requiresVarFromContract =
+			contractsApi && typeof contractsApi.requiresReturnVariable === "function"
+				? contractsApi.requiresReturnVariable(action, ctx)
+				: false;
+
+		let processRequiresVar = false;
 		if (action_type === "Process" && action.process_name && action.operation) {
 			const op_key = `${action.process_name}:${action.operation}`;
 			const op_meta = operation_metadata[op_key] || {};
 
-			const writes_to_context = op_meta.writes_to === "Context";
-			let has_writes_vars = false;
-			if (op_meta.writes_vars) {
-				try {
-					const parsed =
-						typeof op_meta.writes_vars === "string"
-							? JSON.parse(op_meta.writes_vars)
-							: op_meta.writes_vars;
-					has_writes_vars = Array.isArray(parsed) && parsed.length > 0;
-				} catch (_e) {
-					has_writes_vars = false;
+			const policy =
+				contractsApi && typeof contractsApi.getEffectiveActionPolicy === "function"
+					? contractsApi.getEffectiveActionPolicy(action_type, ctx)
+					: {};
+
+			if (policy.produces_result !== false) {
+				const writesToContext = op_meta.writes_to === "Context";
+				const genuineWritesVars = hasGenuineWritesVars(op_meta.writes_vars);
+				if (writesToContext || genuineWritesVars) {
+					processRequiresVar = true;
 				}
 			}
+		}
 
-			const contractsApi = window.flexirule?.contracts;
-			const has_schema =
-				contractsApi && typeof contractsApi.hasResolvedOutputSchema === "function"
-					? contractsApi.hasResolvedOutputSchema(op_meta.output_schema)
-					: false;
-
-			if ((writes_to_context || has_writes_vars || has_schema) && !action.return_variable) {
-				errors.push(
-					__(
-						"Action '{0}' uses operation '{1}' which writes to context. Please specify a Return Variable Name.",
-						[label, action.operation]
-					)
-				);
-			}
-		} else {
-			// Generic return variable check via contracts.js API
-			const contractsApi = window.flexirule?.contracts;
-			if (contractsApi && typeof contractsApi.requiresReturnVariable === "function") {
-				if (
-					contractsApi.requiresReturnVariable(action, {
-						operation: action.operation,
-						processName: action.process_name,
-					}) &&
-					!action.return_variable
-				) {
-					errors.push(__("Action '{0}' requires a Return Variable Name.", [label]));
-				}
-			}
+		if ((requiresVarFromContract || processRequiresVar) && !action.return_variable) {
+			errors.push(__("Action '{0}' requires a Return Variable Name.", [label]));
 		}
 	}
 
