@@ -16,8 +16,12 @@ describe("FlexiRule UI Test Suite", () => {
 		cy.get('select[data-fieldname="trigger_event"]').select("After Save");
 		cy.save();
 
-		// Open visual builder
+		// Opening this route loads a separate bundle that also imports contracts.js.
+		// The contracts namespace must remain readable, and the builder constructor
+		// must be registered after module initialization completes.
 		ruleBuilderPage.openVisualBuilder();
+		cy.window().its("frappe.ui.RuleBuilder").should("be.a", "function");
+		cy.window().its("flexirule.contracts.hasResolvedOutputSchema").should("be.a", "function");
 		cy.get(".vue-flow__node").should("exist");
 	});
 

@@ -11,6 +11,7 @@ Maintains absolute backward compatibility for all imports and function signature
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Any
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
@@ -21,6 +22,7 @@ from flexirule.ruleflow.core.contract_utils import (
 	RETURN_TYPE_OPTIONS,
 	RUNTIME_FIELD_ALIASES,
 	TRIGGER_TYPE_CONTRACT,
+	_has_resolved_output_schema,
 	apply_field_overrides,
 	get_process_operation_overrides,
 	get_trigger_type_contract,
@@ -75,6 +77,21 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 
 	process_overrides = get_process_operation_overrides(process_operation)
 
+	raw_action_overrides = process_operation.get("action_overrides")
+	if isinstance(raw_action_overrides, str):
+		try:
+			raw_action_overrides = json.loads(raw_action_overrides)
+		except (TypeError, ValueError):
+			raw_action_overrides = {}
+	if not isinstance(raw_action_overrides, dict):
+		raw_action_overrides = {}
+	contract_v2 = raw_action_overrides.get("contract_v2")
+	if not isinstance(contract_v2, dict):
+		contract_v2 = {}
+	contract_v2_policy = contract_v2.get("policy")
+	if not isinstance(contract_v2_policy, dict):
+		contract_v2_policy = {}
+
 	writes_to = (process_operation.get("writes_to") or "None").strip()
 	if writes_to == "Document":
 		policy["allowed_mutations"] = [
@@ -101,15 +118,28 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 			"Update Context Variable",
 		]
 
-	output_schema = process_operation.get("output_schema")
+	# Prefer the canonical v2 result schema when it is declared, even if the
+	# legacy output_schema field is empty. Fall back to legacy metadata only
+	# when v2 does not provide the result_schema key.
+	output_schema = (
+		contract_v2.get("result_schema")
+		if "result_schema" in contract_v2
+		else process_operation.get("output_schema")
+	)
+	has_populated_output_schema = _has_resolved_output_schema(output_schema)
 	allowed_return_types = []
 	default_return_type = None
 	field_labels = {}
 	show_return_type = True
 	require_return_type = False
-	require_return_variable = False
+	supports_return_schema = contract_v2_policy.get("supports_return_schema")
+	if supports_return_schema is None:
+		supports_return_schema = has_populated_output_schema
+	has_operation_output_schema = contract_v2_policy.get("has_operation_output_schema")
+	if has_operation_output_schema is None:
+		has_operation_output_schema = has_populated_output_schema
 
-	if output_schema:
+	if has_populated_output_schema:
 		try:
 			schema = json.loads(output_schema) if isinstance(output_schema, str) else output_schema
 			if isinstance(schema, dict):
@@ -141,19 +171,26 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 		except Exception:
 			pass
 
-	if writes_to == "Context":
-		require_return_variable = True
-
 	writes_vars = process_operation.get("writes_vars")
-	try:
-		parsed_writes_vars = json.loads(writes_vars) if isinstance(writes_vars, str) else writes_vars
-		if isinstance(parsed_writes_vars, list) and parsed_writes_vars:
-			require_return_variable = True
-	except Exception:
-		pass
+	has_populated_writes_vars = False
+	if writes_vars:
+		try:
+			parsed_writes_vars = json.loads(writes_vars) if isinstance(writes_vars, str) else writes_vars
+			if isinstance(parsed_writes_vars, list):
+				for v in parsed_writes_vars:
+					if isinstance(v, str) and bool(v.strip()):
+						has_populated_writes_vars = True
+						break
+					elif isinstance(v, Mapping):
+						fname = v.get("fieldname")
+						if isinstance(fname, str) and bool(fname.strip()):
+							has_populated_writes_vars = True
+							break
+		except Exception:
+			pass
 
-	if output_schema:
-		require_return_variable = True
+	has_genuine_write = writes_to == "Context" or has_populated_writes_vars
+	require_return_variable = has_genuine_write
 
 	if not allowed_return_types:
 		allowed_return_types = [
@@ -173,6 +210,9 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 	policy["show_return_type"] = show_return_type
 	policy["require_return_type"] = require_return_type
 	policy["require_return_variable"] = require_return_variable
+	policy["supports_return_schema"] = supports_return_schema
+	policy["has_operation_output_schema"] = has_operation_output_schema
+	policy["has_genuine_write"] = has_genuine_write
 	if field_labels:
 		policy["field_labels"] = field_labels
 
@@ -187,6 +227,9 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 			if key == "field_labels":
 				continue
 			policy[key] = value
+
+	if has_genuine_write:
+		policy["require_return_variable"] = True
 
 	return policy
 

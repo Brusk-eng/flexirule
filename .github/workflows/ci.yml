@@ -249,6 +249,7 @@ jobs:
         env:
           TYPE: server
 
+
   tests_frappe_16_nested_set:
     needs: changes
     # Frappe 16 compatibility is an opt-in validation run, not a required PR/push check.

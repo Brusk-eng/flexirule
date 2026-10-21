@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -156,10 +157,13 @@ def _normalize_policy(
 	policy: dict[str, Any],
 	capabilities: dict[str, Any],
 	process_operation: dict[str, Any],
+	resolved_result_schema: Any = None,
 ) -> dict[str, Any]:
 	writes_to = str(capabilities.get("writes_to") or process_operation.get("writes_to") or "None")
 	allowed_mutations = policy.get("allowed_mutations")
-	if not isinstance(allowed_mutations, list) or not allowed_mutations:
+	# An explicit empty list means this operation permits no mutation modes.
+	# Defaults apply only when the field is absent or has an invalid type.
+	if "allowed_mutations" not in policy or not isinstance(allowed_mutations, list):
 		allowed_mutations = DEFAULT_ALLOWED_MUTATIONS_BY_WRITE_TARGET.get(
 			writes_to, DEFAULT_ALLOWED_MUTATIONS_BY_WRITE_TARGET["None"]
 		)
@@ -179,13 +183,56 @@ def _normalize_policy(
 	if not allowed_mutation_targets_list:
 		allowed_mutation_targets_list = list(allowed_mutations_list)
 
+	# The resolver's v2 result_schema is canonical. In particular, an
+	# explicitly empty canonical schema must not silently fall back to legacy
+	# output_schema metadata.
+	if resolved_result_schema is None:
+		result_schema = process_operation.get("output_schema") or policy.get("result_schema")
+	else:
+		result_schema = resolved_result_schema
+	from flexirule.ruleflow.core.contract_utils import _has_resolved_output_schema
+
+	has_populated = _has_resolved_output_schema(result_schema)
+
+	supports_return_schema = policy.get("supports_return_schema")
+	if supports_return_schema is None:
+		supports_return_schema = has_populated
+
+	has_operation_output_schema = policy.get("has_operation_output_schema")
+	if has_operation_output_schema is None:
+		has_operation_output_schema = has_populated
+
+	writes_vars = process_operation.get("writes_vars")
+	has_populated_writes_vars = False
+	if writes_vars:
+		try:
+			parsed_writes_vars = json.loads(writes_vars) if isinstance(writes_vars, str) else writes_vars
+			if isinstance(parsed_writes_vars, list):
+				for v in parsed_writes_vars:
+					if isinstance(v, str) and bool(v.strip()):
+						has_populated_writes_vars = True
+						break
+					elif isinstance(v, Mapping):
+						fname = v.get("fieldname")
+						if isinstance(fname, str) and bool(fname.strip()):
+							has_populated_writes_vars = True
+							break
+		except Exception:
+			pass
+
+	has_genuine_write = writes_to == "Context" or has_populated_writes_vars
+	require_ret_var = bool(policy.get("require_return_variable")) or has_genuine_write
+
 	normalized = {
 		"allowed_mutations": allowed_mutations_list,
 		"allowed_return_types": allowed_return_types_list,
 		"default_return_type": policy.get("default_return_type"),
-		"require_return_variable": bool(policy.get("require_return_variable")),
+		"require_return_variable": require_ret_var,
 		"require_return_type": bool(policy.get("require_return_type")),
 		"allowed_mutation_targets": allowed_mutation_targets_list,
+		"supports_return_schema": bool(supports_return_schema),
+		"has_operation_output_schema": bool(has_operation_output_schema),
+		"has_genuine_write": has_genuine_write,
 	}
 
 	return normalized
@@ -260,7 +307,7 @@ def resolve_process_operation_contract_v2(
 		)
 
 	capabilities = _normalize_capabilities(process_operation, capabilities)
-	policy = _normalize_policy(policy, capabilities, process_operation)
+	policy = _normalize_policy(policy, capabilities, process_operation, result_schema)
 
 	return {
 		"version": PROCESS_CONTRACT_V2_VERSION,
