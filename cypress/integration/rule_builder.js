@@ -335,7 +335,7 @@ describe("FlexiRule UI Test Suite", () => {
 				});
 				expect(backendValidation.message?.valid).to.equal(false);
 				expect((backendValidation.message?.errors || []).join("\\n")).to.match(
-					/ Missing Return Variable Process .*Return Variable Name/i
+					/Missing Return Variable Process .*Return Variable Name/i
 				);
 			});
 
