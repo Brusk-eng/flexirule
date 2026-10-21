@@ -387,6 +387,94 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		policy = infer_process_operation_policy(op_with_override)
 		self.assertFalse(policy.get("supports_return_schema"))
 
+	def test_v2_canonical_result_schema_drives_policy_and_return_variable_validation(self):
+		import json
+
+		from flexirule.ruleflow.core.contracts import infer_process_operation_policy
+		from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
+
+		op_meta = {
+			"writes_to": "None",
+			"writes_vars": "[]",
+			# Legacy metadata is intentionally empty; only the canonical v2 schema
+			# declares the operation's output contract.
+			"output_schema": "{}",
+			"action_overrides": json.dumps(
+				{
+					"contract_v2": {
+						"adapter_key": "lookup",
+						"capabilities": {"writes_to": "None"},
+						"policy": {},
+						"config_schema": {"type": "object"},
+						"result_schema": {
+							"type": "object",
+							"properties": {"id": {"type": "string"}},
+						},
+					},
+				}
+			),
+		}
+		contract = resolve_process_operation_contract_v2("SampleProc", "canonical_schema", op_meta)
+		self.assertTrue(contract["policy"]["supports_return_schema"])
+		self.assertTrue(contract["policy"]["has_operation_output_schema"])
+
+		inferred_policy = infer_process_operation_policy(op_meta)
+		self.assertTrue(inferred_policy["supports_return_schema"])
+		self.assertTrue(inferred_policy["has_operation_output_schema"])
+
+		action = {
+			"action_type": "Process",
+			"process_name": "SampleProc",
+			"operation": "canonical_schema",
+			"action_label": "Canonical Schema Process",
+			"config": "{}",
+			"return_type": None,
+			"return_variable": None,
+			"mutation_mode": None,
+			"resolved_output_schema": "[]",
+		}
+		errors: list[str] = []
+		_validate_action_contracts(
+			action,
+			"Process",
+			"Canonical Schema Process",
+			operation_metadata={"SampleProc:canonical_schema": op_meta},
+			errors=errors,
+			mode="draft",
+		)
+		self.assertTrue(
+			any("requires Return Variable Name for Return Schema" in error for error in errors),
+			errors,
+		)
+
+	def test_v2_explicit_false_schema_flags_are_not_overridden_by_canonical_schema(self):
+		import json
+
+		from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
+
+		op_meta = {
+			"writes_to": "None",
+			"writes_vars": "[]",
+			"output_schema": "{}",
+			"action_overrides": json.dumps(
+				{
+					"contract_v2": {
+						"adapter_key": "lookup",
+						"capabilities": {"writes_to": "None"},
+						"policy": {
+							"supports_return_schema": False,
+							"has_operation_output_schema": False,
+						},
+						"config_schema": {"type": "object"},
+						"result_schema": {"type": "boolean"},
+					}
+				}
+			),
+		}
+		contract = resolve_process_operation_contract_v2("SampleProc", "explicit_false", op_meta)
+		self.assertFalse(contract["policy"]["supports_return_schema"])
+		self.assertFalse(contract["policy"]["has_operation_output_schema"])
+
 	def test_type_only_json_schemas_are_populated(self):
 		from flexirule.ruleflow.core.contract_utils import _has_resolved_output_schema
 
