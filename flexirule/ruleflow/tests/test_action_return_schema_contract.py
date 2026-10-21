@@ -95,3 +95,151 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		self.assertIn("Sub-Rule", dto["action_types_with_return_schema"])
 		self.assertNotIn("Condition", dto["action_types_with_return_schema"])
 		self.assertNotIn("Assignment", dto["action_types_with_return_schema"])
+
+	def test_has_resolved_output_schema_all_empty_and_populated_representations(self):
+		from typing import Any
+
+		from flexirule.ruleflow.core.contract_utils import _has_resolved_output_schema
+
+		empty_cases: list[Any] = [
+			None,
+			"",
+			"   ",
+			"null",
+			"[]",
+			"{}",
+			[],
+			{},
+			{"fields": []},
+			{"properties": {}},
+			[{"fieldname": ""}],
+			[{"fieldname": "   "}],
+			{"fields": [{"fieldname": ""}]},
+			"invalid json {",
+			{"foo": "bar"},
+		]
+		for empty_case in empty_cases:
+			with self.subTest(case=empty_case):
+				self.assertFalse(
+					_has_resolved_output_schema(empty_case), f"Expected False for {empty_case!r}"
+				)
+
+		populated_cases: list[Any] = [
+			[{"fieldname": "name"}],
+			'[{"fieldname": "name"}]',
+			{"fields": [{"fieldname": "name"}]},
+			{"properties": {"qty": {"type": "integer"}}},
+			'{"type": "object", "properties": {"qty": {"type": "integer"}}}',
+		]
+		for pop_case in populated_cases:
+			with self.subTest(case=pop_case):
+				self.assertTrue(_has_resolved_output_schema(pop_case), f"Expected True for {pop_case!r}")
+
+	def test_operation_level_override_supports_return_schema_disabled(self):
+		errors = self._validate_action(
+			"Query Records",
+			operation="Exist Record",
+			return_type="Yes / No",
+			resolved_output_schema='[{"fieldname": "name"}]',
+		)
+		self.assertFalse(
+			any("requires Return Variable Name for Return Schema" in error for error in errors),
+			errors,
+		)
+
+	def test_yes_no_return_type_does_not_require_return_variable_without_schema(self):
+		errors = self._validate_action(
+			"Query Records",
+			operation="Fetch Records",
+			return_type="Yes / No",
+			resolved_output_schema="[]",
+		)
+		self.assertFalse(
+			any("requires Return Variable Name for Return Schema" in error for error in errors),
+			errors,
+		)
+
+	def test_disallowed_mutation_mode_does_not_create_false_positive_return_variable_requirement(self):
+		errors = self._validate_action(
+			"Query Records",
+			operation="Fetch Records",
+			mutation_mode="Batch Database Set",
+			return_variable=None,
+		)
+		self.assertTrue(
+			any("does not allow mutation mode 'Batch Database Set'" in error for error in errors),
+			errors,
+		)
+		self.assertFalse(
+			any("requires Return Variable Name when Mutation Mode is set" in error for error in errors),
+			errors,
+		)
+
+	def test_permitted_mutation_mode_requires_return_variable(self):
+		errors = self._validate_action(
+			"Query Records",
+			operation="Fetch Records",
+			mutation_mode="Set Context Variable",
+			return_variable=None,
+		)
+		self.assertTrue(
+			any("requires Return Variable Name when Mutation Mode is set" in error for error in errors),
+			errors,
+		)
+
+	def test_process_operation_policy_inference_empty_vs_populated(self):
+		from flexirule.ruleflow.core.contracts import infer_process_operation_policy
+
+		empty_op = {
+			"writes_to": "None",
+			"writes_vars": "[]",
+			"output_schema": "{}",
+		}
+		policy = infer_process_operation_policy(empty_op)
+		self.assertFalse(policy.get("require_return_variable"))
+		self.assertFalse(policy.get("supports_return_schema"))
+
+		context_op = {
+			"writes_to": "Context",
+			"writes_vars": "[]",
+			"output_schema": "{}",
+		}
+		policy = infer_process_operation_policy(context_op)
+		self.assertTrue(policy.get("require_return_variable"))
+
+		vars_op = {
+			"writes_to": "None",
+			"writes_vars": '[{"fieldname": "target_var"}]',
+			"output_schema": "{}",
+		}
+		policy = infer_process_operation_policy(vars_op)
+		self.assertTrue(policy.get("require_return_variable"))
+
+		schema_op = {
+			"writes_to": "None",
+			"writes_vars": "[]",
+			"output_schema": '{"type": "object", "properties": {"qty": {"type": "integer"}}}',
+		}
+		policy = infer_process_operation_policy(schema_op)
+		self.assertTrue(policy.get("supports_return_schema"))
+		self.assertFalse(policy.get("require_return_variable"))
+
+	def test_contradictory_explicit_policy_overrides_inferred_schema(self):
+		from flexirule.ruleflow.core.contracts import infer_process_operation_policy
+
+		op_with_override = {
+			"writes_to": "None",
+			"writes_vars": "[]",
+			"output_schema": '{"type": "object", "properties": {"qty": {"type": "integer"}}}',
+			"action_overrides": '{"policy": {"supports_return_schema": false}}',
+		}
+		policy = infer_process_operation_policy(op_with_override)
+		self.assertFalse(policy.get("supports_return_schema"))
+
+	def test_dto_consistency_for_return_schema_action_types(self):
+		dto = ContractDTOBuilder.build()
+		expected_types = {"Query Records", "Document Action", "Process", "Sub-Rule"}
+		for action_type in expected_types:
+			self.assertIn(action_type, dto["action_types_with_return_schema"])
+		for non_schema_type in ("Condition", "Entry Action", "Assignment", "Stop"):
+			self.assertNotIn(non_schema_type, dto["action_types_with_return_schema"])

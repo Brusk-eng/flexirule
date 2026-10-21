@@ -28,6 +28,7 @@ from jsonschema import validate as jsonschema_validate
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 from flexirule.ruleflow.core.condition_payload import get_condition_payload
+from flexirule.ruleflow.core.contract_utils import _has_resolved_output_schema
 from flexirule.ruleflow.core.contracts import (
 	get_contract,
 	get_effective_action_policy,
@@ -271,16 +272,6 @@ def _validate_action_json(action, action_label: str, errors: list[str]) -> None:
 		_validate_json_value(output_mapping, _("Action {0}: Output Mapping").format(action_label), errors)
 
 
-def _has_resolved_output_schema(value) -> bool:
-	"""Return whether a serialized resolved-output schema contains real fields."""
-	schema = _parse_json_value(value, [])
-	if isinstance(schema, Mapping):
-		return bool(schema.get("fields") or schema.get("properties"))
-	if isinstance(schema, list | tuple):
-		return any(isinstance(field, Mapping) and not _is_empty(field.get("fieldname")) for field in schema)
-	return False
-
-
 def _validate_action_contracts(
 	action,
 	action_type: str,
@@ -372,9 +363,13 @@ def _validate_action_contracts(
 				)
 
 	mutation_mode = _safe_get(action, "mutation_mode")
+	mutation_mode_permitted = False
 	if mutation_mode:
-		allowed_mutations = effective_policy.get("allowed_mutations") or contract.get("allowed_mutations")
-		if allowed_mutations and mutation_mode not in allowed_mutations:
+		allowed_mutations = effective_policy.get("allowed_mutations")
+		if allowed_mutations is None:
+			allowed_mutations = contract.get("allowed_mutations") or []
+
+		if mutation_mode not in allowed_mutations:
 			errors.append(
 				_("Action '{0}' ({1}/{2}) does not allow mutation mode '{3}'").format(
 					action_label,
@@ -383,32 +378,59 @@ def _validate_action_contracts(
 					mutation_mode,
 				)
 			)
-
-		if allowed_mutations and _is_empty(_safe_get(action, "return_variable")):
-			errors.append(
-				_("Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set").format(
-					action_label, action_type
-				)
-			)
+		else:
+			mutation_mode_permitted = True
 
 	show_return_type = effective_policy.get("show_return_type")
 	if show_return_type is None:
 		show_return_type = contract.get("show_return_type", True)
 	return_type = _safe_get(action, "return_type")
+
 	supports_return_schema = bool(
 		effective_policy.get("supports_return_schema", contract.get("supports_return_schema", False))
 	)
+	produces_result = effective_policy.get("produces_result")
+	if produces_result is None:
+		produces_result = contract.get("produces_result", True)
+
 	has_resolved_output_schema = _has_resolved_output_schema(_safe_get(action, "resolved_output_schema"))
-	if (
+	return_variable = _safe_get(action, "return_variable")
+
+	schema_requires_return_var = (
 		supports_return_schema
-		and ((show_return_type and not _is_empty(return_type)) or has_resolved_output_schema)
-		and _is_empty(_safe_get(action, "return_variable"))
-	):
-		errors.append(
-			_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
-				action_label, action_type
-			)
+		and bool(produces_result)
+		and (
+			(show_return_type and not _is_empty(return_type) and return_type != "Yes / No")
+			or has_resolved_output_schema
 		)
+	)
+
+	explicit_require_return_var = bool(effective_policy.get("require_return_variable"))
+	mutation_requires_return_var = mutation_mode_permitted
+
+	if _is_empty(return_variable) and (
+		explicit_require_return_var or mutation_requires_return_var or schema_requires_return_var
+	):
+		if explicit_require_return_var:
+			errors.append(
+				_("Action '{0}' ({1}/{2}) requires Return Variable Name").format(
+					action_label,
+					action_type,
+					operation or _("default"),
+				)
+			)
+		elif mutation_requires_return_var:
+			errors.append(
+				_("Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set").format(
+					action_label, action_type
+				)
+			)
+		else:
+			errors.append(
+				_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
+					action_label, action_type
+				)
+			)
 
 	allowed_return_types = effective_policy.get("allowed_return_types") or []
 
@@ -428,17 +450,6 @@ def _validate_action_contracts(
 				action_type,
 				operation or _("default"),
 				return_type,
-			)
-		)
-
-	if bool(effective_policy.get("require_return_variable")) and _is_empty(
-		_safe_get(action, "return_variable")
-	):
-		errors.append(
-			_("Action '{0}' ({1}/{2}) requires Return Variable Name").format(
-				action_label,
-				action_type,
-				operation or _("default"),
 			)
 		)
 

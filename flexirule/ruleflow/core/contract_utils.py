@@ -11,6 +11,7 @@ and action type normalization logic.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Any
 
 # Trigger Type Contract
@@ -224,3 +225,46 @@ def is_release_disabled_action(action_type: str) -> bool:
 	"""Check if an action type is intentionally disabled for the current release."""
 	action_type = normalize_action_type(action_type)
 	return action_type in RELEASE_DISABLED_ACTION_TYPES
+
+
+def _has_resolved_output_schema(value: Any) -> bool:
+	"""Return whether a serialized or raw resolved-output schema contains real fields or properties.
+
+	Empty forms such as None, "", whitespace, "null", "[]", "{}", {"fields": []},
+	{"properties": {}}, field lists without non-whitespace fieldnames (e.g. [{"fieldname": " "}]),
+	malformed JSON, or unrecognized dict shapes return False.
+	"""
+	if value is None:
+		return False
+	if isinstance(value, str):
+		stripped = value.strip()
+		if not stripped or stripped in ("null", "[]", "{}"):
+			return False
+		try:
+			schema = json.loads(stripped)
+		except Exception:
+			return False
+	else:
+		schema = value
+
+	if isinstance(schema, list | tuple):
+		for field in schema:
+			if isinstance(field, Mapping):
+				fname = field.get("fieldname")
+				if isinstance(fname, str) and bool(fname.strip()):
+					return True
+
+	if isinstance(schema, Mapping):
+		fields_val = schema.get("fields")
+		if isinstance(fields_val, list | tuple):
+			for field in fields_val:
+				if isinstance(field, Mapping):
+					fname = field.get("fieldname")
+					if isinstance(fname, str) and bool(fname.strip()):
+						return True
+
+		props_val = schema.get("properties")
+		if isinstance(props_val, Mapping) and len(props_val) > 0:
+			return True
+
+	return False

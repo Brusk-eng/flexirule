@@ -11,6 +11,7 @@ Maintains absolute backward compatibility for all imports and function signature
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Any
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
@@ -21,6 +22,7 @@ from flexirule.ruleflow.core.contract_utils import (
 	RETURN_TYPE_OPTIONS,
 	RUNTIME_FIELD_ALIASES,
 	TRIGGER_TYPE_CONTRACT,
+	_has_resolved_output_schema,
 	apply_field_overrides,
 	get_process_operation_overrides,
 	get_trigger_type_contract,
@@ -102,14 +104,15 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 		]
 
 	output_schema = process_operation.get("output_schema")
+	has_populated_output_schema = _has_resolved_output_schema(output_schema)
 	allowed_return_types = []
 	default_return_type = None
 	field_labels = {}
 	show_return_type = True
 	require_return_type = False
-	require_return_variable = False
+	supports_return_schema = has_populated_output_schema
 
-	if output_schema:
+	if has_populated_output_schema:
 		try:
 			schema = json.loads(output_schema) if isinstance(output_schema, str) else output_schema
 			if isinstance(schema, dict):
@@ -141,19 +144,25 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 		except Exception:
 			pass
 
-	if writes_to == "Context":
-		require_return_variable = True
-
 	writes_vars = process_operation.get("writes_vars")
-	try:
-		parsed_writes_vars = json.loads(writes_vars) if isinstance(writes_vars, str) else writes_vars
-		if isinstance(parsed_writes_vars, list) and parsed_writes_vars:
-			require_return_variable = True
-	except Exception:
-		pass
+	has_populated_writes_vars = False
+	if writes_vars:
+		try:
+			parsed_writes_vars = json.loads(writes_vars) if isinstance(writes_vars, str) else writes_vars
+			if isinstance(parsed_writes_vars, list):
+				for v in parsed_writes_vars:
+					if isinstance(v, str) and bool(v.strip()):
+						has_populated_writes_vars = True
+						break
+					elif isinstance(v, Mapping):
+						fname = v.get("fieldname")
+						if isinstance(fname, str) and bool(fname.strip()):
+							has_populated_writes_vars = True
+							break
+		except Exception:
+			pass
 
-	if output_schema:
-		require_return_variable = True
+	require_return_variable = writes_to == "Context" or has_populated_writes_vars
 
 	if not allowed_return_types:
 		allowed_return_types = [
@@ -173,6 +182,7 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 	policy["show_return_type"] = show_return_type
 	policy["require_return_type"] = require_return_type
 	policy["require_return_variable"] = require_return_variable
+	policy["supports_return_schema"] = supports_return_schema
 	if field_labels:
 		policy["field_labels"] = field_labels
 
