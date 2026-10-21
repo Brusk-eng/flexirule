@@ -77,6 +77,21 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 
 	process_overrides = get_process_operation_overrides(process_operation)
 
+	raw_action_overrides = process_operation.get("action_overrides")
+	if isinstance(raw_action_overrides, str):
+		try:
+			raw_action_overrides = json.loads(raw_action_overrides)
+		except (TypeError, ValueError):
+			raw_action_overrides = {}
+	if not isinstance(raw_action_overrides, dict):
+		raw_action_overrides = {}
+	contract_v2 = raw_action_overrides.get("contract_v2")
+	if not isinstance(contract_v2, dict):
+		contract_v2 = {}
+	contract_v2_policy = contract_v2.get("policy")
+	if not isinstance(contract_v2_policy, dict):
+		contract_v2_policy = {}
+
 	writes_to = (process_operation.get("writes_to") or "None").strip()
 	if writes_to == "Document":
 		policy["allowed_mutations"] = [
@@ -103,14 +118,26 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 			"Update Context Variable",
 		]
 
-	output_schema = process_operation.get("output_schema")
+	# Prefer the canonical v2 result schema when it is declared, even if the
+	# legacy output_schema field is empty. Fall back to legacy metadata only
+	# when v2 does not provide the result_schema key.
+	output_schema = (
+		contract_v2.get("result_schema")
+		if "result_schema" in contract_v2
+		else process_operation.get("output_schema")
+	)
 	has_populated_output_schema = _has_resolved_output_schema(output_schema)
 	allowed_return_types = []
 	default_return_type = None
 	field_labels = {}
 	show_return_type = True
 	require_return_type = False
-	supports_return_schema = has_populated_output_schema
+	supports_return_schema = contract_v2_policy.get("supports_return_schema")
+	if supports_return_schema is None:
+		supports_return_schema = has_populated_output_schema
+	has_operation_output_schema = contract_v2_policy.get("has_operation_output_schema")
+	if has_operation_output_schema is None:
+		has_operation_output_schema = has_populated_output_schema
 
 	if has_populated_output_schema:
 		try:
@@ -184,7 +211,7 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 	policy["require_return_type"] = require_return_type
 	policy["require_return_variable"] = require_return_variable
 	policy["supports_return_schema"] = supports_return_schema
-	policy["has_operation_output_schema"] = has_populated_output_schema
+	policy["has_operation_output_schema"] = has_operation_output_schema
 	policy["has_genuine_write"] = has_genuine_write
 	if field_labels:
 		policy["field_labels"] = field_labels
