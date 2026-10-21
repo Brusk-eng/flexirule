@@ -872,6 +872,11 @@ function suggestReturnVariableName(nodeData = {}) {
 	return base || "result";
 }
 
+export function isMutationModeAllowed(mutationMode, allowedMutations) {
+	if (!mutationMode) return true;
+	return Array.isArray(allowedMutations) && allowedMutations.includes(mutationMode);
+}
+
 export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 	if (!nodeData || !nodeData.action_type) return false;
 	const preserveUserChoices = opts.preserveUserChoices !== false;
@@ -900,8 +905,7 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 
 	if (
 		nodeData.mutation_mode &&
-		(!!mutationState.hidden ||
-			(allowedMutations.length && !allowedMutations.includes(nodeData.mutation_mode)))
+		(!!mutationState.hidden || !isMutationModeAllowed(nodeData.mutation_mode, allowedMutations))
 	) {
 		nodeData.mutation_mode = null;
 		changed = true;
@@ -1034,7 +1038,7 @@ export function validateAgainstContract(nodeData) {
 	// 4. Output/Mutation Policies
 	if (nodeData.mutation_mode) {
 		const allowed = policy.allowed_mutations || [];
-		if (Array.isArray(allowed) && allowed.length && !allowed.includes(nodeData.mutation_mode)) {
+		if (!isMutationModeAllowed(nodeData.mutation_mode, allowed)) {
 			errors.push(
 				__("Mutation mode '{0}' is not allowed for {1}", [
 					nodeData.mutation_mode,
