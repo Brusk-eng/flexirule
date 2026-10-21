@@ -1154,21 +1154,10 @@ export function hasDynamicFields(actionType) {
 	return getContract(actionType).dynamic_fields || false;
 }
 
-if (typeof window !== "undefined") {
-	if (window.frappe?.provide) {
-		window.frappe.provide("flexirule.contracts");
-	} else {
-		window.flexirule = window.flexirule || {};
-		window.flexirule.contracts = window.flexirule.contracts || {};
-	}
-	Object.assign(window.flexirule.contracts, {
-		hasResolvedOutputSchema,
-		requiresReturnVariable,
-		validateAgainstContract,
-		getEffectiveActionPolicy,
-		getContract,
-		normalizeActionType,
-	});
-}
+// Do not attach exports to `window.flexirule.contracts` from this module.
+// The application entry bundle publishes the module namespace. That namespace
+// has getter-only exports and can already be present when this module is included
+// in another Frappe bundle, so mutating it with Object.assign would throw.
+
 
 export default ACTION_TYPE_CONTRACT;
