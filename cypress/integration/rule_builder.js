@@ -385,9 +385,10 @@ describe("FlexiRule UI Test Suite", () => {
 						)
 						.join("\\n");
 				}
-				expect(serverSaveError, "backend Rule save rejects the same missing return variable").to.match(
-					/Return Variable Name/i
-				);
+				expect(
+					serverSaveError,
+					"backend Rule save rejects the same missing return variable"
+				).to.match(/Return Variable Name/i);
 			});
 
 			cy.window().then((win) => {
