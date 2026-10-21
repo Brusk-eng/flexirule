@@ -444,6 +444,111 @@ export function getMutationModeOptions() {
 
 // ── Policy helpers ────────────────────────────────────────────────────────────
 
+export function hasResolvedOutputSchema(value) {
+	if (value == null || value === "") return false;
+	let schema = value;
+	if (typeof schema === "string") {
+		const trimmed = schema.trim();
+		if (
+			!trimmed ||
+			trimmed === "null" ||
+			trimmed === "[]" ||
+			trimmed === "{}" ||
+			trimmed === '""'
+		) {
+			return false;
+		}
+		try {
+			schema = JSON.parse(trimmed);
+		} catch (_e) {
+			return false;
+		}
+	}
+	if (!schema || typeof schema !== "object") return false;
+
+	if (Array.isArray(schema)) {
+		if (schema.length === 0) return false;
+		return schema.some(
+			(field) =>
+				field &&
+				typeof field === "object" &&
+				!Array.isArray(field) &&
+				typeof field.fieldname === "string" &&
+				field.fieldname.trim().length > 0
+		);
+	}
+
+	if (Array.isArray(schema.fields)) {
+		return hasResolvedOutputSchema(schema.fields);
+	}
+	if (
+		schema.properties &&
+		typeof schema.properties === "object" &&
+		!Array.isArray(schema.properties)
+	) {
+		return Object.keys(schema.properties).length > 0;
+	}
+
+	return false;
+}
+
+export function requiresReturnVariable(nodeData, ctx = {}) {
+	if (!nodeData || !nodeData.action_type) return false;
+
+	const actionType = normalizeActionType(nodeData.action_type);
+	if (!actionType) return false;
+
+	const effectiveCtx = {
+		operation: nodeData.operation || ctx.operation,
+		processName: nodeData.process_name || ctx.processName,
+	};
+
+	const contract = getContract(actionType);
+	const policy = getEffectiveActionPolicy(actionType, effectiveCtx);
+
+	if (policy.require_return_variable) {
+		return true;
+	}
+
+	const mutationMode = nodeData.mutation_mode;
+	if (mutationMode) {
+		const allowedMutations = policy.allowed_mutations || contract.allowed_mutations || [];
+		if (allowedMutations.length > 0 && allowedMutations.includes(mutationMode)) {
+			return true;
+		}
+	}
+
+	if (policy.produces_result === false) {
+		return false;
+	}
+
+	const supportsReturnSchema =
+		policy.supports_return_schema !== undefined
+			? policy.supports_return_schema
+			: contract.supports_return_schema !== undefined
+			? contract.supports_return_schema
+			: ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType);
+
+	if (supportsReturnSchema) {
+		const showReturnType =
+			policy.show_return_type !== undefined
+				? policy.show_return_type
+				: contract.show_return_type !== false;
+
+		const returnType = nodeData.return_type;
+		const hasValidReturnType =
+			showReturnType && Boolean(returnType) && returnType !== "Yes / No";
+
+		const hasSchema = hasResolvedOutputSchema(nodeData.resolved_output_schema);
+
+		if (hasValidReturnType || hasSchema) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 function mergePolicy(basePolicy = {}, overridePolicy = {}) {
 	const merged = {
 		...(basePolicy || {}),
@@ -783,11 +888,7 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 		changed = true;
 	}
 
-	const needsReturnVariable =
-		!!nodeData.mutation_mode ||
-		(nodeData.return_type && nodeData.return_type !== "Yes / No") ||
-		!!nodeData.resolved_output_schema ||
-		!!policy.require_return_variable;
+	const needsReturnVariable = requiresReturnVariable(nodeData, ctx);
 
 	if (returnVarState.hidden && nodeData.return_variable) {
 		nodeData.return_variable = null;
@@ -898,9 +999,6 @@ export function validateAgainstContract(nodeData) {
 				])
 			);
 		}
-		if (!nodeData.return_variable) {
-			errors.push(__("Mutation Mode requires a Return Variable Name"));
-		}
 	}
 
 	if (nodeData.return_type) {
@@ -920,17 +1018,14 @@ export function validateAgainstContract(nodeData) {
 		errors.push(__("Return type is required for this operation"));
 	}
 
-	if (policy.require_return_variable && !nodeData.return_variable) {
-		errors.push(__("Return Variable Name is required for this operation"));
-	}
-
-	const showReturnType = policy.show_return_type !== false;
 	if (
-		((showReturnType && nodeData.return_type && nodeData.return_type !== "Yes / No") ||
-			nodeData.resolved_output_schema) &&
+		requiresReturnVariable(nodeData, {
+			operation: nodeData.operation,
+			processName: nodeData.process_name,
+		}) &&
 		!nodeData.return_variable
 	) {
-		errors.push(__("Return Schema requires a Return Variable Name"));
+		errors.push(__("Return Variable Name is required for this operation"));
 	}
 
 	// 5. Action-specific deep validation (Policy & Contract based)
@@ -1057,6 +1152,23 @@ export function getActionTypeOptions() {
  */
 export function hasDynamicFields(actionType) {
 	return getContract(actionType).dynamic_fields || false;
+}
+
+if (typeof window !== "undefined") {
+	if (window.frappe?.provide) {
+		window.frappe.provide("flexirule.contracts");
+	} else {
+		window.flexirule = window.flexirule || {};
+		window.flexirule.contracts = window.flexirule.contracts || {};
+	}
+	Object.assign(window.flexirule.contracts, {
+		hasResolvedOutputSchema,
+		requiresReturnVariable,
+		validateAgainstContract,
+		getEffectiveActionPolicy,
+		getContract,
+		normalizeActionType,
+	});
 }
 
 export default ACTION_TYPE_CONTRACT;
