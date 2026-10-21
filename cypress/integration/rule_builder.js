@@ -164,5 +164,4 @@ describe("FlexiRule UI Test Suite", () => {
 			cy.get(".config-modal-container").should("not.exist");
 		});
 	});
-
 });
