@@ -526,8 +526,8 @@ export function requiresReturnVariable(nodeData, ctx = {}) {
 		policy.supports_return_schema !== undefined
 			? policy.supports_return_schema
 			: contract.supports_return_schema !== undefined
-				? contract.supports_return_schema
-				: ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType);
+			? contract.supports_return_schema
+			: ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType);
 
 	if (supportsReturnSchema) {
 		const showReturnType =

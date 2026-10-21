@@ -123,7 +123,9 @@ const returnVarErrors = validation.errors.filter((e) =>
 assert.equal(
 	returnVarErrors.length,
 	1,
-	`Expected 1 return variable error, got ${returnVarErrors.length}: ${JSON.stringify(validation.errors)}`
+	`Expected 1 return variable error, got ${returnVarErrors.length}: ${JSON.stringify(
+		validation.errors
+	)}`
 );
 
 console.log("All contract unit tests passed!");
