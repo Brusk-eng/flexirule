@@ -393,9 +393,7 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		for schema_type in ("boolean", "array", "string", "number", "integer"):
 			with self.subTest(schema_type=schema_type):
 				self.assertTrue(_has_resolved_output_schema({"type": schema_type}))
-				self.assertTrue(
-					_has_resolved_output_schema('{"type": "' + schema_type + '"}')
-				)
+				self.assertTrue(_has_resolved_output_schema('{"type": "' + schema_type + '"}'))
 
 		for invalid_schema in (
 			{"type": "unknown"},
