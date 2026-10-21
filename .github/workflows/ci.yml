@@ -253,7 +253,9 @@ jobs:
         working-directory: /home/runner/frappe-bench
         timeout-minutes: 20
         run: |
-          bench build --app flexirule --production
+          # Bench was initialized with --skip-assets. Build all installed app
+          # assets so the Frappe Desk (navbar and builder shell) is available.
+          bench build --production
 
           cd apps/flexirule
           npx cypress install
