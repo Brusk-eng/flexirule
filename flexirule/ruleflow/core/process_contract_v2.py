@@ -160,7 +160,9 @@ def _normalize_policy(
 ) -> dict[str, Any]:
 	writes_to = str(capabilities.get("writes_to") or process_operation.get("writes_to") or "None")
 	allowed_mutations = policy.get("allowed_mutations")
-	if not isinstance(allowed_mutations, list) or not allowed_mutations:
+	# An explicit empty list means this operation permits no mutation modes.
+	# Defaults apply only when the field is absent or has an invalid type.
+	if "allowed_mutations" not in policy or not isinstance(allowed_mutations, list):
 		allowed_mutations = DEFAULT_ALLOWED_MUTATIONS_BY_WRITE_TARGET.get(
 			writes_to, DEFAULT_ALLOWED_MUTATIONS_BY_WRITE_TARGET["None"]
 		)
