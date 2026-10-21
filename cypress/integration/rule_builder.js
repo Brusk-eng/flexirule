@@ -214,6 +214,30 @@ describe("FlexiRule UI Test Suite", () => {
 					contracts.isMutationModeAllowed("Set Context Variable", ["Set Context Variable"])
 				).to.equal(true);
 				expect(contracts.isMutationModeAllowed(null, [])).to.equal(true);
+
+				// Exercise the real normalizer and validator against a Process
+				// contract whose mutation allowlist is explicitly empty.
+				const processContract = contracts.ACTION_TYPE_CONTRACT?.Process;
+				expect(processContract, "backend-provided Process contract").to.exist;
+				const originalAllowedMutations = processContract.allowed_mutations;
+				processContract.allowed_mutations = [];
+				try {
+					const invalidAction = {
+						action_type: "Process",
+						process_name: "__missing_test_process__",
+						operation: "__empty_mutation_allowlist_test__",
+						mutation_mode: "Set Context Variable",
+						return_variable: "result",
+					};
+					const result = contracts.validateAgainstContract(invalidAction);
+					expect(result.valid).to.equal(false);
+					expect(result.errors.join("\\n")).to.match(/Mutation mode .* is not allowed for Process/i);
+
+					contracts.applyOutputPolicyDefaults(invalidAction, { preserveUserChoices: true });
+					expect(invalidAction.mutation_mode).to.equal(null);
+				} finally {
+					processContract.allowed_mutations = originalAllowedMutations;
+				}
 			});
 		});
 	});
