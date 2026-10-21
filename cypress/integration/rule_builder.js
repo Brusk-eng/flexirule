@@ -164,4 +164,35 @@ describe("FlexiRule UI Test Suite", () => {
 			cy.get(".config-modal-container").should("not.exist");
 		});
 	});
+	it("7. Whole-Rule save keeps shared return-schema policy available", () => {
+		const ruleName = `Rule_Contract_Save_${Date.now()}`;
+
+		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
+			ruleBuilderPage.visitRule(doc.name);
+			ruleBuilderPage.openVisualBuilder();
+
+			cy.window().then((win) => {
+				const contracts = win.flexirule?.contracts;
+				expect(contracts, "shared contracts API").to.exist;
+				expect(contracts.requiresReturnVariable, "canonical requirement helper").to.be.a(
+					"function"
+				);
+				for (const type of ["boolean", "array", "string", "number", "integer"]) {
+					expect(contracts.hasResolvedOutputSchema({ type }), type).to.equal(true);
+				}
+				expect(contracts.hasResolvedOutputSchema({ type: "unknown" })).to.equal(false);
+			});
+
+			// Save through the whole-Rule path (not only the action config modal),
+			// then reload to ensure the shared contract module remains initialized.
+			ruleBuilderPage.addNodeFromEdge("Assignment", "Contract Save Regression");
+			ruleBuilderPage.saveRule();
+			cy.reload();
+			cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
+			cy.window()
+				.its("flexirule.contracts.requiresReturnVariable")
+				.should("be.a", "function");
+		});
+	});
+
 });
