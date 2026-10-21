@@ -1159,5 +1159,4 @@ export function hasDynamicFields(actionType) {
 // has getter-only exports and can already be present when this module is included
 // in another Frappe bundle, so mutating it with Object.assign would throw.
 
-
 export default ACTION_TYPE_CONTRACT;
