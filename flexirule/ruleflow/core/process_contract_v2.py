@@ -157,6 +157,7 @@ def _normalize_policy(
 	policy: dict[str, Any],
 	capabilities: dict[str, Any],
 	process_operation: dict[str, Any],
+	resolved_result_schema: Any = None,
 ) -> dict[str, Any]:
 	writes_to = str(capabilities.get("writes_to") or process_operation.get("writes_to") or "None")
 	allowed_mutations = policy.get("allowed_mutations")
@@ -182,7 +183,13 @@ def _normalize_policy(
 	if not allowed_mutation_targets_list:
 		allowed_mutation_targets_list = list(allowed_mutations_list)
 
-	result_schema = process_operation.get("output_schema") or policy.get("result_schema")
+	# The resolver's v2 result_schema is canonical. In particular, an
+	# explicitly empty canonical schema must not silently fall back to legacy
+	# output_schema metadata.
+	if resolved_result_schema is None:
+		result_schema = process_operation.get("output_schema") or policy.get("result_schema")
+	else:
+		result_schema = resolved_result_schema
 	from flexirule.ruleflow.core.contract_utils import _has_resolved_output_schema
 
 	has_populated = _has_resolved_output_schema(result_schema)
@@ -300,7 +307,7 @@ def resolve_process_operation_contract_v2(
 		)
 
 	capabilities = _normalize_capabilities(process_operation, capabilities)
-	policy = _normalize_policy(policy, capabilities, process_operation)
+	policy = _normalize_policy(policy, capabilities, process_operation, result_schema)
 
 	return {
 		"version": PROCESS_CONTRACT_V2_VERSION,
