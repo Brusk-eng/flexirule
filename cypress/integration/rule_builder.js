@@ -194,4 +194,137 @@ describe("FlexiRule UI Test Suite", () => {
 				.should("be.a", "function");
 		});
 	});
+
+	it("8. Empty mutation allowlists reject configured mutation modes", () => {
+		cy.create_test_rule_backend({ rule_name: `Rule_Empty_Mutation_Allowlist_${Date.now()}` }).then((doc) => {
+			ruleBuilderPage.visitRule(doc.name);
+			ruleBuilderPage.openVisualBuilder();
+
+			cy.window().then((win) => {
+				const contracts = win.flexirule?.contracts;
+				expect(contracts, "shared contracts API").to.exist;
+				expect(contracts.isMutationModeAllowed, "shared mutation policy helper").to.be.a(
+					"function"
+				);
+				expect(
+					contracts.isMutationModeAllowed("Set Context Variable", []),
+					"an explicitly empty allowlist permits no mutation modes"
+				).to.equal(false);
+				expect(
+					contracts.isMutationModeAllowed("Set Context Variable", ["Set Context Variable"])
+				).to.equal(true);
+				expect(contracts.isMutationModeAllowed(null, [])).to.equal(true);
+			});
+		});
+	});
+
+	it("9. Whole-Rule save rejects a Process operation missing its required return variable", () => {
+		const ruleName = `Rule_Process_Return_Required_${Date.now()}`;
+		const processName = "Validation";
+		const operationName = "on_field_change";
+		const processConfig = {
+			watched_fields: ["email_id", "phone", "mobile_no"],
+			match_mode: "Any",
+			store_result: "changed_fields",
+		};
+
+		cy.create_test_rule_backend({ rule_name: ruleName }).then((ruleDoc) => {
+			ruleBuilderPage.visitRule(ruleDoc.name);
+			ruleBuilderPage.openVisualBuilder();
+			ruleBuilderPage.addNodeFromEdge("Process", "Missing Return Variable Process");
+
+			cy.window().then(async (win) => {
+				const builder = win.fxrRuleBuilder;
+				const store = builder?.ruleStore;
+				const contracts = win.flexirule?.contracts;
+				expect(store, "whole-Rule builder store").to.exist;
+				expect(contracts, "shared contracts API").to.exist;
+
+				const process = store.processes.find((item) => item.name === processName);
+				expect(process, "installed Process used by this regression").to.exist;
+				expect(
+					(process.operations || []).some((item) => item.func_name === operationName),
+					"the selected operation exists on the Process"
+				).to.equal(true);
+
+				const node = store.nodes.find(
+					(item) => item.data?.action_label === "Missing Return Variable Process"
+				);
+				expect(node, "Process node on the Rule graph").to.exist;
+				Object.assign(node.data, {
+					action_type: "Process",
+					process_name: processName,
+					operation: operationName,
+					config: processConfig,
+					return_type: "Yes / No",
+					return_variable: null,
+					mutation_mode: null,
+					is_enabled: 1,
+				});
+
+				const frontendContractResult = contracts.validateAgainstContract(node.data);
+				expect(contracts.requiresReturnVariable(node.data, {
+					processName,
+					operation: operationName,
+				})).to.equal(true);
+				expect(frontendContractResult.valid).to.equal(false);
+				expect(frontendContractResult.errors.join("\\n")).to.match(/Return Variable Name/i);
+
+				// Run the same Process action through the backend validator used by
+				// Rule save, then assert its structured error before attempting UI save.
+				const processActionId = node.data.action_id || node.id;
+				const processAction = {
+					action_id: processActionId,
+					action_type: "Process",
+					action_label: "Missing Return Variable Process",
+					process_name: processName,
+					operation: operationName,
+					config: JSON.stringify(processConfig),
+					return_type: "Yes / No",
+					return_variable: null,
+					mutation_mode: null,
+					is_enabled: 1,
+				};
+				const backendValidation = await win.frappe.call({
+					method: "flexirule.ruleflow.api.validate_rule_document",
+					args: {
+						mode: "draft",
+						doc: {
+							doctype: "Rule",
+							name: ruleDoc.name,
+							is_active: 0,
+							trigger_type: "DocType Event",
+						document_type: "Contact",
+							trigger_event: "After Save",
+							actions: [
+								{
+									action_id: "root",
+									action_type: "Entry Action",
+									action_label: "Start",
+									is_enabled: 1,
+									next_step_if_true: processActionId,
+								},
+								processAction,
+							],
+						},
+					},
+				});
+				expect(backendValidation.message?.valid).to.equal(false);
+				expect((backendValidation.message?.errors || []).join("\\n")).to.match(
+					/ Missing Return Variable Process .*Return Variable Name/i
+				);
+			});
+
+			cy.window().then((win) => {
+				cy.stub(win.frappe, "msgprint").as("saveValidationMessage");
+			});
+			cy.get('button:contains("Save Rule")').click();
+			cy.get("@saveValidationMessage").should("have.been.called");
+			cy.get("@saveValidationMessage").should((stub) => {
+				const messages = stub.getCalls().map((call) => JSON.stringify(call.args[0])).join("\\n");
+				expect(messages).to.match(/Validation Error/i);
+				expect(messages).to.match(/Return Variable Name/i);
+			});
+		});
+	});
 });
