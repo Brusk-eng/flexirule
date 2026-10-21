@@ -414,6 +414,52 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		)
 		self.assertEqual(policy["allowed_mutations"], [])
 
+	def test_explicit_empty_mutation_allowlist_rejects_configured_mode(self):
+		import json
+
+		op_meta = {
+			"writes_to": "Context",
+			"writes_vars": "[]",
+			"output_schema": "{}",
+			"action_overrides": json.dumps(
+				{
+					"contract_v2": {
+						"adapter_key": "lookup",
+						"capabilities": {"writes_to": "Context"},
+						"policy": {
+							"allowed_mutations": [],
+							"supports_return_schema": False,
+							"require_return_variable": False,
+						},
+						"config_schema": {"type": "object"},
+						"result_schema": {},
+					}
+				}
+			),
+		}
+		action = {
+			"action_type": "Process",
+			"process_name": "SampleProc",
+			"operation": "strict_no_mutations",
+			"action_label": "No Mutation Process",
+			"mutation_mode": "Set Context Variable",
+			"return_variable": "result",
+			"config": "{}",
+		}
+		errors: list[str] = []
+		_validate_action_contracts(
+			action,
+			"Process",
+			"No Mutation Process",
+			operation_metadata={"SampleProc:strict_no_mutations": op_meta},
+			errors=errors,
+			mode="draft",
+		)
+		self.assertTrue(
+			any("does not allow mutation mode 'Set Context Variable'" in error for error in errors),
+			errors,
+		)
+
 	def test_missing_or_invalid_allowed_mutations_uses_defaults(self):
 		from flexirule.ruleflow.core.process_contract_v2 import _normalize_policy
 
