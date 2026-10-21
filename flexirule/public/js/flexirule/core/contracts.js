@@ -498,6 +498,29 @@ export function hasResolvedOutputSchema(value) {
 	return false;
 }
 
+function hasPopulatedWritesVars(value) {
+	if (value == null || value === "") return false;
+	let writesVars = value;
+	if (typeof writesVars === "string") {
+		try {
+			writesVars = JSON.parse(writesVars);
+		} catch (_error) {
+			return false;
+		}
+	}
+	if (!Array.isArray(writesVars)) return false;
+	return writesVars.some((item) => {
+		if (typeof item === "string") return item.trim().length > 0;
+		return (
+			item &&
+			typeof item === "object" &&
+			!Array.isArray(item) &&
+			typeof item.fieldname === "string" &&
+			item.fieldname.trim().length > 0
+		);
+	});
+}
+
 export function requiresReturnVariable(nodeData, ctx = {}) {
 	if (!nodeData || !nodeData.action_type) return false;
 
@@ -514,6 +537,20 @@ export function requiresReturnVariable(nodeData, ctx = {}) {
 
 	if (policy.require_return_variable) {
 		return true;
+	}
+
+	if (actionType === "Process") {
+		const operation = getProcessOperationDefinition(
+			effectiveCtx.processName,
+			effectiveCtx.operation
+		);
+		if (
+			policy.has_genuine_write === true ||
+			operation?.writes_to === "Context" ||
+			hasPopulatedWritesVars(operation?.writes_vars)
+		) {
+			return true;
+		}
 	}
 
 	const mutationMode = nodeData.mutation_mode;
