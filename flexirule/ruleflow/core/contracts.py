@@ -162,7 +162,8 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 		except Exception:
 			pass
 
-	require_return_variable = writes_to == "Context" or has_populated_writes_vars
+	has_genuine_write = writes_to == "Context" or has_populated_writes_vars
+	require_return_variable = has_genuine_write
 
 	if not allowed_return_types:
 		allowed_return_types = [
@@ -183,6 +184,8 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 	policy["require_return_type"] = require_return_type
 	policy["require_return_variable"] = require_return_variable
 	policy["supports_return_schema"] = supports_return_schema
+	policy["has_operation_output_schema"] = has_populated_output_schema
+	policy["has_genuine_write"] = has_genuine_write
 	if field_labels:
 		policy["field_labels"] = field_labels
 
@@ -197,6 +200,9 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 			if key == "field_labels":
 				continue
 			policy[key] = value
+
+	if has_genuine_write:
+		policy["require_return_variable"] = True
 
 	return policy
 

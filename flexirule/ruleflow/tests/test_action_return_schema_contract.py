@@ -198,6 +198,7 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		policy = infer_process_operation_policy(empty_op)
 		self.assertFalse(policy.get("require_return_variable"))
 		self.assertFalse(policy.get("supports_return_schema"))
+		self.assertFalse(policy.get("has_operation_output_schema"))
 
 		context_op = {
 			"writes_to": "Context",
@@ -222,7 +223,67 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		}
 		policy = infer_process_operation_policy(schema_op)
 		self.assertTrue(policy.get("supports_return_schema"))
+		self.assertTrue(policy.get("has_operation_output_schema"))
 		self.assertFalse(policy.get("require_return_variable"))
+
+	def test_process_operation_with_populated_output_schema_requires_return_variable_during_validation(self):
+		import json
+
+		op_meta = {
+			"writes_to": "None",
+			"writes_vars": "[]",
+			"output_schema": '{"type": "object", "properties": {"qty": {"type": "integer"}}}',
+			"action_overrides": json.dumps(
+				{
+					"contract_v2": {
+						"adapter_key": "lookup",
+						"capabilities": {
+							"writes_to": "None",
+						},
+						"policy": {
+							"supports_return_schema": True,
+							"has_operation_output_schema": True,
+						},
+						"config_schema": {"type": "object"},
+						"result_schema": {"type": "object", "properties": {"qty": {"type": "integer"}}},
+					}
+				}
+			),
+		}
+		action = {
+			"action_type": "Process",
+			"process_name": "SampleProc",
+			"operation": "run_op",
+			"action_label": "Test Process",
+			"return_variable": None,
+			"resolved_output_schema": "[]",
+		}
+		errors: list[str] = []
+		_validate_action_contracts(
+			action,
+			"Process",
+			"Test Process",
+			operation_metadata={"SampleProc:run_op": op_meta},
+			errors=errors,
+			mode="draft",
+		)
+		self.assertTrue(
+			any("requires Return Variable Name for Return Schema" in error for error in errors),
+			errors,
+		)
+
+	def test_genuine_write_requirement_cannot_be_canceled_by_explicit_override(self):
+		from flexirule.ruleflow.core.contracts import infer_process_operation_policy
+
+		context_op_with_override = {
+			"writes_to": "Context",
+			"writes_vars": "[]",
+			"output_schema": "{}",
+			"action_overrides": '{"policy": {"require_return_variable": false}}',
+		}
+		policy = infer_process_operation_policy(context_op_with_override)
+		self.assertTrue(policy.get("require_return_variable"))
+		self.assertTrue(policy.get("has_genuine_write"))
 
 	def test_contradictory_explicit_policy_overrides_inferred_schema(self):
 		from flexirule.ruleflow.core.contracts import infer_process_operation_policy

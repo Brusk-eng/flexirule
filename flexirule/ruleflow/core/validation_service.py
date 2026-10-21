@@ -394,6 +394,7 @@ def _validate_action_contracts(
 		produces_result = contract.get("produces_result", True)
 
 	has_resolved_output_schema = _has_resolved_output_schema(_safe_get(action, "resolved_output_schema"))
+	has_operation_output_schema = bool(effective_policy.get("has_operation_output_schema"))
 	return_variable = _safe_get(action, "return_variable")
 
 	schema_requires_return_var = (
@@ -402,6 +403,7 @@ def _validate_action_contracts(
 		and (
 			(show_return_type and not _is_empty(return_type) and return_type != "Yes / No")
 			or has_resolved_output_schema
+			or has_operation_output_schema
 		)
 	)
 

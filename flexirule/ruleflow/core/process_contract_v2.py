@@ -179,13 +179,32 @@ def _normalize_policy(
 	if not allowed_mutation_targets_list:
 		allowed_mutation_targets_list = list(allowed_mutations_list)
 
+	result_schema = process_operation.get("output_schema") or policy.get("result_schema")
+	from flexirule.ruleflow.core.contract_utils import _has_resolved_output_schema
+
+	has_populated = _has_resolved_output_schema(result_schema)
+
+	supports_return_schema = policy.get("supports_return_schema")
+	if supports_return_schema is None:
+		supports_return_schema = has_populated
+
+	has_operation_output_schema = policy.get("has_operation_output_schema")
+	if has_operation_output_schema is None:
+		has_operation_output_schema = has_populated
+
+	has_genuine_write = writes_to == "Context"
+	require_ret_var = bool(policy.get("require_return_variable")) or has_genuine_write
+
 	normalized = {
 		"allowed_mutations": allowed_mutations_list,
 		"allowed_return_types": allowed_return_types_list,
 		"default_return_type": policy.get("default_return_type"),
-		"require_return_variable": bool(policy.get("require_return_variable")),
+		"require_return_variable": require_ret_var,
 		"require_return_type": bool(policy.get("require_return_type")),
 		"allowed_mutation_targets": allowed_mutation_targets_list,
+		"supports_return_schema": bool(supports_return_schema),
+		"has_operation_output_schema": bool(has_operation_output_schema),
+		"has_genuine_write": has_genuine_write,
 	}
 
 	return normalized
