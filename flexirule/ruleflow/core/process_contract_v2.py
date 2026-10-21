@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -192,7 +193,25 @@ def _normalize_policy(
 	if has_operation_output_schema is None:
 		has_operation_output_schema = has_populated
 
-	has_genuine_write = writes_to == "Context"
+	writes_vars = process_operation.get("writes_vars")
+	has_populated_writes_vars = False
+	if writes_vars:
+		try:
+			parsed_writes_vars = json.loads(writes_vars) if isinstance(writes_vars, str) else writes_vars
+			if isinstance(parsed_writes_vars, list):
+				for v in parsed_writes_vars:
+					if isinstance(v, str) and bool(v.strip()):
+						has_populated_writes_vars = True
+						break
+					elif isinstance(v, Mapping):
+						fname = v.get("fieldname")
+						if isinstance(fname, str) and bool(fname.strip()):
+							has_populated_writes_vars = True
+							break
+		except Exception:
+			pass
+
+	has_genuine_write = writes_to == "Context" or has_populated_writes_vars
 	require_ret_var = bool(policy.get("require_return_variable")) or has_genuine_write
 
 	normalized = {

@@ -285,6 +285,96 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		self.assertTrue(policy.get("require_return_variable"))
 		self.assertTrue(policy.get("has_genuine_write"))
 
+	def test_process_contract_v2_populated_writes_vars_with_writes_to_none_requires_return_variable(self):
+		import json
+
+		op_meta = {
+			"writes_to": "None",
+			"writes_vars": '[{"fieldname": "out_var"}]',
+			"output_schema": "{}",
+			"action_overrides": json.dumps(
+				{
+					"contract_v2": {
+						"adapter_key": "lookup",
+						"capabilities": {
+							"writes_to": "None",
+						},
+						"policy": {
+							"supports_return_schema": False,
+						},
+						"config_schema": {"type": "object"},
+						"result_schema": {"type": "object"},
+					}
+				}
+			),
+		}
+		action = {
+			"action_type": "Process",
+			"process_name": "SampleProc",
+			"operation": "write_op",
+			"action_label": "Test Write Process",
+			"return_variable": None,
+			"resolved_output_schema": "[]",
+		}
+		errors: list[str] = []
+		_validate_action_contracts(
+			action,
+			"Process",
+			"Test Write Process",
+			operation_metadata={"SampleProc:write_op": op_meta},
+			errors=errors,
+			mode="draft",
+		)
+		self.assertTrue(
+			any("requires Return Variable Name" in error for error in errors),
+			errors,
+		)
+
+	def test_process_contract_v2_empty_writes_vars_with_writes_to_none_does_not_require_return_variable(self):
+		import json
+
+		op_meta = {
+			"writes_to": "None",
+			"writes_vars": "[]",
+			"output_schema": "{}",
+			"action_overrides": json.dumps(
+				{
+					"contract_v2": {
+						"adapter_key": "lookup",
+						"capabilities": {
+							"writes_to": "None",
+						},
+						"policy": {
+							"supports_return_schema": False,
+						},
+						"config_schema": {"type": "object"},
+						"result_schema": {"type": "object"},
+					}
+				}
+			),
+		}
+		action = {
+			"action_type": "Process",
+			"process_name": "SampleProc",
+			"operation": "no_write_op",
+			"action_label": "Test No Write Process",
+			"return_variable": None,
+			"resolved_output_schema": "[]",
+		}
+		errors: list[str] = []
+		_validate_action_contracts(
+			action,
+			"Process",
+			"Test No Write Process",
+			operation_metadata={"SampleProc:no_write_op": op_meta},
+			errors=errors,
+			mode="draft",
+		)
+		self.assertFalse(
+			any("requires Return Variable Name" in error for error in errors),
+			errors,
+		)
+
 	def test_contradictory_explicit_policy_overrides_inferred_schema(self):
 		from flexirule.ruleflow.core.contracts import infer_process_operation_policy
 
