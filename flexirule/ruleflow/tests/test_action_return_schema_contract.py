@@ -387,6 +387,66 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		policy = infer_process_operation_policy(op_with_override)
 		self.assertFalse(policy.get("supports_return_schema"))
 
+	def test_type_only_json_schemas_are_populated(self):
+		from flexirule.ruleflow.core.contract_utils import _has_resolved_output_schema
+
+		for schema_type in ("boolean", "array", "string", "number", "integer"):
+			with self.subTest(schema_type=schema_type):
+				self.assertTrue(_has_resolved_output_schema({"type": schema_type}))
+				self.assertTrue(
+					_has_resolved_output_schema('{"type": "' + schema_type + '"}')
+				)
+
+		for invalid_schema in (
+			{"type": "unknown"},
+			{"type": ""},
+			{"type": []},
+			{"type": "object", "properties": {}},
+		):
+			with self.subTest(invalid_schema=invalid_schema):
+				self.assertFalse(_has_resolved_output_schema(invalid_schema))
+
+	def test_explicit_empty_allowed_mutations_is_preserved(self):
+		from flexirule.ruleflow.core.process_contract_v2 import _normalize_policy
+
+		policy = _normalize_policy(
+			{"allowed_mutations": []},
+			{"writes_to": "Context"},
+			{"writes_to": "Context", "writes_vars": "[]", "output_schema": "{}"},
+		)
+		self.assertEqual(policy["allowed_mutations"], [])
+
+	def test_missing_or_invalid_allowed_mutations_uses_defaults(self):
+		from flexirule.ruleflow.core.process_contract_v2 import _normalize_policy
+
+		for policy_input in ({}, {"allowed_mutations": "invalid"}):
+			with self.subTest(policy=policy_input):
+				policy = _normalize_policy(
+					policy_input,
+					{"writes_to": "Context"},
+					{"writes_to": "Context", "writes_vars": "[]", "output_schema": "{}"},
+				)
+				self.assertTrue(policy["allowed_mutations"])
+
+	def test_genuine_process_writes_require_return_variable_even_without_result(self):
+		from flexirule.ruleflow.core.contracts import infer_process_operation_policy
+
+		for operation in (
+			{"writes_to": "Context", "writes_vars": "[]"},
+			{"writes_to": "None", "writes_vars": '[{"fieldname": "target"}]'},
+		):
+			with self.subTest(operation=operation):
+				operation = {
+					**operation,
+					"output_schema": "{}",
+					"action_overrides": (
+						'{"policy": {"produces_result": false, "require_return_variable": false}}'
+					),
+				}
+				policy = infer_process_operation_policy(operation)
+				self.assertTrue(policy["require_return_variable"])
+				self.assertTrue(policy["has_genuine_write"])
+
 	def test_dto_consistency_for_return_schema_action_types(self):
 		dto = ContractDTOBuilder.build()
 		expected_types = {"Query Records", "Document Action", "Process", "Sub-Rule"}
