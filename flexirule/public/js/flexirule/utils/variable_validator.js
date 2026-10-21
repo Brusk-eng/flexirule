@@ -394,12 +394,10 @@ flexirule.validation.validate_action_types = function (
 					? contractsApi.getEffectiveActionPolicy(action_type, ctx)
 					: {};
 
-			if (policy.produces_result !== false) {
-				const writesToContext = op_meta.writes_to === "Context";
-				const genuineWritesVars = hasGenuineWritesVars(op_meta.writes_vars);
-				if (writesToContext || genuineWritesVars) {
-					processRequiresVar = true;
-				}
+			const writesToContext = op_meta.writes_to === "Context";
+			const genuineWritesVars = hasGenuineWritesVars(op_meta.writes_vars);
+			if (writesToContext || genuineWritesVars) {
+				processRequiresVar = true;
 			}
 		}
 
