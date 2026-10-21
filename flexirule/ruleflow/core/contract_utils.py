@@ -267,4 +267,18 @@ def _has_resolved_output_schema(value: Any) -> bool:
 		if isinstance(props_val, Mapping) and len(props_val) > 0:
 			return True
 
+		# JSON Schema primitive/container types are populated output contracts
+		# even when they do not enumerate object properties.
+		schema_type = schema.get("type")
+		if isinstance(schema_type, str) and schema_type in {
+			"boolean",
+			"array",
+			"string",
+			"number",
+			"integer",
+		}:
+			return True
+		if schema_type == "object" and isinstance(props_val, Mapping) and props_val:
+			return True
+
 	return False
