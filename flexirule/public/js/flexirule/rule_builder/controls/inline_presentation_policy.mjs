@@ -3,7 +3,9 @@
  */
 
 export function resolvePresentationMode(rawMode) {
-	const mode = String(rawMode || "").trim().toLowerCase();
+	const mode = String(rawMode || "")
+		.trim()
+		.toLowerCase();
 	if (mode === "summary" || mode === "form" || mode === "hybrid") {
 		return mode;
 	}

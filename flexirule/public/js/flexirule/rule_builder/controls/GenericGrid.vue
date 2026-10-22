@@ -61,7 +61,10 @@
 						class="fxr-generic-grid-row-actions"
 					>
 						<button
-							v-if="availableRowActions.includes('edit') && getRowPresentation(entry).canToggle"
+							v-if="
+								availableRowActions.includes('edit') &&
+								getRowPresentation(entry).canToggle
+							"
 							type="button"
 							class="fxr-grid-icon-button"
 							:title="
@@ -77,7 +80,9 @@
 							:aria-keyshortcuts="editShortcut"
 							@click="
 								requestRowAction(
-									getRowPresentation(entry).presentation === 'editor' ? 'view' : 'edit',
+									getRowPresentation(entry).presentation === 'editor'
+										? 'view'
+										: 'edit',
 									entry
 								)
 							"

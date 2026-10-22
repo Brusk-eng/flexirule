@@ -126,9 +126,7 @@ defineEmits(["remove"]);
 const api = inject("treeBuilderContext", null);
 const slots = useSlots();
 
-const hasSummarySlot = computed(() =>
-	Boolean(slots["leaf-summary"] || api?.hasSummarySlot?.value)
-);
+const hasSummarySlot = computed(() => Boolean(slots["leaf-summary"] || api?.hasSummarySlot?.value));
 
 const isEditing = computed(() => {
 	const editingId = api?.editingNodeId?.value ?? api?.editingNodeId;

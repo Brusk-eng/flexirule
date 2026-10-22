@@ -62,8 +62,7 @@ const fieldDef = computed(() => {
 		return { fieldname, fieldtype: "Link", options: "User", label: humanize(fieldname) };
 	if (["creation", "modified"].includes(fieldname))
 		return { fieldname, fieldtype: "Datetime", label: humanize(fieldname) };
-	if (fieldname === "docstatus")
-		return { fieldname, fieldtype: "Int", label: __("Docstatus") };
+	if (fieldname === "docstatus") return { fieldname, fieldtype: "Int", label: __("Docstatus") };
 
 	const parts = fieldname.split(".");
 	if (parts.length > 1) {

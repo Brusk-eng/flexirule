@@ -67,17 +67,58 @@ function isLeafValid(node) {
 }
 
 // Validity checks
-assert.equal(isLeafValid({ field: "", operator: "=", value: { mode: "static", value: "" } }), false);
-assert.equal(isLeafValid({ field: "status", operator: "=", value: { mode: "static", value: "" } }), false);
-assert.equal(isLeafValid({ field: "status", operator: "=", value: { mode: "static", value: "Open" } }), true);
-assert.equal(isLeafValid({ field: "status", operator: "is", value: { mode: "static", value: "set" } }), true);
-assert.equal(isLeafValid({ field: "amount", operator: "Between", value: [{ mode: "static", value: 10 }, { mode: "static", value: 50 }] }), true);
-assert.equal(isLeafValid({ field: "amount", operator: "Between", value: [{ mode: "static", value: 10 }] }), false);
-assert.equal(isLeafValid({ field: "customer", operator: "=", value: { mode: "variable", value: "doc.customer" } }), true);
+assert.equal(
+	isLeafValid({ field: "", operator: "=", value: { mode: "static", value: "" } }),
+	false
+);
+assert.equal(
+	isLeafValid({ field: "status", operator: "=", value: { mode: "static", value: "" } }),
+	false
+);
+assert.equal(
+	isLeafValid({ field: "status", operator: "=", value: { mode: "static", value: "Open" } }),
+	true
+);
+assert.equal(
+	isLeafValid({ field: "status", operator: "is", value: { mode: "static", value: "set" } }),
+	true
+);
+assert.equal(
+	isLeafValid({
+		field: "amount",
+		operator: "Between",
+		value: [
+			{ mode: "static", value: 10 },
+			{ mode: "static", value: 50 },
+		],
+	}),
+	true
+);
+assert.equal(
+	isLeafValid({ field: "amount", operator: "Between", value: [{ mode: "static", value: 10 }] }),
+	false
+);
+assert.equal(
+	isLeafValid({
+		field: "customer",
+		operator: "=",
+		value: { mode: "variable", value: "doc.customer" },
+	}),
+	true
+);
 
 // Value formatting checks
 assert.equal(formatSingleValue({ mode: "static", value: "Open" }), "Open");
-assert.equal(formatSingleValue({ mode: "variable", value: "doc.customer" }), "Variable (doc.customer)");
-assert.equal(formatSingleValue([{ mode: "static", value: "A" }, { mode: "static", value: "B" }]), "A, B");
+assert.equal(
+	formatSingleValue({ mode: "variable", value: "doc.customer" }),
+	"Variable (doc.customer)"
+);
+assert.equal(
+	formatSingleValue([
+		{ mode: "static", value: "A" },
+		{ mode: "static", value: "B" },
+	]),
+	"A, B"
+);
 
 console.log("filter leaf summary unit tests passed");
