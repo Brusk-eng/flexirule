@@ -17,6 +17,7 @@
 <script setup>
 import { computed } from "vue";
 import { getFieldType } from "./filter_operators.mjs";
+import { isFilterLeafValid } from "./query_filter_validation.mjs";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -151,34 +152,7 @@ const valueLabel = computed(() => {
 	return formatSingleValue(value);
 });
 
-function isValueConfigured(val) {
-	if (val === null || val === undefined || val === "") return false;
-	if (typeof val === "object" && val.mode) {
-		if (val.mode === "static") return isValueConfigured(val.value);
-		return Boolean(val.value || val.expression || val.resolver_type);
-	}
-	if (Array.isArray(val)) return val.length > 0 && val.every(isValueConfigured);
-	return String(val).trim() !== "";
-}
-
-const isValid = computed(() => {
-	if (!props.node?.field) return false;
-	if (!props.node?.operator) return false;
-	const op = props.node.operator;
-	if (op === "Between") {
-		const arr = Array.isArray(props.node?.value) ? props.node.value : [];
-		return arr.length >= 2 && isValueConfigured(arr[0]) && isValueConfigured(arr[1]);
-	}
-	if (String(op).toLowerCase() === "is") {
-		const val = props.node?.value;
-		const raw = typeof val === "object" && val?.mode === "static" ? val.value : val;
-		if (typeof raw === "string" && ["set", "not set"].includes(raw.trim().toLowerCase())) {
-			return true;
-		}
-		return isValueConfigured(val);
-	}
-	return isValueConfigured(props.node?.value);
-});
+const isValid = computed(() => isFilterLeafValid(props.node));
 
 const invalidReason = computed(() => {
 	if (!props.node?.field) return __("Incomplete filter: select a field");

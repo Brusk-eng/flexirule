@@ -63,7 +63,9 @@
 						<button
 							v-if="
 								availableRowActions.includes('edit') &&
-								getRowPresentation(entry).canToggle
+								(getRowPresentation(entry).presentation === 'summary'
+									? getRowPresentation(entry).canToggle
+									: canFinishRowEditing(entry))
 							"
 							type="button"
 							class="fxr-grid-icon-button"
@@ -136,7 +138,11 @@
 				</div>
 
 				<div
-					v-if="hasSummarySlot && getRowPresentation(entry).presentation === 'summary'"
+					v-if="
+						hasSummarySlot &&
+						(getRowPresentation(entry).presentation === 'summary' ||
+							editorLayout === 'alongside')
+					"
 					class="fxr-generic-grid-row-summary"
 					:class="{ 'is-toggleable': summaryToggleAction(entry) !== null }"
 					:title="summaryToggleTitle(entry)"
@@ -427,6 +433,7 @@ import {
 
 const props = defineProps({
 	presentationMode: { type: String, default: "hybrid" },
+	editorLayout: { type: String, default: "replace" },
 	isRowNew: { type: Function, default: null },
 	isRowValid: { type: Function, default: null },
 	// Use the default slot for layout-only mode, or provide rows/modelValue for a data grid.
@@ -786,11 +793,32 @@ function getRowPresentation(entry) {
 }
 
 function summaryToggleAction(entry) {
+	if (!props.availableRowActions.includes("edit")) return null;
 	const presentation = getRowPresentation(entry);
 	if (!presentation.canToggle) return null;
 	if (presentation.presentation === "editor") return "view";
 	if (presentation.presentation === "summary") return "edit";
 	return null;
+}
+
+function canFinishRowEditing(entry) {
+	if (!props.availableRowActions.includes("edit")) return false;
+	const presentation = getRowPresentation(entry);
+	if (!presentation.canToggle || presentation.presentation !== "editor") return false;
+	const isNew =
+		typeof props.isRowNew === "function"
+			? props.isRowNew(entry.row, entry.index)
+			: Boolean(entry.row?.isNew);
+	const isValid =
+		typeof props.isRowValid === "function"
+			? props.isRowValid(entry.row, entry.index)
+			: !getInvalidState(entry.row, entry.index).invalid;
+	const isEditing = Boolean(entry.row?.[props.editStateKey]);
+	const mode = props.presentationMode || "hybrid";
+
+	if (mode === "summary") return isEditing;
+	if (mode === "hybrid") return isEditing && !isNew && isValid;
+	return false;
 }
 
 function summaryToggleTitle(entry) {

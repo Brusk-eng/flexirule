@@ -76,11 +76,7 @@
 				</div>
 				<div class="tree-leaf__actions">
 					<button
-						v-if="
-							hasSummarySlot &&
-							inlinePresentation.canToggle &&
-							(isEditing || resolvedPresentationMode !== 'form')
-						"
+						v-if="canFinishEditing"
 						type="button"
 						class="tree-leaf__action tree-leaf__finish"
 						:title="__('Finish editing / Show summary')"
@@ -163,6 +159,14 @@ const inlinePresentation = computed(() =>
 		hasSummary: hasSummarySlot.value,
 	})
 );
+
+const canFinishEditing = computed(() => {
+	if (!hasSummarySlot.value || !inlinePresentation.value.canToggle) return false;
+	const mode = resolvedPresentationMode.value;
+	if (mode === "summary") return isEditing.value;
+	if (mode === "hybrid") return isEditing.value && !isNew.value && isValid.value;
+	return false;
+});
 
 function startEditing() {
 	if (props.readOnly) return;

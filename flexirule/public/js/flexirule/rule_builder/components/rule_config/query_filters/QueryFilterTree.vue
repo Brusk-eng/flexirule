@@ -46,6 +46,7 @@ import TreeBuilder from "../../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
 import FilterLeafSummary from "./FilterLeafSummary.vue";
 import { deserializeQueryFilters, toPersistedQueryFilterTree } from "./query_filter_serializer.js";
+import { isFilterLeafValid, validateFilterLeaf } from "./query_filter_validation.mjs";
 
 const GROUP_OPERATORS = ["and", "or"];
 const props = defineProps({
@@ -81,32 +82,8 @@ function createLeaf() {
 function isLeafNew(node) {
 	return !node?.field;
 }
-function isValueConfigured(val) {
-	if (val === null || val === undefined || val === "") return false;
-	if (typeof val === "object" && val.mode) {
-		if (val.mode === "static") return isValueConfigured(val.value);
-		return Boolean(val.value || val.expression || val.resolver_type);
-	}
-	if (Array.isArray(val)) return val.length > 0 && val.every(isValueConfigured);
-	return String(val).trim() !== "";
-}
 function isLeafValid(node) {
-	if (!node?.field) return false;
-	if (!node?.operator) return false;
-	const op = node.operator;
-	if (op === "Between") {
-		const arr = Array.isArray(node?.value) ? node.value : [];
-		return arr.length >= 2 && isValueConfigured(arr[0]) && isValueConfigured(arr[1]);
-	}
-	if (String(op).toLowerCase() === "is") {
-		const val = node?.value;
-		const raw = typeof val === "object" && val?.mode === "static" ? val.value : val;
-		if (typeof raw === "string" && ["set", "not set"].includes(raw.trim().toLowerCase())) {
-			return true;
-		}
-		return isValueConfigured(val);
-	}
-	return isValueConfigured(node?.value);
+	return isFilterLeafValid(node);
 }
 function operatorLabel(operator) {
 	return props.operatorLabels[operator] || operator;
@@ -163,15 +140,13 @@ async function validate() {
 			return;
 		}
 		const instance = leafRefs.get(node.id);
-		if (typeof instance?.validate !== "function") {
-			errors.push(
-				__(
-					"Filter leaf validation is unavailable. Reopen the rule configuration and try again."
-				)
-			);
-			return;
+		let result;
+		if (typeof instance?.validate === "function") {
+			result = await instance.validate();
+		} else {
+			const rawResult = validateFilterLeaf(node);
+			result = { valid: rawResult.valid, errors: rawResult.errors.map((msg) => __(msg)) };
 		}
-		const result = await instance.validate();
 		if (!result?.valid) {
 			errors.push(...(result.errors || []));
 			if (!(result.errors || []).length) errors.push(__("A filter leaf is invalid."));

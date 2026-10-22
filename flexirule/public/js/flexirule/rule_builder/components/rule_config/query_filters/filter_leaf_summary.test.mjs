@@ -1,4 +1,9 @@
 import assert from "node:assert/strict";
+import {
+	isFilterLeafValid,
+	validateFilterLeaf,
+	isValueConfigured,
+} from "./query_filter_validation.mjs";
 
 // Global mock for translation __
 if (typeof globalThis.__ !== "function") {
@@ -37,54 +42,25 @@ function formatSingleValue(val) {
 	return String(val);
 }
 
-function isValueConfigured(val) {
-	if (val === null || val === undefined || val === "") return false;
-	if (typeof val === "object" && val.mode) {
-		if (val.mode === "static") return isValueConfigured(val.value);
-		return Boolean(val.value || val.expression || val.resolver_type);
-	}
-	if (Array.isArray(val)) return val.length > 0 && val.every(isValueConfigured);
-	return String(val).trim() !== "";
-}
-
-function isLeafValid(node) {
-	if (!node?.field) return false;
-	if (!node?.operator) return false;
-	const op = node.operator;
-	if (op === "Between") {
-		const arr = Array.isArray(node?.value) ? node.value : [];
-		return arr.length >= 2 && isValueConfigured(arr[0]) && isValueConfigured(arr[1]);
-	}
-	if (String(op).toLowerCase() === "is") {
-		const val = node?.value;
-		const raw = typeof val === "object" && val?.mode === "static" ? val.value : val;
-		if (typeof raw === "string" && ["set", "not set"].includes(raw.trim().toLowerCase())) {
-			return true;
-		}
-		return isValueConfigured(val);
-	}
-	return isValueConfigured(node?.value);
-}
-
-// Validity checks
+// Validity checks using imported production validator
 assert.equal(
-	isLeafValid({ field: "", operator: "=", value: { mode: "static", value: "" } }),
+	isFilterLeafValid({ field: "", operator: "=", value: { mode: "static", value: "" } }),
 	false
 );
 assert.equal(
-	isLeafValid({ field: "status", operator: "=", value: { mode: "static", value: "" } }),
+	isFilterLeafValid({ field: "status", operator: "=", value: { mode: "static", value: "" } }),
 	false
 );
 assert.equal(
-	isLeafValid({ field: "status", operator: "=", value: { mode: "static", value: "Open" } }),
+	isFilterLeafValid({ field: "status", operator: "=", value: { mode: "static", value: "Open" } }),
 	true
 );
 assert.equal(
-	isLeafValid({ field: "status", operator: "is", value: { mode: "static", value: "set" } }),
+	isFilterLeafValid({ field: "status", operator: "is", value: { mode: "static", value: "set" } }),
 	true
 );
 assert.equal(
-	isLeafValid({
+	isFilterLeafValid({
 		field: "amount",
 		operator: "Between",
 		value: [
@@ -95,15 +71,27 @@ assert.equal(
 	true
 );
 assert.equal(
-	isLeafValid({ field: "amount", operator: "Between", value: [{ mode: "static", value: 10 }] }),
+	isFilterLeafValid({
+		field: "amount",
+		operator: "Between",
+		value: [{ mode: "static", value: 10 }],
+	}),
 	false
 );
 assert.equal(
-	isLeafValid({
+	isFilterLeafValid({
 		field: "customer",
 		operator: "=",
 		value: { mode: "variable", value: "doc.customer" },
 	}),
+	true
+);
+
+// Detailed validation result test
+assert.equal(validateFilterLeaf({ field: "", operator: "=" }).valid, false);
+assert.equal(
+	validateFilterLeaf({ field: "status", operator: "=", value: { mode: "static", value: "Open" } })
+		.valid,
 	true
 );
 
