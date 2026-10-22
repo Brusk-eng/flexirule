@@ -4,7 +4,7 @@
 
 **Status:** Plan only. Do not implement this file's plan as part of the planning change itself.
 
-**Goal:** Extend Generic TreeBuilder so a consumer can render each leaf as either a readable summary or its existing form, with double-click and an explicit accessible action to switch between them. Preserve a form-only mode for consumers that need the current always-editable layout. Use Query Filter as the first concrete consumer so nested filters can read like ordinary language, while keeping the generic layer independent of Frappe, Query Records, Condition semantics, and value-resolver details.
+**Goal:** Extend Generic TreeBuilder so a consumer can render each leaf as either a readable summary or its existing form, with double-click and an explicit accessible action to switch between them. Unify the behavior with GenericGrid through a reusable, headless inline-presentation contract, while keeping row/leaf-specific rendering and drag/drop behavior in their own components. Use Query Filter as the first concrete consumer so nested filters can read like ordinary language, while keeping the generic layer independent of Frappe, Query Records, Condition semantics, and value-resolver details.
 
 This is a presentation and interaction enhancement. It must not change the canonical tree payload, validation contract, filter serialization, or rule execution behavior.
 
@@ -31,12 +31,15 @@ Keep three concepts separate:
 2. **Presentation mode:** controls whether leaves initially show the form or a readable summary.
 3. **Per-leaf edit state:** temporary UI state for the leaf currently opened in form mode.
 
-Recommended public presentation values:
+Recommended public presentation values, resolved from the RuleFlow Settings default:
 
-- **form:** always render the existing leaf form. This remains the Generic TreeBuilder default for backward compatibility and is the form-only view.
-- **summary:** render a consumer-provided readable summary by default. Double-clicking the summary or activating an explicit Edit action opens the existing form for that leaf. An explicit Done/return-to-reading action switches back to the summary.
+- **hybrid:** show the summary for existing, valid items; show the form for new or invalid items. When a valid existing item is explicitly edited, switch to its form until the user finishes.
+- **summary:** show the summary for existing items, with explicit edit interaction when editing is allowed.
+- **form:** show the form for every item. This preserves the existing always-form layout.
 
-When readOnly is true, structural and domain mutations remain disallowed. In summary mode, do not offer a route into editing. In form mode, preserve existing consumer behavior: render the existing form and let the consumer render its controls disabled/read-only as it does today. This avoids making the current readOnly prop silently change meaning.
+Use **Hybrid** as the new RuleFlow Settings default. To avoid a disruptive migration, verify and explicitly document how existing consumers are migrated from their current behavior; do not silently assume every current consumer already has a reliable validity/new-item signal.
+
+When readOnly is true (including an active Ruleflow that cannot be edited), keep presentation and permission as separate concerns. Continue applying Hybrid/Summary/Form presentation rules: a valid existing item can still be shown as a readable summary, while a new or invalid item may be shown in its form-shaped view for inspection. But suppress edit transitions and mutation actions, and pass readOnly/disabled state to the consumer form. Never use presentation mode to grant permission to edit an active/read-only rule.
 
 If a consumer selects summary but does not supply a summary slot, safely fall back to the existing form slot. Do not render a blank leaf or require every current consumer to migrate at once.
 
@@ -44,7 +47,7 @@ If a consumer selects summary but does not supply a summary slot, safely fall ba
 
 ### Generic core
 
-Add a TreeBuilder prop such as presentationMode, constrained to form or summary and defaulting to form. Keep this API generic; do not add filter-specific or condition-specific options to the core.
+Add a TreeBuilder prop such as presentationMode, constrained to hybrid, summary, or form. The component may receive the resolved RuleFlow Settings default from its parent; avoid importing settings/network logic into the generic component. Add a consumer-supplied status resolver (or equivalent explicit slot context) so Hybrid can decide whether an item is new and valid without hardcoding domain rules into TreeBuilder.
 
 Preserve the existing leaf slot as the form/editor renderer. Add an optional leaf-summary slot for the readable renderer. Both slots receive a consistent, documented context including:
 
@@ -55,7 +58,7 @@ Preserve the existing leaf slot as the form/editor renderer. Add an optional lea
 
 The generic leaf shell should own the standard mode-switch interaction and action affordance. Consumers provide content, not a separate copy of the generic edit-state machine. The callbacks can still be exposed for consumers that need a custom interaction.
 
-Use the existing editingNodeId / setEditing() API in useTreeBuilder. Keep presentation state outside the canonical tree. The initial implementation should allow at most one leaf to be in form-edit mode at a time, matching the existing single editingNodeId model; entering edit mode for another leaf should switch the active leaf rather than leave an accidental mixed set of editors.
+Use the existing editingNodeId / setEditing() API in useTreeBuilder. Keep presentation state outside the canonical tree. The initial implementation should allow at most one leaf to be in form-edit mode at a time, matching the existing single editingNodeId model; entering edit mode for another leaf should switch the active leaf rather than leave an accidental mixed set of editors. Apply the same shared state/decision contract to GenericGrid using stable row keys and component-owned state rather than persisting an isEditing UI flag into domain rows.
 
 ### Slot forwarding
 
@@ -99,7 +102,7 @@ Implementation guidance:
 7. Render text through normal Vue interpolation; do not render user-configured summaries as raw HTML.
 8. Keep summaries presentational. Leaf edits must continue to flow through FilterLeaf and TreeBuilder.replaceNode; summary formatting must not mutate or normalize the persisted payload.
 
-The generic TreeBuilder default remains form. Once summaries cover supported cases, configure QueryFilterTree to use summary as its consumer-level default while retaining an override for integrations and tests. This yields the readability improvement for filters without changing every TreeBuilder consumer at once.
+Once summaries cover supported cases, configure QueryFilterTree to use the resolved RuleFlow Settings default (Hybrid by default), while retaining an explicit component override for integrations and tests. Hybrid validity/new-item status must come from the filter consumer's actual validation and identity state, not from a duplicate, weaker validation implementation in TreeBuilder.
 
 ## 5. Condition Builder compatibility
 
@@ -114,22 +117,23 @@ Keep the component preference injectable/overridable now, but do not embed stora
 For the future Preferences UI:
 
 1. Inspect current builder preference ownership and any existing FlexiRule user-setting keys before adding another key.
-2. Use Frappe v15's native per-user settings mechanism (frappe.model.user_settings.save(doctype, key, value) and frappe.get_user_settings(doctype, key)) for cross-session, per-user preference persistence. Verify the exact load/update flow against the installed framework version during implementation.
-3. Store a namespaced key for the preferred TreeBuilder presentation mode, with a validated value (form or summary). Fall back safely when the saved value is missing, invalid, or unavailable to Guest users.
+2. The requested initial default belongs in the existing site-wide RuleFlow Settings DocType as an administrator-configured default. If per-user overrides are added later, evaluate Frappe v15's native user-scoped settings mechanism and make that precedence explicit; do not implement a second preference store in this task.
+3. Add a Select field to RuleFlow Settings for the default row/leaf presentation mode, with options Hybrid, Summary, and Form and default Hybrid. Validate/fallback unknown or missing values safely in the UI resolver.
 4. Surface the control in the relevant Ruleflow/Rule Builder Preferences UI. If a site-wide administrator default is later required, it may be a global fallback, with a user's own preference taking precedence.
 5. Do not add a user preference to the existing RuleFlow Settings singleton as though it were per-user. That DocType is site-wide, and a setting there would change the experience for all users.
 6. Do not use localStorage as the long-term source of truth for a setting that should follow a user across browsers/devices. GenericGrid's current local preference pattern is only a UI reference, not the persistence architecture to copy for this feature.
 
-Recommended precedence when the preference layer is added: explicit consumer prop > saved per-user preference > optional site-wide default > generic backward-compatible default (form).
+Recommended precedence: explicit component override > RuleFlow Settings site-wide default > safe fallback Hybrid. Per-user override is a separate future enhancement, not a requirement for this implementation.
 
 Keep preference persistence as a follow-up implementation slice after the component behavior and summary renderer are stable, unless the project chooses to include the Preferences UI in the same release.
 
 ## 7. Suggested implementation slices
 
-### Slice A — Generic summary/form mode
+### Slice A — Shared inline-presentation contract for Grid and TreeBuilder
 
-- Add presentationMode and the optional leaf-summary slot while preserving the current leaf slot.
-- Wire the UI-only editingNodeId state through TreeBuilder, recursive TreeBuilderNode, and TreeBuilderLeaf.
+- Define a shared headless inline-presentation contract (for example a composable plus pure decision helpers) for mode resolution, new/valid/editing/read-only decisions, and edit/view actions. Keep the DOM wrappers, grid row selection, tree nesting, and drag/drop local to each component.
+- Add presentationMode (hybrid/summary/form) and the optional leaf-summary slot while preserving the current leaf slot.
+- Wire the UI-only editingNodeId state through TreeBuilder, recursive TreeBuilderNode, and TreeBuilderLeaf; migrate GenericGrid to the same behavioral contract using stable row keys and component-owned edit state, avoiding row-model mutation for presentation state.
 - Implement double-click, accessible Edit/Done actions, hard-read-only gating, missing-summary fallback, and edit-state cleanup.
 - Document the API in the TreeBuilder README.
 - Add pure tests for mode resolution and edit-state cleanup where the project's current unit-test structure supports them.
@@ -141,12 +145,12 @@ Keep preference persistence as a follow-up implementation slice after the compon
 - Integrate both slots in QueryFilterTree without changing its model ownership, replaceNode update flow, validation, or serializer.
 - Make summary mode the QueryFilterTree-level default only when supported summaries and a usable fallback are in place.
 
-### Slice C — Per-user preference (future)
+### Slice C — RuleFlow Settings default
 
-- Add the preference control to the appropriate Preferences UI.
-- Read/write through Frappe's user-scoped settings APIs using a namespaced key.
-- Test missing, invalid, saved, and cross-session preference states, including Guest behavior.
-- Keep the preference resolver outside Generic TreeBuilder so other consumers can supply another default.
+- Add a Select field to the existing RuleFlow Settings DocType: Hybrid (default), Summary, Form.
+- Wire the setting through the existing settings-loading pattern into GenericGrid and TreeBuilder consumers, without making generic components fetch settings directly.
+- Test default/missing/invalid setting fallback and runtime changes if supported by the current settings flow.
+- Keep per-user overrides explicitly out of this slice; they can be layered on later if required.
 
 ### Slice D — Condition summaries (future, separate scope)
 
@@ -184,18 +188,20 @@ Cover at least: missing field/operator/value, normal text/number values, date op
 
 ## 9. Acceptance criteria
 
-1. Existing consumers continue to render the form by default with no required slot migration.
-2. TreeBuilder offers an opt-in summary presentation and a form-only presentation.
-3. A summary leaf can switch to form by double-click and by an accessible explicit action, and can return to summary intentionally.
-4. TreeBuilder owns generic presentation state; leaf consumers own domain summary text and form contents.
-5. UI state remains outside the canonical serializable tree.
-6. readOnly retains its current security/interaction meaning and is not overloaded as a display-mode flag.
-7. The new summary slot works at arbitrary supported nesting depth.
-8. Query Filter summaries improve readability without changing filter evaluation, values, validation, or serialization.
-9. The generic TreeBuilder knows nothing about Frappe DocTypes, filter operators, conditions, or resolver internals.
-10. Per-user persistence is kept out of the generic component and, when implemented, uses Frappe's native user-scoped settings API rather than the global RuleFlow Settings singleton.
-11. The Condition Builder is prepared to reuse the contract later, but its model/compiler/runtime path is not silently changed by this task.
-12. Tests verify the observable contracts above and existing tree/filter regressions remain green.
+1. GenericGrid and TreeBuilder use the same documented inline-presentation decisions and interaction contract, while retaining their component-specific rendering and interactions.
+2. RuleFlow Settings exposes Hybrid, Summary, and Form with Hybrid as the default.
+3. TreeBuilder supports Hybrid, Summary, and Form presentation modes, with a status resolver supplied by the consumer.
+4. A summary leaf/row can switch to form by double-click and by an accessible explicit action, and can return to summary intentionally.
+5. TreeBuilder owns generic presentation state; leaf/row consumers own domain summary text and form contents.
+6. UI state remains outside the canonical serializable tree and row models.
+7. readOnly retains its current permission/interaction meaning and is not overloaded as a display-mode flag. Active/read-only rules still use the configured presentation mode but cannot be edited.
+8. The new summary slot works at arbitrary supported nesting depth, and summary rendering does not disable tree drag/drop or require dragging the summary content itself.
+9. Hybrid shows summaries for existing valid items and form views for new or invalid items, based on authoritative consumer-supplied status.
+10. Query Filter summaries improve readability without changing filter evaluation, values, validation, or serialization.
+11. The generic TreeBuilder knows nothing about Frappe DocTypes, filter operators, conditions, or resolver internals.
+12. RuleFlow Settings supplies the initial site-wide default; preference loading remains outside generic components. Any later per-user override is a separate explicit decision.
+13. The Condition Builder is prepared to reuse the contract later, but its model/compiler/runtime path is not silently changed by this task.
+14. Tests verify the observable contracts above and existing grid/tree/filter regressions remain green.
 
 ## 10. Source references
 
@@ -204,3 +210,64 @@ Cover at least: missing field/operator/value, normal text/number values, date op
 - First consumer: [QueryFilterTree.vue](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/QueryFilterTree.vue), [FilterLeaf.vue](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/FilterLeaf.vue), and [query_filter_serializer.js](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/query_filter_serializer.js).
 - Current global settings: [RuleFlow Settings DocType](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/doctype/ruleflow_settings/ruleflow_settings.json).
 - Framework user preferences: [Frappe v15 user_settings.js](https://github.com/frappe/frappe/blob/version-15/frappe/public/js/frappe/model/user_settings.js) and [Frappe v15 user_settings.py](https://github.com/frappe/frappe/blob/version-15/frappe/model/utils/user_settings.py).
+
+
+## 11. Unification and Hybrid-mode clarification (supersedes earlier conflicting defaults)
+
+The follow-up requirement is to unify GenericGrid and TreeBuilder behavior and establish **Hybrid** as the RuleFlow Settings default. This section is authoritative if an earlier paragraph still describes a form-only default or per-user settings as the first persistence layer.
+
+### Shared behavior, not one universal renderer
+
+Use one shared, headless decision/state layer for row and leaf presentation. It should resolve the requested mode, item status (new/existing and valid/invalid), current edit state, and read-only permission into a presentation decision. Keep row/leaf markup, row selection, recursive tree structure, drag/drop, action buttons, and domain-specific summaries in GenericGrid/TreeBuilder and their consumer slots. Do not force the Grid and Tree to share one DOM component.
+
+A reasonable shared API is a composable plus pure helper functions (names to be finalized during implementation), with inputs like `mode`, `itemKey`, `isNew`, `isValid`, `readOnly`, and `editing`. Keep it framework-light and testable. The generic layer must not infer validity from a domain model or implement its own filter/condition validation.
+
+### Should the editor replace the summary in TreeBuilder?
+
+**Yes: in the normal summary/hybrid presentation, the active leaf editor should replace the summary content for that leaf, not sit beside it.** Showing both wastes space and makes the leaf appear duplicated. It also creates a much taller tree that is harder to scan.
+
+The leaf wrapper and its drag/drop affordance must remain mounted/stable while the inner summary/editor content switches. Preserve drag/drop by keeping drag handlers/identity on the wrapper and preferably providing a dedicated drag handle, rather than relying on the summary text itself as the drag target. Interactive controls inside the summary must not accidentally trigger edit-on-double-click or initiate a drag. The Grid can retain its own layout where useful, but its visible mode decisions should follow the same contract.
+
+### Hybrid decision table
+
+| Item status | Hybrid default | Edit permitted? |
+| --- | --- | --- |
+| New item/row/leaf | Form | Yes, unless read-only |
+| Existing and valid | Summary | Yes, via explicit Edit/double-click |
+| Existing but invalid | Form, with validation state visible | Yes, unless read-only |
+| Any status while read-only | Apply the configured display rule; suppress edit actions and mutations | No |
+
+For Hybrid, "new" and "valid" are supplied by the consumer using authoritative identity and validation state. Do not guess that a row is new solely because it lacks a generic `name` property, or duplicate a validator inside the presentation layer. For invalid items, make the error state discoverable in both summary and form, and ensure Hybrid selects the form so the user can repair the item.
+
+### Read-only and active rules
+
+Read-only is a capability/permission gate, not a presentation mode. An active rule that cannot be edited should still use the configured Hybrid/Summary/Form display policy. In Hybrid, valid existing items can remain concise summaries; new/invalid items can be shown in form-shaped, non-editable form for inspection. Do not force every row/leaf into a separate "readonly-only" visual mode, and do not let double-click or the Edit button bypass the read-only gate. Preserve the existing backend rule lifecycle and permission checks; this is only a UI presentation contract.
+
+### RuleFlow Settings
+
+Add a Select field in the existing RuleFlow Settings DocType, for example `row_leaf_presentation_mode`, with options:
+
+- `Hybrid`
+- `Summary`
+- `Form`
+
+Default: `Hybrid`.
+
+This is a site-wide administrator default because RuleFlow Settings is a Single DocType and the user explicitly requested this location. Pass the resolved value down from the settings owner; GenericGrid and TreeBuilder must not fetch settings themselves. A future per-user override may be layered above the site-wide default, but is not part of the first implementation.
+
+### Grid state migration and drag/drop safeguards
+
+GenericGrid currently defaults to reading/writing an `isEditing` property on each row. That differs from TreeBuilder's component-owned `editingNodeId`. During unification, migrate presentation state toward stable-keyed component-owned state in GenericGrid so UI flags do not become part of the row's business data or get serialized/copied. Before changing this, audit every GenericGrid consumer and the bulk-edit actions to preserve public behavior. Add compatibility tests for row updates, cloning/copy-paste, bulk edit, row replacement, and stable row identity.
+
+TreeBuilder must continue supporting drag/drop when summaries replace forms. Keep the draggable wrapper and node identity stable across mode transitions, avoid putting drag behavior on nested interactive summary elements, and test dragging while in Hybrid mode as well as after opening/closing an editor.
+
+### Required tests for this update
+
+- Shared mode-decision tests for all three modes crossed with new/existing, valid/invalid, and read-only states.
+- Grid and Tree use identical decisions for equivalent item status.
+- Hybrid default loads from RuleFlow Settings and safely falls back to Hybrid for missing/unrecognized values.
+- Existing valid item shows summary; new/invalid item shows form; edit/done toggles only the intended item.
+- Active/read-only rule still follows the display policy but cannot edit, remove, reorder, or mutate through row/leaf actions.
+- Tree drag/drop works while summary content is displayed and after switching a leaf to its form.
+- GenericGrid row UI state is not added to row payloads, clipboard serialization, or persisted rule/action data.
+- Existing GenericGrid selection, bulk actions, keyboard interactions, and row-update tests remain green.
