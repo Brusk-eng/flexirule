@@ -45,7 +45,7 @@ import { computed, ref } from "vue";
 import TreeBuilder from "../../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
 import FilterLeafSummary from "./FilterLeafSummary.vue";
-import { deserializeQueryFilters, toPersistedQueryFilterTree } from "./query_filter_serializer.js";
+import { deserializeQueryFilters, toPersistedQueryFilterTree } from "./query_filter_serializer.mjs";
 import { isFilterLeafValid, validateFilterLeaf } from "./query_filter_validation.mjs";
 
 const GROUP_OPERATORS = ["and", "or"];

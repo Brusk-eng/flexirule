@@ -1,6 +1,6 @@
 <script setup>
 import { computed, inject, ref } from "vue";
-import { isCollectionNode, isGroupNode, isLeafNode } from "./tree_builder_utils.js";
+import { isCollectionNode, isGroupNode, isLeafNode } from "./tree_builder_utils.mjs";
 import { getSiblingDropIntent } from "./tree_builder_drag_model.mjs";
 import TreeBuilderCollection from "./TreeBuilderCollection.vue";
 import TreeBuilderGroup from "./TreeBuilderGroup.vue";
