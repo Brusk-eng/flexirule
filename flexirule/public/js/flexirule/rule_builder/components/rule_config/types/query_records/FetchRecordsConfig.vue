@@ -263,7 +263,7 @@ import {
 	isCustomResultShape,
 	parseOutputFields,
 	serializeOutputFields,
-} from "./output_fields_model.js";
+} from "./output_fields_model.mjs";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },

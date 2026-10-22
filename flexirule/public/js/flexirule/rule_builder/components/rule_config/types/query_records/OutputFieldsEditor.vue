@@ -272,7 +272,7 @@ import {
 	parseOutputFields,
 	serializeOutputFields,
 	validateOutputFields,
-} from "./output_fields_model.js";
+} from "./output_fields_model.mjs";
 import { resolveFieldInfo } from "./output_field_info.mjs";
 import OutputFieldPicker from "./OutputFieldPicker.vue";
 import { useStore } from "../../../../stores";
