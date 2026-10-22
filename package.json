@@ -11,6 +11,7 @@
 	"keywords": [],
 	"author": "",
 	"license": "ISC",
+	"type": "module",
 	"dependencies": {
 		"@floating-ui/dom": "^1.0.0",
 		"@headlessui/vue": "^1.7.16",

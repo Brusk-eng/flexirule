@@ -272,9 +272,9 @@ function drop(e) {
 					>
 						<template #default="p"><slot v-bind="p" /></template>
 						<template #leaf="p"><slot name="leaf" v-bind="p" /></template>
-						<template #leaf-summary="p"
-							><slot name="leaf-summary" v-bind="p"
-						/></template>
+						<template v-if="api?.hasSummarySlot?.value" #leaf-summary="p">
+							<slot name="leaf-summary" v-bind="p" />
+						</template>
 						<template #collection="p"><slot name="collection" v-bind="p" /></template>
 					</TreeBuilderNode>
 				</template>
@@ -320,9 +320,9 @@ function drop(e) {
 					>
 						<template #default="p"><slot v-bind="p" /></template>
 						<template #leaf="p"><slot name="leaf" v-bind="p" /></template>
-						<template #leaf-summary="p"
-							><slot name="leaf-summary" v-bind="p"
-						/></template>
+						<template v-if="api?.hasSummarySlot?.value" #leaf-summary="p">
+							<slot name="leaf-summary" v-bind="p" />
+						</template>
 						<template #collection="p"><slot name="collection" v-bind="p" /></template>
 					</TreeBuilderNode>
 				</template>
@@ -343,7 +343,9 @@ function drop(e) {
 			>
 				<template #default="p"><slot v-bind="p" /></template>
 				<template #leaf="p"><slot name="leaf" v-bind="p" /></template>
-				<template #leaf-summary="p"><slot name="leaf-summary" v-bind="p" /></template>
+				<template v-if="api?.hasSummarySlot?.value" #leaf-summary="p"
+					><slot name="leaf-summary" v-bind="p"
+				/></template>
 			</TreeBuilderLeaf>
 		</div>
 	</div>
