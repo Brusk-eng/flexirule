@@ -13,8 +13,18 @@
 		:maxDepth="maxDepth"
 		:operatorLabel="operatorLabel"
 		:visibleNode="visibleNode"
+		:presentationMode="presentationMode"
+		:isLeafNew="isLeafNew"
+		:isLeafValid="isLeafValid"
 		@update:modelValue="emitSerialized"
 	>
+		<template #leaf-summary="{ node }">
+			<FilterLeafSummary
+				:node="node"
+				:doctype="node.doctype || doctype"
+				:variableOptions="variableOptions"
+			/>
+		</template>
 		<template #leaf="{ node }">
 			<FilterLeaf
 				:ref="(el) => setLeafRef(node.id, el)"
@@ -34,6 +44,7 @@
 import { computed, ref } from "vue";
 import TreeBuilder from "../../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
+import FilterLeafSummary from "./FilterLeafSummary.vue";
 import { deserializeQueryFilters, toPersistedQueryFilterTree } from "./query_filter_serializer.js";
 
 const GROUP_OPERATORS = ["and", "or"];
@@ -50,6 +61,7 @@ const props = defineProps({
 		default: () => ({ and: __("Match All"), or: __("Match Any") }),
 	},
 	visibleNode: { type: Function, default: () => true },
+	presentationMode: { type: String, default: "hybrid" },
 });
 const emit = defineEmits(["update:modelValue", "change"]);
 const treeBuilderRef = ref(null);
@@ -65,6 +77,36 @@ function createLeaf() {
 		operator: "=",
 		value: { mode: "static", value: "" },
 	};
+}
+function isLeafNew(node) {
+	return !node?.field;
+}
+function isValueConfigured(val) {
+	if (val === null || val === undefined || val === "") return false;
+	if (typeof val === "object" && val.mode) {
+		if (val.mode === "static") return isValueConfigured(val.value);
+		return Boolean(val.value || val.expression || val.resolver_type);
+	}
+	if (Array.isArray(val)) return val.length > 0 && val.every(isValueConfigured);
+	return String(val).trim() !== "";
+}
+function isLeafValid(node) {
+	if (!node?.field) return false;
+	if (!node?.operator) return false;
+	const op = node.operator;
+	if (op === "Between") {
+		const arr = Array.isArray(node?.value) ? node.value : [];
+		return arr.length >= 2 && isValueConfigured(arr[0]) && isValueConfigured(arr[1]);
+	}
+	if (String(op).toLowerCase() === "is") {
+		const val = node?.value;
+		const raw = typeof val === "object" && val?.mode === "static" ? val.value : val;
+		if (typeof raw === "string" && ["set", "not set"].includes(raw.trim().toLowerCase())) {
+			return true;
+		}
+		return isValueConfigured(val);
+	}
+	return isValueConfigured(node?.value);
 }
 function operatorLabel(operator) {
 	return props.operatorLabels[operator] || operator;

@@ -19,6 +19,10 @@ const props = defineProps({
 	groupOperators: { type: Array, default: () => ["and", "or"] },
 	operatorLabel: { type: Function, default: (v) => v },
 	visibleNode: { type: Function, default: () => true },
+	presentationMode: { type: String, default: "hybrid" },
+	editorLayout: { type: String, default: "replace" },
+	isLeafNew: { type: Function, default: null },
+	isLeafValid: { type: Function, default: null },
 });
 
 const emit = defineEmits(["remove", "operator"]);
@@ -259,10 +263,16 @@ function drop(e) {
 						:groupOperators="groupOperators"
 						:operatorLabel="operatorLabel"
 						:visibleNode="visibleNode"
+						:presentationMode="presentationMode"
+						:editorLayout="editorLayout"
+						:isLeafNew="isLeafNew"
+						:isLeafValid="isLeafValid"
 						@remove="api?.removeNode(child.id)"
 						@operator="api?.setOperator(child.id, $event)"
 					>
 						<template #default="p"><slot v-bind="p" /></template>
+						<template #leaf="p"><slot name="leaf" v-bind="p" /></template>
+						<template #leaf-summary="p"><slot name="leaf-summary" v-bind="p" /></template>
 						<template #collection="p"><slot name="collection" v-bind="p" /></template>
 					</TreeBuilderNode>
 				</template>
@@ -299,10 +309,16 @@ function drop(e) {
 						:groupOperators="groupOperators"
 						:operatorLabel="operatorLabel"
 						:visibleNode="visibleNode"
+						:presentationMode="presentationMode"
+						:editorLayout="editorLayout"
+						:isLeafNew="isLeafNew"
+						:isLeafValid="isLeafValid"
 						@remove="api?.removeNode(child.id)"
 						@operator="api?.setOperator(child.id, $event)"
 					>
 						<template #default="p"><slot v-bind="p" /></template>
+						<template #leaf="p"><slot name="leaf" v-bind="p" /></template>
+						<template #leaf-summary="p"><slot name="leaf-summary" v-bind="p" /></template>
 						<template #collection="p"><slot name="collection" v-bind="p" /></template>
 					</TreeBuilderNode>
 				</template>
@@ -315,9 +331,15 @@ function drop(e) {
 				:index="index"
 				:parent="parent"
 				:readOnly="readOnly"
+				:presentationMode="presentationMode"
+				:editorLayout="editorLayout"
+				:isLeafNew="isLeafNew"
+				:isLeafValid="isLeafValid"
 				@remove="$emit('remove')"
 			>
 				<template #default="p"><slot v-bind="p" /></template>
+				<template #leaf="p"><slot name="leaf" v-bind="p" /></template>
+				<template #leaf-summary="p"><slot name="leaf-summary" v-bind="p" /></template>
 			</TreeBuilderLeaf>
 		</div>
 	</div>
