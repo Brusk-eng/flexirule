@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
+import { isFilterLeafValid, validateFilterLeaf } from "./query_filter_validation.mjs";
 import {
-	isFilterLeafValid,
-	validateFilterLeaf,
-	isValueConfigured,
-} from "./query_filter_validation.js";
+	formatSingleValue,
+	formatFilterSummary,
+	resolveFilterFieldDef,
+} from "./filter_summary_formatter.mjs";
 
 // Global mock for translation __
 if (typeof globalThis.__ !== "function") {
@@ -11,35 +12,6 @@ if (typeof globalThis.__ !== "function") {
 		if (!args || !args.length) return str;
 		return str.replace(/\{(\d+)\}/g, (_, index) => args[index] ?? "");
 	};
-}
-
-function humanize(raw) {
-	if (!raw) return "";
-	return String(raw)
-		.replace(/_/g, " ")
-		.replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatSingleValue(val) {
-	if (val === null || val === undefined || val === "") return "";
-	if (typeof val === "object" && val.mode) {
-		if (val.mode === "static") {
-			return formatSingleValue(val.value);
-		}
-		if (val.mode === "variable") {
-			const varName = val.value || val.variable || "";
-			return __("Variable ({0})", [varName]);
-		}
-		if (val.mode === "resolver" || val.resolver_type) {
-			const name = val.resolver_type || val.mode || "Resolver";
-			return humanize(name);
-		}
-		return humanize(val.mode);
-	}
-	if (Array.isArray(val)) {
-		return val.map(formatSingleValue).filter(Boolean).join(", ");
-	}
-	return String(val);
 }
 
 // Validity checks using imported production validator
@@ -108,7 +80,7 @@ assert.equal(
 	true
 );
 
-// Value formatting checks
+// Production value formatting tests using formatSingleValue
 assert.equal(formatSingleValue({ mode: "static", value: "Open" }), "Open");
 assert.equal(
 	formatSingleValue({ mode: "variable", value: "doc.customer" }),
@@ -121,5 +93,37 @@ assert.equal(
 	]),
 	"A, B"
 );
+
+// Production formatFilterSummary component-helper tests
+const summaryOpen = formatFilterSummary(
+	{ field: "status", operator: "=", value: { mode: "static", value: "Open" } },
+	"Sales Order"
+);
+assert.equal(summaryOpen.isValid, true);
+assert.equal(summaryOpen.fieldLabel, "Status");
+assert.equal(summaryOpen.operatorLabel, "equals");
+assert.equal(summaryOpen.valueLabel, "Open");
+
+const summaryInvalid = formatFilterSummary({ field: "", operator: "=" }, "Sales Order");
+assert.equal(summaryInvalid.isValid, false);
+
+// Nested field path definition test
+const mockMetaMap = {
+	"Sales Order": [
+		{ fieldname: "customer", fieldtype: "Link", options: "Customer", label: "Customer" },
+	],
+	Customer: [
+		{
+			fieldname: "customer_group",
+			fieldtype: "Link",
+			options: "Customer Group",
+			label: "Customer Group",
+		},
+	],
+};
+
+const nestedDef = resolveFilterFieldDef("customer.customer_group", "Sales Order", mockMetaMap);
+assert.equal(nestedDef.fieldtype, "Link");
+assert.equal(nestedDef.label, "Customer · Customer Group");
 
 console.log("filter leaf summary unit tests passed");

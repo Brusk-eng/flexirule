@@ -102,7 +102,7 @@ import {
 	isValueConfigured,
 	isValidIsValue,
 	validateFilterLeaf,
-} from "./query_filter_validation.js";
+} from "./query_filter_validation.mjs";
 
 const props = defineProps({
 	modelValue: { type: Object, required: true },

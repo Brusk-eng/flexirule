@@ -1,4 +1,5 @@
 import { getFilterOperators } from "./filter_operators.mjs";
+import { resolveFilterFieldDef } from "./filter_summary_formatter.mjs";
 
 export function isValueConfigured(val) {
 	if (val === null || val === undefined || val === "") return false;
@@ -45,22 +46,9 @@ export function isValidIsValue(val) {
 
 function resolveFieldDef(leaf, context = {}) {
 	if (context.fieldDef) return context.fieldDef;
-	const fieldname = leaf?.field;
-	if (!fieldname) return null;
-	if (fieldname === "name") return { fieldname, fieldtype: "Data" };
-	if (["owner", "modified_by"].includes(fieldname))
-		return { fieldname, fieldtype: "Link", options: "User" };
-	if (["creation", "modified"].includes(fieldname)) return { fieldname, fieldtype: "Datetime" };
-	if (fieldname === "docstatus") return { fieldname, fieldtype: "Int" };
-
-	if (
-		context.doctype &&
-		typeof frappe !== "undefined" &&
-		frappe.meta?.has_field?.(context.doctype, fieldname)
-	) {
-		const df = frappe.meta.get_docfield(context.doctype, fieldname);
-		if (df) return df;
-	}
+	if (!leaf?.field) return null;
+	const resolved = resolveFilterFieldDef(leaf.field, context.doctype, context.metaMap);
+	if (resolved && resolved.isResolved) return resolved;
 	return null;
 }
 

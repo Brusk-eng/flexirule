@@ -103,7 +103,7 @@
 
 <script setup>
 import { computed, inject, useSlots } from "vue";
-import { getInlinePresentation } from "../../controls/inline_presentation_policy.js";
+import { getInlinePresentation } from "../../controls/inline_presentation_policy.mjs";
 
 const props = defineProps({
 	node: { type: Object, required: true },

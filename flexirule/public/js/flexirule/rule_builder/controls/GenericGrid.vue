@@ -417,7 +417,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
-import { getInlinePresentation } from "./inline_presentation_policy.js";
+import { getInlinePresentation } from "./inline_presentation_policy.mjs";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
