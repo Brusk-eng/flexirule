@@ -43,9 +43,38 @@ export function isValidIsValue(val) {
 	);
 }
 
-export function isFilterLeafValid(leaf, options = {}) {
+function resolveFieldDef(leaf, context = {}) {
+	if (context.fieldDef) return context.fieldDef;
+	const fieldname = leaf?.field;
+	if (!fieldname) return null;
+	if (fieldname === "name") return { fieldname, fieldtype: "Data" };
+	if (["owner", "modified_by"].includes(fieldname))
+		return { fieldname, fieldtype: "Link", options: "User" };
+	if (["creation", "modified"].includes(fieldname)) return { fieldname, fieldtype: "Datetime" };
+	if (fieldname === "docstatus") return { fieldname, fieldtype: "Int" };
+
+	if (
+		context.doctype &&
+		typeof frappe !== "undefined" &&
+		frappe.meta?.has_field?.(context.doctype, fieldname)
+	) {
+		const df = frappe.meta.get_docfield(context.doctype, fieldname);
+		if (df) return df;
+	}
+	return null;
+}
+
+export function isFilterLeafValid(leaf, context = {}) {
 	if (!leaf || typeof leaf !== "object" || !leaf.field) return false;
 	if (!leaf.operator) return false;
+
+	const fieldDef = resolveFieldDef(leaf, context);
+	const allowed =
+		context.allowedOperators ||
+		(fieldDef ? getFilterOperators(fieldDef, context.nestedSetOptions) : null);
+	if (allowed && allowed.length > 0 && !allowed.includes(leaf.operator)) {
+		return false;
+	}
 
 	const op = leaf.operator;
 	if (op === "Between") {
@@ -58,7 +87,7 @@ export function isFilterLeafValid(leaf, options = {}) {
 	return isValueConfigured(leaf.value);
 }
 
-export function validateFilterLeaf(leaf, options = {}) {
+export function validateFilterLeaf(leaf, context = {}) {
 	const errors = [];
 	if (!leaf || typeof leaf !== "object" || !leaf.field) {
 		errors.push("Filter field is required.");
@@ -66,6 +95,16 @@ export function validateFilterLeaf(leaf, options = {}) {
 	}
 	if (!leaf.operator) {
 		errors.push("Filter operator is required.");
+		return { valid: false, errors };
+	}
+
+	const fieldDef = resolveFieldDef(leaf, context);
+	const allowed =
+		context.allowedOperators ||
+		(fieldDef ? getFilterOperators(fieldDef, context.nestedSetOptions) : null);
+
+	if (allowed && allowed.length > 0 && !allowed.includes(leaf.operator)) {
+		errors.push("Choose a supported operator for the selected field.");
 		return { valid: false, errors };
 	}
 

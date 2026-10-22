@@ -417,7 +417,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
-import { getInlinePresentation } from "./inline_presentation_policy.mjs";
+import { getInlinePresentation } from "./inline_presentation_policy.js";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -433,7 +433,7 @@ import {
 
 const props = defineProps({
 	presentationMode: { type: String, default: "hybrid" },
-	editorLayout: { type: String, default: "replace" },
+	editorLayout: { type: String, default: "alongside" },
 	isRowNew: { type: Function, default: null },
 	isRowValid: { type: Function, default: null },
 	// Use the default slot for layout-only mode, or provide rows/modelValue for a data grid.

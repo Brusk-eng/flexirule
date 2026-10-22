@@ -46,7 +46,7 @@ import TreeBuilder from "../../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
 import FilterLeafSummary from "./FilterLeafSummary.vue";
 import { deserializeQueryFilters, toPersistedQueryFilterTree } from "./query_filter_serializer.js";
-import { isFilterLeafValid, validateFilterLeaf } from "./query_filter_validation.mjs";
+import { isFilterLeafValid, validateFilterLeaf } from "./query_filter_validation.js";
 
 const GROUP_OPERATORS = ["and", "or"];
 const props = defineProps({
@@ -83,7 +83,7 @@ function isLeafNew(node) {
 	return !node?.field;
 }
 function isLeafValid(node) {
-	return isFilterLeafValid(node);
+	return isFilterLeafValid(node, { doctype: props.doctype });
 }
 function operatorLabel(operator) {
 	return props.operatorLabels[operator] || operator;
@@ -144,7 +144,7 @@ async function validate() {
 		if (typeof instance?.validate === "function") {
 			result = await instance.validate();
 		} else {
-			const rawResult = validateFilterLeaf(node);
+			const rawResult = validateFilterLeaf(node, { doctype: props.doctype });
 			result = { valid: rawResult.valid, errors: rawResult.errors.map((msg) => __(msg)) };
 		}
 		if (!result?.valid) {

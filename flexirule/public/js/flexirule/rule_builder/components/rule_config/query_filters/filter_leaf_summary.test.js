@@ -3,7 +3,7 @@ import {
 	isFilterLeafValid,
 	validateFilterLeaf,
 	isValueConfigured,
-} from "./query_filter_validation.mjs";
+} from "./query_filter_validation.js";
 
 // Global mock for translation __
 if (typeof globalThis.__ !== "function") {
@@ -85,6 +85,19 @@ assert.equal(
 		value: { mode: "variable", value: "doc.customer" },
 	}),
 	true
+);
+
+// Operator compatibility check
+assert.equal(
+	isFilterLeafValid(
+		{
+			field: "creation",
+			operator: "invalid_op",
+			value: { mode: "static", value: "2026-01-01" },
+		},
+		{ fieldDef: { fieldtype: "Datetime" } }
+	),
+	false
 );
 
 // Detailed validation result test

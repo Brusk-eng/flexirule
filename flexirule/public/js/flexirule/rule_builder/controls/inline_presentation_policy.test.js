@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { resolvePresentationMode, getInlinePresentation } from "./inline_presentation_policy.mjs";
+import { resolvePresentationMode, getInlinePresentation } from "./inline_presentation_policy.js";
 
 // Mode normalization
 assert.equal(resolvePresentationMode("hybrid"), "hybrid");
@@ -142,3 +142,5 @@ assert.deepEqual(
 	}),
 	{ mode: "hybrid", presentation: "editor", canToggle: false, canEdit: false }
 );
+
+console.log("inline presentation policy unit tests passed");

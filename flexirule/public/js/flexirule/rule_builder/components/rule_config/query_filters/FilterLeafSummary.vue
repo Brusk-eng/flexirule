@@ -17,7 +17,7 @@
 <script setup>
 import { computed } from "vue";
 import { getFieldType } from "./filter_operators.mjs";
-import { isFilterLeafValid } from "./query_filter_validation.mjs";
+import { isFilterLeafValid } from "./query_filter_validation.js";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -152,7 +152,9 @@ const valueLabel = computed(() => {
 	return formatSingleValue(value);
 });
 
-const isValid = computed(() => isFilterLeafValid(props.node));
+const isValid = computed(() =>
+	isFilterLeafValid(props.node, { fieldDef: fieldDef.value, doctype: props.doctype })
+);
 
 const invalidReason = computed(() => {
 	if (!props.node?.field) return __("Incomplete filter: select a field");
