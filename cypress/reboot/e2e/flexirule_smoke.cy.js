@@ -1,3 +1,4 @@
+/* global afterEach */
 const KNOWN_REGRESSION = /could not find grid field|grid field.*not found|cannot set property hasResolvedOutputSchema|uncaught typeerror/i;
 
 describe("FlexiRule — isolated Cypress smoke flow", () => {
