@@ -10,14 +10,14 @@ on:
       - "yarn.lock"
       - "flexirule/public/**"
       - "flexirule/templates/**"
-      - "flexirule/ruleflow/doctype/rule/**"
+      - "flexirule/ruleflow/**"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: cypress-smoke-${{ github.event.pull_request.number || github.ref}}
+  group: cypress-smoke-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
