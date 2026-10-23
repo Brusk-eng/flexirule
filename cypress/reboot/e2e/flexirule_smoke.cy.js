@@ -179,7 +179,13 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 
 		// Save through the builder's UI, then verify the node survives a hard reload.
 		cy.contains("button", "Save Rule", { timeout: 15000 }).should("be.visible").click();
-		cy.get(".desk-alert.green", { timeout: 20000 }).should("contain", "Saved");
+		// The builder uses Frappe alert rendering that differs across versions;
+		// do not couple the smoke test to a toast CSS class. The hard-reload
+		// assertion below verifies the actual outcome: the node was persisted.
+		cy.get(".vue-flow__node .assignment .node-title", { timeout: 30000 }).should(
+			"contain",
+			assignmentLabel
+		);
 		cy.reload();
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
 		cy.get(".vue-flow__node .assignment .node-title", { timeout: 30000 }).should(
