@@ -1,5 +1,6 @@
 /* global afterEach */
-const KNOWN_REGRESSION = /could not find grid field|grid field.*not found|cannot set property hasResolvedOutputSchema|uncaught typeerror/i;
+const KNOWN_REGRESSION =
+	/could not find grid field|grid field.*not found|cannot set property hasResolvedOutputSchema|uncaught typeerror/i;
 
 describe("FlexiRule — isolated Cypress smoke flow", () => {
 	let createdRuleName = null;
@@ -110,9 +111,7 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 			win.frappe.set_route("List", "Rule");
 		});
 		cy.url().should("include", "/app/rule");
-		cy.contains("button", "Add Rule", { timeout: 30000 })
-			.should("be.visible")
-			.click();
+		cy.contains("button", "Add Rule", { timeout: 30000 }).should("be.visible").click();
 		cy.get('input[data-fieldname="rule_name"][data-doctype="Rule"]', {
 			timeout: 20000,
 		}).should("be.visible");
@@ -129,14 +128,20 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 				.then(() => dialog.set_value("document_type", "Contact"))
 				.then(() => dialog.set_value("trigger_event", "After Save"));
 		});
-		cy.get('input[data-fieldname="rule_name"][data-doctype="Rule"]')
-			.should("have.value", ruleName);
+		cy.get('input[data-fieldname="rule_name"][data-doctype="Rule"]').should(
+			"have.value",
+			ruleName
+		);
 		cy.screenshot("02-rule-quick-entry-filled");
 
 		cy.get(".modal.show")
 			.last()
 			.within(() => {
-				cy.get("button.btn-modal-primary").filter(':contains("Save")').first().should("be.visible").click({ force: true });
+				cy.get("button.btn-modal-primary")
+					.filter(':contains("Save")')
+					.first()
+					.should("be.visible")
+					.click({ force: true });
 			});
 		cy.get(".modal.show").should("not.exist");
 
@@ -150,9 +155,7 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 		cy.window().then((win) => {
 			win.frappe.set_route("Form", "Rule", ruleName);
 		});
-		cy.contains("button", "Visual Builder", { timeout: 30000 })
-			.should("be.visible")
-			.click();
+		cy.contains("button", "Visual Builder", { timeout: 30000 }).should("be.visible").click();
 		cy.url().should("include", "/app/rule-builder/" + ruleName);
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
 		cy.get(".vue-flow__node").should(($nodes) => {
@@ -170,16 +173,11 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 		cy.get(".labeling-container input").clear().type(assignmentLabel);
 		cy.get(".labeling-container button.btn-primary").click();
 		cy.get(".vue-flow__node .assignment").should("be.visible");
-		cy.get(".vue-flow__node .assignment .node-title").should(
-			"contain",
-			assignmentLabel
-		);
+		cy.get(".vue-flow__node .assignment .node-title").should("contain", assignmentLabel);
 		cy.screenshot("05-assignment-added");
 
 		// Save through the builder's UI, then verify the node survives a hard reload.
-		cy.contains("button", "Save Rule", { timeout: 15000 })
-			.should("be.visible")
-			.click();
+		cy.contains("button", "Save Rule", { timeout: 15000 }).should("be.visible").click();
 		cy.get(".desk-alert.green", { timeout: 20000 }).should("contain", "Saved");
 		cy.reload();
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
@@ -193,9 +191,7 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 		// schema getter regression, or JS/CSS asset failures. Uncaught exceptions
 		// remain Cypress failures by default.
 		cy.then(() => {
-			const regressions = browserMessages.filter((message) =>
-				KNOWN_REGRESSION.test(message)
-			);
+			const regressions = browserMessages.filter((message) => KNOWN_REGRESSION.test(message));
 			expect(
 				regressions,
 				"known Rule Builder console regressions:\n" + regressions.join("\n")
