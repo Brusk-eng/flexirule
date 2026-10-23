@@ -103,7 +103,24 @@ jobs:
           bench setup requirements --dev
           bench new-site --db-root-password root --admin-password admin localhost
           bench --site localhost install-app flexirule
+          # Use Frappe's supported setup flow first; do not fake Installed Application state.
           bench --site localhost execute frappe.utils.install.complete_setup_wizard
+          bench --site localhost console <<'EOF'
+          import frappe
+
+          # Keep the disposable test site deterministic and verify the actual
+          # redirect gate before the browser starts.
+          frappe.db.set_single_value("System Settings", "language", "en")
+          frappe.db.set_single_value("System Settings", "time_zone", "America/New_York")
+          frappe.db.set_default("desktop:home_page", "workspace")
+          frappe.db.commit()
+          frappe.clear_cache()
+
+          assert frappe.is_setup_complete(), "Frappe still considers the site setup incomplete"
+          assert frappe.db.get_single_value("System Settings", "setup_complete"), "System Settings setup_complete is not set"
+          assert frappe.db.get_value("Installed Application", {"app_name": "frappe"}, "is_setup_complete"), "Frappe setup wizard did not mark the frappe application complete"
+          print("Site setup state verified.")
+          EOF
           bench --site localhost migrate
 
       - name: Build app assets
