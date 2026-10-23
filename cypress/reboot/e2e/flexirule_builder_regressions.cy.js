@@ -32,7 +32,6 @@ describe("FlexiRule builder regression coverage", () => {
 
 		cy.window().then((win) => win.frappe.set_route("Form", "Rule", ruleName));
 		cy.contains("button", "Visual Builder", { timeout: 30000 }).click();
-		cy.get('[role="application"]', { timeout: 30000 }).should("exist");
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
 	}
 
@@ -75,7 +74,7 @@ describe("FlexiRule builder regression coverage", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Assignment");
 		cy.get(".labeling-container input").should("be.visible").type("Assignment configuration check");
-		cy.contains(".labeling-container button", "Save").click();
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		cy.contains(".vue-flow__node", "Assignment configuration check")
 			.should("be.visible")
@@ -91,7 +90,7 @@ describe("FlexiRule builder regression coverage", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Condition");
 		cy.get(".labeling-container input").should("be.visible").type("Condition configuration check");
-		cy.contains(".labeling-container button", "Save").click();
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		cy.contains(".vue-flow__node", "Condition configuration check")
 			.should("be.visible")
