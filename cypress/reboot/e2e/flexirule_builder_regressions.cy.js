@@ -172,6 +172,42 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 	});
 
+	it("supports undo and redo for a graph edit without persisting it implicitly", () => {
+		createRuleAndOpenBuilder();
+		const label = "Undo redo " + Date.now();
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input").should("be.visible").type(label);
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+		cy.contains(".vue-flow__node", label).should("be.visible");
+
+		cy.get("body").type("{ctrl}z");
+		cy.contains(".vue-flow__node", label).should("not.exist");
+		cy.get("body").type("{ctrl}y");
+		cy.contains(".vue-flow__node", label).should("be.visible");
+
+		persistedRule().then((doc) => {
+			expect(doc.actions.some((action) =>
+				action.action_type === "Assignment" &&
+				(action.action_label === label || action.label === label)
+			), "undo/redo must not implicitly save the graph").to.eq(false);
+		});
+	});
+
+	it("keeps an incomplete Assignment out of persisted data when save validation rejects it", () => {
+		createRuleAndOpenBuilder();
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input").should("be.visible").type("Incomplete assignment");
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+
+		cy.contains("button", "Save Rule", { timeout: 15000 }).should("be.visible").click();
+		persistedRule().then((doc) => {
+			expect(doc.actions.some((action) =>
+				action.action_type === "Assignment" &&
+				(action.action_label === "Incomplete assignment" || action.label === "Incomplete assignment")
+			), "an incomplete action should not be persisted").to.eq(false);
+		});
+	});
+
 	it("does not treat known schema/grid console regressions as successful UI behavior", () => {
 		const messages = [];
 		cy.on("window:before:load", (win) => {
