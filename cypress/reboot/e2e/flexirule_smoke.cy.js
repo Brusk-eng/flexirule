@@ -49,7 +49,6 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 			});
 		});
 
-		cy.intercept("POST", "**/api/method/login").as("frappeLogin");
 
 		const user = Cypress.env("frappeUser") || "Administrator";
 		const password = Cypress.env("frappePassword");
@@ -64,7 +63,9 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 		cy.get("#login_email", { timeout: 20000 }).should("be.visible").clear().type(user);
 		cy.get("#login_password").should("be.visible").clear().type(password, { log: false });
 		cy.get("button.btn-login").should("be.visible").click();
-		cy.wait("@frappeLogin").its("response.statusCode").should("eq", 200);
+		// Frappe can complete login through a document form submission/redirect,
+		// which Cypress network intercepts do not consistently expose as XHR.
+		// Assert the post-login route and authenticated Desk UI instead.
 		cy.url().should("include", "/app");
 		cy.get(".navbar", { timeout: 30000 }).should("be.visible");
 		cy.screenshot("01-login-and-desk");
