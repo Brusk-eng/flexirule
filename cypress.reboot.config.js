@@ -30,11 +30,7 @@ module.exports = defineConfig({
 		supportFile: false,
 		testIsolation: true,
 		setupNodeEvents(on, config) {
-			const diagnosticsRoot = path.join(
-				config.projectRoot,
-				"artifacts",
-				"cypress"
-			);
+			const diagnosticsRoot = path.join(config.projectRoot, "artifacts", "cypress");
 			fs.mkdirSync(diagnosticsRoot, { recursive: true });
 			return config;
 		},
