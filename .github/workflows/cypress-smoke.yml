@@ -123,11 +123,12 @@ jobs:
           EOF
           bench --site localhost migrate
 
-      - name: Build app assets
+      - name: Build bench assets
         working-directory: /home/runner/frappe-bench
         env:
           CI: "Yes"
-        run: bench build --app flexirule --production
+        # Bench was initialized with --skip-assets, so build Frappe core and FlexiRule assets.
+        run: bench build --production
 
       - name: Install Cypress
         run: |
