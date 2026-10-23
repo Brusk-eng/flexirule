@@ -135,7 +135,7 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 		cy.get(".modal.show")
 			.last()
 			.within(() => {
-				cy.get("button.btn-modal-primary").should("be.visible").click({ force: true });
+				cy.get("button.btn-modal-primary").filter(':contains("Save")').first().should("be.visible").click({ force: true });
 			});
 		cy.get(".modal.show").should("not.exist");
 
