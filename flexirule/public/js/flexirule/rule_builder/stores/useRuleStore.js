@@ -237,11 +237,11 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				return;
 			}
 
-			graphStore.normalize_graph_nodes();
-
-			// Standalone visual-only nodes are not a persisted Rule Builder feature.
-			// Reject them before action serialization can misclassify them as "Process".
+			// Reject unsupported nodes before normalization can discard their marker and
+			// action serialization can misclassify them as a default "Process" action.
 			assertNoUnsupportedVisualOnlyNodes(graphStore.nodes);
+
+			graphStore.normalize_graph_nodes();
 
 			// 1. Validate mandatory fields using contract
 			const { validateAgainstContract } = await import("../../core/contracts");
