@@ -14,4 +14,3 @@ export function isConsoleRegressionMessage(message) {
 	if (!message || typeof message !== "string") return false;
 	return REGRESSION_CONSOLE_PATTERN.test(message);
 }
-
