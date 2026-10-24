@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	assertNoUnsupportedVisualOnlyNodes,
 	formatVisualDataPayload,
 	mergeVisualLayout,
 } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/visual_layout.js";
@@ -19,6 +20,14 @@ test("formatVisualDataPayload excludes full node.data and action type/label for 
 				config: { secret: "do_not_duplicate" },
 			},
 		},
+		{
+			id: "annotation-1",
+			type: "annotation",
+			label: "Unsupported Annotation",
+			is_visual_only: true,
+			position: { x: 300, y: 400 },
+			data: { text: "Not persisted by the current contract" },
+		},
 	];
 
 	const edges = [
@@ -26,6 +35,13 @@ test("formatVisualDataPayload excludes full node.data and action type/label for 
 			id: "e-node-1",
 			source: "node-1",
 			target: "node-2",
+			sourceHandle: "default",
+			targetHandle: null,
+		},
+		{
+			id: "e-annotation",
+			source: "annotation-1",
+			target: "node-1",
 			sourceHandle: "default",
 			targetHandle: null,
 		},
@@ -39,6 +55,16 @@ test("formatVisualDataPayload excludes full node.data and action type/label for 
 	assert.equal(actionPayloadNode.type, undefined, "type is omitted for standard action node");
 	assert.equal(actionPayloadNode.label, undefined, "label is omitted for standard action node");
 	assert.deepEqual(actionPayloadNode.position, { x: 100, y: 200 });
+	assert.equal(
+		payload.some((item) => item.id === "annotation-1"),
+		false,
+		"standalone visual-only nodes are unsupported and not persisted"
+	);
+	assert.equal(
+		payload.some((item) => item.source === "annotation-1" || item.target === "annotation-1"),
+		false,
+		"edges connected to unsupported visual-only nodes are not persisted"
+	);
 
 	const meta = payload.find((item) => item.type === "ui_preferences");
 	assert.ok(meta, "ui_preferences meta included");
@@ -109,5 +135,16 @@ test("mergeVisualLayout updates positions without overwriting action data or res
 		visualOrphan,
 		undefined,
 		"orphan visual record without doc.actions entry is ignored"
+	);
+});
+
+
+test("assertNoUnsupportedVisualOnlyNodes rejects unsupported nodes before action serialization", () => {
+	assert.doesNotThrow(() =>
+		assertNoUnsupportedVisualOnlyNodes([{ id: "action-1", data: { action_type: "Assignment" } }])
+	);
+	assert.throws(
+		() => assertNoUnsupportedVisualOnlyNodes([{ id: "annotation-1", is_visual_only: true }]),
+		/Visual-only nodes.*not supported/
 	);
 });
