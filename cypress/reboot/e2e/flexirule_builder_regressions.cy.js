@@ -370,7 +370,8 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("First Click Save Success{enter}");
+			.type("First Click Save Success");
+		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
 
 		// Verify Save button in modal is visible when dirty and click it ONCE
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
@@ -427,7 +428,8 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("Action Node 2 Modified{enter}");
+			.type("Action Node 2 Modified");
+		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
 
 		// Save modal
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
