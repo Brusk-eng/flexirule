@@ -149,8 +149,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const newNodes = snapshot.filter((el) => el.type && el.position);
 		const newEdges = snapshot.filter((el) => el.source && el.target);
 
-		nodes.value = deepClone(newNodes);
-		edges.value = deepClone(newEdges);
+		nodes.value.splice(0, nodes.value.length, ...deepClone(newNodes));
+		edges.value.splice(0, edges.value.length, ...deepClone(newEdges));
 	}
 
 	function update_node_position(nodeId, position) {
@@ -1702,6 +1702,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	function get_visual_data_payload(layoutDirection = null) {
 		const nodePayload = nodes.value.map((node) => ({
 			id: node.id,
+			type: node.type,
+			label: node.label,
+			data: deepClone(node.data || {}),
 			position: {
 				x: Math.round(node.position?.x || 0),
 				y: Math.round(node.position?.y || 0),
