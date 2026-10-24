@@ -21,4 +21,3 @@ try {
 } catch (e) {
 	// coverage not available
 }
-
