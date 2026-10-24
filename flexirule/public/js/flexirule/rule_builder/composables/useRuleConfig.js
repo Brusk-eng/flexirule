@@ -123,6 +123,9 @@ export function useRuleConfig(props, emit) {
 		const sourceNode = props.node;
 		const sourceDraft = draftNode.value;
 		const validatedDraft = sourceDraft ? deepClone(sourceDraft) : null;
+		if (validatedDraft) {
+			normalizeCandidateDraft(validatedDraft);
+		}
 		const validatedDraftSignature = validatedDraft ? stableStringify(validatedDraft) : null;
 		const sourceGeneration = ruleStore.fetch_generation;
 		const sourceContextGeneration = saveContextGeneration;
@@ -157,8 +160,6 @@ export function useRuleConfig(props, emit) {
 				validate: () => validate(validatedDraft),
 				commit: () => {
 					if (!sourceNode || !validatedDraft) return;
-
-					normalizeCandidateDraft(validatedDraft);
 
 					const oldValue = sourceNode.data?.rule;
 					const newValue = validatedDraft.data?.rule;
