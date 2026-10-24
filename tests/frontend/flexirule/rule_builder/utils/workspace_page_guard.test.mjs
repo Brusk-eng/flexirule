@@ -28,17 +28,33 @@ test("a legitimate workspace page invokes the original method with the same cont
 	assert.deepEqual(received.args, [page, "extra"]);
 });
 
-test("a loaded workspace skips an unrelated route absent from its page list", async () => {
+test("a legitimate private workspace page still delegates to Frappe", async () => {
 	const workspace = makeWorkspace();
-	let originalCalls = 0;
-	const guarded = createWorkspaceShowPageGuard(() => {
-		originalCalls += 1;
+	const page = { name: "Private Reports", public: false };
+	let receivedPage;
+	const guarded = createWorkspaceShowPageGuard(function (requestedPage) {
+		receivedPage = requestedPage;
+		return "private-page-rendered";
 	});
 
-	const result = await guarded.call(workspace, { name: "rule-builder", public: true });
+	assert.equal(await guarded.call(workspace, page), "private-page-rendered");
+	assert.equal(receivedPage, page);
+});
 
-	assert.equal(result, undefined);
-	assert.equal(originalCalls, 0);
+
+test("a loaded workspace skips an unrelated route before Frappe dereferences a missing page", async () => {
+	const workspace = makeWorkspace();
+	let originalCalls = 0;
+	const originalRouterError = new TypeError("Cannot read properties of undefined (reading 'name')");
+	const guarded = createWorkspaceShowPageGuard(() => {
+		originalCalls += 1;
+		throw originalRouterError;
+	});
+
+	await assert.doesNotReject(() =>
+		guarded.call(workspace, { name: "rule-builder", public: true })
+	);
+	assert.equal(originalCalls, 0, "the original failing lookup must not run for a missing workspace page");
 });
 
 test("the guard delegates when workspace data is not loaded", async () => {
