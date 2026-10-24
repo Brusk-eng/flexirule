@@ -63,7 +63,9 @@ export function formatVisualDataPayload(
 	};
 
 	const edgePayload = (edges || [])
-		.filter((edge) => !visualOnlyNodeIds.has(edge.source) && !visualOnlyNodeIds.has(edge.target))
+		.filter(
+			(edge) => !visualOnlyNodeIds.has(edge.source) && !visualOnlyNodeIds.has(edge.target)
+		)
 		.map((edge) => ({
 			id: edge.id,
 			source: edge.source,

@@ -138,7 +138,6 @@ test("mergeVisualLayout updates positions without overwriting action data or res
 	);
 });
 
-
 test("assertNoUnsupportedVisualOnlyNodes rejects unsupported nodes before action serialization", () => {
 	assert.doesNotThrow(() =>
 		assertNoUnsupportedVisualOnlyNodes([

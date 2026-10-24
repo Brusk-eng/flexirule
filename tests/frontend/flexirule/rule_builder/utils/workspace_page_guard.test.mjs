@@ -41,7 +41,6 @@ test("a legitimate private workspace page still delegates to Frappe", async () =
 	assert.equal(receivedPage, page);
 });
 
-
 test("a loaded workspace skips an unrelated route before Frappe dereferences a missing page", async () => {
 	const workspace = makeWorkspace();
 	let originalCalls = 0;
