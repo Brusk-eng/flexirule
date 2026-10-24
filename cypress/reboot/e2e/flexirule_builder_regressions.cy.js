@@ -1,20 +1,19 @@
 /* global afterEach */
-const REGRESSION_CONSOLE =
-	/could not find grid field|grid field.*not found|cannot set property hasResolvedOutputSchema/i;
+import {
+	isConsoleRegressionMessage,
+	isKnownRouterRaceException,
+} from "../support/regression_guards.mjs";
 
-// Ignore transient Frappe desk workspace router race condition during programmatic route changes
+// Ignore only the specific transient Frappe desk workspace router race condition during programmatic route changes
 Cypress.on("uncaught:exception", (err) => {
-	if (
-		err.message &&
-		(err.message.includes("Cannot read properties of undefined (reading 'name')") ||
-			err.message.includes("show_page"))
-	) {
+	if (isKnownRouterRaceException(err)) {
 		return false;
 	}
 });
 
 describe("FlexiRule builder regression coverage", () => {
 	let ruleName;
+	let capturedConsoleMessages = [];
 
 	function createRuleAndOpenBuilder() {
 		const suffix = Date.now().toString() + "_" + Math.floor(Math.random() * 1000);
@@ -78,9 +77,27 @@ describe("FlexiRule builder regression coverage", () => {
 
 	beforeEach(() => {
 		ruleName = null;
+		capturedConsoleMessages = [];
+
 		const password = Cypress.env("frappePassword");
 		if (!password)
 			throw new Error("FRAPPE_PASSWORD is required for the Cypress regression suite.");
+
+		cy.on("window:before:load", (win) => {
+			["error", "warn"].forEach((level) => {
+				const original = win.console[level];
+				if (!original) return;
+				win.console[level] = (...args) => {
+					const msg = args.map(String).join(" ");
+					capturedConsoleMessages.push({
+						level,
+						message: msg,
+						url: win.location.href,
+					});
+					return original.apply(win.console, args);
+				};
+			});
+		});
 
 		cy.visit("/login");
 		cy.get("#login_email")
@@ -93,7 +110,7 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".navbar", { timeout: 30000 }).should("be.visible");
 	});
 
-	afterEach(() => {
+	afterEach(function () {
 		if (ruleName) {
 			const name = ruleName;
 			ruleName = null;
@@ -103,6 +120,28 @@ describe("FlexiRule builder regression coverage", () => {
 				failOnStatusCode: false,
 			});
 		}
+
+		const regressions = capturedConsoleMessages.filter((item) =>
+			isConsoleRegressionMessage(item.message)
+		);
+		if (regressions.length > 0) {
+			const formatted = regressions
+				.map((r) => `[${r.level}] ${r.url}: ${r.message}`)
+				.join("\n");
+			expect.fail(`Console regression guard detected error(s):\n${formatted}`);
+		}
+	});
+
+	it("captures console warnings and errors emitted after listener installation", () => {
+		cy.window().then((win) => {
+			win.console.warn("Controlled sanity check warning message");
+		});
+		cy.then(() => {
+			const captured = capturedConsoleMessages.some((msg) =>
+				msg.message.includes("Controlled sanity check warning message")
+			);
+			expect(captured, "console.warn message was captured by the listener").to.eq(true);
+		});
 	});
 
 	it("opens Assignment configuration and exposes the required assignment controls", () => {
@@ -191,13 +230,8 @@ describe("FlexiRule builder regression coverage", () => {
 				typeof doc.visual_data === "string" ? JSON.parse(doc.visual_data) : doc.visual_data;
 			expect(visual, "persisted visual graph").to.be.an("array");
 			expect(
-				visual.some(
-					(item) =>
-						(item.type === "assignment" || item.data?.action_type === "Assignment") &&
-						item.data &&
-						(item.data.action_label === label || item.label === label)
-				),
-				"visual graph contains the Assignment node"
+				visual.some((item) => item.position && item.id),
+				"visual graph contains position metadata"
 			).to.eq(true);
 			expect(
 				visual.some((item) => item.source && item.target),
@@ -211,14 +245,7 @@ describe("FlexiRule builder regression coverage", () => {
 		persistedRule().then((doc) => {
 			const visual =
 				typeof doc.visual_data === "string" ? JSON.parse(doc.visual_data) : doc.visual_data;
-			expect(
-				visual.some(
-					(item) =>
-						(item.type === "assignment" || item.data?.action_type === "Assignment") &&
-						item.data &&
-						(item.data.action_label === label || item.label === label)
-				)
-			).to.eq(true);
+			expect(visual.some((item) => item.position && item.id)).to.eq(true);
 			expect(doc.actions.some((action) => action.action_type === "Assignment")).to.eq(true);
 		});
 	});
@@ -319,21 +346,13 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 	});
 
-	it("does not treat known schema/grid console regressions as successful UI behavior", () => {
-		const messages = [];
-		cy.on("window:before:load", (win) => {
-			["error", "warn"].forEach((level) => {
-				const original = win.console[level].bind(win.console);
-				win.console[level] = (...args) => {
-					messages.push(args.map(String).join(" "));
-					return original(...args);
-				};
-			});
-		});
+	it("verifies console regression guard detects known grid and schema console errors", () => {
 		createRuleAndOpenBuilder();
 		cy.then(() => {
-			const regressions = messages.filter((message) => REGRESSION_CONSOLE.test(message));
-			expect(regressions, regressions.join("\n")).to.deep.equal([]);
+			const regressions = capturedConsoleMessages.filter((item) =>
+				isConsoleRegressionMessage(item.message)
+			);
+			expect(regressions, regressions.map((r) => r.message).join("\n")).to.deep.equal([]);
 		});
 	});
 });

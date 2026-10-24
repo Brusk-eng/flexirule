@@ -11,7 +11,7 @@
  */
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import { useUIStore } from "./useUIStore";
+import { useUIStore } from "./useUIStore.js";
 import {
 	getContract,
 	getEffectiveActionPolicy,
@@ -21,9 +21,9 @@ import {
 	isTerminalAction,
 	ACTION_TYPES_WITH_REFERENCE_CONTEXT,
 	ACTION_TYPES_WITH_RETURN_SCHEMA,
-} from "../../core/contracts";
-import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
-import { getConditionPayload } from "../utils/condition_payload";
+} from "../../core/contracts.js";
+import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper.js";
+import { getConditionPayload } from "../utils/condition_payload.js";
 import { generateShortId } from "../utils/schema_utils.js";
 import { deepClone } from "../utils/serialization.js";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
@@ -1653,14 +1653,16 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			};
 		});
 
-		// 2. Add orphaned visual nodes not in actions
+		// 2. Add orphaned visual nodes ONLY if explicitly marked as visual-only
 		visualNodes.forEach((vNode, id) => {
 			if (!seenNodeIds.has(id)) {
-				mergedNodes.push({
-					...vNode,
-					data: { ...(vNode.data || {}) },
-				});
-				seenNodeIds.add(id);
+				if (vNode.is_visual_only) {
+					mergedNodes.push({
+						...vNode,
+						data: { ...(vNode.data || {}) },
+					});
+					seenNodeIds.add(id);
+				}
 			}
 		});
 
@@ -1700,17 +1702,22 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	}
 
 	function get_visual_data_payload(layoutDirection = null) {
-		const nodePayload = nodes.value.map((node) => ({
-			id: node.id,
-			type: node.type,
-			label: node.label,
-			data: deepClone(node.data || {}),
-			position: {
-				x: Math.round(node.position?.x || 0),
-				y: Math.round(node.position?.y || 0),
-			},
-			direction: layoutDirection || node.direction || null,
-		}));
+		const nodePayload = nodes.value.map((node) => {
+			const payload = {
+				id: node.id,
+				position: {
+					x: Math.round(node.position?.x || 0),
+					y: Math.round(node.position?.y || 0),
+				},
+				direction: layoutDirection || node.direction || null,
+			};
+			if (node.is_visual_only) {
+				payload.is_visual_only = true;
+				payload.type = node.type;
+				payload.label = node.label;
+			}
+			return payload;
+		});
 
 		// Inject UI preferences into meta if they exist
 		const uiStore = useUIStore();
