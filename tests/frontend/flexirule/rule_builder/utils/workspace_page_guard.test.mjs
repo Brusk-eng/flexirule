@@ -45,7 +45,9 @@ test("a legitimate private workspace page still delegates to Frappe", async () =
 test("a loaded workspace skips an unrelated route before Frappe dereferences a missing page", async () => {
 	const workspace = makeWorkspace();
 	let originalCalls = 0;
-	const originalRouterError = new TypeError("Cannot read properties of undefined (reading 'name')");
+	const originalRouterError = new TypeError(
+		"Cannot read properties of undefined (reading 'name')"
+	);
 	const guarded = createWorkspaceShowPageGuard(() => {
 		originalCalls += 1;
 		throw originalRouterError;
@@ -54,7 +56,11 @@ test("a loaded workspace skips an unrelated route before Frappe dereferences a m
 	await assert.doesNotReject(() =>
 		guarded.call(workspace, { name: "rule-builder", public: true })
 	);
-	assert.equal(originalCalls, 0, "the original failing lookup must not run for a missing workspace page");
+	assert.equal(
+		originalCalls,
+		0,
+		"the original failing lookup must not run for a missing workspace page"
+	);
 });
 
 test("the guard delegates when workspace data is not loaded", async () => {
@@ -65,7 +71,10 @@ test("the guard delegates when workspace data is not loaded", async () => {
 		return "delegated";
 	});
 
-	assert.equal(await guarded.call(workspace, { name: "rule-builder", public: true }), "delegated");
+	assert.equal(
+		await guarded.call(workspace, { name: "rule-builder", public: true }),
+		"delegated"
+	);
 	assert.equal(originalCalls, 1);
 });
 
@@ -99,5 +108,8 @@ test("malformed page-list state is delegated rather than silently suppressed", a
 });
 
 test("the guard requires a valid original method", () => {
-	assert.throws(() => createWorkspaceShowPageGuard(null), /Workspace\.show_page must be a function/);
+	assert.throws(
+		() => createWorkspaceShowPageGuard(null),
+		/Workspace\.show_page must be a function/
+	);
 });
