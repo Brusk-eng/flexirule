@@ -365,11 +365,12 @@ describe("FlexiRule builder regression coverage", () => {
 			.dblclick({ force: true });
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 
-		// Modify a valid configuration field in the modal (e.g. action label)
-		cy.get('.config-modal-container [data-fieldname="action_label"] input')
+		// Modify action label by clicking title in modal header
+		cy.get(".config-modal-header h3.editable").should("be.visible").click();
+		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("First Click Save Success");
+			.type("First Click Save Success{enter}");
 
 		// Verify Save button in modal is visible when dirty and click it ONCE
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
@@ -421,10 +422,12 @@ describe("FlexiRule builder regression coverage", () => {
 			.dblclick({ force: true });
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 
-		cy.get('.config-modal-container [data-fieldname="action_label"] input')
+		// Modify action label by clicking title in modal header
+		cy.get(".config-modal-header h3.editable").should("be.visible").click();
+		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("Action Node 2 Modified");
+			.type("Action Node 2 Modified{enter}");
 
 		// Save modal
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
