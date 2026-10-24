@@ -141,7 +141,9 @@ test("mergeVisualLayout updates positions without overwriting action data or res
 
 test("assertNoUnsupportedVisualOnlyNodes rejects unsupported nodes before action serialization", () => {
 	assert.doesNotThrow(() =>
-		assertNoUnsupportedVisualOnlyNodes([{ id: "action-1", data: { action_type: "Assignment" } }])
+		assertNoUnsupportedVisualOnlyNodes([
+			{ id: "action-1", data: { action_type: "Assignment" } },
+		])
 	);
 	assert.throws(
 		() => assertNoUnsupportedVisualOnlyNodes([{ id: "annotation-1", is_visual_only: true }]),
