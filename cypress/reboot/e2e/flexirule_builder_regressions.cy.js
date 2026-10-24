@@ -371,8 +371,8 @@ describe("FlexiRule builder regression coverage", () => {
 			.clear()
 			.type("First Click Save Success");
 
-		// Click Save on modal ONCE
-		cy.get(".config-modal-footer button.btn-primary:contains('Save')").click();
+		// Verify Save button in modal is visible when dirty and click it ONCE
+		cy.get(".config-modal-container .save-action").should("be.visible").click();
 
 		// Verify modal closes immediately on the FIRST click
 		cy.get(".config-modal-container").should("not.exist");
@@ -427,7 +427,7 @@ describe("FlexiRule builder regression coverage", () => {
 			.type("Action Node 2 Modified");
 
 		// Save modal
-		cy.get(".config-modal-footer button.btn-primary:contains('Save')").click();
+		cy.get(".config-modal-container .save-action").should("be.visible").click();
 		cy.get(".config-modal-container").should("not.exist");
 
 		// Verify canvas primary action button switches back to "Save Rule" with primary styling
