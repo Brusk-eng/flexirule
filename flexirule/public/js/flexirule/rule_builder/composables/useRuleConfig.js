@@ -122,17 +122,18 @@ export function useRuleConfig(props, emit) {
 		// while a panel validator awaits must never redirect this draft's commit.
 		const sourceNode = props.node;
 		const sourceDraft = draftNode.value;
+		// Capture exact signature of source draft BEFORE candidate normalization
+		const sourceDraftSignature = sourceDraft ? stableStringify(sourceDraft) : null;
 		const validatedDraft = sourceDraft ? deepClone(sourceDraft) : null;
 		if (validatedDraft) {
 			normalizeCandidateDraft(validatedDraft);
 		}
-		const validatedDraftSignature = validatedDraft ? stableStringify(validatedDraft) : null;
 		const sourceGeneration = ruleStore.fetch_generation;
 		const sourceContextGeneration = saveContextGeneration;
 		const hasUnchangedDraft = () => {
-			if (!sourceDraft || validatedDraftSignature === null) return false;
+			if (!sourceDraft || sourceDraftSignature === null) return false;
 			try {
-				return stableStringify(sourceDraft) === validatedDraftSignature;
+				return stableStringify(sourceDraft) === sourceDraftSignature;
 			} catch {
 				return false;
 			}

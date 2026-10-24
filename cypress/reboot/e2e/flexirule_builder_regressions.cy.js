@@ -349,4 +349,100 @@ describe("FlexiRule builder regression coverage", () => {
 			expect(regressions, regressions.map((r) => r.message).join("\n")).to.deep.equal([]);
 		});
 	});
+
+	it("saves action configuration on the first click in modal and persists changes", () => {
+		createRuleAndOpenBuilder();
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input")
+			.should("be.visible")
+			.clear()
+			.type("First Click Modal Action");
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+
+		// Open Modal
+		cy.contains(".vue-flow__node", "First Click Modal Action")
+			.should("be.visible")
+			.dblclick({ force: true });
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
+
+		// Modify a valid configuration field in the modal (e.g. action label)
+		cy.get('.config-modal-container [data-fieldname="action_label"] input')
+			.should("be.visible")
+			.clear()
+			.type("First Click Save Success");
+
+		// Click Save on modal ONCE
+		cy.get(".config-modal-footer button.btn-primary:contains('Save')").click();
+
+		// Verify modal closes immediately on the FIRST click
+		cy.get(".config-modal-container").should("not.exist");
+
+		// Verify canvas node reflects the updated label
+		cy.contains(".vue-flow__node", "First Click Save Success").should("be.visible");
+
+		// Save rule and verify persistence after reload
+		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
+		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
+		cy.wait("@saveRule");
+
+		cy.reload();
+		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
+		cy.contains(".vue-flow__node", "First Click Save Success").should("be.visible");
+	});
+
+	it("re-enables canvas Save Rule primary action when editing another action node after Rule save", () => {
+		createRuleAndOpenBuilder();
+
+		// Add Action 1
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input").should("be.visible").clear().type("Action Node 1");
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+
+		// Save Rule canvas and verify clean baseline established ("Activate Rule" is primary)
+		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule1");
+		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
+		cy.wait("@saveRule1");
+		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
+
+		// Add Action 2
+		addNodeFromEdgeMenu("Notify");
+		cy.get(".labeling-container input").should("be.visible").clear().type("Action Node 2");
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+
+		// Save Rule canvas again
+		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule2");
+		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
+		cy.wait("@saveRule2");
+		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
+
+		// Open Action Node 2 in modal and edit a valid configuration field
+		cy.contains(".vue-flow__node", "Action Node 2")
+			.should("be.visible")
+			.dblclick({ force: true });
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
+
+		cy.get('.config-modal-container [data-fieldname="action_label"] input')
+			.should("be.visible")
+			.clear()
+			.type("Action Node 2 Modified");
+
+		// Save modal
+		cy.get(".config-modal-footer button.btn-primary:contains('Save')").click();
+		cy.get(".config-modal-container").should("not.exist");
+
+		// Verify canvas primary action button switches back to "Save Rule" with primary styling
+		cy.contains("button", "Save Rule", { timeout: 15000 })
+			.should("be.visible")
+			.and("have.class", "btn-primary");
+
+		// Click Save Rule and verify baseline is reset, and change persists after reload
+		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule3");
+		cy.contains("button", "Save Rule").click({ force: true });
+		cy.wait("@saveRule3");
+		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
+
+		cy.reload();
+		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
+		cy.contains(".vue-flow__node", "Action Node 2 Modified").should("be.visible");
+	});
 });
