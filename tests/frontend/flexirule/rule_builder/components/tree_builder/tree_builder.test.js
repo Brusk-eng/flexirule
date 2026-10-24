@@ -19,7 +19,7 @@ import { validateTree } from "../../../../../../flexirule/public/js/flexirule/ru
 import {
 	deserializeQueryFilters,
 	serializeQueryFilters,
-} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/query_filter_serializer.js";
+} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/query_filter_serializer.mjs";
 
 const root = createGroup("and", []);
 const group = addGroup(root, root.id, "or");
