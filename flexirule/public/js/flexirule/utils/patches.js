@@ -113,7 +113,7 @@ import { createWorkspaceShowPageGuard } from "./workspace_page_guard.js";
 			this.set_read_only();
 		};
 	}
- 
+
 	// 2. Guard only the missing-workspace-page case for custom Desk routes.
 	// The wrapper delegates valid pages to Frappe's original method and does not
 	// catch its exceptions, so unrelated navigation failures remain visible.
