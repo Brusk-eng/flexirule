@@ -47,15 +47,15 @@ export function formatVisualDataPayload(
 	const nodePayload = (nodes || [])
 		.filter((node) => node?.is_visual_only !== true)
 		.map((node) => {
-		return {
-			id: node.id,
-			position: {
-				x: Math.round(node.position?.x || 0),
-				y: Math.round(node.position?.y || 0),
-			},
-			direction: layoutDirection || node.direction || null,
-		};
-	});
+			return {
+				id: node.id,
+				position: {
+					x: Math.round(node.position?.x || 0),
+					y: Math.round(node.position?.y || 0),
+				},
+				direction: layoutDirection || node.direction || null,
+			};
+		});
 
 	const metaPayload = {
 		type: "ui_preferences",
@@ -68,12 +68,12 @@ export function formatVisualDataPayload(
 				!visualOnlyNodeIds.has(edge.source) && !visualOnlyNodeIds.has(edge.target)
 		)
 		.map((edge) => ({
-		id: edge.id,
-		source: edge.source,
-		target: edge.target,
-		sourceHandle: edge.sourceHandle || "default",
-		targetHandle: edge.targetHandle || null,
-	}));
+			id: edge.id,
+			source: edge.source,
+			target: edge.target,
+			sourceHandle: edge.sourceHandle || "default",
+			targetHandle: edge.targetHandle || null,
+		}));
 
 	return [...nodePayload, ...edgePayload, metaPayload];
 }
