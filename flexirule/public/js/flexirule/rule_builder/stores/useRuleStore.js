@@ -19,6 +19,7 @@ import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
+import { assertNoUnsupportedVisualOnlyNodes } from "../utils/visual_layout.js";
 import {
 	hasGraphStateChanged,
 	shouldRecordExplicitGraphCommit,
@@ -237,6 +238,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			}
 
 			graphStore.normalize_graph_nodes();
+
+			// Standalone visual-only nodes are not a persisted Rule Builder feature.
+			// Reject them before action serialization can misclassify them as "Process".
+			assertNoUnsupportedVisualOnlyNodes(graphStore.nodes);
 
 			// 1. Validate mandatory fields using contract
 			const { validateAgainstContract } = await import("../../core/contracts");
