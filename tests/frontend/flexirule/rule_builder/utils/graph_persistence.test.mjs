@@ -1,32 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createPinia, setActivePinia } from "pinia";
+import {
+	formatVisualDataPayload,
+	mergeVisualLayout,
+} from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/visual_layout.js";
 
-global.__ = (s) => s;
-global.flexirule = {
-	utils: {
-		safe_json_parse: (val, defaultVal = null) => {
-			if (!val) return defaultVal;
-			if (typeof val === "object") return val;
-			try {
-				return JSON.parse(val);
-			} catch {
-				return defaultVal;
-			}
-		},
-		to_title_case: (str) => str,
-	},
-};
-
-const { useGraphStore } = await import(
-	"../../../../../flexirule/public/js/flexirule/rule_builder/stores/useGraphStore.js"
-);
-
-test("get_visual_data_payload excludes full node.data and action type/label for action nodes", () => {
-	setActivePinia(createPinia());
-	const store = useGraphStore();
-
-	store.nodes = [
+test("formatVisualDataPayload excludes full node.data and action type/label for action nodes", () => {
+	const nodes = [
 		{
 			id: "node-1",
 			type: "process",
@@ -49,7 +29,7 @@ test("get_visual_data_payload excludes full node.data and action type/label for 
 		},
 	];
 
-	store.edges = [
+	const edges = [
 		{
 			id: "e-node-1",
 			source: "node-1",
@@ -59,7 +39,7 @@ test("get_visual_data_payload excludes full node.data and action type/label for 
 		},
 	];
 
-	const payload = store.get_visual_data_payload("LR");
+	const payload = formatVisualDataPayload(nodes, edges, "LR", "LR");
 
 	const actionPayloadNode = payload.find((item) => item.id === "node-1");
 	assert.ok(actionPayloadNode, "action node present in payload");
@@ -75,12 +55,8 @@ test("get_visual_data_payload excludes full node.data and action type/label for 
 	assert.equal(visualOnlyNode.label, "Sticky Note");
 });
 
-test("merge_visual_layout updates positions without overwriting action data or resurrecting stale orphans", () => {
-	setActivePinia(createPinia());
-	const store = useGraphStore();
-
-	// Action nodes derived from doc.actions
-	store.nodes = [
+test("mergeVisualLayout updates positions without overwriting action data or resurrecting stale orphans", () => {
+	const currentNodes = [
 		{
 			id: "action-1",
 			type: "process",
@@ -93,9 +69,8 @@ test("merge_visual_layout updates positions without overwriting action data or r
 			},
 		},
 	];
-	store.edges = [];
+	const currentEdges = [];
 
-	// Legacy or stale visual_data containing action data and a deleted orphan action
 	const visualData = [
 		{
 			id: "action-1",
@@ -126,10 +101,10 @@ test("merge_visual_layout updates positions without overwriting action data or r
 		},
 	];
 
-	store.merge_visual_layout(visualData);
+	const result = mergeVisualLayout(currentNodes, currentEdges, visualData);
 
 	// 1. Position updated for action-1
-	const actionNode = store.nodes.find((n) => n.id === "action-1");
+	const actionNode = result.nodes.find((n) => n.id === "action-1");
 	assert.ok(actionNode);
 	assert.deepEqual(actionNode.position, { x: 150, y: 250 });
 	// Action config and label MUST remain unchanged from doc.actions
@@ -137,10 +112,10 @@ test("merge_visual_layout updates positions without overwriting action data or r
 	assert.equal(actionNode.label, "Authoritative Action");
 
 	// 2. Deleted orphan action node MUST NOT be resurrected
-	const orphanNode = store.nodes.find((n) => n.id === "deleted-orphan-action");
+	const orphanNode = result.nodes.find((n) => n.id === "deleted-orphan-action");
 	assert.equal(orphanNode, undefined, "stale orphan action record must not be restored");
 
 	// 3. Legitimate visual-only node IS restored
-	const visualOnlyNode = store.nodes.find((n) => n.id === "legitimate-visual-only");
+	const visualOnlyNode = result.nodes.find((n) => n.id === "legitimate-visual-only");
 	assert.ok(visualOnlyNode, "explicit visual-only node is preserved");
 });

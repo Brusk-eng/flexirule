@@ -28,6 +28,7 @@ import { generateShortId } from "../utils/schema_utils.js";
 import { deepClone } from "../utils/serialization.js";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
+import { formatVisualDataPayload, mergeVisualLayout } from "../utils/visual_layout.js";
 
 export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Core graph state ──
@@ -1606,135 +1607,23 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	 * @param {Array} visual_data - The parsed visual_data JSON
 	 */
 	function merge_visual_layout(visual_data) {
-		const visualNodes = new Map(
-			(visual_data || []).filter((el) => el.position).map((node) => [node.id, node])
-		);
-		const visualEdges = new Map(
-			(visual_data || [])
-				.filter((el) => el.source)
-				.map((edge) => [
-					`${edge.source}:${edge.target}:${edge.sourceHandle || "default"}`,
-					edge,
-				])
-		);
-
-		// 0. Extract UI preferences if present
 		const uiStore = useUIStore();
-		const pref = visual_data?.find((el) => el.type === "ui_preferences");
-		if (pref?.layout) {
-			uiStore.layout_preference = pref.layout;
+		const result = mergeVisualLayout(nodes.value, edges.value, visual_data);
+		if (result.layoutPreference) {
+			uiStore.layout_preference = result.layoutPreference;
 		}
-
-		// 1. Merge node positions
-		const seenNodeIds = new Set();
-		const mergedNodes = nodes.value.map((node) => {
-			seenNodeIds.add(node.id);
-			const visualNode = visualNodes.get(node.id);
-			if (!visualNode) return node;
-
-			const {
-				position,
-				type: _visualType,
-				label: _visualLabel,
-				id: _visualId,
-				data: _visualData,
-				...visualNodeMeta
-			} = visualNode;
-
-			const direction = visualNode.direction || visualNode.layout_direction || null;
-			return {
-				...node,
-				...visualNodeMeta,
-				position: position || node.position,
-				direction: direction || node.direction,
-				data: { ...(node.data || {}) },
-				type: node.type,
-				label: node.label,
-			};
-		});
-
-		// 2. Add orphaned visual nodes ONLY if explicitly marked as visual-only
-		visualNodes.forEach((vNode, id) => {
-			if (!seenNodeIds.has(id)) {
-				if (vNode.is_visual_only) {
-					mergedNodes.push({
-						...vNode,
-						data: { ...(vNode.data || {}) },
-					});
-					seenNodeIds.add(id);
-				}
-			}
-		});
-
-		nodes.value = [...mergedNodes];
-
-		// 3. Merge edge metadata
-		const seenEdgeKeys = new Set();
-		const mergedEdges = edges.value.map((edge) => {
-			const key = `${edge.source}:${edge.target}:${edge.sourceHandle || "default"}`;
-			seenEdgeKeys.add(key);
-			const visualEdge = visualEdges.get(key);
-			if (!visualEdge) return edge;
-
-			const {
-				id: _vId,
-				source: _vSource,
-				target: _vTarget,
-				sourceHandle: _vSourceHandle,
-				data: _vData,
-				...visualEdgeMeta
-			} = visualEdge;
-
-			return { ...edge, ...visualEdgeMeta, type: "add" };
-		});
-
-		// Add orphaned edges with valid endpoints
-		visualEdges.forEach((vEdge, key) => {
-			if (!seenEdgeKeys.has(key)) {
-				if (seenNodeIds.has(vEdge.source) && seenNodeIds.has(vEdge.target)) {
-					mergedEdges.push({ ...vEdge, type: "add" });
-					seenEdgeKeys.add(key);
-				}
-			}
-		});
-
-		edges.value = [...mergedEdges];
+		nodes.value = result.nodes;
+		edges.value = result.edges;
 	}
 
 	function get_visual_data_payload(layoutDirection = null) {
-		const nodePayload = nodes.value.map((node) => {
-			const payload = {
-				id: node.id,
-				position: {
-					x: Math.round(node.position?.x || 0),
-					y: Math.round(node.position?.y || 0),
-				},
-				direction: layoutDirection || node.direction || null,
-			};
-			if (node.is_visual_only) {
-				payload.is_visual_only = true;
-				payload.type = node.type;
-				payload.label = node.label;
-			}
-			return payload;
-		});
-
-		// Inject UI preferences into meta if they exist
 		const uiStore = useUIStore();
-		const metaPayload = {
-			type: "ui_preferences",
-			layout: layoutDirection || uiStore.layout_preference || "LR",
-		};
-
-		const edgePayload = edges.value.map((edge) => ({
-			id: edge.id,
-			source: edge.source,
-			target: edge.target,
-			sourceHandle: edge.sourceHandle || "default",
-			targetHandle: edge.targetHandle || null,
-		}));
-
-		return [...nodePayload, ...edgePayload, metaPayload];
+		return formatVisualDataPayload(
+			nodes.value,
+			edges.value,
+			layoutDirection,
+			uiStore.layout_preference
+		);
 	}
 
 	/**
