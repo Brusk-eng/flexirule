@@ -1,11 +1,33 @@
 /**
  * Pure functions for visual layout payload formatting and layout merging.
+ *
+ * Persistence contract: standalone visual-only nodes (for example annotations or
+ * sticky notes) are not a supported Rule Builder feature. Action configuration
+ * remains authoritative in doc.actions; visual_data stores layout metadata only.
+ * Orphan visual records are ignored when the graph is reconstructed.
  */
+
+/**
+ * Rejects unsupported visual-only graph nodes before a Rule can be serialized.
+ * Failing explicitly prevents a visual-only node from being silently saved as a
+ * default "Process" action by the Rule serializer.
+ *
+ * @param {Array} nodes
+ * @throws {Error} when a node is marked as visual-only
+ */
+export function assertNoUnsupportedVisualOnlyNodes(nodes) {
+	if ((nodes || []).some((node) => node?.is_visual_only === true)) {
+		throw new Error(
+			"Visual-only nodes (such as annotations) are not supported in Rule Builder persistence."
+		);
+	}
+}
 
 /**
  * Formats visual_data payload for persistence in Rule.visual_data.
  * Strictly retains layout and positioning metadata; excludes complete action data
- * and redundant type/label fields for action nodes.
+ * and redundant type/label fields for action nodes. Explicitly marked visual-only
+ * nodes and edges connected to them are excluded.
  *
  * @param {Array} nodes
  * @param {Array} edges
@@ -19,7 +41,12 @@ export function formatVisualDataPayload(
 	layoutDirection = null,
 	uiLayoutPreference = null
 ) {
-	const nodePayload = (nodes || []).map((node) => {
+	const visualOnlyNodeIds = new Set(
+		(nodes || []).filter((node) => node?.is_visual_only === true).map((node) => node.id)
+	);
+	const nodePayload = (nodes || [])
+		.filter((node) => node?.is_visual_only !== true)
+		.map((node) => {
 		return {
 			id: node.id,
 			position: {
@@ -35,7 +62,12 @@ export function formatVisualDataPayload(
 		layout: layoutDirection || uiLayoutPreference || "LR",
 	};
 
-	const edgePayload = (edges || []).map((edge) => ({
+	const edgePayload = (edges || [])
+		.filter(
+			(edge) =>
+				!visualOnlyNodeIds.has(edge.source) && !visualOnlyNodeIds.has(edge.target)
+		)
+		.map((edge) => ({
 		id: edge.id,
 		source: edge.source,
 		target: edge.target,
@@ -47,9 +79,9 @@ export function formatVisualDataPayload(
 }
 
 /**
- * Merges visual layout metadata (positions, directions, edges) onto current nodes/edges.
- * Action node data and labels are never overwritten from visual_data.
- * All orphan visual records (action or non-action) not present in doc.actions are ignored.
+ * Merges layout metadata onto the graph reconstructed from persisted Rule actions.
+ * Action node data and labels are never overwritten from visual_data. All orphan
+ * visual records, including standalone visual-only nodes, are deliberately ignored.
  *
  * @param {Array} currentNodes
  * @param {Array} currentEdges
