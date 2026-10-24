@@ -4,6 +4,7 @@ import { getContract, validateAgainstContract } from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
 import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
+import { normalizeCandidateDraft } from "../utils/candidate_normalization.mjs";
 
 /**
  * useRuleConfig
@@ -156,6 +157,8 @@ export function useRuleConfig(props, emit) {
 				validate: () => validate(validatedDraft),
 				commit: () => {
 					if (!sourceNode || !validatedDraft) return;
+
+					normalizeCandidateDraft(validatedDraft);
 
 					const oldValue = sourceNode.data?.rule;
 					const newValue = validatedDraft.data?.rule;
