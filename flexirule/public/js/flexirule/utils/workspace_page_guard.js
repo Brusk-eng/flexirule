@@ -23,9 +23,7 @@ export function isMissingLoadedWorkspacePage(page, workspace) {
 	if (page.public) {
 		// Preserve Frappe's failure behavior if public_pages is unexpectedly absent.
 		if (workspace.public_pages == null) return false;
-		pages = workspace.public_pages.length
-			? workspace.public_pages
-			: workspace.private_pages;
+		pages = workspace.public_pages.length ? workspace.public_pages : workspace.private_pages;
 	} else {
 		pages = workspace.private_pages;
 	}
