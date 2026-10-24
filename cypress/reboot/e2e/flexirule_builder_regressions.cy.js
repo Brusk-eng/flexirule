@@ -111,6 +111,18 @@ describe("FlexiRule builder regression coverage", () => {
 	});
 
 	afterEach(function () {
+		const assertConsoleRegressions = () => {
+			const regressions = capturedConsoleMessages.filter((item) =>
+				isConsoleRegressionMessage(item.message)
+			);
+			if (regressions.length > 0) {
+				const formatted = regressions
+					.map((r) => `[${r.level}] ${r.url}: ${r.message}`)
+					.join("\n");
+				expect.fail(`Console regression guard detected error(s):\n${formatted}`);
+			}
+		};
+
 		if (ruleName) {
 			const name = ruleName;
 			ruleName = null;
@@ -118,17 +130,9 @@ describe("FlexiRule builder regression coverage", () => {
 				method: "DELETE",
 				url: "/api/resource/Rule/" + encodeURIComponent(name),
 				failOnStatusCode: false,
-			});
-		}
-
-		const regressions = capturedConsoleMessages.filter((item) =>
-			isConsoleRegressionMessage(item.message)
-		);
-		if (regressions.length > 0) {
-			const formatted = regressions
-				.map((r) => `[${r.level}] ${r.url}: ${r.message}`)
-				.join("\n");
-			expect.fail(`Console regression guard detected error(s):\n${formatted}`);
+			}).then(assertConsoleRegressions);
+		} else {
+			assertConsoleRegressions();
 		}
 	});
 

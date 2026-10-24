@@ -20,7 +20,7 @@ export function formatVisualDataPayload(
 	uiLayoutPreference = null
 ) {
 	const nodePayload = (nodes || []).map((node) => {
-		const payload = {
+		return {
 			id: node.id,
 			position: {
 				x: Math.round(node.position?.x || 0),
@@ -28,12 +28,6 @@ export function formatVisualDataPayload(
 			},
 			direction: layoutDirection || node.direction || null,
 		};
-		if (node.is_visual_only) {
-			payload.is_visual_only = true;
-			payload.type = node.type;
-			payload.label = node.label;
-		}
-		return payload;
 	});
 
 	const metaPayload = {
@@ -55,7 +49,7 @@ export function formatVisualDataPayload(
 /**
  * Merges visual layout metadata (positions, directions, edges) onto current nodes/edges.
  * Action node data and labels are never overwritten from visual_data.
- * Stale orphan action nodes in visual_data are ignored.
+ * All orphan visual records (action or non-action) not present in doc.actions are ignored.
  *
  * @param {Array} currentNodes
  * @param {Array} currentEdges
@@ -103,19 +97,6 @@ export function mergeVisualLayout(currentNodes, currentEdges, visualData) {
 			type: node.type,
 			label: node.label,
 		};
-	});
-
-	// Add orphaned visual nodes ONLY if explicitly marked as visual-only
-	visualNodes.forEach((vNode, id) => {
-		if (!seenNodeIds.has(id)) {
-			if (vNode.is_visual_only) {
-				mergedNodes.push({
-					...vNode,
-					data: { ...(vNode.data || {}) },
-				});
-				seenNodeIds.add(id);
-			}
-		}
 	});
 
 	const seenEdgeKeys = new Set();

@@ -19,21 +19,13 @@ test("formatVisualDataPayload excludes full node.data and action type/label for 
 				config: { secret: "do_not_duplicate" },
 			},
 		},
-		{
-			id: "visual-note-1",
-			type: "note",
-			label: "Sticky Note",
-			position: { x: 300, y: 400 },
-			is_visual_only: true,
-			data: { text: "Visual note text" },
-		},
 	];
 
 	const edges = [
 		{
 			id: "e-node-1",
 			source: "node-1",
-			target: "visual-note-1",
+			target: "node-2",
 			sourceHandle: "default",
 			targetHandle: null,
 		},
@@ -48,11 +40,9 @@ test("formatVisualDataPayload excludes full node.data and action type/label for 
 	assert.equal(actionPayloadNode.label, undefined, "label is omitted for standard action node");
 	assert.deepEqual(actionPayloadNode.position, { x: 100, y: 200 });
 
-	const visualOnlyNode = payload.find((item) => item.id === "visual-note-1");
-	assert.ok(visualOnlyNode, "visual-only node present in payload");
-	assert.equal(visualOnlyNode.is_visual_only, true);
-	assert.equal(visualOnlyNode.type, "note");
-	assert.equal(visualOnlyNode.label, "Sticky Note");
+	const meta = payload.find((item) => item.type === "ui_preferences");
+	assert.ok(meta, "ui_preferences meta included");
+	assert.equal(meta.layout, "LR");
 });
 
 test("mergeVisualLayout updates positions without overwriting action data or resurrecting stale orphans", () => {
@@ -93,11 +83,10 @@ test("mergeVisualLayout updates positions without overwriting action data or res
 			},
 		},
 		{
-			id: "legitimate-visual-only",
+			id: "orphan-visual-record",
 			position: { x: 600, y: 600 },
 			type: "annotation",
 			label: "Annotation",
-			is_visual_only: true,
 		},
 	];
 
@@ -111,11 +100,14 @@ test("mergeVisualLayout updates positions without overwriting action data or res
 	assert.equal(actionNode.data.config.target, "new_value");
 	assert.equal(actionNode.label, "Authoritative Action");
 
-	// 2. Deleted orphan action node MUST NOT be resurrected
+	// 2. Deleted orphan action node and unknown visual orphan records MUST NOT be restored
 	const orphanNode = result.nodes.find((n) => n.id === "deleted-orphan-action");
 	assert.equal(orphanNode, undefined, "stale orphan action record must not be restored");
 
-	// 3. Legitimate visual-only node IS restored
-	const visualOnlyNode = result.nodes.find((n) => n.id === "legitimate-visual-only");
-	assert.ok(visualOnlyNode, "explicit visual-only node is preserved");
+	const visualOrphan = result.nodes.find((n) => n.id === "orphan-visual-record");
+	assert.equal(
+		visualOrphan,
+		undefined,
+		"orphan visual record without doc.actions entry is ignored"
+	);
 });
