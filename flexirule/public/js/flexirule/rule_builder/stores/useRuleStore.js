@@ -100,7 +100,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		is_loading.value = true;
 		uiStore.is_initializing = true;
 
-		// Load Contracts (Action Types, etc) from backend
+		try {
+			// Load Contracts (Action Types, etc) from backend
 		await loadContractsFromBackend();
 
 		// Fetch Settings
@@ -146,7 +147,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		if (!rule_doc.value) {
 			frappe.show_alert({ message: __("Rule not found"), indicator: "orange" });
-			is_loading.value = false;
 			return;
 		}
 
@@ -211,9 +211,16 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		nodes.value = [...graphStore.nodes];
 		edges.value = [...graphStore.edges];
 
+		// Let Vue flush the replaced graph before releasing the initialization
+		// guards. Match the existing pane-ready settling window so trailing
+		// VueFlow position/change events cannot mark a freshly fetched graph dirty.
+		await nextTick();
+		await new Promise((resolve) => setTimeout(resolve, 150));
 		historyStore.reset(() => graphStore.getGraphSnapshot());
-		is_loading.value = false;
-		uiStore.is_initializing = false;
+		} finally {
+			is_loading.value = false;
+			uiStore.is_initializing = false;
+		}
 	}
 
 	// ── Save ──
