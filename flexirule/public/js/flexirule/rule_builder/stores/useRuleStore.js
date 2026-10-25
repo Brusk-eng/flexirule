@@ -214,6 +214,12 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			edges.value = [...graphStore.edges];
 
 			historyStore.reset(() => graphStore.getGraphSnapshot());
+			if (uiStore.pane_ready) {
+				// VueFlow may become ready before the async Rule data arrives. Keep the
+				// initialization guard active for a short settle window after graph sync.
+				await nextTick();
+				await new Promise((resolve) => setTimeout(resolve, 150));
+			}
 			fetchSucceeded = true;
 		} finally {
 			is_loading.value = false;
