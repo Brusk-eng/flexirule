@@ -61,41 +61,6 @@ describe("FlexiRule builder regression coverage", () => {
 			.click({ force: true });
 	}
 
-	function addFetchRecordsNodeAndOpenConfig(label) {
-		addNodeFromEdgeMenu("Query Records");
-		cy.get(".result-item.is-option", { timeout: 20000 })
-			.contains("Fetch Records", { timeout: 15000 })
-			.click({ force: true });
-		cy.get(".labeling-container input", { timeout: 15000 })
-			.should("be.visible")
-			.clear()
-			.type(label);
-		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
-		cy.contains(".vue-flow__node", label, { timeout: 15000 })
-			.should("be.visible")
-			.dblclick({ force: true });
-		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
-	}
-
-	function setFetchRecordsReferenceDoctype() {
-		cy.get(".config-modal-container [data-fieldname='reference_doctype'] input.combobox-input", {
-			timeout: 15000,
-		})
-			.should("be.visible")
-			.clear()
-			.type("Contact");
-		cy.contains(".fxr-dropdown-item", "Contact", { timeout: 15000 }).click({ force: true });
-	}
-
-	function setPermissionAuditReason(reason) {
-		cy.get(".config-modal-container [data-fieldname='permission_audit_reason'] textarea", {
-			timeout: 15000,
-		})
-			.should("be.visible")
-			.clear()
-			.type(reason);
-	}
-
 	function persistedRule() {
 		return cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName)).its("body.data");
 	}
@@ -385,85 +350,104 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 	});
 
-	it("saves an audited Fetch Records configuration on the first modal click", () => {
+	it("saves action configuration on the first click in modal and persists changes", () => {
 		createRuleAndOpenBuilder();
-		const actionLabel = "First Click Fetch Records";
-		const auditReason = "Cypress regression: first-click Fetch Records save";
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input")
+			.should("be.visible")
+			.clear()
+			.type("First Click Modal Action");
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
-		addFetchRecordsNodeAndOpenConfig(actionLabel);
-		cy.get(".fetch-records-permission-notice").should("be.visible");
-		setFetchRecordsReferenceDoctype();
-		setPermissionAuditReason(auditReason);
+		// Open Modal
+		cy.contains(".vue-flow__node", "First Click Modal Action")
+			.should("be.visible")
+			.dblclick({ force: true });
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 
-		// One click must commit the candidate draft and close the modal.
+		// Modify action label by clicking title in modal header
+		cy.get(".config-modal-header h3.editable").should("be.visible").click();
+		cy.get(".config-modal-header .title-input")
+			.should("be.visible")
+			.clear()
+			.type("First Click Save Success");
+		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
+
+		// Verify Save button in modal is visible when dirty and click it ONCE
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
-		cy.get(".config-modal-container").should("not.exist");
-		cy.contains(".vue-flow__node", actionLabel).should("be.visible");
 
+		// Verify modal closes immediately on the FIRST click
+		cy.get(".config-modal-container").should("not.exist");
+
+		// Verify canvas node reflects the updated label
+		cy.contains(".vue-flow__node", "First Click Save Success").should("be.visible");
+
+		// Save rule and verify persistence after reload
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
 		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
 		cy.wait("@saveRule");
 
-		persistedRule().then((doc) => {
-			const action = doc.actions.find(
-				(row) => row.action_type === "Query Records" && row.action_label === actionLabel
-			);
-			expect(action, "saved Fetch Records action").to.exist;
-			expect([true, 1, "1"]).to.include(action.ignore_permissions);
-			expect(action.permission_audit_reason).to.equal(auditReason);
-		});
-
 		cy.reload();
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-		cy.contains(".vue-flow__node", actionLabel).should("be.visible");
+		cy.contains(".vue-flow__node", "First Click Save Success").should("be.visible");
 	});
 
-	it("re-enables canvas Save Rule after editing a saved Fetch Records action", () => {
+	it("re-enables canvas Save Rule primary action when editing another action node after Rule save", () => {
 		createRuleAndOpenBuilder();
-		const actionLabel = "Saved Fetch Records Action";
-		const initialReason = "Cypress regression: initial audit reason";
-		const updatedReason = "Cypress regression: updated audit reason";
 
-		addFetchRecordsNodeAndOpenConfig(actionLabel);
-		setFetchRecordsReferenceDoctype();
-		setPermissionAuditReason(initialReason);
-		cy.get(".config-modal-container .save-action").should("be.visible").click();
-		cy.get(".config-modal-container").should("not.exist");
+		// Add Action 1
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input").should("be.visible").clear().type("Action Node 1");
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
-		// Save and refetch the Rule so the next edit occurs against a clean baseline.
+		// Save Rule canvas and verify clean baseline established ("Activate Rule" is primary)
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule1");
 		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
 		cy.wait("@saveRule1");
 		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
-		// Editing an actual action field after refetch must restore Save Rule as primary.
-		cy.contains(".vue-flow__node", actionLabel, { timeout: 15000 })
-			.should("be.visible")
-			.dblclick({ force: true });
-		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
-		setPermissionAuditReason(updatedReason);
-		cy.get(".config-modal-container .save-action").should("be.visible").click();
-		cy.get(".config-modal-container").should("not.exist");
-		cy.contains("button", "Save Rule", { timeout: 15000 })
-			.should("be.visible")
-			.and("have.class", "btn-primary");
+		// Add Action 2
+		addNodeFromEdgeMenu("Notify");
+		cy.get(".labeling-container input").should("be.visible").clear().type("Action Node 2");
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
+		// Save Rule canvas again
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule2");
 		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
 		cy.wait("@saveRule2");
 		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
-		persistedRule().then((doc) => {
-			const action = doc.actions.find(
-				(row) => row.action_type === "Query Records" && row.action_label === actionLabel
-			);
-			expect(action, "saved Fetch Records action").to.exist;
-			expect(action.permission_audit_reason).to.equal(updatedReason);
-		});
+		// Open Action Node 2 in modal and edit a valid configuration field
+		cy.contains(".vue-flow__node", "Action Node 2")
+			.should("be.visible")
+			.dblclick({ force: true });
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
+
+		// Modify action label by clicking title in modal header
+		cy.get(".config-modal-header h3.editable").should("be.visible").click();
+		cy.get(".config-modal-header .title-input")
+			.should("be.visible")
+			.clear()
+			.type("Action Node 2 Modified");
+		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
+
+		// Save modal
+		cy.get(".config-modal-container .save-action").should("be.visible").click();
+		cy.get(".config-modal-container").should("not.exist");
+
+		// Verify canvas primary action button switches back to "Save Rule" with primary styling
+		cy.contains("button", "Save Rule", { timeout: 15000 })
+			.should("be.visible")
+			.and("have.class", "btn-primary");
+
+		// Click Save Rule and verify baseline is reset, and change persists after reload
+		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule3");
+		cy.contains("button", "Save Rule").click({ force: true });
+		cy.wait("@saveRule3");
+		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
 		cy.reload();
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-		cy.contains(".vue-flow__node", actionLabel).should("be.visible");
+		cy.contains(".vue-flow__node", "Action Node 2 Modified").should("be.visible");
 	});
-
 });

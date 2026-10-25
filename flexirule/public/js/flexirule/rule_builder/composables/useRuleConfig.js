@@ -5,7 +5,6 @@ import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
 import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
 import { normalizeCandidateDraft } from "../utils/candidate_normalization.mjs";
-import { requiresPermissionAuditReason } from "../utils/permission_audit.mjs";
 
 /**
  * useRuleConfig
@@ -102,7 +101,7 @@ export function useRuleConfig(props, emit) {
 		}
 
 		// 3. Global Business Rules
-		if (requiresPermissionAuditReason(targetDraft.data)) {
+		if (targetDraft.data?.ignore_permissions && !targetDraft.data?.permission_audit_reason) {
 			errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 		}
 

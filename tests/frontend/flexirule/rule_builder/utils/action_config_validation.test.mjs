@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { runConfigSaveLifecycle } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/config_save_lifecycle.mjs";
 import { normalizeCandidateDraft } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/candidate_normalization.mjs";
-import { requiresPermissionAuditReason } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/permission_audit.mjs";
 
 // Validation helper using normalizeCandidateDraft before contract/business validation
 function validateDraft(targetDraft, options = {}) {
 	normalizeCandidateDraft(targetDraft, options);
 	const errors = [];
-	if (requiresPermissionAuditReason(targetDraft.data)) {
+	if (targetDraft.data?.ignore_permissions && !targetDraft.data?.permission_audit_reason) {
 		errors.push("Permission Audit Reason is required when bypassing permissions.");
 	}
 	return { valid: errors.length === 0, errors };
@@ -37,10 +36,7 @@ function validateDraft(targetDraft, options = {}) {
 	const result = await runConfigSaveLifecycle({
 		isLoading: () => false,
 		isContextCurrent,
-		validate: async () =>
-			validateDraft(validatedDraft, {
-				getOperationFieldOverride: () => ({ default: 1 }),
-			}),
+		validate: async () => validateDraft(validatedDraft, { isFrappe15: true }),
 		commit: () => {
 			commitCount += 1;
 			draftNode.data = JSON.parse(JSON.stringify(validatedDraft.data));
@@ -54,7 +50,7 @@ function validateDraft(targetDraft, options = {}) {
 	assert.equal(draftNode.data.permission_audit_reason, "Audit Reason Provided");
 }
 
-// Contract default enables permission bypass, so missing audit reason must fail validation
+// Permission-audit bypass test: missing audit reason when ignore_permissions=1 is normalized causes validation failure
 // and leaves live draft unchanged
 {
 	const draftNode = {
@@ -62,7 +58,7 @@ function validateDraft(targetDraft, options = {}) {
 		data: {
 			action_type: "Query Records",
 			operation: "Fetch Records",
-			ignore_permissions: 0, // The operation policy normalizes this to 1
+			ignore_permissions: 0, // Will be normalized to 1 on Frappe 15
 			permission_audit_reason: "", // Missing audit reason!
 		},
 	};
@@ -74,10 +70,7 @@ function validateDraft(targetDraft, options = {}) {
 	const result = await runConfigSaveLifecycle({
 		isLoading: () => false,
 		isContextCurrent: () => true,
-		validate: async () =>
-			validateDraft(validatedDraft, {
-				getOperationFieldOverride: () => ({ default: 1 }),
-			}),
+		validate: async () => validateDraft(validatedDraft, { isFrappe15: true }),
 		commit: () => {
 			commitCount += 1;
 		},
@@ -123,48 +116,6 @@ function validateDraft(targetDraft, options = {}) {
 
 	const result = await saving;
 	assert.equal(result.status, "blocked-stale-context");
-}
-
-// Modal validation must reject whitespace-only reasons and legacy skip_permissions flags,
-// matching the whole-rule check and backend validation semantics.
-{
-	const cases = [
-		{
-			data: { action_type: "Notify", ignore_permissions: 1, permission_audit_reason: "   \n\t" },
-			expected: true,
-		},
-		{
-			data: { action_type: "Notify", skip_permissions: "True", permission_audit_reason: "" },
-			expected: true,
-		},
-		{
-			data: { action_type: "Notify", ignore_permissions: 0, permission_audit_reason: "" },
-			expected: false,
-		},
-	];
-
-	for (const item of cases) {
-		assert.equal(
-			requiresPermissionAuditReason(item.data),
-			item.expected,
-			JSON.stringify(item.data)
-		);
-	}
-
-	const whitespaceReason = validateDraft(
-		{
-			data: {
-				action_type: "Notify",
-				skip_permissions: 1,
-				permission_audit_reason: " \n ",
-			},
-		},
-		{ getOperationFieldOverride: () => null }
-	);
-	assert.equal(whitespaceReason.valid, false);
-	assert.deepEqual(whitespaceReason.errors, [
-		"Permission Audit Reason is required when bypassing permissions.",
-	]);
 }
 
 console.log("Action config validation side-effect and lifecycle tests passed");

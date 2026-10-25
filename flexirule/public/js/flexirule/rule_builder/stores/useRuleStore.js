@@ -18,7 +18,6 @@ import {
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
-import { requiresPermissionAuditReason } from "../utils/permission_audit.mjs";
 import { stableStringify } from "../utils/stable_serialization.mjs";
 import { assertNoUnsupportedVisualOnlyNodes } from "../utils/visual_layout.js";
 import {
@@ -101,128 +100,120 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		is_loading.value = true;
 		uiStore.is_initializing = true;
 
+		// Load Contracts (Action Types, etc) from backend
+		await loadContractsFromBackend();
+
+		// Fetch Settings
 		try {
-			// Load Contracts (Action Types, etc) from backend
-			await loadContractsFromBackend();
-
-			// Fetch Settings
-			try {
-				const res = await frappe.call({
-					method: "frappe.client.get",
-					args: { doctype: "RuleFlow Settings", name: "RuleFlow Settings" },
-				});
-				settings.value = res.message;
-			} catch (e) {
-				console.warn("Failed to load RuleFlow Settings");
-			}
-
-			const result = await frappe.call({
+			const res = await frappe.call({
 				method: "frappe.client.get",
-				args: { doctype: "Rule", name: rule_name.value },
+				args: { doctype: "RuleFlow Settings", name: "RuleFlow Settings" },
 			});
+			settings.value = res.message;
+		} catch (e) {
+			console.warn("Failed to load RuleFlow Settings");
+		}
 
-			if (result.message) {
-				frappe.model.sync(result.message);
-				rule_doc.value = { ...frappe.get_doc("Rule", rule_name.value) };
-			}
+		const result = await frappe.call({
+			method: "frappe.client.get",
+			args: { doctype: "Rule", name: rule_name.value },
+		});
 
-			if (rule_doc.value?.document_type) {
-				await metaStore.fetch_metadata(rule_doc.value.document_type);
-			}
+		if (result.message) {
+			frappe.model.sync(result.message);
+			rule_doc.value = { ...frappe.get_doc("Rule", rule_name.value) };
+		}
 
-			// Load trigger event options from Rule meta (Frappe pattern)
-			if (!trigger_event_options.value.length) {
-				await frappe.model.with_doctype("Rule");
-				const meta = frappe.get_meta("Rule");
-				if (meta && meta.fields) {
-					const trigger_field = meta.fields.find((f) => f.fieldname === "trigger_event");
-					if (trigger_field && trigger_field.options) {
-						trigger_event_options.value = trigger_field.options.split("\n");
-					}
-					const type_field = meta.fields.find((f) => f.fieldname === "trigger_type");
-					if (type_field && type_field.options) {
-						trigger_type_options.value = type_field.options.split("\n");
-					}
+		if (rule_doc.value?.document_type) {
+			await metaStore.fetch_metadata(rule_doc.value.document_type);
+		}
+
+		// Load trigger event options from Rule meta (Frappe pattern)
+		if (!trigger_event_options.value.length) {
+			await frappe.model.with_doctype("Rule");
+			const meta = frappe.get_meta("Rule");
+			if (meta && meta.fields) {
+				const trigger_field = meta.fields.find((f) => f.fieldname === "trigger_event");
+				if (trigger_field && trigger_field.options) {
+					trigger_event_options.value = trigger_field.options.split("\n");
+				}
+				const type_field = meta.fields.find((f) => f.fieldname === "trigger_type");
+				if (type_field && type_field.options) {
+					trigger_type_options.value = type_field.options.split("\n");
 				}
 			}
+		}
 
-			if (!rule_doc.value) {
-				frappe.show_alert({ message: __("Rule not found"), indicator: "orange" });
-				return;
-			}
+		if (!rule_doc.value) {
+			frappe.show_alert({ message: __("Rule not found"), indicator: "orange" });
+			is_loading.value = false;
+			return;
+		}
 
-			await fetch_processes();
+		await fetch_processes();
 
-			const visual_data = flexirule.utils.safe_json_parse(rule_doc.value.visual_data, []);
+		const visual_data = flexirule.utils.safe_json_parse(rule_doc.value.visual_data, []);
 
-			// Build graph from actions (mirrors workflow_builder: get_workflow_elements)
-			graphStore.sync_actions_to_graph(rule_doc.value);
+		// Build graph from actions (mirrors workflow_builder: get_workflow_elements)
+		graphStore.sync_actions_to_graph(rule_doc.value);
 
-			const defaultLayout =
-				settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR";
-			let needs_auto_layout = false;
-			uiStore.show_layout_mismatch_banner = false;
-			uiStore.dismissed_layout_banner = false;
+		const defaultLayout = settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+		let needs_auto_layout = false;
+		uiStore.show_layout_mismatch_banner = false;
+		uiStore.dismissed_layout_banner = false;
 
-			if (visual_data && visual_data.length > 0) {
-				graphStore.merge_visual_layout(visual_data);
+		if (visual_data && visual_data.length > 0) {
+			graphStore.merge_visual_layout(visual_data);
 
-				const storedLayout = visual_data.find((el) => el.type === "ui_preferences")?.layout;
-				if (storedLayout) {
-					uiStore.layout_preference = storedLayout;
-					if (storedLayout !== defaultLayout) {
-						uiStore.show_layout_mismatch_banner = true;
-					}
-				} else {
-					// No stored layout, use default
-					uiStore.layout_preference = defaultLayout;
-					needs_auto_layout = true;
+			const storedLayout = visual_data.find((el) => el.type === "ui_preferences")?.layout;
+			if (storedLayout) {
+				uiStore.layout_preference = storedLayout;
+				if (storedLayout !== defaultLayout) {
+					uiStore.show_layout_mismatch_banner = true;
 				}
 			} else {
-				// Brand new rule or missing visual data
+				// No stored layout, use default
 				uiStore.layout_preference = defaultLayout;
 				needs_auto_layout = true;
 			}
-
-			if (!graphStore.nodes.length) {
-				graphStore.initialize_default_graph(rule_doc.value);
-				needs_auto_layout = true;
-			}
-
-			graphStore.autoConnectStartNode();
-			graphStore.normalize_graph_nodes();
-
-			// Capture the persisted-data baseline as soon as the graph is ready,
-			// before asynchronous layout work can allow a modal save to race it.
-			// Layout-only position changes are synchronized into this baseline when
-			// the layout settles; action data is never silently adopted as baseline.
-			await nextTick();
-			initial_state.value = stableStringify(graphStore.getStateSnapshot());
-			_is_dirty.value = false;
-
-			// Trigger auto-layout only if mismatch or new
-			if (needs_auto_layout) {
-				const { useRuleGraph } = await import("../composables/useRuleGraph");
-				const { layoutGraph } = useRuleGraph();
-				await nextTick();
-				layoutGraph(uiStore.layout_preference);
-			}
-
-			// Ensure App.vue bindings see the nodes/edges immediately
-			// by triggering a reactivity update if needed
-			nodes.value = [...graphStore.nodes];
-			edges.value = [...graphStore.edges];
-
-			// Let Vue flush the replaced graph before releasing the initialization
-			// guards. Match the existing pane-ready settling window so trailing
-			// VueFlow position/change events cannot mark a freshly fetched graph dirty.
-			await nextTick();
-			await new Promise((resolve) => setTimeout(resolve, 150));
-			historyStore.reset(() => graphStore.getGraphSnapshot());
-		} finally {
-			is_loading.value = false;
-			uiStore.is_initializing = false;
+		} else {
+			// Brand new rule or missing visual data
+			uiStore.layout_preference = defaultLayout;
+			needs_auto_layout = true;
 		}
+
+		if (!graphStore.nodes.length) {
+			graphStore.initialize_default_graph(rule_doc.value);
+			needs_auto_layout = true;
+		}
+
+		graphStore.autoConnectStartNode();
+		graphStore.normalize_graph_nodes();
+
+		// Capture the persisted-data baseline as soon as the graph is ready,
+		// before asynchronous layout work can allow a modal save to race it.
+		// Layout-only position changes are synchronized into this baseline when
+		// the layout settles; action data is never silently adopted as baseline.
+		await nextTick();
+		initial_state.value = stableStringify(graphStore.getStateSnapshot());
+		_is_dirty.value = false;
+
+		// Trigger auto-layout only if mismatch or new
+		if (needs_auto_layout) {
+			const { useRuleGraph } = await import("../composables/useRuleGraph");
+			const { layoutGraph } = useRuleGraph();
+			await nextTick();
+			layoutGraph(uiStore.layout_preference);
+		}
+
+		// Ensure App.vue bindings see the nodes/edges immediately
+		// by triggering a reactivity update if needed
+		nodes.value = [...graphStore.nodes];
+		edges.value = [...graphStore.edges];
+
+		historyStore.reset(() => graphStore.getGraphSnapshot());
+		is_loading.value = false;
+		uiStore.is_initializing = false;
 	}
 
 	// ── Save ──
@@ -286,7 +277,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					}
 				}
 
-				if (requiresPermissionAuditReason(doc)) {
+				const skipPermissions = [doc.ignore_permissions, doc.skip_permissions].some(
+					(value) => [true, 1, "1", "true", "True"].includes(value)
+				);
+				if (skipPermissions && !String(doc.permission_audit_reason ?? "").trim()) {
 					errors.push(
 						`${label}: ${__(
 							"Permission Audit Reason is required when bypassing permissions."
