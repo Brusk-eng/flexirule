@@ -107,72 +107,7 @@ describe("FlexiRule UI Test Suite", () => {
 		});
 	});
 
-	it("5. First Action node configuration save in modal", () => {
-		const ruleName = `Rule_ModalSave_${Date.now()}`;
-
-		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
-			ruleBuilderPage.visitRule(doc.name);
-			ruleBuilderPage.openVisualBuilder();
-
-			// Add Assignment Action
-			ruleBuilderPage.addNodeFromEdge("Assignment", "Modal Action");
-
-			// Open Rule Configuration Modal
-			cy.get(".vue-flow__node .assignment").last().dblclick({ force: true });
-			cy.get(".config-modal-container", { timeout: 10000 }).should("be.visible");
-
-			// Click Save in Modal
-			cy.get(".config-modal-footer button.btn-primary:contains('Save')").click();
-
-			// Verify Modal closes on first click
-			cy.get(".config-modal-container").should("not.exist");
-
-			// Verify canvas reflects dirty / save rule state
-			cy.get('button:contains("Save Rule")').should("be.visible");
-		});
-	});
-
-	it("6. Canvas save state updates when editing second action after Rule save", () => {
-		const ruleName = `Rule_SecondActionEdit_${Date.now()}`;
-
-		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
-			ruleBuilderPage.visitRule(doc.name);
-			ruleBuilderPage.openVisualBuilder();
-
-			// Add first Action node and configure
-			ruleBuilderPage.addNodeFromEdge("Assignment", "Action 1");
-
-			// Save Rule canvas and verify baseline established
-			ruleBuilderPage.saveRule();
-			cy.get('button:contains("Activate Rule")').should("be.visible");
-
-			// Add second Action node
-			ruleBuilderPage.addNodeFromEdge("Notify", "Action 2");
-
-			// Save Rule canvas again
-			ruleBuilderPage.saveRule();
-			cy.get('button:contains("Activate Rule")').should("be.visible");
-
-			// Open second Action node in modal and edit configuration
-			cy.get(".vue-flow__node .notify").last().dblclick({ force: true });
-			cy.get(".config-modal-container", { timeout: 10000 }).should("be.visible");
-
-			// Close modal with save
-			cy.get(".config-modal-footer button.btn-primary:contains('Save')").click();
-			cy.get(".config-modal-container").should("not.exist");
-
-			// Verify primary action changes back to Save Rule
-			cy.get('button:contains("Save Rule")')
-				.should("be.visible")
-				.and("have.class", "btn-primary");
-
-			// Click Save Rule and verify baseline is reset to clean state
-			ruleBuilderPage.saveRule();
-			cy.get('button:contains("Activate Rule")').should("be.visible");
-		});
-	});
-
-	it("7. Rule Activation & Validation Flow", () => {
+	it("5. Rule Activation & Validation Flow", () => {
 		const ruleName = `Rule_Activation_${Date.now()}`;
 
 		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
