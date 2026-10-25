@@ -20,7 +20,7 @@
 							description: __(
 								'Bypass read permissions for this action. Requires audit reason.'
 							),
-							read_only: readOnly || (mode === 'Fetch Records' && isFrappe15),
+							read_only: readOnly,
 						}"
 						:modelValue="effectiveIgnorePermissions"
 						@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
@@ -687,8 +687,15 @@ const {
 // Frappe 15's Fetch Records mode requires the permission bypass. Expose the
 // required default to the UI without mutating the draft simply by opening it.
 const effectiveIgnorePermissions = computed(() => {
-	if (mode.value === "Fetch Records" && isFrappe15.value) return 1;
-	return props.node?.data?.ignore_permissions;
+	const current = props.node?.data?.ignore_permissions;
+	if (
+		mode.value === "Fetch Records" &&
+		isFrappe15.value &&
+		(current === undefined || current === null || current === "")
+	) {
+		return 1;
+	}
+	return current;
 });
 
 const navigableFields = useNavigableFields(
@@ -2474,6 +2481,18 @@ async function validate() {
 		if (!props.node?.data?.reference_docname) {
 			errors.push(__("Report Name is required"));
 		}
+	}
+
+	// Frappe 15's Query Builder contract requires the audited bypass. Preserve
+	// legacy false values while editing, but make the user opt in explicitly.
+	if (
+		mode.value === "Fetch Records" &&
+		isFrappe15.value &&
+		![true, 1, "1", "true", "True"].includes(effectiveIgnorePermissions.value)
+	) {
+		errors.push(
+			__("Fetch Records on this Frappe version requires Skip Permissions. Enable it and provide an audit reason.")
+		);
 	}
 
 	// 4. Permission Audit Reason: share the Rule Builder's canonical policy,
