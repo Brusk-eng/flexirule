@@ -208,7 +208,7 @@ describe("FlexiRule UI Test Suite", () => {
 		});
 	});
 
-	it("6. Rule Configuration Modal - Full-Modal Raw Configuration Transition", () => {
+	it("8. Rule Configuration Modal - Full-Modal Raw Configuration Transition", () => {
 		const ruleName = `Rule_RawConfig_${Date.now()}`;
 
 		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
