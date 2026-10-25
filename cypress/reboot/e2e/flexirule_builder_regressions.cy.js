@@ -411,10 +411,7 @@ describe("FlexiRule builder regression coverage", () => {
 
 		// Add a second Assignment to exercise the same supported action-label flow.
 		addNodeFromEdgeMenu("Assignment");
-		cy.get(".labeling-container input")
-			.should("be.visible")
-			.clear()
-			.type("Action Node 2");
+		cy.get(".labeling-container input").should("be.visible").clear().type("Action Node 2");
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		// Save Rule canvas again
