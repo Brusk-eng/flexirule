@@ -20,7 +20,6 @@ function validateDraft(targetDraft, options = {}) {
 		data: {
 			action_type: "Query Records",
 			operation: "Fetch Records",
-			ignore_permissions: 0,
 			permission_audit_reason: "Audit Reason Provided",
 		},
 	};
@@ -62,7 +61,6 @@ function validateDraft(targetDraft, options = {}) {
 		data: {
 			action_type: "Query Records",
 			operation: "Fetch Records",
-			ignore_permissions: 0, // Will be normalized to 1 on Frappe 15
 			permission_audit_reason: "", // Missing audit reason!
 		},
 	};
@@ -90,6 +88,41 @@ function validateDraft(targetDraft, options = {}) {
 	]);
 	// Verify live draft remained completely unchanged
 	assert.deepEqual(draftNode, initialDraftCopy);
+}
+
+// Explicitly saved false values are not overwritten by contract defaults.
+{
+	const existing = {
+		id: "existing-fetch",
+		data: {
+			action_type: "Query Records",
+			operation: "Fetch Records",
+			ignore_permissions: 0,
+			permission_audit_reason: "",
+		},
+	};
+	const before = JSON.parse(JSON.stringify(existing));
+	const normalized = normalizeCandidateDraft(JSON.parse(JSON.stringify(existing)), {
+		getOperationFieldOverride: () => ({ default: 1 }),
+	});
+
+	assert.equal(normalized.data.ignore_permissions, 0);
+	assert.deepEqual(existing, before);
+}
+
+// An unset field still receives the contract's default for a newly created action.
+{
+	const candidate = {
+		data: {
+			action_type: "Query Records",
+			operation: "Fetch Records",
+			permission_audit_reason: "Audit reason",
+		},
+	};
+	normalizeCandidateDraft(candidate, {
+		getOperationFieldOverride: () => ({ default: 1 }),
+	});
+	assert.equal(candidate.data.ignore_permissions, 1);
 }
 
 // Genuine stale-context change during async validation is still rejected
