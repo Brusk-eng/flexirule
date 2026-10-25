@@ -61,71 +61,130 @@ describe("Process return-variable contract parity", () => {
 			match_mode: "Any",
 			store_result: "changed_fields",
 		};
+		const processActionId = "process_return";
+		const validProcessAction = {
+			action_id: processActionId,
+			action_type: "Process",
+			action_label: "Missing Return Variable Process",
+			process_name: processName,
+			operation: operationName,
+			config: JSON.stringify(processConfig),
+			return_type: "Yes / No",
+			return_variable: "changed_fields",
+			mutation_mode: null,
+			is_enabled: 1,
+			next_step_if_true: "node_end",
+		};
+		const baselineActions = [
+			{
+				action_id: "root",
+				action_type: "Entry Action",
+				action_label: "Start",
+				is_enabled: 1,
+				next_step_if_true: processActionId,
+			},
+			validProcessAction,
+			{
+				action_id: "node_end",
+				action_type: "Stop",
+				action_label: "End",
+				operation: "Success",
+				is_enabled: 1,
+			},
+		];
 
-		cy.create_test_rule_backend({ rule_name: ruleName }).then((ruleDoc) => {
-			ruleBuilderPage.visitRule(ruleDoc.name);
-			ruleBuilderPage.openVisualBuilder();
-			ruleBuilderPage.addNodeFromEdge("Process", "Missing Return Variable Process");
-
-			cy.window().then(async (win) => {
-				const store = win.fxrRuleBuilder?.ruleStore;
-				const contracts = win.flexirule?.contracts;
-				expect(store, "whole-Rule builder store").to.exist;
-				expect(contracts, "shared contracts API").to.exist;
-
-				const process = store.processes.find((item) => item.name === processName);
-				expect(process, "installed Process used by this regression").to.exist;
+		cy.window()
+			.then((win) =>
+				win.frappe.call({
+					method: "frappe.client.insert",
+					args: {
+						doc: {
+							doctype: "Rule",
+							rule_name: ruleName,
+							document_type: "Contact",
+							trigger_event: "After Save",
+							trigger_type: "DocType Event",
+							is_active: 0,
+							actions: baselineActions,
+						},
+					},
+				})
+			)
+			.then((response) => {
+				const ruleDoc = response?.message;
 				expect(
-					(process.operations || []).some((item) => item.func_name === operationName),
-					"the selected operation exists on the Process"
+					ruleDoc?.name,
+					"created Rule with the backend-seeded Process action"
+				).to.be.a("string").and.not.be.empty;
+				expect(
+					(ruleDoc?.actions || []).some((action) => action.action_id === processActionId),
+					"insert response contains the seeded Process action"
 				).to.equal(true);
+				ruleBuilderPage.visitRule(ruleDoc.name);
+				ruleBuilderPage.openVisualBuilder();
 
-				const node = store.nodes.find(
-					(item) => item.data?.action_label === "Missing Return Variable Process"
-				);
-				expect(node, "Process node on the Rule graph").to.exist;
-				Object.assign(node.data, {
-					action_type: "Process",
-					process_name: processName,
-					operation: operationName,
-					config: processConfig,
-					return_type: "Yes / No",
-					return_variable: null,
-					mutation_mode: null,
-					is_enabled: 1,
-				});
+				// The canvas shell can render before Rule actions have finished hydrating.
+				// Wait for the seeded action itself, then inspect the shared graph store.
+				cy.contains(".vue-flow__node", "Missing Return Variable Process", {
+					timeout: 30000,
+				}).should("be.visible");
 
-				const frontendContractResult = contracts.validateAgainstContract(node.data);
-				expect(
-					contracts.requiresReturnVariable(node.data, {
-						processName,
+				cy.window().then(async (win) => {
+					const store = win.fxrRuleBuilder?.ruleStore;
+					const contracts = win.flexirule?.contracts;
+					expect(store, "whole-Rule builder store").to.exist;
+					expect(contracts, "shared contracts API").to.exist;
+
+					const processOperation =
+						contracts.PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operationName];
+					expect(processOperation, "backend-provided Process operation contract").to
+						.exist;
+					expect(processOperation.policy, "resolved operation policy").to.exist;
+
+					const nodeIndex = store.nodes.findIndex(
+						(item) =>
+							item.data?.action_type === "Process" &&
+							item.data?.process_name === processName
+					);
+					expect(nodeIndex, "seeded Process node on the Rule graph").to.be.at.least(0);
+					const node = store.nodes[nodeIndex];
+					const invalidData = {
+						...node.data,
+						action_label: "Missing Return Variable Process",
+						action_type: "Process",
+						process_name: processName,
 						operation: operationName,
-					})
-				).to.equal(true);
-				expect(frontendContractResult.valid).to.equal(false);
-				expect(frontendContractResult.errors.join("\\n")).to.match(/Return Variable Name/i);
+						config: processConfig,
+						return_type: "Yes / No",
+						return_variable: null,
+						mutation_mode: null,
+						is_enabled: 1,
+					};
+					store.nodes.splice(nodeIndex, 1, {
+						...node,
+						label: invalidData.action_label,
+						data: invalidData,
+					});
+					store.touch_node?.(node.id);
+					store.mark_dirty?.();
 
-				const processActionId = node.data.action_id || node.id;
-				const processAction = {
-					action_id: processActionId,
-					action_type: "Process",
-					action_label: "Missing Return Variable Process",
-					process_name: processName,
-					operation: operationName,
-					config: JSON.stringify(processConfig),
-					return_type: "Yes / No",
-					return_variable: null,
-					mutation_mode: null,
-					is_enabled: 1,
-				};
-				const invalidRulePayload = {
-					doctype: "Rule",
-					name: ruleDoc.name,
-					is_active: 0,
-					trigger_type: "DocType Event",
-					document_type: "Contact",
-					trigger_event: "After Save",
-					actions: [
+					const frontendContractResult = contracts.validateAgainstContract(invalidData);
+					expect(
+						contracts.requiresReturnVariable(invalidData, {
+							processName,
+							operation: operationName,
+						})
+					).to.equal(true);
+					expect(frontendContractResult.valid).to.equal(false);
+					expect(frontendContractResult.errors.join("\n")).to.match(
+						/Return Variable Name/i
+					);
+
+					const invalidProcessAction = {
+						...validProcessAction,
+						return_variable: null,
+					};
+					const invalidActions = [
 						{
 							action_id: "root",
 							action_type: "Entry Action",
@@ -133,66 +192,95 @@ describe("Process return-variable contract parity", () => {
 							is_enabled: 1,
 							next_step_if_true: processActionId,
 						},
-						processAction,
-					],
-				};
+						invalidProcessAction,
+						{
+							action_id: "node_end",
+							action_type: "Stop",
+							action_label: "End",
+							operation: "Success",
+							is_enabled: 1,
+						},
+					];
+					const invalidRulePayload = {
+						doctype: "Rule",
+						name: ruleDoc.name,
+						is_active: 0,
+						trigger_type: "DocType Event",
+						document_type: "Contact",
+						trigger_event: "After Save",
+						actions: invalidActions,
+					};
 
-				const backendValidation = await win.frappe.call({
-					method: "flexirule.ruleflow.api.validate_rule_document",
-					args: { mode: "draft", doc: invalidRulePayload },
-				});
-				expect(backendValidation.message?.valid).to.equal(false);
-				expect((backendValidation.message?.errors || []).join("\\n")).to.match(
-					/Missing Return Variable Process .*Return Variable Name/i
-				);
+					// Read the backend validator over HTTP instead of frappe.call. The
+					// Frappe client wrapper may display returned validation messages as a
+					// modal, which would cover the Save Rule button in the UI assertion below.
+					const validationResponse = await win.fetch(
+						"/api/method/flexirule.ruleflow.api.validate_rule_document",
+						{
+							method: "POST",
+							credentials: "same-origin",
+							headers: {
+								Accept: "application/json",
+								"Content-Type": "application/json",
+								"X-Frappe-CSRF-Token": win.frappe.csrf_token,
+							},
+							body: JSON.stringify({ mode: "draft", doc: invalidRulePayload }),
+						}
+					);
+					expect(
+						validationResponse.ok,
+						"backend Rule validation endpoint responds successfully"
+					).to.equal(true);
+					const validationPayload = await validationResponse.json();
+					const backendValidation = validationPayload.message;
+					expect(backendValidation?.valid).to.equal(false);
+					const backendErrors = (backendValidation?.errors || []).join("\n");
+					expect(backendErrors).to.include("Missing Return Variable Process");
+					expect(backendErrors).to.include("Return Variable Name");
 
-				// Attempt a real Frappe save with the same invalid action payload.
-				const savedRuleResponse = await win.frappe.call({
-					method: "frappe.client.get",
-					args: { doctype: "Rule", name: ruleDoc.name },
-				});
-				const invalidSaveDoc = {
-					...savedRuleResponse.message,
-					actions: invalidRulePayload.actions,
-				};
-				let serverSaveError = "";
-				try {
-					await win.frappe.call({
-						method: "frappe.client.save",
-						args: { doc: invalidSaveDoc },
-						silent: true,
+					// Exercise the same backend save endpoint without showing a Frappe
+					// error dialog; the UI save assertion below covers the visible behavior.
+					const savedRuleResponse = await win.fetch(
+						`/api/resource/Rule/${encodeURIComponent(ruleDoc.name)}`,
+						{ credentials: "same-origin" }
+					);
+					expect(savedRuleResponse.ok, "baseline Rule can be fetched").to.equal(true);
+					const savedRulePayload = await savedRuleResponse.json();
+					const invalidSaveDoc = { ...savedRulePayload.data, actions: invalidActions };
+					const serverSaveResponse = await win.fetch("/api/method/frappe.client.save", {
+						method: "POST",
+						credentials: "same-origin",
+						headers: {
+							Accept: "application/json",
+							"Content-Type": "application/json",
+							"X-Frappe-CSRF-Token": win.frappe.csrf_token,
+						},
+						body: JSON.stringify({ doc: invalidSaveDoc }),
 					});
-				} catch (error) {
-					serverSaveError = [
-						error?.message,
-						error?._server_messages,
-						error?.exc,
-						error?.responseText,
-					]
-						.map((value) =>
-							typeof value === "string" ? value : JSON.stringify(value ?? "")
-						)
-						.join("\\n");
-				}
-				expect(
-					serverSaveError,
-					"backend Rule save rejects the same missing return variable"
-				).to.match(/Return Variable Name/i);
-			});
+					const serverSaveBody = await serverSaveResponse.text();
+					expect(
+						serverSaveResponse.status,
+						"backend Rule save rejects the invalid document"
+					).to.be.greaterThan(299);
+					expect(serverSaveBody).to.include("Return Variable Name");
+				});
 
-			cy.window().then((win) => {
-				cy.stub(win.frappe, "msgprint").as("saveValidationMessage");
+				cy.window().then((win) => {
+					cy.stub(win.frappe, "msgprint").as("saveValidationMessage");
+				});
+				cy.get('button:contains("Save Rule")')
+					.should("be.visible")
+					.and("be.enabled")
+					.click();
+				cy.get("@saveValidationMessage").should("have.been.called");
+				cy.get("@saveValidationMessage").should((stub) => {
+					const messages = stub
+						.getCalls()
+						.map((call) => JSON.stringify(call.args[0]))
+						.join("\n");
+					expect(messages).to.match(/Validation Error/i);
+					expect(messages).to.match(/Return Variable Name/i);
+				});
 			});
-			cy.get('button:contains("Save Rule")').click();
-			cy.get("@saveValidationMessage").should("have.been.called");
-			cy.get("@saveValidationMessage").should((stub) => {
-				const messages = stub
-					.getCalls()
-					.map((call) => JSON.stringify(call.args[0]))
-					.join("\\n");
-				expect(messages).to.match(/Validation Error/i);
-				expect(messages).to.match(/Return Variable Name/i);
-			});
-		});
 	});
 });

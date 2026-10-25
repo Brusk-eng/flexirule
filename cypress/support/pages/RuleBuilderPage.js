@@ -1,6 +1,6 @@
 class RuleBuilderPage {
 	visitRule(ruleName) {
-		cy.visit(`/app/rule/${ruleName}`);
+		cy.visit(`/app/rule/${encodeURIComponent(ruleName)}`);
 		cy.get(".page-head", { timeout: 30000 }).should("exist");
 	}
 
@@ -8,11 +8,11 @@ class RuleBuilderPage {
 		cy.get('.primary-action:contains("Visual Builder")', { timeout: 15000 })
 			.should("be.visible")
 			.click();
-		cy.url().should("include", "/rule-builder/");
+		cy.url().should("include", "/app/rule-builder/");
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
 	}
 
-	addNodeFromEdge(nodeType, label, handle = null) {
+	addNodeFromEdge(nodeType, label, handle = null, optionLabel = null, operationLabel = null) {
 		if (handle) {
 			cy.get(`.vue-flow__edge-path[data-source-handle="${handle}"]`).trigger("mouseover", {
 				force: true,
@@ -24,11 +24,52 @@ class RuleBuilderPage {
 
 		cy.get(`.result-item.is-option:contains("${nodeType}")`).click();
 
+		// Some Frappe actions (for example Process) open a second chooser for
+		// the record that will back the action node.
+		if (optionLabel) {
+			cy.get(".result-item.is-option", { timeout: 15000 })
+				.contains(optionLabel, { timeout: 15000 })
+				.click({ force: true });
+		}
+
+		// Process actions present a third chooser for the selected operation.
+		if (operationLabel) {
+			cy.get(".result-item.is-option", { timeout: 15000 })
+				.contains(operationLabel, { timeout: 15000 })
+				.click({ force: true });
+		}
+
+		// Once an operation is selected, the node picker opens its normal
+		// label-entry step before creating the Process action node.
 		if (label) {
 			cy.get(".labeling-container", { timeout: 10000 }).should("be.visible");
 			cy.get(".labeling-container input").type(label);
 			cy.get(".labeling-container button.btn-primary").click();
 		}
+	}
+
+	configControlByLabel(label) {
+		return cy
+			.contains(".config-modal-container .fxr-label", label, { timeout: 15000 })
+			.closest(".fxr-control");
+	}
+
+	setConfigField(label, value) {
+		return this.configControlByLabel(label)
+			.find("input.fxr-input, textarea.fxr-input, textarea", { timeout: 15000 })
+			.first()
+			.should("be.visible")
+			.clear()
+			.type(String(value))
+			.should("have.value", String(value));
+	}
+
+	clearConfigField(label) {
+		return this.configControlByLabel(label)
+			.find("input.fxr-input, textarea.fxr-input, textarea", { timeout: 15000 })
+			.first()
+			.should("be.visible")
+			.clear();
 	}
 
 	selectNode(nodeClass) {
@@ -48,13 +89,13 @@ class RuleBuilderPage {
 	}
 
 	saveRule() {
-		cy.get('button:contains("Save Rule")').click();
+		cy.contains("button", "Save Rule").click();
 		cy.get(".desk-alert.green", { timeout: 20000 }).should("contain", "Saved");
 	}
 
 	deleteSelectedNode() {
-		cy.get('button:contains("Delete Action")').click();
-		cy.get('.modal-footer button:contains("Yes")').click();
+		cy.contains("button", "Delete Action").click();
+		cy.get(".modal-footer button").contains("Yes").click();
 	}
 }
 

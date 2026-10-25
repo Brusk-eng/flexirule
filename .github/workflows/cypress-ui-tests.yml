@@ -1,11 +1,12 @@
-name: Cypress UI Smoke (Isolated)
+name: Cypress UI Tests (Frappe Native)
 
 on:
   pull_request:
     paths:
-      - ".github/workflows/cypress-smoke.yml"
-      - "cypress.reboot.config.js"
-      - "cypress/reboot/**"
+      - ".github/workflows/cypress-ui-tests.yml"
+      - "cypress.config.js"
+      - "cypress/integration/**"
+      - "cypress/support/**"
       - "package.json"
       - "yarn.lock"
       - "flexirule/public/**"
@@ -17,14 +18,18 @@ permissions:
   contents: read
 
 concurrency:
-  group: cypress-smoke-${{ github.event.pull_request.number || github.ref }}
+  group: cypress-ui-tests-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  cypress-smoke:
-    name: Frappe 15 + Cypress smoke
+  cypress-ui-tests:
+    name: Frappe 15 + Cypress (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [builder, fetch-records]
     services:
       mariadb:
         image: mariadb:10.6.24
@@ -86,7 +91,7 @@ jobs:
       - name: Install MariaDB client
         run: |
           sudo apt-get update
-          sudo apt-get install -y mariadb-client
+          sudo apt-get install -y mariadb-client xvfb
 
       - name: Initialize Frappe bench
         run: |
@@ -133,10 +138,9 @@ jobs:
         # Bench was initialized with --skip-assets, so build Frappe core and FlexiRule assets.
         run: bench build --production
 
-      - name: Install Cypress
-        run: |
-          yarn install --frozen-lockfile
-          yarn cypress verify
+      - name: Install FlexiRule JavaScript dependencies
+        working-directory: /home/runner/frappe-bench/apps/flexirule
+        run: yarn install --frozen-lockfile
 
       - name: Start Frappe web server and wait for login
         working-directory: /home/runner/frappe-bench
@@ -155,12 +159,38 @@ jobs:
           tail -n 200 "$GITHUB_WORKSPACE/artifacts/cypress/bench-server.log" || true
           exit 1
 
-      - name: Run isolated Cypress smoke
+      - name: Run Cypress shard
+        working-directory: /home/runner/frappe-bench/apps/flexirule
         env:
-          FRAPPE_SITE_URL: http://localhost:8000
-          FRAPPE_USER: Administrator
-          FRAPPE_PASSWORD: admin
-        run: yarn test:e2e:cypress:smoke
+          CYPRESS_baseUrl: http://localhost:8000
+          CYPRESS_adminPassword: admin
+          CYPRESS_testUser: Administrator
+          CYPRESS_coverage: "false"
+          CYPRESS_SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          artifacts="$GITHUB_WORKSPACE/artifacts/cypress/shards/$CYPRESS_SHARD"
+          mkdir -p "$artifacts/screenshots" "$artifacts/videos"
+
+          case "$CYPRESS_SHARD" in
+            fetch-records)
+              specs="cypress/integration/fetch_records_regressions.cy.js,cypress/integration/return_variable_contract.js"
+              ;;
+            builder)
+              specs="cypress/integration/flexirule_builder_regressions.cy.js,cypress/integration/flexirule_smoke.cy.js,cypress/integration/workspace_and_list.js"
+              ;;
+            *)
+              echo "Unknown Cypress shard: $CYPRESS_SHARD" >&2
+              exit 2
+              ;;
+          esac
+
+          # Each matrix job provisions its own Frappe site and browser display,
+          # so shards run concurrently without sharing database state.
+          xvfb-run -a ./node_modules/.bin/cypress run \
+            --browser chrome \
+            --spec "$specs" \
+            --config "screenshotsFolder=$artifacts/screenshots,videosFolder=$artifacts/videos,trashAssetsBeforeRuns=false"
 
       - name: Stop Frappe web server
         if: always()
@@ -169,11 +199,19 @@ jobs:
             kill "$(cat artifacts/cypress/bench-server.pid)" 2>/dev/null || true
           fi
 
+      - name: Collect Cypress artifacts
+        if: always()
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/cypress"
+          if [ -d "/home/runner/frappe-bench/apps/flexirule/artifacts/cypress" ]; then
+            cp -a "/home/runner/frappe-bench/apps/flexirule/artifacts/cypress/." "$GITHUB_WORKSPACE/artifacts/cypress/"
+          fi
+
       - name: Upload Cypress artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cypress-ui-smoke-artifacts
+          name: cypress-ui-test-artifacts-${{ matrix.shard }}
           path: artifacts/cypress/
           if-no-files-found: warn
           retention-days: 7

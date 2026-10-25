@@ -4,6 +4,7 @@ import { getContract, validateAgainstContract } from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
 import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
+import { normalizeCandidateDraft } from "../utils/candidate_normalization.mjs";
 
 /**
  * useRuleConfig
@@ -121,14 +122,18 @@ export function useRuleConfig(props, emit) {
 		// while a panel validator awaits must never redirect this draft's commit.
 		const sourceNode = props.node;
 		const sourceDraft = draftNode.value;
+		// Capture exact signature of source draft BEFORE candidate normalization
+		const sourceDraftSignature = sourceDraft ? stableStringify(sourceDraft) : null;
 		const validatedDraft = sourceDraft ? deepClone(sourceDraft) : null;
-		const validatedDraftSignature = validatedDraft ? stableStringify(validatedDraft) : null;
+		if (validatedDraft) {
+			normalizeCandidateDraft(validatedDraft);
+		}
 		const sourceGeneration = ruleStore.fetch_generation;
 		const sourceContextGeneration = saveContextGeneration;
 		const hasUnchangedDraft = () => {
-			if (!sourceDraft || validatedDraftSignature === null) return false;
+			if (!sourceDraft || sourceDraftSignature === null) return false;
 			try {
-				return stableStringify(sourceDraft) === validatedDraftSignature;
+				return stableStringify(sourceDraft) === sourceDraftSignature;
 			} catch {
 				return false;
 			}

@@ -5,45 +5,56 @@ describe("FlexiRule builder regression coverage", () => {
 	let ruleName;
 	let capturedConsoleMessages = [];
 
-	function createRuleAndOpenBuilder() {
+	function defaultRuleActions() {
+		return [
+			{
+				action_id: "root",
+				action_label: "Start",
+				action_type: "Entry Action",
+				is_enabled: 1,
+				next_step_if_true: "node_end",
+			},
+			{
+				action_id: "node_end",
+				action_label: "End",
+				action_type: "Stop",
+				operation: "Success",
+				is_enabled: 1,
+			},
+		];
+	}
+
+	function createRuleAndOpenBuilder(actions = defaultRuleActions()) {
 		const suffix = Date.now().toString() + "_" + Math.floor(Math.random() * 1000);
 		ruleName = "Cypress_Regression_" + suffix;
 
-		cy.window().then((win) => {
-			return win.frappe.call({
-				method: "frappe.client.insert",
-				args: {
-					doc: {
-						doctype: "Rule",
-						rule_name: ruleName,
-						document_type: "Contact",
-						trigger_event: "After Save",
-						trigger_type: "DocType Event",
-						actions: [
-							{
-								action_id: "root",
-								action_label: "Start",
-								action_type: "Entry Action",
-								is_enabled: 1,
-								next_step_if_true: "node_end",
-							},
-							{
-								action_id: "node_end",
-								action_label: "End",
-								action_type: "Stop",
-								operation: "Success",
-								is_enabled: 1,
-							},
-						],
+		return cy
+			.window()
+			.then((win) =>
+				win.frappe.call({
+					method: "frappe.client.insert",
+					args: {
+						doc: {
+							doctype: "Rule",
+							rule_name: ruleName,
+							document_type: "Contact",
+							trigger_event: "After Save",
+							trigger_type: "DocType Event",
+							is_active: 0,
+							actions,
+						},
 					},
-				},
-			});
-		});
-
-		cy.window().then((win) => win.frappe.set_route("Form", "Rule", ruleName));
-		cy.contains("button", "Visual Builder", { timeout: 30000 }).click();
-		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-		cy.get(".vue-flow__node", { timeout: 30000 }).should("have.length.at.least", 2);
+				})
+			)
+			.then((response) => {
+				ruleName = response?.message?.name || ruleName;
+				return cy.window().then((win) => win.frappe.set_route("Form", "Rule", ruleName));
+			})
+			.then(() => cy.contains("button", "Visual Builder", { timeout: 30000 }).click())
+			.then(() => cy.get(".vue-flow", { timeout: 30000 }).should("be.visible"))
+			.then(() =>
+				cy.get(".vue-flow__node", { timeout: 30000 }).should("have.length.at.least", 2)
+			);
 	}
 
 	function addNodeFromEdgeMenu(type) {
@@ -60,7 +71,6 @@ describe("FlexiRule builder regression coverage", () => {
 			.contains(type, { timeout: 15000 })
 			.click({ force: true });
 	}
-
 	function persistedRule() {
 		return cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName)).its("body.data");
 	}
@@ -69,19 +79,15 @@ describe("FlexiRule builder regression coverage", () => {
 		ruleName = null;
 		capturedConsoleMessages = [];
 
-		const password = Cypress.env("frappePassword");
-		if (!password)
-			throw new Error("FRAPPE_PASSWORD is required for the Cypress regression suite.");
-
 		cy.on("window:before:load", (win) => {
 			["error", "warn"].forEach((level) => {
 				const original = win.console[level];
 				if (!original) return;
 				win.console[level] = (...args) => {
-					const msg = args.map(String).join(" ");
+					const message = args.map(String).join(" ");
 					capturedConsoleMessages.push({
 						level,
-						message: msg,
+						message,
 						url: win.location.href,
 					});
 					return original.apply(win.console, args);
@@ -89,14 +95,8 @@ describe("FlexiRule builder regression coverage", () => {
 			});
 		});
 
-		cy.visit("/login");
-		cy.get("#login_email")
-			.should("be.visible")
-			.clear()
-			.type(Cypress.env("frappeUser") || "Administrator");
-		cy.get("#login_password").should("be.visible").clear().type(password, { log: false });
-		cy.get("button.btn-login").should("be.visible").click();
-		cy.url().should("include", "/app");
+		cy.login();
+		cy.visit("/app");
 		cy.get(".navbar", { timeout: 30000 }).should("be.visible");
 	});
 
@@ -173,26 +173,6 @@ describe("FlexiRule builder regression coverage", () => {
 
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 		cy.get(".config-modal-container").contains("Condition").should("be.visible");
-	});
-
-	it("opens Query Records configuration and exposes the Fetch Records editor", () => {
-		createRuleAndOpenBuilder();
-		addNodeFromEdgeMenu("Query Records");
-		cy.get(".result-item.is-option", { timeout: 15000 })
-			.contains("Fetch Records", { timeout: 15000 })
-			.click({ force: true });
-		cy.get(".labeling-container input")
-			.should("be.visible")
-			.clear()
-			.type("Query Records configuration check");
-		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
-
-		cy.contains(".vue-flow__node", "Query Records configuration check")
-			.should("be.visible")
-			.dblclick({ force: true });
-
-		cy.contains("Query Mode", { timeout: 15000 }).should("exist");
-		cy.contains("Fetch Records").should("exist");
 	});
 
 	it("persists graph node data and edges through a hard reload", () => {

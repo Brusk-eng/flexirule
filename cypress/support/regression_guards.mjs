@@ -1,11 +1,11 @@
 /**
- * Shared regression guard patterns and matchers for Cypress UI suites and unit tests.
+ * Shared regression guard patterns and matchers for Cypress UI tests.
  */
 export const REGRESSION_CONSOLE_PATTERN =
 	/could not find grid field|grid field.*not found|cannot set property hasResolvedOutputSchema/i;
 
 /**
- * Checks if a console message matches known Rule Builder console regressions.
+ * Checks whether a console message matches a known Rule Builder regression.
  *
  * @param {string} message
  * @returns {boolean}
