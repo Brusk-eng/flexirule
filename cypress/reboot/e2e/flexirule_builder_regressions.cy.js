@@ -370,8 +370,11 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("First Click Save Success");
-		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
+			.type("First Click Save Success")
+			.blur();
+		cy.get(".config-modal-header h3")
+			.should("be.visible")
+			.and("contain", "First Click Save Success");
 
 		// Verify Save button in modal is visible when dirty and click it ONCE
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
@@ -406,10 +409,9 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.wait("@saveRule1");
 		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
-		// Add Action 2
+		// Add Action 2. Notify inserts directly and does not use the Assignment label prompt.
 		addNodeFromEdgeMenu("Notify");
-		cy.get(".labeling-container input").should("be.visible").clear().type("Action Node 2");
-		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+		cy.get(".vue-flow__node .notify", { timeout: 15000 }).should("be.visible");
 
 		// Save Rule canvas again
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule2");
@@ -417,10 +419,8 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.wait("@saveRule2");
 		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
-		// Open Action Node 2 in modal and edit a valid configuration field
-		cy.contains(".vue-flow__node", "Action Node 2")
-			.should("be.visible")
-			.dblclick({ force: true });
+		// Open the second action by its type; Notify does not have the Assignment label prompt.
+		cy.get(".vue-flow__node .notify").last().dblclick({ force: true });
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 
 		// Modify action label by clicking title in modal header
@@ -428,8 +428,11 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("Action Node 2 Modified");
-		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
+			.type("Action Node 2 Modified")
+			.blur();
+		cy.get(".config-modal-header h3")
+			.should("be.visible")
+			.and("contain", "Action Node 2 Modified");
 
 		// Save modal
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
