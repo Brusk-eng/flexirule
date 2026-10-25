@@ -650,6 +650,7 @@ import {
 } from "./query_records/output_fields_model.mjs";
 import { normalizeResolvedOutputSchema } from "../../../../utils/output_schema.js";
 import { getQueryRecordsSchemaRefreshSignature } from "./query_records/schema_refresh.mjs";
+import { requiresPermissionAuditReason } from "../../utils/permission_audit.mjs";
 
 const isFrappe15 = computed(() => {
 	const version = frappe.boot?.versions?.frappe;
@@ -2475,10 +2476,13 @@ async function validate() {
 		}
 	}
 
-	// 4. Permission Audit Reason (Global check, though child CheckControl should handle reqd)
+	// 4. Permission Audit Reason: share the Rule Builder's canonical policy,
+	// including legacy bypass flags/config storage and whitespace-only values.
 	if (
-		effectiveIgnorePermissions.value &&
-		!String(props.node?.data?.permission_audit_reason ?? "").trim()
+		requiresPermissionAuditReason({
+			...props.node?.data,
+			ignore_permissions: effectiveIgnorePermissions.value,
+		})
 	) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 	}
