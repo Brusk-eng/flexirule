@@ -17,7 +17,15 @@ export function normalizeCandidateDraft(candidateDraft, options = {}) {
 		operation: data.operation,
 	});
 
-	if (permissionPolicy?.default === 1 && ![true, 1, "1"].includes(data.ignore_permissions)) {
+	// Contracts use defaults for new/unset fields. Preserve an explicit false
+	// when editing an existing action; the backend may reject it for this operation,
+	// but normalization must not silently mutate a saved user choice.
+	if (
+		permissionPolicy?.default === 1 &&
+		(data.ignore_permissions === undefined ||
+			data.ignore_permissions === null ||
+			data.ignore_permissions === "")
+	) {
 		data.ignore_permissions = 1;
 	}
 
