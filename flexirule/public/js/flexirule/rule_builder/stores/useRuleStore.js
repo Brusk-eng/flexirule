@@ -157,7 +157,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			// Build graph from actions (mirrors workflow_builder: get_workflow_elements)
 			graphStore.sync_actions_to_graph(rule_doc.value);
 
-			const defaultLayout = settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+			const defaultLayout =
+				settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR";
 			let needs_auto_layout = false;
 			uiStore.show_layout_mismatch_banner = false;
 			uiStore.dismissed_layout_banner = false;
