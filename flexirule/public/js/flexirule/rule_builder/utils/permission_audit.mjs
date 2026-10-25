@@ -14,8 +14,5 @@ export function hasPermissionBypass(action = {}) {
 }
 
 export function requiresPermissionAuditReason(action = {}) {
-	return (
-		hasPermissionBypass(action) &&
-		!String(action.permission_audit_reason ?? "").trim()
-	);
+	return hasPermissionBypass(action) && !String(action.permission_audit_reason ?? "").trim();
 }
