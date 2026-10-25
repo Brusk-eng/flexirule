@@ -242,7 +242,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onBeforeMount, onMounted, onUnmounted, watch, nextTick, provide } from "vue";
+import {
+	ref,
+	computed,
+	onBeforeMount,
+	onMounted,
+	onUnmounted,
+	watch,
+	nextTick,
+	provide,
+} from "vue";
 import { VueFlow, Panel, PanelPosition, useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 
