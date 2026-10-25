@@ -1079,9 +1079,7 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	height: 100vh;
 	background-color: rgba(0, 0, 0, 0.5);
 	backdrop-filter: blur(10px);
-	/* Frappe/Bootstrap dialogs use z-index 1050; this teleported modal must
-	   appear above the Rule form dialog that launches the builder. */
-	z-index: 1060;
+	z-index: 1040;
 	display: flex;
 	justify-content: center;
 	align-items: center;

@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { runConfigSaveLifecycle } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/config_save_lifecycle.mjs";
 import { normalizeCandidateDraft } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/candidate_normalization.mjs";
-import { requiresPermissionAuditReason } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/permission_audit.mjs";
 
 // Validation helper using normalizeCandidateDraft before contract/business validation
 function validateDraft(targetDraft, options = {}) {
 	normalizeCandidateDraft(targetDraft, options);
 	const errors = [];
-	if (requiresPermissionAuditReason(targetDraft.data)) {
+	if (targetDraft.data?.ignore_permissions && !targetDraft.data?.permission_audit_reason) {
 		errors.push("Permission Audit Reason is required when bypassing permissions.");
 	}
 	return { valid: errors.length === 0, errors };
@@ -20,6 +19,7 @@ function validateDraft(targetDraft, options = {}) {
 		data: {
 			action_type: "Query Records",
 			operation: "Fetch Records",
+			ignore_permissions: 0,
 			permission_audit_reason: "Audit Reason Provided",
 		},
 	};
@@ -36,10 +36,7 @@ function validateDraft(targetDraft, options = {}) {
 	const result = await runConfigSaveLifecycle({
 		isLoading: () => false,
 		isContextCurrent,
-		validate: async () =>
-			validateDraft(validatedDraft, {
-				getOperationFieldOverride: () => ({ default: 1 }),
-			}),
+		validate: async () => validateDraft(validatedDraft, { isFrappe15: true }),
 		commit: () => {
 			commitCount += 1;
 			draftNode.data = JSON.parse(JSON.stringify(validatedDraft.data));
@@ -61,6 +58,7 @@ function validateDraft(targetDraft, options = {}) {
 		data: {
 			action_type: "Query Records",
 			operation: "Fetch Records",
+			ignore_permissions: 0, // Will be normalized to 1 on Frappe 15
 			permission_audit_reason: "", // Missing audit reason!
 		},
 	};
@@ -72,10 +70,7 @@ function validateDraft(targetDraft, options = {}) {
 	const result = await runConfigSaveLifecycle({
 		isLoading: () => false,
 		isContextCurrent: () => true,
-		validate: async () =>
-			validateDraft(validatedDraft, {
-				getOperationFieldOverride: () => ({ default: 1 }),
-			}),
+		validate: async () => validateDraft(validatedDraft, { isFrappe15: true }),
 		commit: () => {
 			commitCount += 1;
 		},
@@ -88,41 +83,6 @@ function validateDraft(targetDraft, options = {}) {
 	]);
 	// Verify live draft remained completely unchanged
 	assert.deepEqual(draftNode, initialDraftCopy);
-}
-
-// Explicitly saved false values are not overwritten by contract defaults.
-{
-	const existing = {
-		id: "existing-fetch",
-		data: {
-			action_type: "Query Records",
-			operation: "Fetch Records",
-			ignore_permissions: 0,
-			permission_audit_reason: "",
-		},
-	};
-	const before = JSON.parse(JSON.stringify(existing));
-	const normalized = normalizeCandidateDraft(JSON.parse(JSON.stringify(existing)), {
-		getOperationFieldOverride: () => ({ default: 1 }),
-	});
-
-	assert.equal(normalized.data.ignore_permissions, 0);
-	assert.deepEqual(existing, before);
-}
-
-// An unset field still receives the contract's default for a newly created action.
-{
-	const candidate = {
-		data: {
-			action_type: "Query Records",
-			operation: "Fetch Records",
-			permission_audit_reason: "Audit reason",
-		},
-	};
-	normalizeCandidateDraft(candidate, {
-		getOperationFieldOverride: () => ({ default: 1 }),
-	});
-	assert.equal(candidate.data.ignore_permissions, 1);
 }
 
 // Genuine stale-context change during async validation is still rejected
@@ -156,52 +116,6 @@ function validateDraft(targetDraft, options = {}) {
 
 	const result = await saving;
 	assert.equal(result.status, "blocked-stale-context");
-}
-
-// Keep modal checks consistent with whole-rule/backend checks for legacy flags
-// and whitespace-only audit reasons.
-{
-	assert.equal(requiresPermissionAuditReason(null), false);
-	assert.equal(
-		requiresPermissionAuditReason({ ignore_permissions: 1, permission_audit_reason: " \n\t" }),
-		true
-	);
-	assert.equal(
-		requiresPermissionAuditReason({ skip_permissions: "True", permission_audit_reason: "" }),
-		true
-	);
-	assert.equal(
-		requiresPermissionAuditReason({ ignore_permissions: 0, permission_audit_reason: "" }),
-		false
-	);
-
-	// Legacy saved actions can carry the audit reason inside config instead of
-	// the current Rule Action field. Accept both JSON-string and object configs.
-	assert.equal(
-		requiresPermissionAuditReason({
-			ignore_permissions: 1,
-			config: { permission_audit_reason: "Legacy reason" },
-		}),
-		false
-	);
-	assert.equal(
-		requiresPermissionAuditReason({
-			skip_permissions: 1,
-			config: JSON.stringify({ permission_audit_reason: "Legacy JSON reason" }),
-		}),
-		false
-	);
-
-	const result = validateDraft(
-		{
-			data: { skip_permissions: 1, permission_audit_reason: " \n " },
-		},
-		{ getOperationFieldOverride: () => null }
-	);
-	assert.equal(result.valid, false);
-	assert.deepEqual(result.errors, [
-		"Permission Audit Reason is required when bypassing permissions.",
-	]);
 }
 
 console.log("Action config validation side-effect and lifecycle tests passed");

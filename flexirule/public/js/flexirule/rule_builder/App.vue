@@ -242,16 +242,7 @@
 </template>
 
 <script setup>
-import {
-	ref,
-	computed,
-	onBeforeMount,
-	onMounted,
-	onUnmounted,
-	watch,
-	nextTick,
-	provide,
-} from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, provide } from "vue";
 import { VueFlow, Panel, PanelPosition, useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 
@@ -483,25 +474,11 @@ function toggleRuleAccess() {
 	showQuickActions.value = false;
 }
 
-let paneReadyTimer = null;
-
-onBeforeMount(() => {
-	// A reused Pinia store may outlive this component. Reset readiness before
-	// VueFlow mounts so this component's first fetch waits for its own pane.
-	uiStore.pane_ready = false;
-});
-
 function onPaneReady(instance) {
 	instance.fitView();
-	// Small delay to ensure fitView doesn't trigger a trailing position change.
-	// The store uses pane_ready to distinguish initial load from later refreshes.
-	if (paneReadyTimer !== null) clearTimeout(paneReadyTimer);
-	paneReadyTimer = setTimeout(() => {
-		paneReadyTimer = null;
-		uiStore.pane_ready = true;
-		if (!ruleStore.is_loading) {
-			uiStore.is_initializing = false;
-		}
+	// Small delay to ensure fitView doesn't trigger a trailing position change
+	setTimeout(() => {
+		uiStore.is_initializing = false;
 	}, 150);
 }
 
@@ -634,10 +611,6 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-	if (paneReadyTimer !== null) {
-		clearTimeout(paneReadyTimer);
-		paneReadyTimer = null;
-	}
 	document.body.classList.remove("fxr-builder-active");
 	popContext("canvas");
 	unregisterShortcuts.value.forEach((unreg) => unreg());
@@ -861,13 +834,13 @@ function onConnect(params) {
 }
 
 function onNodesChange(changes) {
-	if (!uiStore.pane_ready || uiStore.is_initializing || uiStore.is_performing_layout) return;
+	if (uiStore.is_initializing || uiStore.is_performing_layout) return;
 	const hasDrag = changes.some((c) => c.type === "position" && c.dragging === false);
 	if (hasDrag) ruleStore.mark_position_change();
 }
 
 function onEdgesChange(changes) {
-	if (!uiStore.pane_ready || uiStore.is_initializing) return;
+	if (uiStore.is_initializing) return;
 	changes.forEach((change) => {
 		if (change.type === "remove") {
 			graphStore.delete_edge(change.id, ruleStore.is_read_only);

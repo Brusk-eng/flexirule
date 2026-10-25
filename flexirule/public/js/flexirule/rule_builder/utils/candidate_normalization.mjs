@@ -1,33 +1,24 @@
-import { getOperationFieldOverride as getOperationFieldOverrideFromContract } from "../../core/contracts.js";
-
 /**
- * Normalize the isolated candidate before validation and commit.
- *
- * Use the backend-supplied operation contract (also used by useRuleStore.save_changes)
- * rather than duplicating the version-specific default in the modal save path.
- * Never mutate the live editing draft while validation is awaiting.
+ * Normalize candidate draft state right before commit in the save lifecycle.
+ * Apply operation/version defaults to the isolated candidate without mutating
+ * live editing drafts during validation.
  */
 export function normalizeCandidateDraft(candidateDraft, options = {}) {
 	if (!candidateDraft?.data) return candidateDraft;
-
 	const data = candidateDraft.data;
-	const getFieldOverride =
-		options.getOperationFieldOverride || getOperationFieldOverrideFromContract;
-	const permissionPolicy = getFieldOverride(data.action_type, "ignore_permissions", {
-		operation: data.operation,
-	});
+	const version =
+		options.frappeVersion ||
+		(typeof window !== "undefined" && window.frappe?.boot?.versions?.frappe);
+	const isFrappe15 =
+		options.isFrappe15 ?? (typeof version === "string" && /^15(?:\.|$)/.test(version));
 
-	// Contracts use defaults for new/unset fields. Preserve an explicit false
-	// when editing an existing action; the backend may reject it for this operation,
-	// but normalization must not silently mutate a saved user choice.
 	if (
-		permissionPolicy?.default === 1 &&
-		(data.ignore_permissions === undefined ||
-			data.ignore_permissions === null ||
-			data.ignore_permissions === "")
+		data.action_type === "Query Records" &&
+		data.operation === "Fetch Records" &&
+		isFrappe15 &&
+		![true, 1, "1"].includes(data.ignore_permissions)
 	) {
 		data.ignore_permissions = 1;
 	}
-
 	return candidateDraft;
 }

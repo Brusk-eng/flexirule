@@ -15,8 +15,6 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const show_sidebar = ref(false);
 	const local_clipboard = ref(null);
 	const is_initializing = ref(false);
-	// True only after VueFlow's initial fitView/layout settling window completes.
-	const pane_ready = ref(false);
 	const is_performing_layout = ref(false);
 	const layout_preference = ref("LR"); // "LR" | "TB"
 	const show_layout_mismatch_banner = ref(false);
@@ -199,7 +197,6 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		test_multi_results,
 		test_current_multi_index,
 		is_initializing,
-		pane_ready,
 		show_layout_mismatch_banner,
 		dismissed_layout_banner,
 
