@@ -121,13 +121,23 @@ describe("FlexiRule UI Test Suite", () => {
 			cy.get(".vue-flow__node .assignment").last().dblclick({ force: true });
 			cy.get(".config-modal-container", { timeout: 10000 }).should("be.visible");
 
-			// Click Save in Modal
-			cy.get(".config-modal-footer button.btn-primary:contains('Save')").click();
+			// Change a real field so the modal Save action becomes available.
+			cy.get(".config-modal-header h3.editable").should("be.visible").click();
+			cy.get(".config-modal-header .title-input")
+				.should("be.visible")
+				.clear()
+				.type("Modal Action Updated")
+				.blur();
+			cy.get(".config-modal-header h3")
+				.should("be.visible")
+				.and("contain", "Modal Action Updated");
 
-			// Verify Modal closes on first click
+			// Verify the modal closes on the first Save click.
+			cy.get(".config-modal-container .save-action").should("be.visible").click();
 			cy.get(".config-modal-container").should("not.exist");
 
-			// Verify canvas reflects dirty / save rule state
+			// Verify canvas reflects the edited label and dirty / save rule state.
+			cy.contains(".vue-flow__node", "Modal Action Updated").should("be.visible");
 			cy.get('button:contains("Save Rule")').should("be.visible");
 		});
 	});
@@ -146,20 +156,30 @@ describe("FlexiRule UI Test Suite", () => {
 			ruleBuilderPage.saveRule();
 			cy.get('button:contains("Activate Rule")').should("be.visible");
 
-			// Add second Action node
-			ruleBuilderPage.addNodeFromEdge("Notify", "Action 2");
+			// Add a second Assignment node using the tested label-prompt flow.
+			ruleBuilderPage.addNodeFromEdge("Assignment", "Action 2");
 
 			// Save Rule canvas again
 			ruleBuilderPage.saveRule();
 			cy.get('button:contains("Activate Rule")').should("be.visible");
 
-			// Open second Action node in modal and edit configuration
-			cy.get(".vue-flow__node .notify").last().dblclick({ force: true });
+			// Open second Action node in modal and edit its label to mark it dirty.
+			cy.get(".vue-flow__node .assignment").last().dblclick({ force: true });
 			cy.get(".config-modal-container", { timeout: 10000 }).should("be.visible");
+			cy.get(".config-modal-header h3.editable").should("be.visible").click();
+			cy.get(".config-modal-header .title-input")
+				.should("be.visible")
+				.clear()
+				.type("Action 2 Modified")
+				.blur();
+			cy.get(".config-modal-header h3")
+				.should("be.visible")
+				.and("contain", "Action 2 Modified");
 
-			// Close modal with save
-			cy.get(".config-modal-footer button.btn-primary:contains('Save')").click();
+			// Save the edited action using the actual modal Save control.
+			cy.get(".config-modal-container .save-action").should("be.visible").click();
 			cy.get(".config-modal-container").should("not.exist");
+			cy.contains(".vue-flow__node", "Action 2 Modified").should("be.visible");
 
 			// Verify primary action changes back to Save Rule
 			cy.get('button:contains("Save Rule")')
