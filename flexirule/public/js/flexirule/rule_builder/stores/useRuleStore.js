@@ -288,8 +288,17 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 						"ignore_permissions",
 						{ operation: doc.operation }
 					);
-					if (permissionPolicy.default === 1) {
-						doc.ignore_permissions = 1;
+					if (permissionPolicy?.default === 1) {
+						const current = doc.ignore_permissions;
+						if (current === undefined || current === null || current === "") {
+							doc.ignore_permissions = 1;
+						} else if (![true, 1, "1", "true", "True"].includes(current)) {
+							errors.push(
+								`${label}: ${__(
+									"Fetch Records on this Frappe version requires Skip Permissions. Enable it and provide an audit reason."
+								)}`
+							);
+						}
 					}
 				}
 
