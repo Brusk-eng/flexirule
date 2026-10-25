@@ -650,7 +650,7 @@ import {
 } from "./query_records/output_fields_model.mjs";
 import { normalizeResolvedOutputSchema } from "../../../../utils/output_schema.js";
 import { getQueryRecordsSchemaRefreshSignature } from "./query_records/schema_refresh.mjs";
-import { requiresPermissionAuditReason } from "../../utils/permission_audit.mjs";
+import { requiresPermissionAuditReason } from "../../../utils/permission_audit.mjs";
 
 const isFrappe15 = computed(() => {
 	const version = frappe.boot?.versions?.frappe;
