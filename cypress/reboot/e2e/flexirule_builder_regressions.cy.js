@@ -409,9 +409,13 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.wait("@saveRule1");
 		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
-		// Add Action 2. Notify inserts directly and does not use the Assignment label prompt.
-		addNodeFromEdgeMenu("Notify");
-		cy.get(".vue-flow__node .notify", { timeout: 15000 }).should("be.visible");
+		// Add a second Assignment to exercise the same supported action-label flow.
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input")
+			.should("be.visible")
+			.clear()
+			.type("Action Node 2");
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		// Save Rule canvas again
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule2");
@@ -419,8 +423,10 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.wait("@saveRule2");
 		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
-		// Open the second action by its type; Notify does not have the Assignment label prompt.
-		cy.get(".vue-flow__node .notify").last().dblclick({ force: true });
+		// Open the second action in the modal.
+		cy.contains(".vue-flow__node", "Action Node 2")
+			.should("be.visible")
+			.dblclick({ force: true });
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 
 		// Modify action label by clicking title in modal header
