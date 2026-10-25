@@ -242,7 +242,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick, provide } from "vue";
+import { ref, computed, onBeforeMount, onMounted, onUnmounted, watch, nextTick, provide } from "vue";
 import { VueFlow, Panel, PanelPosition, useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 
@@ -474,11 +474,25 @@ function toggleRuleAccess() {
 	showQuickActions.value = false;
 }
 
+let paneReadyTimer = null;
+
+onBeforeMount(() => {
+	// A reused Pinia store may outlive this component. Reset readiness before
+	// VueFlow mounts so this component's first fetch waits for its own pane.
+	uiStore.pane_ready = false;
+});
+
 function onPaneReady(instance) {
 	instance.fitView();
-	// Small delay to ensure fitView doesn't trigger a trailing position change
-	setTimeout(() => {
-		uiStore.is_initializing = false;
+	// Small delay to ensure fitView doesn't trigger a trailing position change.
+	// The store uses pane_ready to distinguish initial load from later refreshes.
+	if (paneReadyTimer !== null) clearTimeout(paneReadyTimer);
+	paneReadyTimer = setTimeout(() => {
+		paneReadyTimer = null;
+		uiStore.pane_ready = true;
+		if (!ruleStore.is_loading) {
+			uiStore.is_initializing = false;
+		}
 	}, 150);
 }
 
@@ -611,6 +625,10 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+	if (paneReadyTimer !== null) {
+		clearTimeout(paneReadyTimer);
+		paneReadyTimer = null;
+	}
 	document.body.classList.remove("fxr-builder-active");
 	popContext("canvas");
 	unregisterShortcuts.value.forEach((unreg) => unreg());
