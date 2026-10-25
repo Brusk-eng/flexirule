@@ -288,10 +288,16 @@ describe("FlexiRule builder regression coverage", () => {
 		// Exercise the same overlap that can happen when initialization and node
 		// insertion both request a layout. The last requested direction must win,
 		// and every caller must settle only after its queued layout finishes.
-		cy.window().then((win) => {
-			const requestLayout = win.fxrRuleBuilder.layoutGraph;
-			return Promise.all([requestLayout("LR"), requestLayout("TB"), requestLayout("LR")]);
-		});
+		// App.vue exposes the layout function after its async Rule fetch. Wait
+		// for that lifecycle boundary before calling it from the browser test.
+		cy.window()
+			.should((win) => {
+				expect(win.fxrRuleBuilder?.layoutGraph).to.be.a("function");
+			})
+			.then((win) => {
+				const requestLayout = win.fxrRuleBuilder.layoutGraph;
+				return Promise.all([requestLayout("LR"), requestLayout("TB"), requestLayout("LR")]);
+			});
 
 		cy.get(".vue-flow__node").should("have.length.at.least", 2);
 		cy.get(".vue-flow__node").each(($node) => {
