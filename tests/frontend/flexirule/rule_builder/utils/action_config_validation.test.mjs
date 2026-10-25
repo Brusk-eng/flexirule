@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { runConfigSaveLifecycle } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/config_save_lifecycle.mjs";
 import { normalizeCandidateDraft } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/candidate_normalization.mjs";
+import { requiresPermissionAuditReason } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/permission_audit.mjs";
 
 // Validation helper using normalizeCandidateDraft before contract/business validation
 function validateDraft(targetDraft, options = {}) {
 	normalizeCandidateDraft(targetDraft, options);
 	const errors = [];
-	if (targetDraft.data?.ignore_permissions && !targetDraft.data?.permission_audit_reason) {
+	if (requiresPermissionAuditReason(targetDraft.data)) {
 		errors.push("Permission Audit Reason is required when bypassing permissions.");
 	}
 	return { valid: errors.length === 0, errors };
@@ -116,6 +117,31 @@ function validateDraft(targetDraft, options = {}) {
 
 	const result = await saving;
 	assert.equal(result.status, "blocked-stale-context");
+}
+
+// Keep modal checks consistent with whole-rule/backend checks for legacy flags
+// and whitespace-only audit reasons.
+{
+	assert.equal(
+		requiresPermissionAuditReason({ ignore_permissions: 1, permission_audit_reason: " \n\t" }),
+		true
+	);
+	assert.equal(
+		requiresPermissionAuditReason({ skip_permissions: "True", permission_audit_reason: "" }),
+		true
+	);
+	assert.equal(
+		requiresPermissionAuditReason({ ignore_permissions: 0, permission_audit_reason: "" }),
+		false
+	);
+
+	const result = validateDraft({
+		data: { skip_permissions: 1, permission_audit_reason: " \n " },
+	}, { getOperationFieldOverride: () => null });
+	assert.equal(result.valid, false);
+	assert.deepEqual(result.errors, [
+		"Permission Audit Reason is required when bypassing permissions.",
+	]);
 }
 
 console.log("Action config validation side-effect and lifecycle tests passed");
