@@ -350,6 +350,31 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 	});
 
+	it("inserts a filter row in Fetch Records action configuration", () => {
+		createRuleAndOpenBuilder();
+		addNodeFromEdgeMenu("Query Records");
+		cy.get(".result-item.is-option", { timeout: 15000 })
+			.contains("Fetch Records", { timeout: 15000 })
+			.click({ force: true });
+		cy.get(".labeling-container input")
+			.should("be.visible")
+			.clear()
+			.type("Filter insertion regression");
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+		cy.contains(".vue-flow__node", "Filter insertion regression")
+			.should("be.visible")
+			.dblclick({ force: true });
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
+		cy.contains(".config-modal-container h6", "Filters").should("be.visible");
+		cy.get(".config-modal-container .tree-builder__actions button")
+			.contains("Filter")
+			.click();
+		cy.get(".config-modal-container .filter-row").should("have.length", 1).and("be.visible");
+		cy.get(".config-modal-container .tree-builder__actions button")
+			.contains("Filter")
+			.should("be.visible");
+	});
+
 	it("saves action configuration on the first click in modal and persists changes", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Assignment");
@@ -370,8 +395,10 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("First Click Save Success");
-		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
+			.type("First Click Save Success{enter}");
+		cy.get(".config-modal-header h3.editable")
+			.should("be.visible")
+			.and("contain.text", "First Click Save Success");
 
 		// Verify Save button in modal is visible when dirty and click it ONCE
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
@@ -406,8 +433,9 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.wait("@saveRule1");
 		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
-		// Add Action 2
-		addNodeFromEdgeMenu("Notify");
+		// Add Action 2. Assignment enters the label step directly; Notify has an
+		// additional operation-selection step that is unrelated to this dirty-state test.
+		addNodeFromEdgeMenu("Assignment");
 		cy.get(".labeling-container input").should("be.visible").clear().type("Action Node 2");
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
@@ -428,8 +456,10 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("Action Node 2 Modified");
-		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
+			.type("Action Node 2 Modified{enter}");
+		cy.get(".config-modal-header h3.editable")
+			.should("be.visible")
+			.and("contain.text", "Action Node 2 Modified");
 
 		// Save modal
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
