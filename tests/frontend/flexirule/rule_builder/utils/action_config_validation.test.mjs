@@ -36,7 +36,7 @@ function validateDraft(targetDraft, options = {}) {
 	const result = await runConfigSaveLifecycle({
 		isLoading: () => false,
 		isContextCurrent,
-		validate: async () => validateDraft(validatedDraft, { isFrappe15: true }),
+		validate: async () => validateDraft(validatedDraft, { getOperationFieldOverride: () => ({ default: 1 }) }),
 		commit: () => {
 			commitCount += 1;
 			draftNode.data = JSON.parse(JSON.stringify(validatedDraft.data));
@@ -50,7 +50,7 @@ function validateDraft(targetDraft, options = {}) {
 	assert.equal(draftNode.data.permission_audit_reason, "Audit Reason Provided");
 }
 
-// Permission-audit bypass test: missing audit reason when ignore_permissions=1 is normalized causes validation failure
+// Contract default enables permission bypass, so missing audit reason must fail validation
 // and leaves live draft unchanged
 {
 	const draftNode = {
@@ -58,7 +58,7 @@ function validateDraft(targetDraft, options = {}) {
 		data: {
 			action_type: "Query Records",
 			operation: "Fetch Records",
-			ignore_permissions: 0, // Will be normalized to 1 on Frappe 15
+			ignore_permissions: 0, // The operation policy normalizes this to 1
 			permission_audit_reason: "", // Missing audit reason!
 		},
 	};
@@ -70,7 +70,7 @@ function validateDraft(targetDraft, options = {}) {
 	const result = await runConfigSaveLifecycle({
 		isLoading: () => false,
 		isContextCurrent: () => true,
-		validate: async () => validateDraft(validatedDraft, { isFrappe15: true }),
+		validate: async () => validateDraft(validatedDraft, { getOperationFieldOverride: () => ({ default: 1 }) }),
 		commit: () => {
 			commitCount += 1;
 		},
