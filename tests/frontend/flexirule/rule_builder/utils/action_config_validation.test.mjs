@@ -128,6 +128,7 @@ function validateDraft(targetDraft, options = {}) {
 // Keep modal checks consistent with whole-rule/backend checks for legacy flags
 // and whitespace-only audit reasons.
 {
+	assert.equal(requiresPermissionAuditReason(null), false);
 	assert.equal(
 		requiresPermissionAuditReason({ ignore_permissions: 1, permission_audit_reason: " \n\t" }),
 		true
