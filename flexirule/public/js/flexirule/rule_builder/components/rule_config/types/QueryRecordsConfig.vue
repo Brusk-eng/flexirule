@@ -2491,7 +2491,9 @@ async function validate() {
 		![true, 1, "1", "true", "True"].includes(effectiveIgnorePermissions.value)
 	) {
 		errors.push(
-			__("Fetch Records on this Frappe version requires Skip Permissions. Enable it and provide an audit reason.")
+			__(
+				"Fetch Records on this Frappe version requires Skip Permissions. Enable it and provide an audit reason."
+			)
 		);
 	}
 
