@@ -40,7 +40,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		if (is_read_only.value || is_loading.value) return false;
 
 		const uiStore = useUIStore();
-		if (uiStore.is_initializing || uiStore.is_performing_layout) return false;
+		if (!uiStore.pane_ready || uiStore.is_initializing || uiStore.is_performing_layout) return false;
 
 		if (_is_dirty.value) return true;
 		return checkDirty();
