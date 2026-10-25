@@ -14,8 +14,7 @@ export function hasPermissionBypass(action = {}) {
 }
 
 function getPermissionAuditReason(action = {}) {
-	if (action?.permission_audit_reason)
-		return String(action.permission_audit_reason).trim();
+	if (action?.permission_audit_reason) return String(action.permission_audit_reason).trim();
 
 	let config = action?.config;
 	if (typeof config === "string") {
