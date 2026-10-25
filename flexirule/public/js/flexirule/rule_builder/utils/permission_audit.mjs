@@ -8,15 +8,16 @@
 const TRUTHY_PERMISSION_FLAGS = [true, 1, "1", "true", "True"];
 
 export function hasPermissionBypass(action = {}) {
-	return [action.ignore_permissions, action.skip_permissions].some((value) =>
+	return [action?.ignore_permissions, action?.skip_permissions].some((value) =>
 		TRUTHY_PERMISSION_FLAGS.includes(value)
 	);
 }
 
 function getPermissionAuditReason(action = {}) {
-	if (action.permission_audit_reason) return String(action.permission_audit_reason).trim();
+	if (action?.permission_audit_reason)
+		return String(action.permission_audit_reason).trim();
 
-	let config = action.config;
+	let config = action?.config;
 	if (typeof config === "string") {
 		try {
 			config = JSON.parse(config);
