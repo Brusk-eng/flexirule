@@ -135,6 +135,23 @@ function validateDraft(targetDraft, options = {}) {
 		false
 	);
 
+	// Legacy saved actions can carry the audit reason inside config instead of
+	// the current Rule Action field. Accept both JSON-string and object configs.
+	assert.equal(
+		requiresPermissionAuditReason({
+			ignore_permissions: 1,
+			config: { permission_audit_reason: "Legacy reason" },
+		}),
+		false
+	);
+	assert.equal(
+		requiresPermissionAuditReason({
+			skip_permissions: 1,
+			config: JSON.stringify({ permission_audit_reason: "Legacy JSON reason" }),
+		}),
+		false
+	);
+
 	const result = validateDraft(
 		{
 			data: { skip_permissions: 1, permission_audit_reason: " \n " },
