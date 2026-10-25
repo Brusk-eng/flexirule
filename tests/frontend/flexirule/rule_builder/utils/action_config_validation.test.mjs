@@ -37,7 +37,10 @@ function validateDraft(targetDraft, options = {}) {
 	const result = await runConfigSaveLifecycle({
 		isLoading: () => false,
 		isContextCurrent,
-		validate: async () => validateDraft(validatedDraft, { getOperationFieldOverride: () => ({ default: 1 }) }),
+		validate: async () =>
+			validateDraft(validatedDraft, {
+				getOperationFieldOverride: () => ({ default: 1 }),
+			}),
 		commit: () => {
 			commitCount += 1;
 			draftNode.data = JSON.parse(JSON.stringify(validatedDraft.data));
@@ -71,7 +74,10 @@ function validateDraft(targetDraft, options = {}) {
 	const result = await runConfigSaveLifecycle({
 		isLoading: () => false,
 		isContextCurrent: () => true,
-		validate: async () => validateDraft(validatedDraft, { getOperationFieldOverride: () => ({ default: 1 }) }),
+		validate: async () =>
+			validateDraft(validatedDraft, {
+				getOperationFieldOverride: () => ({ default: 1 }),
+			}),
 		commit: () => {
 			commitCount += 1;
 		},
