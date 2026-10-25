@@ -18,6 +18,7 @@ import {
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
+import { requiresPermissionAuditReason } from "../utils/permission_audit.mjs";
 import { stableStringify } from "../utils/stable_serialization.mjs";
 import { assertNoUnsupportedVisualOnlyNodes } from "../utils/visual_layout.js";
 import {
@@ -277,10 +278,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					}
 				}
 
-				const skipPermissions = [doc.ignore_permissions, doc.skip_permissions].some(
-					(value) => [true, 1, "1", "true", "True"].includes(value)
-				);
-				if (skipPermissions && !String(doc.permission_audit_reason ?? "").trim()) {
+				if (requiresPermissionAuditReason(doc)) {
 					errors.push(
 						`${label}: ${__(
 							"Permission Audit Reason is required when bypassing permissions."
