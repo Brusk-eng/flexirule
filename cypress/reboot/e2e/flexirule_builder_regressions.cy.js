@@ -78,9 +78,12 @@ describe("FlexiRule builder regression coverage", () => {
 	}
 
 	function setFetchRecordsReferenceDoctype() {
-		cy.get(".config-modal-container [data-fieldname='reference_doctype'] input.combobox-input", {
-			timeout: 15000,
-		})
+		cy.get(
+			".config-modal-container [data-fieldname='reference_doctype'] input.combobox-input",
+			{
+				timeout: 15000,
+			}
+		)
 			.should("be.visible")
 			.clear()
 			.type("Contact");
@@ -462,5 +465,4 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
 		cy.contains(".vue-flow__node", actionLabel).should("be.visible");
 	});
-
 });
