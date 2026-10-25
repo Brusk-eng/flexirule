@@ -23,6 +23,7 @@ function getPrimaryActionLabel({ is_dirty, is_active }) {
 // 4. Primary action after Save Rule: Activate Rule
 // 5. Action edit 2 occurs -> is_dirty becomes true -> Primary action: Save Rule
 {
+	let pane_ready = false;
 	let is_initializing = true;
 	let is_performing_layout = false;
 	let is_active = false;
@@ -40,7 +41,7 @@ function getPrimaryActionLabel({ is_dirty, is_active }) {
 
 	const computeIsDirty = () => {
 		if (is_read_only) return false;
-		if (is_initializing || is_performing_layout) return false;
+		if (!pane_ready || is_initializing || is_performing_layout) return false;
 		if (_is_dirty) return true;
 		if (!initial_state) return false;
 		return hasGraphStateChanged(initial_state, currentGraphSnapshot);
@@ -51,6 +52,10 @@ function getPrimaryActionLabel({ is_dirty, is_active }) {
 	_is_dirty = false;
 	is_initializing = false; // Verified fix ensures is_initializing is cleared post-fetch
 
+	assert.equal(computeIsDirty(), false);
+	// VueFlow can finish mounting before or after the async Rule fetch. Until
+	// pane-ready/initial fitView settles, initialization changes must stay clean.
+	pane_ready = true;
 	assert.equal(computeIsDirty(), false);
 	assert.equal(getPrimaryActionLabel({ is_dirty: computeIsDirty(), is_active }), "Activate Rule");
 
