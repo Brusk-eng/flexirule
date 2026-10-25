@@ -721,6 +721,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		if (
 			is_read_only.value ||
 			is_loading.value ||
+			!uiStore.pane_ready ||
 			uiStore.is_initializing ||
 			uiStore.is_performing_layout
 		) {
@@ -737,6 +738,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		if (
 			is_read_only.value ||
 			is_loading.value ||
+			!uiStore.pane_ready ||
 			uiStore.is_initializing ||
 			uiStore.is_performing_layout
 		) {
