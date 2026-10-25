@@ -100,6 +100,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		// (is_loading is often set by the caller like save_changes or activate_rule)
 		is_loading.value = true;
 		uiStore.is_initializing = true;
+		let fetchSucceeded = false;
 		try {
 			// Load Contracts (Action Types, etc) from backend
 			await loadContractsFromBackend();
@@ -213,9 +214,14 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			edges.value = [...graphStore.edges];
 
 			historyStore.reset(() => graphStore.getGraphSnapshot());
+			fetchSucceeded = true;
 		} finally {
 			is_loading.value = false;
-			uiStore.is_initializing = false;
+			// Initial loads stay guarded until VueFlow's fitView/position events settle.
+			// A refresh on an already-ready canvas can release the guard immediately.
+			if (!fetchSucceeded || uiStore.pane_ready) {
+				uiStore.is_initializing = false;
+			}
 		}
 	}
 
