@@ -13,6 +13,22 @@ export function hasPermissionBypass(action = {}) {
 	);
 }
 
+function getPermissionAuditReason(action = {}) {
+	if (action.permission_audit_reason) return String(action.permission_audit_reason).trim();
+
+	let config = action.config;
+	if (typeof config === "string") {
+		try {
+			config = JSON.parse(config);
+		} catch {
+			return "";
+		}
+	}
+
+	if (!config || typeof config !== "object" || Array.isArray(config)) return "";
+	return String(config.permission_audit_reason ?? "").trim();
+}
+
 export function requiresPermissionAuditReason(action = {}) {
-	return hasPermissionBypass(action) && !String(action.permission_audit_reason ?? "").trim();
+	return hasPermissionBypass(action) && !getPermissionAuditReason(action);
 }
