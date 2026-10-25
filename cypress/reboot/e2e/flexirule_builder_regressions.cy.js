@@ -370,8 +370,11 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("First Click Save Success");
-		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
+			.type("First Click Save Success")
+			.blur();
+		cy.get(".config-modal-header h3")
+			.should("be.visible")
+			.and("contain", "First Click Save Success");
 
 		// Verify Save button in modal is visible when dirty and click it ONCE
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
@@ -406,8 +409,8 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.wait("@saveRule1");
 		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
-		// Add Action 2
-		addNodeFromEdgeMenu("Notify");
+		// Add a second Assignment using the supported action-label prompt.
+		addNodeFromEdgeMenu("Assignment");
 		cy.get(".labeling-container input").should("be.visible").clear().type("Action Node 2");
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
@@ -417,7 +420,7 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.wait("@saveRule2");
 		cy.contains("button", "Activate Rule", { timeout: 15000 }).should("be.visible");
 
-		// Open Action Node 2 in modal and edit a valid configuration field
+		// Open Action Node 2 in the modal and edit its label.
 		cy.contains(".vue-flow__node", "Action Node 2")
 			.should("be.visible")
 			.dblclick({ force: true });
@@ -428,8 +431,11 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-header .title-input")
 			.should("be.visible")
 			.clear()
-			.type("Action Node 2 Modified");
-		cy.get(".config-modal-header h3").click({ force: true }); // trigger blur to save label and set isDirty
+			.type("Action Node 2 Modified")
+			.blur();
+		cy.get(".config-modal-header h3")
+			.should("be.visible")
+			.and("contain", "Action Node 2 Modified");
 
 		// Save modal
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
