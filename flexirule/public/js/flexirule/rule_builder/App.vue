@@ -861,13 +861,13 @@ function onConnect(params) {
 }
 
 function onNodesChange(changes) {
-	if (uiStore.is_initializing || uiStore.is_performing_layout) return;
+	if (!uiStore.pane_ready || uiStore.is_initializing || uiStore.is_performing_layout) return;
 	const hasDrag = changes.some((c) => c.type === "position" && c.dragging === false);
 	if (hasDrag) ruleStore.mark_position_change();
 }
 
 function onEdgesChange(changes) {
-	if (uiStore.is_initializing) return;
+	if (!uiStore.pane_ready || uiStore.is_initializing) return;
 	changes.forEach((change) => {
 		if (change.type === "remove") {
 			graphStore.delete_edge(change.id, ruleStore.is_read_only);
