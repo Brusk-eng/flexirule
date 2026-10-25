@@ -135,9 +135,12 @@ function validateDraft(targetDraft, options = {}) {
 		false
 	);
 
-	const result = validateDraft({
-		data: { skip_permissions: 1, permission_audit_reason: " \n " },
-	}, { getOperationFieldOverride: () => null });
+	const result = validateDraft(
+		{
+			data: { skip_permissions: 1, permission_audit_reason: " \n " },
+		},
+		{ getOperationFieldOverride: () => null }
+	);
 	assert.equal(result.valid, false);
 	assert.deepEqual(result.errors, [
 		"Permission Audit Reason is required when bypassing permissions.",
