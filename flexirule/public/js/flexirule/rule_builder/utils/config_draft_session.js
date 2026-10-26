@@ -43,7 +43,9 @@ export function getOrCreateConfigDraftEntry(entries, sourceNode) {
 		isStale: false,
 	};
 	entries.set(sourceNode.id, entry);
-	return entry;
+	// Return the map's canonical value. Vue's reactive Map wraps stored values
+	// when read; returning that same value keeps strict identity guards reliable.
+	return entries.get(sourceNode.id);
 }
 
 export function isConfigDraftEntryDirty(entry) {
