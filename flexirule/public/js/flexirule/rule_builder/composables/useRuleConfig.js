@@ -389,10 +389,24 @@ export function useRuleConfig(props, emit) {
 			.map((entry) => "<li>" + escapeHtml(getDraftActionLabel(entry)) + "</li>")
 			.join("");
 		const message = [
-			"<p>" + escapeHtml(__("The following actions have unsaved configuration changes:")) + "</p>",
+			"<p>" +
+				escapeHtml(__("The following actions have unsaved configuration changes:")) +
+				"</p>",
 			"<ul class='pl-4 mb-3'>" + actionList + "</ul>",
-			"<p>" + escapeHtml(__("Keep editing will open the first action in this list. Discard changes will discard all listed modal drafts.")) + "</p>",
-			"<p>" + escapeHtml(__("Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule.")) + "</p>",
+			"<p>" +
+				escapeHtml(
+					__(
+						"Keep editing will open the first action in this list. Discard changes will discard all listed modal drafts."
+					)
+				) +
+				"</p>",
+			"<p>" +
+				escapeHtml(
+					__(
+						"Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
+					)
+				) +
+				"</p>",
 		].join("");
 		showDiscardConfirmation.value = true;
 		frappe.confirm(
