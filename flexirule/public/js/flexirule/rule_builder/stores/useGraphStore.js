@@ -683,12 +683,13 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 			updatedNodeData.next_step_if_true = returnEdge.target;
 			updatedNodeData.next_step_if_false = stopNodeId;
+			const continuationHandle = actionType === "Condition" ? "true" : "default";
 			nextEdges = nextEdges.map((edge) =>
 				edge.id === returnEdge.id
 					? {
 							...edge,
 							id: `e-${nodeId}-${returnEdge.target}-true`,
-							sourceHandle: "true",
+							sourceHandle: continuationHandle,
 					  }
 					: edge
 			);
