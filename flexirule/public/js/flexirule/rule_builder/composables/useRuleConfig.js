@@ -350,8 +350,7 @@ export function useRuleConfig(props, emit) {
 			return true;
 		}
 
-		discardReturnFocus =
-			typeof document !== "undefined" ? document.activeElement : null;
+		discardReturnFocus = typeof document !== "undefined" ? document.activeElement : null;
 		showDiscardConfirmation.value = true;
 		nextTick(() => keepEditingButtonRef.value?.focus());
 		return false;
