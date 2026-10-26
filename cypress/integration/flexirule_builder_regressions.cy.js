@@ -158,17 +158,14 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.contains("Value Expression").should("be.visible");
 	});
 
-	it("retains unsaved action configuration while navigating away and back", () => {
+	it("retains unsaved action configuration through navigation and confirms discard explicitly", () => {
 		createRuleAndOpenBuilder();
-		const firstLabel = "Draft retention first " + Date.now();
-		const secondLabel = "Draft retention second " + Date.now();
+		const firstLabel = "Draft retention " + Date.now();
 
+		// The new Assignment is inserted between the existing Entry Action and
+		// Stop action, so the existing Stop node is the next navigation target.
 		addNodeFromEdgeMenu("Assignment");
 		cy.get(".labeling-container input").should("be.visible").clear().type(firstLabel);
-		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
-
-		addNodeFromEdgeMenu("Assignment");
-		cy.get(".labeling-container input").should("be.visible").clear().type(secondLabel);
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		cy.contains(".vue-flow__node", firstLabel).should("be.visible").dblclick({ force: true });
@@ -188,6 +185,23 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-container .toolbar-group.navigation button").first().click();
 		cy.get(".config-modal-container h3").should("contain.text", firstLabel);
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
+
+		// Closing is non-destructive until the user chooses the explicitly
+		// labelled discard action. Dismissing the warning keeps the draft intact.
+		cy.get(".config-modal-container .toolbar-btn.close-action").click();
+		cy.get(".modal.show .modal-title")
+			.should("contain.text", "Discard unsaved configuration?");
+		cy.get(".modal.show")
+			.contains("This Config modal contains unsaved edits")
+			.should("be.visible");
+		cy.get(".modal.show").contains("button", "Keep editing").click();
+
+		cy.get(".config-modal-container").should("be.visible");
+		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
+
+		cy.get(".config-modal-container .toolbar-btn.close-action").click();
+		cy.get(".modal.show").contains("button", "Discard changes").click();
+		cy.get(".config-modal-container").should("not.exist");
 	});
 
 	it("opens Condition configuration and renders its condition editor", () => {
