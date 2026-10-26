@@ -186,24 +186,24 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-container h3").should("contain.text", firstLabel);
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
 
-		// Closing is non-destructive until the user chooses the explicitly
-		// labelled discard action. Dismissing the warning keeps the draft intact.
+		// Frappe's native confirmation is non-destructive until the user chooses
+		// Discard changes. Choosing Keep editing must restore modal interaction.
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-		cy.get(".discard-confirm-dialog h4").should(
-			"contain.text",
-			"Discard unsaved configuration?"
-		);
-		cy.get(".discard-confirm-dialog")
-			.contains("Only unsaved configuration edits in this modal will be discarded")
-			.should("be.visible");
-		cy.get(".discard-confirm-dialog").contains("button", "Keep editing").click();
-		cy.get(".discard-confirm-dialog").should("not.exist");
+		cy.get(".modal:visible .frappe-confirm-message")
+			.should("contain.text", "Only unsaved configuration edits in this modal will be discarded")
+			.and("be.visible");
+		cy.get(".modal:visible").contains("button", "Keep editing").click();
+		cy.get(".modal-backdrop").should("not.exist");
 
 		cy.get(".config-modal-container").should("be.visible");
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
-
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-		cy.get(".discard-confirm-dialog").contains("button", "Discard changes").click();
+
+		cy.get(".modal:visible .frappe-confirm-message").should(
+			"contain.text",
+			"Only unsaved configuration edits in this modal will be discarded"
+		);
+		cy.get(".modal:visible").contains("button", "Discard changes").click();
 		cy.get(".config-modal-container").should("not.exist");
 	});
 
