@@ -195,6 +195,19 @@ describe("FlexiRule builder regression coverage", () => {
 				"Only unsaved configuration edits in this modal will be discarded"
 			)
 			.and("be.visible");
+		// Escape closes the native Frappe dialog, but the same event must not
+		// bubble into the builder shortcut and reopen the discard confirmation.
+		cy.get(".modal:visible").contains("button", "Keep editing").focus().type("{esc}");
+		cy.get(".modal:visible .frappe-confirm-message").should("not.exist");
+		cy.get(".modal-backdrop").should("not.exist");
+
+		cy.get(".config-modal-container").should("be.visible");
+		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
+
+		// The draft remains available after Escape dismissal; the normal
+		// Keep editing path should also leave the editor interactive.
+		cy.get(".config-modal-container .toolbar-btn.close-action").click();
+		cy.get(".modal:visible .frappe-confirm-message").should("be.visible");
 		cy.get(".modal:visible").contains("button", "Keep editing").click();
 		cy.get(".modal-backdrop").should("not.exist");
 
