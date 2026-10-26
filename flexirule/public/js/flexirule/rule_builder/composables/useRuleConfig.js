@@ -5,6 +5,10 @@ import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
 import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
 import { normalizeCandidateDraft } from "../utils/candidate_normalization.mjs";
+import {
+	getDirtyConfigDraftEntries,
+	getOrCreateConfigDraftEntry,
+} from "../utils/config_draft_session.js";
 
 /**
  * useRuleConfig
@@ -29,6 +33,9 @@ export function useRuleConfig(props, emit) {
 	const isSaving = ref(false);
 	// Invalidates pending saves when the modal is cancelled or the editing context changes.
 	let saveContextGeneration = 0;
+	const draftEntries = new Map();
+	const draftEntriesRevision = ref(0);
+	const activeNodeId = ref(null);
 
 	watch(
 		[() => draftNode.value?.data, initialDraftState],
@@ -54,11 +61,67 @@ export function useRuleConfig(props, emit) {
 	/**
 	 * Create a draft copy of the node for editing.
 	 */
-	function createDraft() {
-		if (!props.node) return;
-		// Deep clone the node
-		draftNode.value = deepClone(props.node);
+	function resetDraftSession() {
+		draftEntries.clear();
+		draftEntriesRevision.value += 1;
+		activeNodeId.value = null;
+		draftNode.value = null;
+		initialDraftState.value = null;
+		showValidation.value = false;
 	}
+
+	function createDraft(sourceNode) {
+		if (!sourceNode) {
+			draftNode.value = null;
+			initialDraftState.value = null;
+			activeNodeId.value = null;
+			return null;
+		}
+
+		const entry = getOrCreateConfigDraftEntry(draftEntries, sourceNode);
+		if (!entry) return null;
+
+		// Store the Vue proxy as well as the entry so edits remain reactive while
+		// the draft is cached during navigation to another action.
+		draftNode.value = entry.draftNode;
+		entry.draftNode = draftNode.value;
+		activeNodeId.value = entry.nodeId;
+		initialDraftState.value = entry.initialDraftState;
+		draftEntriesRevision.value += 1;
+		return entry;
+	}
+
+	function captureDraftBaseline(entry) {
+		if (!entry || entry.initialDraftState !== null) return;
+
+		nextTick(() => {
+			if (
+				!props.modelValue ||
+				draftEntries.get(entry.nodeId) !== entry ||
+				entry.initialDraftState !== null
+			) {
+				return;
+			}
+
+			// Keep the existing post-mount baseline behavior: config panels may
+			// initialize draft defaults during their first render.
+			entry.initialDraftState = stableStringify(entry.draftNode.data || {});
+			draftEntriesRevision.value += 1;
+			if (activeNodeId.value === entry.nodeId && draftNode.value === entry.draftNode) {
+				initialDraftState.value = entry.initialDraftState;
+			}
+		});
+	}
+
+	const hasUnsavedChanges = computed(() => {
+		draftEntriesRevision.value;
+		return getDirtyConfigDraftEntries(draftEntries).length > 0;
+	});
+
+	const hasOtherUnsavedChanges = computed(() => {
+		draftEntriesRevision.value;
+		return getDirtyConfigDraftEntries(draftEntries, activeNodeId.value).length > 0;
+	});
 
 	/**
 	 * Update a field value in the draft config.
@@ -117,21 +180,48 @@ export function useRuleConfig(props, emit) {
 	async function save() {
 		if (isSaving.value) return false;
 
-		// Bind the attempt to the exact source node, draft, fetch generation, and
-		// modal editing session that initiated validation. A navigation or close
-		// while a panel validator awaits must never redirect this draft's commit.
+		const activeEntry = draftEntries.get(activeNodeId.value);
 		const sourceNode = props.node;
 		const sourceDraft = draftNode.value;
-		// Capture exact signature of source draft BEFORE candidate normalization
-		const sourceDraftSignature = sourceDraft ? stableStringify(sourceDraft) : null;
-		const validatedDraft = sourceDraft ? deepClone(sourceDraft) : null;
-		if (validatedDraft) {
-			normalizeCandidateDraft(validatedDraft);
+		if (!activeEntry || !sourceNode || !sourceDraft || activeEntry.draftNode !== sourceDraft) {
+			return false;
 		}
+
+		// Never apply an old draft over a graph node changed by another workflow.
+		// The draft remains in the session so the user can review/reopen safely.
+		const sourceIsCurrent = () => {
+			try {
+				return (
+					!activeEntry.isStale &&
+					activeEntry.sourceNode === sourceNode &&
+					stableStringify(sourceNode.data || {}) === activeEntry.sourceDataSignature &&
+					graphStore.nodes.includes(sourceNode)
+				);
+			} catch {
+				return false;
+			}
+		};
+		if (!sourceIsCurrent()) {
+			activeEntry.isStale = true;
+			frappe.msgprint({
+				title: __("Configuration Changed"),
+				message: __(
+					"The rule graph changed while this action was being configured. Your draft has been preserved, but it cannot be saved over the newer graph. Close and reopen the configuration after reviewing the latest state."
+				),
+				indicator: "orange",
+			});
+			return false;
+		}
+
+		// Bind the attempt to the exact source node, draft, fetch generation, and
+		// modal editing session that initiated validation. Navigation while a panel
+		// validator awaits must never redirect this draft's commit.
+		const sourceDraftSignature = stableStringify(sourceDraft);
+		const validatedDraft = deepClone(sourceDraft);
+		normalizeCandidateDraft(validatedDraft);
 		const sourceGeneration = ruleStore.fetch_generation;
 		const sourceContextGeneration = saveContextGeneration;
 		const hasUnchangedDraft = () => {
-			if (!sourceDraft || sourceDraftSignature === null) return false;
 			try {
 				return stableStringify(sourceDraft) === sourceDraftSignature;
 			} catch {
@@ -140,15 +230,16 @@ export function useRuleConfig(props, emit) {
 		};
 		const isSourceContextCurrent = () =>
 			Boolean(
-				sourceNode &&
-					validatedDraft &&
-					props.modelValue &&
+				props.modelValue &&
 					props.node === sourceNode &&
 					draftNode.value === sourceDraft &&
+					activeNodeId.value === activeEntry.nodeId &&
+					draftEntries.get(activeEntry.nodeId) === activeEntry &&
+					!activeEntry.isStale &&
+					sourceIsCurrent() &&
 					hasUnchangedDraft() &&
 					saveContextGeneration === sourceContextGeneration &&
-					ruleStore.fetch_generation === sourceGeneration &&
-					graphStore.nodes.includes(sourceNode)
+					ruleStore.fetch_generation === sourceGeneration
 			);
 
 		isSaving.value = true;
@@ -160,13 +251,14 @@ export function useRuleConfig(props, emit) {
 				isContextCurrent: isSourceContextCurrent,
 				validate: () => validate(validatedDraft),
 				commit: () => {
-					if (!sourceNode || !validatedDraft) return;
-
 					const oldValue = sourceNode.data?.rule;
 					const newValue = validatedDraft.data?.rule;
 
 					sourceNode.data = deepClone(validatedDraft.data);
 					sourceNode.label = validatedDraft.label || validatedDraft.data?.action_label;
+					// Keep the visible draft aligned with normalization performed for Save.
+					sourceDraft.data = deepClone(sourceNode.data);
+					sourceDraft.label = sourceNode.label;
 
 					// Redraw nested nodes when Sub-Rule LinkControl target changes
 					if (sourceNode.data.action_type === "Sub-Rule" && oldValue !== newValue) {
@@ -208,14 +300,26 @@ export function useRuleConfig(props, emit) {
 			return false;
 		}
 
+		activeEntry.initialDraftState = stableStringify(sourceDraft.data || {});
+		initialDraftState.value = activeEntry.initialDraftState;
+		draftEntries.delete(activeEntry.nodeId);
+		draftEntriesRevision.value += 1;
 		emit("save", sourceNode.data);
-		emit("update:modelValue", false);
+
+		if (hasOtherUnsavedChanges.value || hasUnsavedChanges.value) {
+			frappe.show_alert({
+				message: __("This action was saved. Other actions still have unsaved changes."),
+				indicator: "orange",
+			});
+		} else {
+			emit("update:modelValue", false);
+		}
 		return true;
 	}
 
 	function cancel() {
 		saveContextGeneration += 1;
-		if (isDirty.value) {
+		if (hasUnsavedChanges.value || isDirty.value) {
 			frappe.confirm(
 				__("You have unsaved changes. Are you sure you want to discard them?"),
 				() => {
@@ -229,21 +333,24 @@ export function useRuleConfig(props, emit) {
 
 	// Watch for node changes or modal open to refresh draft
 	watch(
-		() => [props.node, props.modelValue],
+		() => [props.node, props.modelValue, ruleStore.fetch_generation],
 		([newNode, isOpen]) => {
 			saveContextGeneration += 1;
-			if (isOpen && newNode) {
-				createDraft();
+			if (!isOpen) {
+				resetDraftSession();
+				return;
+			}
+			if (!newNode) {
+				draftNode.value = null;
 				initialDraftState.value = null;
-				showValidation.value = false;
+				activeNodeId.value = null;
+				return;
+			}
 
-				// Capture baseline state as soon as draft is created.
-				// We wait for a single tick to ensure the child components have received the draft.
-				nextTick(() => {
-					if (draftNode.value) {
-						initialDraftState.value = stableStringify(draftNode.value.data || {});
-					}
-				});
+			const entry = createDraft(newNode);
+			showValidation.value = false;
+			if (entry?.initialDraftState == null) {
+				captureDraftBaseline(entry);
 			}
 		},
 		{ immediate: true, flush: "sync" }
@@ -253,6 +360,7 @@ export function useRuleConfig(props, emit) {
 		draftNode,
 		config,
 		isDirty,
+		hasUnsavedChanges,
 		isSaving,
 		panelRefs,
 		showValidation,
