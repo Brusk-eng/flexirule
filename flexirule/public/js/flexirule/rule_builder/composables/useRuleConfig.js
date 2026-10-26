@@ -32,7 +32,6 @@ export function useRuleConfig(props, emit) {
 	const isDirty = ref(false);
 	const isSaving = ref(false);
 	const showDiscardConfirmation = ref(false);
-	const keepEditingButtonRef = ref(null);
 	let discardReturnFocus = null;
 	// Invalidates pending saves when the modal is cancelled or the editing context changes.
 	let saveContextGeneration = 0;
@@ -333,12 +332,8 @@ export function useRuleConfig(props, emit) {
 	}
 
 	function cancel() {
-		// Escape while the confirmation is open means the safe action:
-		// dismiss the prompt and continue editing.
-		if (showDiscardConfirmation.value) {
-			keepEditing();
-			return false;
-		}
+		// Let Frappe's native confirmation handle Escape / dismiss while it is open.
+		if (showDiscardConfirmation.value) return false;
 
 		// Don't interrupt an async validation/commit. Save owns the editing
 		// context until it has settled.
@@ -352,7 +347,15 @@ export function useRuleConfig(props, emit) {
 
 		discardReturnFocus = typeof document !== "undefined" ? document.activeElement : null;
 		showDiscardConfirmation.value = true;
-		nextTick(() => keepEditingButtonRef.value?.focus());
+		frappe.confirm(
+			__(
+				"Only unsaved configuration edits in this modal will be discarded, including edits in the current action and any other step you visited. Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
+			),
+			() => discardChanges(),
+			() => keepEditing(),
+			__("Discard changes"),
+			__("Keep editing")
+		);
 		return false;
 	}
 
@@ -390,7 +393,6 @@ export function useRuleConfig(props, emit) {
 		hasUnsavedChanges,
 		isSaving,
 		showDiscardConfirmation,
-		keepEditingButtonRef,
 		panelRefs,
 		showValidation,
 		updateField,
