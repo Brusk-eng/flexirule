@@ -62,11 +62,17 @@
 										{{ title }}
 									</h3>
 									<div
-										v-if="isDirty && !ruleStore.is_read_only && !isMobile"
+										v-if="
+											hasUnsavedChanges &&
+											!ruleStore.is_read_only &&
+											!isMobile
+										"
 										class="dirty-badge"
 									>
 										<i class="fa fa-circle"></i>
-										<span>{{ __("Unsaved") }}</span>
+										<span>{{
+											isDirty ? __("Unsaved") : __("Unsaved in other steps")
+										}}</span>
 									</div>
 								</div>
 								<div class="modal-breadcrumb">
@@ -262,6 +268,7 @@
 									<button
 										class="toolbar-btn close-action"
 										@click="cancel"
+										:disabled="isSaving"
 										:title="__('Close')"
 									>
 										<i class="fa fa-times"></i>
@@ -613,10 +620,17 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const { draftNode, panelRefs, save, cancel, isDirty, isSaving, showValidation } = useRuleConfig(
-	props,
-	emit
-);
+const {
+	draftNode,
+	panelRefs,
+	save,
+	cancel,
+	isDirty,
+	hasUnsavedChanges,
+	isSaving,
+	showDiscardConfirmation,
+	showValidation,
+} = useRuleConfig(props, emit);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,
@@ -969,7 +983,14 @@ onMounted(() => {
 			key: "Escape",
 			context: "modal",
 			priority: 10,
-			callback: () => cancel(),
+			callback: (event) => {
+				// A native Frappe dialog owns its Escape key. The event can reach
+				// this window-level registry after Frappe hides the dialog and
+				// clears showDiscardConfirmation; don't treat that same keypress
+				// as a second request to cancel the configuration modal.
+				if (event.target?.closest?.(".modal")) return;
+				cancel();
+			},
 		}),
 		registerShortcut({
 			key: "s",
@@ -977,7 +998,7 @@ onMounted(() => {
 			context: "modal",
 			priority: 11,
 			callback: () => {
-				if (!ruleStore.is_read_only) save();
+				if (!ruleStore.is_read_only && !showDiscardConfirmation.value) save();
 			},
 		}),
 		registerShortcut({
@@ -986,7 +1007,13 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (!isSaving.value && currentNodeIndex.value > 0) ruleStore.prev_config_node();
+				if (
+					!isSaving.value &&
+					!showDiscardConfirmation.value &&
+					currentNodeIndex.value > 0
+				) {
+					ruleStore.prev_config_node();
+				}
 			},
 		}),
 		registerShortcut({
@@ -995,7 +1022,13 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (!isSaving.value && currentNodeIndex.value > 0) ruleStore.prev_config_node();
+				if (
+					!isSaving.value &&
+					!showDiscardConfirmation.value &&
+					currentNodeIndex.value > 0
+				) {
+					ruleStore.prev_config_node();
+				}
 			},
 		}),
 		registerShortcut({
@@ -1004,8 +1037,13 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1)
+				if (
+					!isSaving.value &&
+					!showDiscardConfirmation.value &&
+					currentNodeIndex.value < totalNodes.value - 1
+				) {
 					ruleStore.next_config_node();
+				}
 			},
 		}),
 		registerShortcut({
@@ -1014,8 +1052,13 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1)
+				if (
+					!isSaving.value &&
+					!showDiscardConfirmation.value &&
+					currentNodeIndex.value < totalNodes.value - 1
+				) {
 					ruleStore.next_config_node();
+				}
 			},
 		}),
 		registerShortcut({
@@ -1023,14 +1066,18 @@ onMounted(() => {
 			alt: true,
 			context: "modal",
 			priority: 10,
-			callback: () => panelRefs.config.value?.focusFirst(),
+			callback: () => {
+				if (!showDiscardConfirmation.value) panelRefs.config.value?.focusFirst();
+			},
 		}),
 		registerShortcut({
 			key: "2",
 			alt: true,
 			context: "modal",
 			priority: 10,
-			callback: () => toggleViewMode(),
+			callback: () => {
+				if (!showDiscardConfirmation.value) toggleViewMode();
+			},
 		}),
 	];
 });
@@ -1087,6 +1134,7 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 }
 
 .config-modal-container {
+	position: relative;
 	background-color: var(--fxr-surface);
 	width: 100%;
 	height: 100%;

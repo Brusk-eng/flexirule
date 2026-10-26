@@ -158,6 +158,107 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.contains("Value Expression").should("be.visible");
 	});
 
+	it("lists unsaved action drafts and resumes at the first dirty action when keeping editing", () => {
+		const firstLabel = "Draft retention first " + Date.now();
+		const secondLabel = "Draft retention second " + Date.now();
+		const actions = [
+			{
+				action_id: "root",
+				action_label: "Start",
+				action_type: "Entry Action",
+				is_enabled: 1,
+				next_step_if_true: "draft_first",
+			},
+			{
+				action_id: "draft_first",
+				action_label: firstLabel,
+				action_type: "Assignment",
+				is_enabled: 1,
+				next_step_if_true: "draft_second",
+				assignments: [],
+			},
+			{
+				action_id: "draft_second",
+				action_label: secondLabel,
+				action_type: "Assignment",
+				is_enabled: 1,
+				next_step_if_true: "node_end",
+				assignments: [],
+			},
+			{
+				action_id: "node_end",
+				action_label: "End",
+				action_type: "Stop",
+				operation: "Success",
+				is_enabled: 1,
+			},
+		];
+		createRuleAndOpenBuilder(actions);
+
+		// Start with a linked two-action flow so the dialog can be checked for
+		// labels in graph order independently of the canvas insertion menu.
+		cy.contains(".vue-flow__node", firstLabel).should("be.visible").dblclick({ force: true });
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
+		cy.contains(".config-modal-container button", "Add Assignment")
+			.should("be.visible")
+			.click();
+		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
+
+		// Make the second action independently dirty as well.
+		cy.get(".config-modal-container .toolbar-group.navigation button").last().click();
+		cy.get(".config-modal-container h3").should("contain.text", secondLabel);
+		// Wait until the first draft's row controls are unmounted and the second
+		// action's panel has finished switching before querying its Add button.
+		cy.get(".config-modal-container").contains("Target Field").should("not.exist");
+		cy.contains(".config-modal-container", "Batch Assignments").should("be.visible");
+		cy.get(".config-modal-container button.add-assignment-btn").should("be.visible");
+		cy.get(".config-modal-container button.add-assignment-btn").click();
+		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
+
+		cy.get(".config-modal-container .toolbar-btn.close-action").click();
+		cy.get(".modal:visible .frappe-confirm-message").should(($message) => {
+			const message = $message.text();
+			expect(message).to.include("The following actions have unsaved configuration changes:");
+			const firstIndex = message.indexOf(firstLabel);
+			const secondIndex = message.indexOf(secondLabel);
+			expect(firstIndex, "first action label is displayed").to.be.greaterThan(-1);
+			expect(secondIndex, "second action label is displayed").to.be.greaterThan(-1);
+			expect(firstIndex, "labels are shown in rule-flow order").to.be.lessThan(secondIndex);
+		});
+
+		// Keep editing must jump to the first dirty action, even when the user
+		// opened the confirmation from a later action.
+		cy.get(".modal:visible").contains("button", "Keep editing").click();
+		cy.get(".modal-backdrop").should("not.exist");
+		cy.get(".config-modal-container").should("be.visible");
+		cy.get(".config-modal-container h3").should("contain.text", firstLabel);
+		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
+
+		// Escape must dismiss the Frappe confirmation without reopening it or
+		// losing the first action's draft.
+		cy.get(".config-modal-container .toolbar-btn.close-action").click();
+		cy.get(".modal:visible .frappe-confirm-message")
+			.should("contain.text", firstLabel)
+			.and("contain.text", secondLabel);
+		cy.get(".modal:visible .btn-modal-secondary").trigger("keydown", {
+			key: "Escape",
+			code: "Escape",
+			which: 27,
+			keyCode: 27,
+			bubbles: true,
+			cancelable: true,
+		});
+		cy.get(".modal:visible .frappe-confirm-message").should("not.exist");
+		cy.get(".modal-backdrop").should("not.exist");
+		cy.get(".config-modal-container").should("be.visible");
+		cy.get(".config-modal-container h3").should("contain.text", firstLabel);
+		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
+
+		// Cleanup through the explicit discard action.
+		cy.get(".config-modal-container .toolbar-btn.close-action").click();
+		cy.get(".modal:visible").contains("button", "Discard changes").click();
+		cy.get(".config-modal-container").should("not.exist");
+	});
 	it("opens Condition configuration and renders its condition editor", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Condition");
