@@ -414,6 +414,13 @@ export function useRuleConfig(props, emit) {
 			__("Keep editing")
 		);
 
+		// Own the secondary action explicitly rather than relying on a separately
+		// registered default handler; closing is completed by hidden.bs.modal below.
+		confirmation.get_secondary_btn().off("click").on("click.fxrDiscardConfirmation", (event) => {
+			event.preventDefault();
+			confirmation.hide();
+		});
+
 		// Handle Escape at the confirmation itself. This works even when the
 		// Frappe/Bootstrap modal keyboard option is disabled and prevents the same
 		// key event from reaching the config modal's global Escape shortcut.
