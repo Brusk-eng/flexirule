@@ -711,7 +711,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							...edge,
 							id: `e-${nodeId}-${returnEdge.target}-true`,
 							sourceHandle: "default",
-						}
+					  }
 					: edge
 			);
 		} else if (isTerminal) {
