@@ -321,12 +321,12 @@ export function useRuleConfig(props, emit) {
 		}
 
 		// Avoid stacking dialogs when Escape and a close gesture happen together.
-		if (discardConfirmation?.display) return false;
+		if (discardConfirmation) return false;
 
 		discardConfirmation = frappe.warn(
 			__("Discard unsaved configuration?"),
 			__(
-				"This Config modal contains unsaved edits in the current action or another step you visited. Discarding will remove all unsaved configuration edits in this modal. Changes saved earlier are not affected."
+				"Only unsaved configuration edits in this modal will be discarded, including edits in the current action and any other step you visited. Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
 			),
 			() => {
 				discardConfirmation = null;
