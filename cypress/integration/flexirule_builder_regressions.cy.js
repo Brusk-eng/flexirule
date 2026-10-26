@@ -190,7 +190,10 @@ describe("FlexiRule builder regression coverage", () => {
 		// Discard changes. Choosing Keep editing must restore modal interaction.
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
 		cy.get(".modal:visible .frappe-confirm-message")
-			.should("contain.text", "Only unsaved configuration edits in this modal will be discarded")
+			.should(
+				"contain.text",
+				"Only unsaved configuration edits in this modal will be discarded"
+			)
 			.and("be.visible");
 		cy.get(".modal:visible").contains("button", "Keep editing").click();
 		cy.get(".modal-backdrop").should("not.exist");
