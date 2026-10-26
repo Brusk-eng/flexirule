@@ -551,6 +551,186 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		return baseData;
 	}
 
+	/**
+	 * Upgrade a selector placeholder into a real action using an atomic graph
+	 * update. The placeholder may be the return point of a loop body, so its
+	 * outgoing route must be transferred to the selected action.
+	 *
+	 * Multi-output actions need their own scaffolding. A nested Loop gets a new
+	 * body selector and routes After Last back to the enclosing loop. Condition
+	 * keeps the existing continuation on its true branch and gets an explicit
+	 * Stop node on false, matching insert_node_on_edge().
+	 */
+	function upgrade_selector_node(nodeId, selection = {}) {
+		if (!nodeId || !selection?.action_type) return false;
+
+		const nodeIndex = nodes.value.findIndex((node) => node.id === nodeId);
+		if (nodeIndex === -1) return false;
+
+		const node = nodes.value[nodeIndex];
+		if (node.type !== "selector" && node.data?.action_type !== "Selector") return false;
+
+		const actionType = normalizeActionType(selection.action_type);
+		if (!actionType || actionType === "Entry Action") return false;
+
+		const label =
+			String(selection.label || selection.selected_label || actionType).trim() || actionType;
+		const nodeType = mapActionTypeToNodeType(actionType);
+		const nodeData = get_default_node_data(actionType.toLowerCase(), label);
+		const suggestedParentId = node.data?.suggested_parent_id;
+		const suggestedSourceHandle = node.data?.suggested_source_handle || "default";
+		const returnEdge = edges.value.find(
+			(edge) =>
+				edge.source === nodeId &&
+				(edge.targetHandle === "return" || edge.data?.isReturn === true)
+		);
+
+		if (selection.operation) nodeData.operation = selection.operation;
+		if (selection.process_name) nodeData.process_name = selection.process_name;
+
+		if (actionType === "Process" && nodeData.operation && !nodeData.process_name) {
+			const matches = getOperationOptions("Process", {})
+				.filter(
+					(operation) => operation.value === nodeData.operation && operation.process_name
+				)
+				.map((operation) => operation.process_name);
+			const unique = [...new Set(matches)];
+			if (unique.length === 1) nodeData.process_name = unique[0];
+		}
+
+		const isTerminal = isTerminalAction(actionType);
+		const updatedNodeData = {
+			...nodeData,
+			action_id: nodeId,
+			action_label: label,
+			next_step_if_true: isTerminal
+				? null
+				: node.data?.next_step_if_true ?? nodeData.next_step_if_true ?? null,
+			next_step_if_false: isTerminal
+				? null
+				: node.data?.next_step_if_false ?? nodeData.next_step_if_false ?? null,
+			suggested_parent_id: null,
+			suggested_source_handle: null,
+		};
+
+		const additionalNodes = [];
+		let nextEdges = [...edges.value];
+
+		if (actionType === "Loop" && returnEdge) {
+			// A Loop nested in a loop body must own a distinct body cycle. The
+			// existing return route becomes the nested Loop's After Last route.
+			const bodyNodeId = generateShortId();
+			const bodyData = get_default_node_data("selector", __("Loop Body"));
+			bodyData.action_id = bodyNodeId;
+			additionalNodes.push({
+				id: bodyNodeId,
+				type: "selector",
+				position: { x: 0, y: 0 },
+				label: __("Loop Body"),
+				data: { ...bodyData, next_step_if_true: nodeId },
+			});
+
+			updatedNodeData.next_step_if_true = bodyNodeId;
+			updatedNodeData.next_step_if_false = returnEdge.target;
+			nextEdges = nextEdges.map((edge) => {
+				if (edge.id !== returnEdge.id) return edge;
+
+				// This edge has changed roles: it is now the nested Loop's After Last
+				// route, not the enclosing Loop body's return edge. Remove the return
+				// handle and marker so edge styling remains stable before and after reload.
+				const afterLastEdge = {
+					...edge,
+					id: `e-${nodeId}-${returnEdge.target}-false`,
+					sourceHandle: "false",
+					data: { afterLast: true },
+				};
+				delete afterLastEdge.targetHandle;
+				return afterLastEdge;
+			});
+			nextEdges.push(
+				{
+					id: `e-${nodeId}-${bodyNodeId}-default`,
+					source: nodeId,
+					target: bodyNodeId,
+					sourceHandle: "default",
+					type: "add",
+					data: { loopBody: true },
+				},
+				{
+					id: `e-${bodyNodeId}-${nodeId}-return`,
+					source: bodyNodeId,
+					target: nodeId,
+					targetHandle: "return",
+					type: "add",
+					data: { isReturn: true },
+				}
+			);
+		} else if (["Condition", "Switch"].includes(actionType) && returnEdge) {
+			// Match insert_node_on_edge(): the existing continuation is the
+			// true/default branch, and an explicit Stop provides the false path.
+			// This keeps newly inserted Condition and Switch nodes structurally valid.
+			const stopNodeId = generateShortId();
+			const stopData = get_default_node_data("stop", __("End"));
+			stopData.operation = "Success";
+			stopData.action_id = stopNodeId;
+			additionalNodes.push({
+				id: stopNodeId,
+				type: "stop",
+				position: { x: 0, y: 0 },
+				label: __("End"),
+				data: { ...stopData },
+			});
+
+			updatedNodeData.next_step_if_true = returnEdge.target;
+			updatedNodeData.next_step_if_false = stopNodeId;
+			nextEdges = nextEdges.map((edge) =>
+				edge.id === returnEdge.id
+					? {
+							...edge,
+							id: `e-${nodeId}-${returnEdge.target}-true`,
+							sourceHandle: "true",
+					  }
+					: edge
+			);
+			nextEdges.push({
+				id: `e-${nodeId}-${stopNodeId}-false`,
+				source: nodeId,
+				target: stopNodeId,
+				sourceHandle: "false",
+				type: "add",
+			});
+		} else if (isTerminal) {
+			// Terminal actions intentionally end the current path; do not leave
+			// a stale loop-return or successor edge connected to the terminal.
+			nextEdges = nextEdges.filter((edge) => edge.source !== nodeId);
+		}
+
+		if (suggestedParentId && !nextEdges.some((edge) => edge.target === nodeId)) {
+			nextEdges.push({
+				id: `e-${suggestedParentId}-${nodeId}-${suggestedSourceHandle}`,
+				source: suggestedParentId,
+				target: nodeId,
+				sourceHandle: suggestedSourceHandle,
+				type: "add",
+				animated: suggestedParentId === "root" || suggestedParentId === "start",
+			});
+		}
+
+		// Reassign both arrays so Pinia and Vue Flow observe the structural
+		// replacement. Mutating a spread useStore() facade with splice() is not
+		// sufficient for reliable node-type changes.
+		nodes.value = [
+			...nodes.value.map((existingNode) =>
+				existingNode.id === nodeId
+					? { ...existingNode, type: nodeType, label, data: updatedNodeData }
+					: existingNode
+			),
+			...additionalNodes,
+		];
+		edges.value = nextEdges;
+		return true;
+	}
+
 	function delete_node(nodeId, isReadOnly = false) {
 		if (isReadOnly) {
 			frappe.msgprint(__("Cannot edit active rule. Please switch to Draft mode."));
@@ -1325,10 +1505,16 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		if (actionType !== "Condition") {
 			normalized.compiled_expression = null;
 			normalized.condition_json = null;
-			normalized.next_step_if_false = null;
 		} else {
 			normalized.condition_json = null;
 		}
+
+		// False-branch routing is governed by the action contract. Do not
+		// assume Condition is the only action with a false branch: Loop uses
+		// next_step_if_false for After Last. Keep the existing true-successor
+		// behavior compatible with handlers that use it as a default continuation.
+		if (!contract.has_next_false) normalized.next_step_if_false = null;
+
 		if (contract.terminal) {
 			normalized.next_step_if_true = null;
 			normalized.next_step_if_false = null;
@@ -1569,7 +1755,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				const isLoopBody = action.action_type === "Loop";
 				const isReturnToLoop =
 					actionsList.find((a) => a.action_id === action.next_step_if_true)
-						?.action_type === "Loop" && action.action_type !== "Entry Action";
+						?.action_type === "Loop" &&
+					!["Entry Action", "Loop"].includes(action.action_type);
 				actionEdges.push({
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
 					source: nodeId,
@@ -1985,6 +2172,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		pasteNodes,
 		paste_on_edge,
 		toggle_node_enabled,
+		upgrade_selector_node,
 
 		// Sync
 		sync_actions_to_graph,

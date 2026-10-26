@@ -715,12 +715,58 @@ def _validate_variable_dependencies(actions, operation_metadata=None) -> dict:
 	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
 
+def _loop_body_returns_to_loop(body_action_id, loop_action_id, action_index) -> bool:
+	"""Return whether a Loop body's routed flow can reach its owning Loop again.
+
+	The graph is intentionally represented by Rule Action next-step pointers.
+	Respect the canonical false-branch contract while preserving next_step_if_true
+	as the default/fall-through destination used by handlers such as Switch.
+	"""
+	pending = [body_action_id]
+	visited = set()
+
+	while pending:
+		current_id = pending.pop(0)
+		if current_id == loop_action_id:
+			return True
+		if not isinstance(current_id, str) or not current_id or current_id in visited:
+			continue
+		visited.add(current_id)
+
+		current_action = action_index.get(current_id)
+		if current_action is None:
+			continue
+
+		action_type = normalize_action_type(_safe_get(current_action, "action_type"))
+		contract = get_contract(action_type)
+		if contract.get("terminal"):
+			continue
+
+		next_true = _safe_get(current_action, "next_step_if_true")
+		if next_true:
+			pending.append(next_true)
+
+		next_false = _safe_get(current_action, "next_step_if_false")
+		if contract.get("has_next_false") and next_false:
+			pending.append(next_false)
+
+	return False
+
+
 def _validate_flow_constraints(rule, actions, operation_metadata=None) -> dict:
 	errors: list[str] = []
 	warnings: list[str] = []
 	operation_metadata = operation_metadata or {}
 	outgoing: dict[str, list[str]] = {}
+	action_index = {}
 	is_active = _is_truthy(_safe_get(rule, "is_active"))
+
+	# Use the persisted action identifiers as the authoritative routing index.
+	# A pointer can be non-empty and still be invalid if its target does not exist.
+	for action in actions:
+		action_id = _safe_get(action, "action_id") or _safe_get(action, "name")
+		if action_id:
+			action_index[action_id] = action
 
 	for action in actions:
 		source = _safe_get(action, "action_id") or _safe_get(action, "name")
@@ -759,8 +805,7 @@ def _validate_flow_constraints(rule, actions, operation_metadata=None) -> dict:
 				if is_active:
 					errors.append(msg)
 				else:
-					# For Drafts, we allow unreachable nodes to enable incremental building
-					# warnings.append(msg)
+					# For Drafts, we allow unreachable nodes to enable incremental building.
 					pass
 
 	for action in actions:
@@ -774,12 +819,67 @@ def _validate_flow_constraints(rule, actions, operation_metadata=None) -> dict:
 		op_key = f"{_safe_get(action, 'process_name')}:{_safe_get(action, 'operation')}"
 		op_meta = operation_metadata.get(op_key, {})
 
-		if get_contract(action_type).get("terminal") and downstream:
+		contract = get_contract(action_type)
+		if contract.get("terminal") and downstream:
 			errors.append(_("{0} is terminal and should not have downstream actions").format(action_label))
 
-		if get_contract(action_type).get("has_next_false") and _is_empty(
-			_safe_get(action, "next_step_if_false")
-		):
+		if action_type == "Loop":
+			body_target = _safe_get(action, "next_step_if_true")
+			after_last_target = _safe_get(action, "next_step_if_false")
+			body_is_valid = isinstance(body_target, str) and body_target in action_index
+			after_last_is_valid = isinstance(after_last_target, str) and after_last_target in action_index
+
+			if _is_empty(body_target):
+				errors.append(_("Loop action '{0}' is missing its required body path.").format(action_label))
+			elif not body_is_valid:
+				errors.append(
+					_("Loop action '{0}' points to missing body action '{1}'.").format(
+						action_label, body_target
+					)
+				)
+			elif body_target == action_id:
+				errors.append(
+					_("Loop action '{0}' cannot use itself as its body action.").format(action_label)
+				)
+				body_is_valid = False
+			elif normalize_action_type(_safe_get(action_index[body_target], "action_type")) == "Entry Action":
+				errors.append(
+					_("Loop action '{0}' cannot use the Entry Action as its body.").format(action_label)
+				)
+				body_is_valid = False
+
+			if _is_empty(after_last_target):
+				errors.append(_("Action '{0}' is missing its required false path.").format(action_label))
+			elif not after_last_is_valid:
+				errors.append(
+					_("Loop action '{0}' points to missing After Last action '{1}'.").format(
+						action_label, after_last_target
+					)
+				)
+			elif after_last_target == action_id:
+				errors.append(
+					_("Loop action '{0}' cannot route After Last back to itself.").format(action_label)
+				)
+			elif body_target == after_last_target:
+				errors.append(
+					_(
+						"Loop action '{0}' must use different destinations for its body and After Last paths."
+					).format(action_label)
+				)
+
+			if (
+				body_is_valid
+				and after_last_is_valid
+				and after_last_target != body_target
+				and after_last_target != action_id
+				and not _loop_body_returns_to_loop(body_target, action_id, action_index)
+			):
+				errors.append(
+					_(
+						"Loop action '{0}' has no body path that returns to the Loop for the next iteration."
+					).format(action_label)
+				)
+		elif contract.get("has_next_false") and _is_empty(_safe_get(action, "next_step_if_false")):
 			errors.append(_("Action '{0}' is missing its required false path.").format(action_label))
 
 		if _is_truthy(op_meta.get("is_terminal")) and downstream:

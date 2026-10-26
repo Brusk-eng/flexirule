@@ -138,6 +138,117 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 	});
 
+	it("creates a nested Loop through the body selector and preserves routing after reload", () => {
+		createRuleAndOpenBuilder();
+		const outerLabel = "Outer Loop " + Date.now();
+		const nestedLabel = "Nested Loop " + Date.now();
+		const bodyLabel = "Nested Body " + Date.now();
+
+		addNodeFromEdgeMenu("Loop");
+		cy.get(".labeling-container input").should("be.visible").clear().type(outerLabel);
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+
+		// Edge insertion opens Loop configuration; close it so the Loop Body
+		// selector can be exercised through the actual canvas UI.
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
+		cy.get(".config-modal-container .close-action").click({ force: true });
+
+		cy.get(".vue-flow__node-selector", { timeout: 15000 }).should("exist");
+		cy.get(".vue-flow__node-selector")
+			.last()
+			.within(() => {
+				cy.contains(".result-item.is-option", "Loop").click({ force: true });
+			});
+		cy.get(".labeling-container input", { timeout: 15000 })
+			.last()
+			.should("be.visible")
+			.clear()
+			.type(nestedLabel);
+		cy.get(".labeling-container button.btn-primary").last().click({ force: true });
+
+		// A nested Loop creates its own Loop Body selector. The shared layout
+		// request must move it away from the origin rather than leaving overlap.
+		cy.contains(".vue-flow__node", nestedLabel, { timeout: 15000 }).should("be.visible");
+		cy.get(".vue-flow__node-selector", { timeout: 15000 })
+			.last()
+			.should(($node) => {
+				const style = $node.attr("style") || "";
+				expect(style, "scaffold selector has a non-origin layout position").not.to.include(
+					"translate(0px, 0px)"
+				);
+			});
+
+		cy.get(".vue-flow__node-selector")
+			.last()
+			.within(() => {
+				cy.contains(".result-item.is-option", "Assignment").click({ force: true });
+			});
+		cy.get(".labeling-container input", { timeout: 15000 })
+			.last()
+			.should("be.visible")
+			.clear()
+			.type(bodyLabel);
+		cy.get(".labeling-container button.btn-primary").last().click({ force: true });
+		cy.contains(".vue-flow__node", bodyLabel, { timeout: 15000 }).should("be.visible");
+
+		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
+		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
+		cy.wait("@saveRule");
+
+		persistedRule().then((doc) => {
+			const loops = doc.actions.filter((action) => action.action_type === "Loop");
+			expect(loops, "outer and nested Loop actions persisted").to.have.length(2);
+			const outer = loops.find((action) => action.action_label === outerLabel);
+			const nested = loops.find((action) => action.action_label === nestedLabel);
+			expect(outer, "outer Loop action").to.exist;
+			expect(nested, "nested Loop action").to.exist;
+			expect(nested.next_step_if_true, "nested Loop body destination").to.be.a("string");
+			expect(
+				nested.next_step_if_false,
+				"nested Loop After Last resumes the outer Loop"
+			).to.eq(outer.action_id);
+
+			const visual =
+				typeof doc.visual_data === "string" ? JSON.parse(doc.visual_data) : doc.visual_data;
+			const afterLastEdge = visual.find(
+				(item) =>
+					item.source === nested.action_id &&
+					item.target === outer.action_id &&
+					item.sourceHandle === "false"
+			);
+			expect(afterLastEdge, "nested Loop After Last edge was persisted").to.exist;
+			expect(afterLastEdge.sourceHandle).to.eq("false");
+			// visual_data intentionally stores connection geometry, not edge styling
+			// metadata; a reload rebuilds After Last/return markers from action contracts.
+			expect(afterLastEdge.targetHandle).not.to.eq("return");
+			expect(afterLastEdge.data?.isReturn).not.to.eq(true);
+		});
+
+		cy.reload();
+		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
+		cy.contains(".vue-flow__node", outerLabel).should("be.visible");
+		cy.contains(".vue-flow__node", nestedLabel).should("be.visible");
+		cy.contains(".vue-flow__node", bodyLabel).should("be.visible");
+		cy.get(".vue-flow__node-selector").should("not.exist");
+
+		// Reload must reconstruct exactly one actual return edge (the inner body
+		// action back to its Loop). Neither Loop's After Last edge may keep the
+		// dashed return styling that previously came from stale return metadata.
+		cy.get(".vue-flow__edge-path").should(($paths) => {
+			const returnStyledPaths = $paths
+				.toArray()
+				.filter(
+					(path) =>
+						path.ownerDocument.defaultView.getComputedStyle(path).strokeDasharray !==
+						"none"
+				);
+			expect(
+				returnStyledPaths,
+				"only the inner body's return route is dashed"
+			).to.have.length(1);
+		});
+	});
+
 	it("opens Assignment configuration and exposes the required assignment controls", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Assignment");
