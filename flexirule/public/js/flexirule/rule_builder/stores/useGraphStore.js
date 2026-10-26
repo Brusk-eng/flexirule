@@ -700,6 +700,20 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				sourceHandle: "false",
 				type: "add",
 			});
+		} else if (returnEdge && !isTerminal) {
+			// A Loop Body selector's return edge may have no explicit sourceHandle.
+			// Saving derives next_step_if_true from true/default handles only, so
+			// normalize the edge to the replacement action's default continuation.
+			// Keep the return target marker; it is still a body-to-Loop return edge.
+			nextEdges = nextEdges.map((edge) =>
+				edge.id === returnEdge.id
+					? {
+							...edge,
+							id: `e-${nodeId}-${returnEdge.target}-true`,
+							sourceHandle: "default",
+						  }
+					: edge
+			);
 		} else if (isTerminal) {
 			// Terminal actions intentionally end the current path; do not leave
 			// a stale loop-return or successor edge connected to the terminal.
