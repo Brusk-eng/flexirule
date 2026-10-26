@@ -192,7 +192,7 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".modal.show .modal-title")
 			.should("contain.text", "Discard unsaved configuration?");
 		cy.get(".modal.show")
-			.contains("This Config modal contains unsaved edits")
+			.contains("Only unsaved configuration edits in this modal will be discarded")
 			.should("be.visible");
 		cy.get(".modal.show").contains("button", "Keep editing").click();
 
