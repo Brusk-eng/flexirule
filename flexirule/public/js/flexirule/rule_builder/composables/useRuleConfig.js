@@ -114,8 +114,6 @@ export function useRuleConfig(props, emit) {
 		() => getDirtyConfigDraftEntries(draftEntries).length > 0
 	);
 
-
-
 	/**
 	 * Update a field value in the draft config.
 	 */
