@@ -175,7 +175,9 @@ describe("FlexiRule builder regression coverage", () => {
 
 		cy.contains(".vue-flow__node", firstLabel).should("be.visible").dblclick({ force: true });
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
-		cy.contains(".config-modal-container button", "Add Assignment").should("be.visible").click();
+		cy.contains(".config-modal-container button", "Add Assignment")
+			.should("be.visible")
+			.click();
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
 
 		// Make the second action independently dirty as well.
