@@ -158,6 +158,38 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.contains("Value Expression").should("be.visible");
 	});
 
+	it("retains unsaved action configuration while navigating away and back", () => {
+		createRuleAndOpenBuilder();
+		const firstLabel = "Draft retention first " + Date.now();
+		const secondLabel = "Draft retention second " + Date.now();
+
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input").should("be.visible").clear().type(firstLabel);
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input").should("be.visible").clear().type(secondLabel);
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+
+		cy.contains(".vue-flow__node", firstLabel).should("be.visible").dblclick({ force: true });
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
+
+		// Create a real, unsaved Assignment config row. Its grid header is only
+		// rendered while the draft still contains that row.
+		cy.contains(".config-modal-container button", "Add Assignment")
+			.should("be.visible")
+			.click();
+		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
+
+		cy.get(".config-modal-container .toolbar-group.navigation button").last().click();
+		cy.get(".config-modal-container h3").should("not.contain.text", firstLabel);
+		cy.get(".config-modal-container").contains("Target Field").should("not.exist");
+
+		cy.get(".config-modal-container .toolbar-group.navigation button").first().click();
+		cy.get(".config-modal-container h3").should("contain.text", firstLabel);
+		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
+	});
+
 	it("opens Condition configuration and renders its condition editor", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Condition");
