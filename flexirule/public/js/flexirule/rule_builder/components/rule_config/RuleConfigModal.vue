@@ -583,55 +583,6 @@
 							</div>
 						</transition>
 					</div>
-					<div
-						v-if="showDiscardConfirmation"
-						class="discard-confirm-overlay"
-						role="presentation"
-						@click.self="keepEditing"
-					>
-						<section
-							class="discard-confirm-dialog"
-							role="alertdialog"
-							aria-modal="true"
-							aria-labelledby="config-discard-title"
-							aria-describedby="config-discard-message"
-							@keydown.esc.stop.prevent="keepEditing"
-						>
-							<div class="discard-confirm-heading">
-								<span class="discard-confirm-icon" aria-hidden="true">
-									<i class="fa fa-exclamation-triangle"></i>
-								</span>
-								<h4 id="config-discard-title">
-									{{ __("Discard unsaved configuration?") }}
-								</h4>
-							</div>
-							<p id="config-discard-message" class="discard-confirm-message">
-								{{
-									__(
-										"Only unsaved configuration edits in this modal will be discarded, including edits in the current action and any other step you visited. Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
-									)
-								}}
-							</p>
-							<div class="discard-confirm-actions">
-								<button
-									ref="keepEditingButtonRef"
-									type="button"
-									class="btn btn-default"
-									@click="keepEditing"
-								>
-									{{ __("Keep editing") }}
-								</button>
-								<button
-									type="button"
-									class="btn btn-danger"
-									:disabled="isSaving"
-									@click="discardChanges"
-								>
-									{{ __("Discard changes") }}
-								</button>
-							</div>
-						</section>
-					</div>
 				</div>
 			</div>
 		</transition>
@@ -678,9 +629,6 @@ const {
 	hasUnsavedChanges,
 	isSaving,
 	showDiscardConfirmation,
-	keepEditingButtonRef,
-	keepEditing,
-	discardChanges,
 	showValidation,
 } = useRuleConfig(props, emit);
 const {
@@ -1190,72 +1138,6 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	padding: 0 16px;
 	border-bottom: 1px solid var(--fxr-border-subtle);
 	background-color: var(--fxr-surface);
-}
-
-.discard-confirm-overlay {
-	position: absolute;
-	inset: 0;
-	z-index: 100;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 24px;
-	background: rgba(15, 23, 42, 0.55);
-	backdrop-filter: blur(3px);
-}
-
-.discard-confirm-dialog {
-	width: min(460px, 100%);
-	padding: 24px;
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: 16px;
-	background: var(--fxr-surface);
-	color: var(--fxr-text-strong);
-	box-shadow: var(--fxr-shadow-lg);
-	outline: none;
-}
-
-.discard-confirm-heading {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	margin-bottom: 12px;
-}
-
-.discard-confirm-heading h4 {
-	margin: 0;
-	font-size: 18px;
-	font-weight: 700;
-}
-
-.discard-confirm-icon {
-	width: 36px;
-	height: 36px;
-	flex-shrink: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 10px;
-	background: var(--fxr-danger-soft, #fee2e2);
-	color: var(--fxr-danger, var(--red-600, #dc2626));
-}
-
-.discard-confirm-message {
-	margin: 0;
-	color: var(--fxr-text-secondary, var(--text-muted));
-	line-height: 1.5;
-}
-
-.discard-confirm-actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 8px;
-	flex-wrap: wrap;
-	margin-top: 24px;
-}
-
-.discard-confirm-actions .btn {
-	min-height: 36px;
 }
 
 .header-left {
