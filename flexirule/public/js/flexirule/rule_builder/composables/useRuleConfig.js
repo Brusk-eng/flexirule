@@ -307,18 +307,42 @@ export function useRuleConfig(props, emit) {
 		return true;
 	}
 
+	let discardConfirmation = null;
+
 	function cancel() {
-		saveContextGeneration += 1;
-		if (hasUnsavedChanges.value || isDirty.value) {
-			frappe.confirm(
-				__("You have unsaved changes. Are you sure you want to discard them?"),
-				() => {
-					emit("update:modelValue", false);
-				}
-			);
-		} else {
+		// Don't interrupt an async validation/commit. Save owns the editing
+		// context until it has settled.
+		if (isSaving.value || !props.modelValue) return false;
+
+		if (!hasUnsavedChanges.value && !isDirty.value) {
+			saveContextGeneration += 1;
 			emit("update:modelValue", false);
+			return true;
 		}
+
+		// Avoid stacking dialogs when Escape and a close gesture happen together.
+		if (discardConfirmation?.display) return false;
+
+		discardConfirmation = frappe.warn(
+			__("Discard unsaved configuration?"),
+			__(
+				"This Config modal contains unsaved edits in the current action or another step you visited. Discarding will remove all unsaved configuration edits in this modal. Changes saved earlier are not affected."
+			),
+			() => {
+				discardConfirmation = null;
+				// Invalidate async operations only after the user explicitly chooses
+				// to discard. Dismissing the warning keeps the current draft usable.
+				saveContextGeneration += 1;
+				emit("update:modelValue", false);
+			},
+			__("Discard changes")
+		);
+		discardConfirmation.set_secondary_action_label(__("Keep editing"));
+		discardConfirmation.onhide = () => {
+			discardConfirmation = null;
+		};
+
+		return false;
 	}
 
 	// Watch for node changes or modal open to refresh draft
