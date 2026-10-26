@@ -1,6 +1,6 @@
 import { ref, reactive, computed, watch, nextTick } from "vue";
 import { useGraphStore, useRuleStore, useStore } from "../stores";
-import { getContract, validateAgainstContract } from "../../core/contracts.js";
+import { validateAgainstContract } from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
 import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
@@ -114,9 +114,7 @@ export function useRuleConfig(props, emit) {
 		() => getDirtyConfigDraftEntries(draftEntries).length > 0
 	);
 
-	const hasOtherUnsavedChanges = computed(
-		() => getDirtyConfigDraftEntries(draftEntries, activeNodeId.value).length > 0
-	);
+
 
 	/**
 	 * Update a field value in the draft config.
@@ -170,7 +168,7 @@ export function useRuleConfig(props, emit) {
 	}
 
 	/**
-	 * Save changes back to the source node and close.
+	 * Save the active action draft back to the source graph node.
 	 */
 	async function save() {
 		if (isSaving.value) return false;
@@ -302,7 +300,7 @@ export function useRuleConfig(props, emit) {
 
 		emit("save", sourceNode.data);
 
-		if (hasOtherUnsavedChanges.value || hasUnsavedChanges.value) {
+		if (hasUnsavedChanges.value) {
 			frappe.show_alert({
 				message: __("This action was saved. Other actions still have unsaved changes."),
 				indicator: "orange",
