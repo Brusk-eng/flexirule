@@ -583,53 +583,55 @@
 							</div>
 						</transition>
 					</div>
-				<div
-					v-if="showDiscardConfirmation"
-					class="discard-confirm-overlay"
-					role="presentation"
-					@click.self="keepEditing"
-				>
-					<section
-						class="discard-confirm-dialog"
-						role="alertdialog"
-						aria-modal="true"
-						aria-labelledby="config-discard-title"
-						aria-describedby="config-discard-message"
-						@keydown.esc.stop.prevent="keepEditing"
+					<div
+						v-if="showDiscardConfirmation"
+						class="discard-confirm-overlay"
+						role="presentation"
+						@click.self="keepEditing"
 					>
-						<div class="discard-confirm-heading">
-							<span class="discard-confirm-icon" aria-hidden="true">
-								<i class="fa fa-exclamation-triangle"></i>
-							</span>
-							<h4 id="config-discard-title">{{ __("Discard unsaved configuration?") }}</h4>
-						</div>
-						<p id="config-discard-message" class="discard-confirm-message">
-							{{
-								__(
-									"Only unsaved configuration edits in this modal will be discarded, including edits in the current action and any other step you visited. Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
-								)
-							}}
-						</p>
-						<div class="discard-confirm-actions">
-							<button
-								ref="keepEditingButtonRef"
-								type="button"
-								class="btn btn-default"
-								@click="keepEditing"
-							>
-								{{ __("Keep editing") }}
-							</button>
-							<button
-								type="button"
-								class="btn btn-danger"
-								:disabled="isSaving"
-								@click="discardChanges"
-							>
-								{{ __("Discard changes") }}
-							</button>
-						</div>
-					</section>
-				</div>
+						<section
+							class="discard-confirm-dialog"
+							role="alertdialog"
+							aria-modal="true"
+							aria-labelledby="config-discard-title"
+							aria-describedby="config-discard-message"
+							@keydown.esc.stop.prevent="keepEditing"
+						>
+							<div class="discard-confirm-heading">
+								<span class="discard-confirm-icon" aria-hidden="true">
+									<i class="fa fa-exclamation-triangle"></i>
+								</span>
+								<h4 id="config-discard-title">
+								{{ __("Discard unsaved configuration?") }}
+							</h4>
+							</div>
+							<p id="config-discard-message" class="discard-confirm-message">
+								{{
+									__(
+										"Only unsaved configuration edits in this modal will be discarded, including edits in the current action and any other step you visited. Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
+									)
+								}}
+							</p>
+							<div class="discard-confirm-actions">
+								<button
+									ref="keepEditingButtonRef"
+									type="button"
+									class="btn btn-default"
+									@click="keepEditing"
+								>
+									{{ __("Keep editing") }}
+								</button>
+								<button
+									type="button"
+									class="btn btn-danger"
+									:disabled="isSaving"
+									@click="discardChanges"
+								>
+									{{ __("Discard changes") }}
+								</button>
+							</div>
+						</section>
+					</div>
 				</div>
 			</div>
 		</transition>
