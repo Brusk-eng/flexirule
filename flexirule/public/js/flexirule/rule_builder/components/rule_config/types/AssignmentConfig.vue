@@ -467,16 +467,20 @@ const targetOptions = computed(() => {
 
 	// ── Context variables (vars.*) ────────────────────────────────────────────
 	(variable_options.value || [])
-		.filter((v) => v.is_variable)
+		.filter((v) => v.is_variable && typeof v.value === "string" && v.value.trim())
 		.forEach((v) => {
+			// getAvailableVariables() already returns canonical vars.* paths.
+			// Do not prefix them again: vars.vars.foo is not a valid context path.
+			const value = v.value.startsWith("vars.") ? v.value : `vars.${v.value}`;
+			const label = String(v.label || "");
 			opts.push({
-				value: `vars.${v.value}`,
-				label: `${v.label} (vars.${v.value})`,
+				value,
+				label: label.includes(value) ? label : label ? `${label} (${value})` : value,
 				icon: "fa fa-code",
 				fieldtype: v.fieldtype || "Variable",
 				type: v.fieldtype || "Variable",
 				is_variable: true,
-				fieldname: v.value,
+				fieldname: value,
 				options: v.options,
 			});
 		});
