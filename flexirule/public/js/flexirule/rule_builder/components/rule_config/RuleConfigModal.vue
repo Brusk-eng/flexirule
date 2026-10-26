@@ -62,11 +62,13 @@
 										{{ title }}
 									</h3>
 									<div
-										v-if="isDirty && !ruleStore.is_read_only && !isMobile"
+										v-if="hasUnsavedChanges && !ruleStore.is_read_only && !isMobile"
 										class="dirty-badge"
 									>
 										<i class="fa fa-circle"></i>
-										<span>{{ __("Unsaved") }}</span>
+										<span>{{
+											isDirty ? __("Unsaved") : __("Unsaved in other actions")
+										}}</span>
 									</div>
 								</div>
 								<div class="modal-breadcrumb">
@@ -613,10 +615,16 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const { draftNode, panelRefs, save, cancel, isDirty, isSaving, showValidation } = useRuleConfig(
-	props,
-	emit
-);
+const {
+	draftNode,
+	panelRefs,
+	save,
+	cancel,
+	isDirty,
+	hasUnsavedChanges,
+	isSaving,
+	showValidation,
+} = useRuleConfig(props, emit);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,
