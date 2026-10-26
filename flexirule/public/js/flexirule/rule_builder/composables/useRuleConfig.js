@@ -259,6 +259,12 @@ export function useRuleConfig(props, emit) {
 					// Keep the visible draft aligned with normalization performed for Save.
 					sourceDraft.data = deepClone(sourceNode.data);
 					sourceDraft.label = sourceNode.label;
+					// Rebase the saved entry before touch_node replaces the graph-node
+					// object. The current modal draft stays valid and clean afterwards.
+					activeEntry.sourceDataSignature = stableStringify(sourceNode.data || {});
+					activeEntry.initialDraftState = stableStringify(sourceDraft.data || {});
+					initialDraftState.value = activeEntry.initialDraftState;
+					draftEntriesRevision.value += 1;
 
 					// Redraw nested nodes when Sub-Rule LinkControl target changes
 					if (sourceNode.data.action_type === "Sub-Rule" && oldValue !== newValue) {
@@ -300,9 +306,6 @@ export function useRuleConfig(props, emit) {
 			return false;
 		}
 
-		activeEntry.initialDraftState = stableStringify(sourceDraft.data || {});
-		initialDraftState.value = activeEntry.initialDraftState;
-		draftEntries.delete(activeEntry.nodeId);
 		draftEntriesRevision.value += 1;
 		emit("save", sourceNode.data);
 
