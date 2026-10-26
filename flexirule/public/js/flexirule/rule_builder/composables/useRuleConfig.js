@@ -33,8 +33,8 @@ export function useRuleConfig(props, emit) {
 	const isSaving = ref(false);
 	// Invalidates pending saves when the modal is cancelled or the editing context changes.
 	let saveContextGeneration = 0;
-	const draftEntries = new Map();
-	const draftEntriesRevision = ref(0);
+	// Reactive Map entries preserve visited drafts and drive session-wide dirty tracking.
+	const draftEntries = reactive(new Map());
 	const activeNodeId = ref(null);
 
 	watch(
@@ -63,7 +63,6 @@ export function useRuleConfig(props, emit) {
 	 */
 	function resetDraftSession() {
 		draftEntries.clear();
-		draftEntriesRevision.value += 1;
 		activeNodeId.value = null;
 		draftNode.value = null;
 		initialDraftState.value = null;
@@ -87,7 +86,6 @@ export function useRuleConfig(props, emit) {
 		entry.draftNode = draftNode.value;
 		activeNodeId.value = entry.nodeId;
 		initialDraftState.value = entry.initialDraftState;
-		draftEntriesRevision.value += 1;
 		return entry;
 	}
 
@@ -106,22 +104,19 @@ export function useRuleConfig(props, emit) {
 			// Keep the existing post-mount baseline behavior: config panels may
 			// initialize draft defaults during their first render.
 			entry.initialDraftState = stableStringify(entry.draftNode.data || {});
-			draftEntriesRevision.value += 1;
 			if (activeNodeId.value === entry.nodeId && draftNode.value === entry.draftNode) {
 				initialDraftState.value = entry.initialDraftState;
 			}
 		});
 	}
 
-	const hasUnsavedChanges = computed(() => {
-		draftEntriesRevision.value;
-		return getDirtyConfigDraftEntries(draftEntries).length > 0;
-	});
+	const hasUnsavedChanges = computed(
+		() => getDirtyConfigDraftEntries(draftEntries).length > 0
+	);
 
-	const hasOtherUnsavedChanges = computed(() => {
-		draftEntriesRevision.value;
-		return getDirtyConfigDraftEntries(draftEntries, activeNodeId.value).length > 0;
-	});
+	const hasOtherUnsavedChanges = computed(
+		() => getDirtyConfigDraftEntries(draftEntries, activeNodeId.value).length > 0
+	);
 
 	/**
 	 * Update a field value in the draft config.
@@ -264,7 +259,6 @@ export function useRuleConfig(props, emit) {
 					activeEntry.sourceDataSignature = stableStringify(sourceNode.data || {});
 					activeEntry.initialDraftState = stableStringify(sourceDraft.data || {});
 					initialDraftState.value = activeEntry.initialDraftState;
-					draftEntriesRevision.value += 1;
 
 					// Redraw nested nodes when Sub-Rule LinkControl target changes
 					if (sourceNode.data.action_type === "Sub-Rule" && oldValue !== newValue) {
@@ -306,7 +300,6 @@ export function useRuleConfig(props, emit) {
 			return false;
 		}
 
-		draftEntriesRevision.value += 1;
 		emit("save", sourceNode.data);
 
 		if (hasOtherUnsavedChanges.value || hasUnsavedChanges.value) {
