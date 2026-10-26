@@ -111,7 +111,7 @@ describe("FlexiRule builder regression coverage", () => {
 			.should("be.visible")
 			.click({ force: true });
 		cy.get(".fxr-dropdown:visible .fxr-dropdown-item")
-			.contains("vars.inner_item.link_name (Link Name)")
+			.contains("vars.inner_item.link_name")
 			.click({ force: true });
 		cy.get(".assignment-config .grid-col-operator .combobox-button-trigger")
 			.should("be.visible")
@@ -249,8 +249,18 @@ describe("FlexiRule builder regression coverage", () => {
 			expect(loops, "outer and nested Loop actions persisted").to.have.length(2);
 			const outer = loops.find((action) => action.action_label === outerLabel);
 			const nested = loops.find((action) => action.action_label === nestedLabel);
+			const body = doc.actions.find(
+				(action) => action.action_type === "Assignment" && action.action_label === bodyLabel
+			);
 			expect(outer, "outer Loop action").to.exist;
 			expect(nested, "nested Loop action").to.exist;
+			expect(body, "nested Loop body Assignment").to.exist;
+			const bodyAssignments = actionConfig(body);
+			expect(bodyAssignments, "persisted body assignments").to.be.an("array").and.not.empty;
+			expect(bodyAssignments[0].target, "canonical nested item target").to.eq(
+				"vars.inner_item.link_name"
+			);
+			expect(bodyAssignments[0].operator, "body Assignment operator").to.eq("clear");
 			expect(outer.return_variable, "outer Loop item alias").to.eq("outer_item");
 			expect(nested.return_variable, "nested Loop item alias").to.eq("inner_item");
 			expect(actionConfig(outer).iterator, "outer Loop iterator").to.eq("doc.links");
