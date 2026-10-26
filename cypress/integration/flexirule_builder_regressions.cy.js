@@ -189,17 +189,18 @@ describe("FlexiRule builder regression coverage", () => {
 		// Closing is non-destructive until the user chooses the explicitly
 		// labelled discard action. Dismissing the warning keeps the draft intact.
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-		cy.get(".modal.show .modal-title").should("contain.text", "Discard unsaved configuration?");
-		cy.get(".modal.show")
+		cy.get(".discard-confirm-dialog h4").should("contain.text", "Discard unsaved configuration?");
+		cy.get(".discard-confirm-dialog")
 			.contains("Only unsaved configuration edits in this modal will be discarded")
 			.should("be.visible");
-		cy.get(".modal.show").contains("button", "Keep editing").click();
+		cy.get(".discard-confirm-dialog").contains("button", "Keep editing").click();
+		cy.get(".discard-confirm-dialog").should("not.exist");
 
 		cy.get(".config-modal-container").should("be.visible");
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
 
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-		cy.get(".modal.show").contains("button", "Discard changes").click();
+		cy.get(".discard-confirm-dialog").contains("button", "Discard changes").click();
 		cy.get(".config-modal-container").should("not.exist");
 	});
 
