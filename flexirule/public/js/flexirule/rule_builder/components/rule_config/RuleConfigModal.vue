@@ -1015,7 +1015,13 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (!isSaving.value && currentNodeIndex.value > 0) ruleStore.prev_config_node();
+				if (
+					!isSaving.value &&
+					!showDiscardConfirmation.value &&
+					currentNodeIndex.value > 0
+				) {
+					ruleStore.prev_config_node();
+				}
 			},
 		}),
 		registerShortcut({
@@ -1039,8 +1045,13 @@ onMounted(() => {
 			context: "modal",
 			priority: 10,
 			callback: () => {
-				if (!isSaving.value && currentNodeIndex.value < totalNodes.value - 1)
+				if (
+					!isSaving.value &&
+					!showDiscardConfirmation.value &&
+					currentNodeIndex.value < totalNodes.value - 1
+				) {
 					ruleStore.next_config_node();
+				}
 			},
 		}),
 		registerShortcut({
