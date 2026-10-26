@@ -67,7 +67,7 @@
 									>
 										<i class="fa fa-circle"></i>
 										<span>{{
-											isDirty ? __("Unsaved") : __("Unsaved in other actions")
+											isDirty ? __("Unsaved") : __("Unsaved in other steps")
 										}}</span>
 									</div>
 								</div>
