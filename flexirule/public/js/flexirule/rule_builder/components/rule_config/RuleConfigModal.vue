@@ -602,8 +602,8 @@
 									<i class="fa fa-exclamation-triangle"></i>
 								</span>
 								<h4 id="config-discard-title">
-								{{ __("Discard unsaved configuration?") }}
-							</h4>
+									{{ __("Discard unsaved configuration?") }}
+								</h4>
 							</div>
 							<p id="config-discard-message" class="discard-confirm-message">
 								{{
