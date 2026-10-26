@@ -240,14 +240,7 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".modal:visible .frappe-confirm-message")
 			.should("contain.text", firstLabel)
 			.and("contain.text", secondLabel);
-		cy.get(".modal:visible").trigger("keydown", {
-			key: "Escape",
-			code: "Escape",
-			which: 27,
-			keyCode: 27,
-			bubbles: true,
-			cancelable: true,
-		});
+		cy.get(".modal:visible .btn-modal-secondary").focus().type("{esc}");
 		cy.get(".modal:visible .frappe-confirm-message").should("not.exist");
 		cy.get(".modal-backdrop").should("not.exist");
 		cy.get(".config-modal-container").should("be.visible");
