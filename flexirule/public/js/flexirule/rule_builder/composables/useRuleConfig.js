@@ -414,11 +414,20 @@ export function useRuleConfig(props, emit) {
 			__("Keep editing")
 		);
 
-		// Frappe's reject callback runs during Bootstrap's hide event, before
-		// the modal transition removes its backdrop. Resume editing only after
-		// hidden.bs.modal so navigation cannot interrupt the native dialog's
-		// close lifecycle. This also handles Escape and backdrop dismissal.
+		// Handle Escape at the confirmation itself. This works even when the
+		// Frappe/Bootstrap modal keyboard option is disabled and prevents the same
+		// key event from reaching the config modal's global Escape shortcut.
+		confirmation.$wrapper.on("keydown.fxrDiscardConfirmation", (event) => {
+			if (event.key !== "Escape" && event.which !== 27) return;
+			event.preventDefault();
+			event.stopPropagation();
+			confirmation.hide();
+		});
+
+		// Resume editing only after Bootstrap has removed the dialog backdrop.
+		// This avoids running draft navigation during the modal's hide lifecycle.
 		confirmation.$wrapper.one("hidden.bs.modal", () => {
+			confirmation.$wrapper.off("keydown.fxrDiscardConfirmation");
 			if (showDiscardConfirmation.value) keepEditing();
 		});
 		return false;
