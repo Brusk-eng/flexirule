@@ -983,7 +983,14 @@ onMounted(() => {
 			key: "Escape",
 			context: "modal",
 			priority: 10,
-			callback: () => cancel(),
+			callback: (event) => {
+				// A native Frappe dialog owns its Escape key. The event can reach
+				// this window-level registry after Frappe hides the dialog and
+				// clears showDiscardConfirmation; don't treat that same keypress
+				// as a second request to cancel the configuration modal.
+				if (event.target?.closest?.(".modal")) return;
+				cancel();
+			},
 		}),
 		registerShortcut({
 			key: "s",
