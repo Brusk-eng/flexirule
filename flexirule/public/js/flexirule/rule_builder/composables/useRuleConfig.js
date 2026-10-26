@@ -1,5 +1,5 @@
 import { ref, reactive, computed, watch, nextTick } from "vue";
-import { useGraphStore, useRuleStore, useStore } from "../stores";
+import { useGraphStore, useRuleStore, useStore, useUIStore } from "../stores";
 import { validateAgainstContract } from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
@@ -21,6 +21,7 @@ import {
 export function useRuleConfig(props, emit) {
 	const ruleStore = useRuleStore();
 	const graphStore = useGraphStore();
+	const uiStore = useUIStore();
 	const store = useStore();
 	const draftNode = ref(null);
 	const showValidation = ref(false);
@@ -109,6 +110,40 @@ export function useRuleConfig(props, emit) {
 			if (activeNodeId.value === entry.nodeId && draftNode.value === entry.draftNode) {
 				initialDraftState.value = entry.initialDraftState;
 			}
+		});
+	}
+
+	function getDirtyDraftEntriesInFlowOrder() {
+		const dirtyByNodeId = new Map(
+			getDirtyConfigDraftEntries(draftEntries).map((entry) => [entry.nodeId, entry])
+		);
+		return graphStore.orderedConfigurableNodes
+			.map((node) => dirtyByNodeId.get(node.id))
+			.filter(Boolean);
+	}
+
+	function getDraftActionLabel(entry) {
+		const node = entry?.draftNode;
+		return (
+			node?.data?.action_label ||
+			node?.label ||
+			node?.data?.label ||
+			node?.data?.action_type ||
+			entry?.nodeId ||
+			__("Unnamed action")
+		);
+	}
+
+	function escapeHtml(value) {
+		return String(value ?? "").replace(/[&<>"']/g, (character) => {
+			const entities = {
+				"&": "&amp;",
+				"<": "&lt;",
+				">": "&gt;",
+				'"': "&quot;",
+				"'": "&#39;",
+			};
+			return entities[character];
 		});
 	}
 
@@ -313,11 +348,14 @@ export function useRuleConfig(props, emit) {
 		if (!showDiscardConfirmation.value) return;
 
 		showDiscardConfirmation.value = false;
-		const target = discardReturnFocus;
 		discardReturnFocus = null;
-		nextTick(() => {
-			if (target?.isConnected && typeof target.focus === "function") target.focus();
-		});
+		const firstDirtyEntry = getDirtyDraftEntriesInFlowOrder()[0];
+		if (firstDirtyEntry) {
+			// Keep Editing takes users to the earliest unsaved action so they can
+			// work through outstanding drafts in rule-flow order.
+			uiStore.config_modal_mode = "setup";
+			nextTick(() => uiStore.select(firstDirtyEntry.nodeId));
+		}
 	}
 
 	function discardChanges() {
@@ -346,11 +384,19 @@ export function useRuleConfig(props, emit) {
 		}
 
 		discardReturnFocus = typeof document !== "undefined" ? document.activeElement : null;
+		const dirtyEntries = getDirtyDraftEntriesInFlowOrder();
+		const actionList = dirtyEntries
+			.map((entry) => "<li>" + escapeHtml(getDraftActionLabel(entry)) + "</li>")
+			.join("");
+		const message = [
+			"<p>" + escapeHtml(__("The following actions have unsaved configuration changes:")) + "</p>",
+			"<ul class='pl-4 mb-3'>" + actionList + "</ul>",
+			"<p>" + escapeHtml(__("Keep editing will open the first action in this list. Discard changes will discard all listed modal drafts.")) + "</p>",
+			"<p>" + escapeHtml(__("Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule.")) + "</p>",
+		].join("");
 		showDiscardConfirmation.value = true;
 		frappe.confirm(
-			__(
-				"Only unsaved configuration edits in this modal will be discarded, including edits in the current action and any other step you visited. Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
-			),
+			message,
 			() => discardChanges(),
 			() => keepEditing(),
 			__("Discard changes"),
