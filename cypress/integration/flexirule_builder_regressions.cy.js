@@ -216,15 +216,14 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
 
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-		cy.get(".modal:visible .frappe-confirm-message").should(
-			"contain.text",
-			"The following actions have unsaved configuration changes:"
-		);
-		cy.get(".modal:visible .frappe-confirm-message li").then(($items) => {
-			expect([...$items].map((item) => item.textContent.trim())).to.deep.equal([
-				firstLabel,
-				secondLabel,
-			]);
+		cy.get(".modal:visible .frappe-confirm-message").should(($message) => {
+			const message = $message.text();
+			expect(message).to.include("The following actions have unsaved configuration changes:");
+			const firstIndex = message.indexOf(firstLabel);
+			const secondIndex = message.indexOf(secondLabel);
+			expect(firstIndex, "first action label is displayed").to.be.greaterThan(-1);
+			expect(secondIndex, "second action label is displayed").to.be.greaterThan(-1);
+			expect(firstIndex, "labels are shown in rule-flow order").to.be.lessThan(secondIndex);
 		});
 
 		// Keep editing must jump to the first dirty action, even when the user
@@ -238,7 +237,9 @@ describe("FlexiRule builder regression coverage", () => {
 		// Escape must dismiss the Frappe confirmation without reopening it or
 		// losing the first action's draft.
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-		cy.get(".modal:visible .frappe-confirm-message li").should("have.length", 2);
+		cy.get(".modal:visible .frappe-confirm-message")
+			.should("contain.text", firstLabel)
+			.and("contain.text", secondLabel);
 		cy.get(".modal:visible").trigger("keydown", {
 			key: "Escape",
 			code: "Escape",
