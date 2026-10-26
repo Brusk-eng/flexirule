@@ -261,6 +261,9 @@ describe("FlexiRule builder regression coverage", () => {
 				"vars.inner_item.link_name"
 			);
 			expect(bodyAssignments[0].operator, "body Assignment operator").to.eq("clear");
+			expect(body.next_step_if_true, "body Assignment returns to nested Loop").to.eq(
+				nested.action_id
+			);
 			expect(outer.return_variable, "outer Loop item alias").to.eq("outer_item");
 			expect(nested.return_variable, "nested Loop item alias").to.eq("inner_item");
 			expect(actionConfig(outer).iterator, "outer Loop iterator").to.eq("doc.links");
@@ -299,7 +302,14 @@ describe("FlexiRule builder regression coverage", () => {
 			const loops = doc.actions.filter((action) => action.action_type === "Loop");
 			const outer = loops.find((action) => action.action_label === outerLabel);
 			const nested = loops.find((action) => action.action_label === nestedLabel);
+			const body = doc.actions.find(
+				(action) => action.action_type === "Assignment" && action.action_label === bodyLabel
+			);
 			expect(loops, "both Loop actions remain persisted after reload").to.have.length(2);
+			expect(body, "nested Loop body Assignment remains persisted").to.exist;
+			expect(body.next_step_if_true, "body return pointer persists after reload").to.eq(
+				nested.action_id
+			);
 			expect(actionConfig(outer).iterator).to.eq("doc.links");
 			expect(actionConfig(nested).iterator).to.eq("doc.links");
 			expect(outer.return_variable).to.eq("outer_item");
