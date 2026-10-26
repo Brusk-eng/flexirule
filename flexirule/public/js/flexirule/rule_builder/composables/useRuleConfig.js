@@ -386,28 +386,25 @@ export function useRuleConfig(props, emit) {
 		discardReturnFocus = typeof document !== "undefined" ? document.activeElement : null;
 		const dirtyEntries = getDirtyDraftEntriesInFlowOrder();
 		const actionList = dirtyEntries
-			.map((entry) => "<li>" + escapeHtml(getDraftActionLabel(entry)) + "</li>")
-			.join("");
+			.map((entry) => "• " + escapeHtml(getDraftActionLabel(entry)))
+			.join("<br>");
+		// frappe.confirm wraps its message in a paragraph element, so keep the
+		// supplied markup phrasing-only and use line breaks instead of nested
+		// block elements. This keeps every action label visible in the dialog.
 		const message = [
-			"<p>" +
-				escapeHtml(__("The following actions have unsaved configuration changes:")) +
-				"</p>",
-			"<ul class='pl-4 mb-3'>" + actionList + "</ul>",
-			"<p>" +
-				escapeHtml(
-					__(
-						"Keep editing will open the first action in this list. Discard changes will discard all listed modal drafts."
-					)
-				) +
-				"</p>",
-			"<p>" +
-				escapeHtml(
-					__(
-						"Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
-					)
-				) +
-				"</p>",
-		].join("");
+			escapeHtml(__("The following actions have unsaved configuration changes:")),
+			actionList,
+			escapeHtml(
+				__(
+					"Keep editing will open the first action in this list. Discard changes will discard all listed modal drafts."
+				)
+			),
+			escapeHtml(
+				__(
+					"Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
+				)
+			),
+		].join("<br><br>");
 		showDiscardConfirmation.value = true;
 		frappe.confirm(
 			message,
