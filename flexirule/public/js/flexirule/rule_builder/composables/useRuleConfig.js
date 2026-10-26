@@ -59,7 +59,7 @@ export function useRuleConfig(props, emit) {
 	};
 
 	/**
-	 * Create a draft copy of the node for editing.
+	 * Drop session-local drafts after the modal has been closed.
 	 */
 	function resetDraftSession() {
 		draftEntries.clear();
