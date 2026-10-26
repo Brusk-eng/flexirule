@@ -268,6 +268,7 @@
 									<button
 										class="toolbar-btn close-action"
 										@click="cancel"
+										:disabled="isSaving"
 										:title="__('Close')"
 									>
 										<i class="fa fa-times"></i>
