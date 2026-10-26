@@ -183,7 +183,9 @@ describe("FlexiRule builder regression coverage", () => {
 		// Make the second action independently dirty as well.
 		cy.get(".config-modal-container .toolbar-group.navigation button").last().click();
 		cy.get(".config-modal-container h3").should("contain.text", secondLabel);
-		cy.contains(".config-modal-container button", "Add Assignment").should("be.visible").click();
+		cy.contains(".config-modal-container button", "Add Assignment")
+			.should("be.visible")
+			.click();
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
 
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
