@@ -158,45 +158,56 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.contains("Value Expression").should("be.visible");
 	});
 
-	it("retains unsaved action configuration through navigation and confirms discard explicitly", () => {
+	it("lists unsaved action drafts and resumes at the first dirty action when keeping editing", () => {
 		createRuleAndOpenBuilder();
-		const firstLabel = "Draft retention " + Date.now();
+		const firstLabel = "Draft retention first " + Date.now();
+		const secondLabel = "Draft retention second " + Date.now();
 
-		// The new Assignment is inserted between the existing Entry Action and
-		// Stop action, so the existing Stop node is the next navigation target.
+		// Add two sequential actions so confirmation labels can be checked in
+		// rule-flow order rather than the order in which drafts were visited.
 		addNodeFromEdgeMenu("Assignment");
 		cy.get(".labeling-container input").should("be.visible").clear().type(firstLabel);
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input").should("be.visible").clear().type(secondLabel);
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+
 		cy.contains(".vue-flow__node", firstLabel).should("be.visible").dblclick({ force: true });
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
-
-		// Create a real, unsaved Assignment config row. Its grid header is only
-		// rendered while the draft still contains that row.
-		cy.contains(".config-modal-container button", "Add Assignment")
-			.should("be.visible")
-			.click();
+		cy.contains(".config-modal-container button", "Add Assignment").should("be.visible").click();
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
 
+		// Make the second action independently dirty as well.
 		cy.get(".config-modal-container .toolbar-group.navigation button").last().click();
-		cy.get(".config-modal-container h3").should("not.contain.text", firstLabel);
-		cy.get(".config-modal-container").contains("Target Field").should("not.exist");
+		cy.get(".config-modal-container h3").should("contain.text", secondLabel);
+		cy.contains(".config-modal-container button", "Add Assignment").should("be.visible").click();
+		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
 
-		cy.get(".config-modal-container .toolbar-group.navigation button").first().click();
+		cy.get(".config-modal-container .toolbar-btn.close-action").click();
+		cy.get(".modal:visible .frappe-confirm-message").should(
+			"contain.text",
+			"The following actions have unsaved configuration changes:"
+		);
+		cy.get(".modal:visible .frappe-confirm-message li").then(($items) => {
+			expect([...$items].map((item) => item.textContent.trim())).to.deep.equal([
+				firstLabel,
+				secondLabel,
+			]);
+		});
+
+		// Keep editing must jump to the first dirty action, even when the user
+		// opened the confirmation from a later action.
+		cy.get(".modal:visible").contains("button", "Keep editing").click();
+		cy.get(".modal-backdrop").should("not.exist");
+		cy.get(".config-modal-container").should("be.visible");
 		cy.get(".config-modal-container h3").should("contain.text", firstLabel);
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
 
-		// Frappe's native confirmation is non-destructive until the user chooses
-		// Discard changes. Choosing Keep editing must restore modal interaction.
+		// Escape must dismiss the Frappe confirmation without reopening it or
+		// losing the first action's draft.
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-		cy.get(".modal:visible .frappe-confirm-message")
-			.should(
-				"contain.text",
-				"Only unsaved configuration edits in this modal will be discarded"
-			)
-			.and("be.visible");
-		// Escape closes the native Frappe dialog, but the same event must not
-		// bubble into the builder shortcut and reopen the discard confirmation.
+		cy.get(".modal:visible .frappe-confirm-message li").should("have.length", 2);
 		cy.get(".modal:visible").trigger("keydown", {
 			key: "Escape",
 			code: "Escape",
@@ -207,29 +218,15 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 		cy.get(".modal:visible .frappe-confirm-message").should("not.exist");
 		cy.get(".modal-backdrop").should("not.exist");
-
 		cy.get(".config-modal-container").should("be.visible");
+		cy.get(".config-modal-container h3").should("contain.text", firstLabel);
 		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
 
-		// The draft remains available after Escape dismissal; the normal
-		// Keep editing path should also leave the editor interactive.
+		// Cleanup through the explicit discard action.
 		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-		cy.get(".modal:visible .frappe-confirm-message").should("be.visible");
-		cy.get(".modal:visible").contains("button", "Keep editing").click();
-		cy.get(".modal-backdrop").should("not.exist");
-
-		cy.get(".config-modal-container").should("be.visible");
-		cy.get(".config-modal-container").contains("Target Field").should("be.visible");
-		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-
-		cy.get(".modal:visible .frappe-confirm-message").should(
-			"contain.text",
-			"Only unsaved configuration edits in this modal will be discarded"
-		);
 		cy.get(".modal:visible").contains("button", "Discard changes").click();
 		cy.get(".config-modal-container").should("not.exist");
 	});
-
 	it("opens Condition configuration and renders its condition editor", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Condition");
