@@ -197,7 +197,14 @@ describe("FlexiRule builder regression coverage", () => {
 			.and("be.visible");
 		// Escape closes the native Frappe dialog, but the same event must not
 		// bubble into the builder shortcut and reopen the discard confirmation.
-		cy.get(".modal:visible").contains("button", "Keep editing").focus().type("{esc}");
+		cy.get(".modal:visible").trigger("keydown", {
+			key: "Escape",
+			code: "Escape",
+			which: 27,
+			keyCode: 27,
+			bubbles: true,
+			cancelable: true,
+		});
 		cy.get(".modal:visible .frappe-confirm-message").should("not.exist");
 		cy.get(".modal-backdrop").should("not.exist");
 
