@@ -1,16 +1,11 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import {
-	getOperationOptions,
-	isTerminalAction,
-	PROCESS_REGISTRY,
-	getContract,
-} from "../../core/contracts";
-import { useStore } from "../stores";
-import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
+import { getOperationOptions, PROCESS_REGISTRY, getContract } from "../../core/contracts";
+import { useGraphStore, useRuleStore, useUIStore } from "../stores";
 import { useActionSearch } from "../composables/useActionSearch";
 import { useCanvasLayout } from "../composables/useCanvasLayout";
+import { useRuleGraph } from "../composables/useRuleGraph";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useFocusTrap } from "../composables/useFocusTrap";
 import NodeToolbar from "./nodes/NodeToolbar.vue";
@@ -57,7 +52,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["select", "paste", "close"]);
-const store = useStore();
+const graphStore = useGraphStore();
+const ruleStore = useRuleStore();
+const uiStore = useUIStore();
 
 const {
 	searchQuery,
@@ -111,6 +108,7 @@ const {
 	sourcePosition: defaultSourcePos,
 	targetPosition: defaultTargetPos,
 } = useCanvasLayout();
+const { layoutGraph } = useRuleGraph();
 const targetPos = computed(() => props.targetPosition || defaultTargetPos.value);
 const sourcePos = computed(() => props.sourcePosition || defaultSourcePos.value);
 
@@ -465,11 +463,6 @@ function onPasteClick() {
 
 function onCreate(finalPayload = null) {
 	if (props.mode !== "node") return;
-	const nodeIndex = store.nodes.findIndex((n) => n.id === props.id);
-	if (nodeIndex === -1) {
-		console.warn("[ActionZone] Node not found for upgrade:", props.id);
-		return;
-	}
 
 	const selection = finalPayload || {
 		action_type: selectedPreset.value.action_type || "Process",
@@ -482,75 +475,27 @@ function onCreate(finalPayload = null) {
 		process_name: selectedPreset.value.process_name,
 	};
 
-	const action_type = selection.action_type;
-	const label = selection.label;
-	const nodeType = mapActionTypeToNodeType(action_type);
-	const node = store.nodes[nodeIndex];
-
-	console.log("[ActionZone] Upgrading node:", props.id, "to type:", action_type);
-
-	const nodeData = store.get_default_node_data(action_type.toLowerCase(), label);
-	const suggestedParentId = node.data?.suggested_parent_id;
-	const suggestedSourceHandle = node.data?.suggested_source_handle || "default";
-
-	if (selection.operation) nodeData.operation = selection.operation;
-	if (selection.process_name) nodeData.process_name = selection.process_name;
-
-	if (action_type === "Process" && nodeData.operation && !nodeData.process_name) {
-		const matches = getOperationOptions("Process", {})
-			.filter((op) => op.value === nodeData.operation && op.process_name)
-			.map((op) => op.process_name);
-		const unique = [...new Set(matches)];
-		if (unique.length === 1) nodeData.process_name = unique[0];
+	const previousNodeCount = graphStore.nodes.length;
+	const upgraded = graphStore.upgrade_selector_node(props.id, selection);
+	if (!upgraded) {
+		console.warn("[ActionZone] Unable to upgrade selector node:", props.id);
+		return;
 	}
 
-	// Trigger full reactivity by replacing the node object
-	const updatedNode = {
-		...node,
-		type: nodeType,
-		label: label,
-		data: {
-			...nodeData,
-			action_id: props.id,
-			action_label: label,
-			next_step_if_true: node.data?.next_step_if_true || nodeData.next_step_if_true,
-			next_step_if_false: node.data?.next_step_if_false || nodeData.next_step_if_false,
-			suggested_parent_id: null,
-			suggested_source_handle: null,
-		},
-	};
+	uiStore.select(props.id);
+	uiStore.show_sidebar = true;
+	ruleStore.mark_dirty();
 
-	store.nodes.splice(nodeIndex, 1, updatedNode);
-
-	if (suggestedParentId) {
-		const edgeId = `e-${suggestedParentId}-${props.id}-${suggestedSourceHandle}`;
-		const hasIncoming = store.edges.some((edge) => edge.target === props.id);
-		if (!hasIncoming) {
-			store.edges.push({
-				id: edgeId,
-				source: suggestedParentId,
-				target: props.id,
-				sourceHandle: suggestedSourceHandle,
-				animated: suggestedParentId === "root",
-			});
-		}
+	// Multi-output actions create scaffold nodes (Loop Body / End). Run the
+	// shared graph layout after Vue has committed the structural node replacement.
+	if (graphStore.nodes.length > previousNodeCount) {
+		nextTick(() => layoutGraph(uiStore.layout_preference || "LR"));
 	}
-
-	if (isTerminalAction(action_type)) {
-		store.edges = store.edges.filter((edge) => edge.source !== props.id);
-		store.nodes[nodeIndex].data.next_step_if_true = null;
-		store.nodes[nodeIndex].data.next_step_if_false = null;
-	}
-
-	store.select(props.id);
-	store.show_sidebar = true;
-	store.touch_node(props.id);
-	store.mark_dirty();
 }
 
 function deleteNode() {
 	if (props.mode === "node") {
-		frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
+		frappe.confirm(__("Delete this node?"), () => graphStore.delete_node(props.id));
 	}
 }
 
