@@ -159,20 +159,44 @@ describe("FlexiRule builder regression coverage", () => {
 	});
 
 	it("lists unsaved action drafts and resumes at the first dirty action when keeping editing", () => {
-		createRuleAndOpenBuilder();
 		const firstLabel = "Draft retention first " + Date.now();
 		const secondLabel = "Draft retention second " + Date.now();
+		const actions = [
+			{
+				action_id: "root",
+				action_label: "Start",
+				action_type: "Entry Action",
+				is_enabled: 1,
+				next_step_if_true: "draft_first",
+			},
+			{
+				action_id: "draft_first",
+				action_label: firstLabel,
+				action_type: "Assignment",
+				is_enabled: 1,
+				next_step_if_true: "draft_second",
+				assignments: [],
+			},
+			{
+				action_id: "draft_second",
+				action_label: secondLabel,
+				action_type: "Assignment",
+				is_enabled: 1,
+				next_step_if_true: "node_end",
+				assignments: [],
+			},
+			{
+				action_id: "node_end",
+				action_label: "End",
+				action_type: "Stop",
+				operation: "Success",
+				is_enabled: 1,
+			},
+		];
+		createRuleAndOpenBuilder(actions);
 
-		// Add two sequential actions so confirmation labels can be checked in
-		// rule-flow order rather than the order in which drafts were visited.
-		addNodeFromEdgeMenu("Assignment");
-		cy.get(".labeling-container input").should("be.visible").clear().type(firstLabel);
-		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
-
-		addNodeFromEdgeMenu("Assignment");
-		cy.get(".labeling-container input").should("be.visible").clear().type(secondLabel);
-		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
-
+		// Start with a linked two-action flow so the dialog can be checked for
+		// labels in graph order independently of the canvas insertion menu.
 		cy.contains(".vue-flow__node", firstLabel).should("be.visible").dblclick({ force: true });
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 		cy.contains(".config-modal-container button", "Add Assignment")
