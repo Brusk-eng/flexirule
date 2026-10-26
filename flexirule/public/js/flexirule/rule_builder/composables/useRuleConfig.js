@@ -414,30 +414,43 @@ export function useRuleConfig(props, emit) {
 			__("Keep editing")
 		);
 
-		// Own the secondary action explicitly rather than relying on a separately
-		// registered default handler; closing is completed by hidden.bs.modal below.
+		// Bootstrap ignores hide() while the modal is still entering. Queue a
+		// close requested during that transition and perform it once shown.
+		let closeWhenShown = false;
+		const requestConfirmationClose = () => {
+			if (!confirmation.display) {
+				closeWhenShown = true;
+				return;
+			}
+			closeWhenShown = false;
+			confirmation.hide();
+		};
+		confirmation.$wrapper.one("shown.bs.modal.fxrDiscardConfirmation", () => {
+			if (closeWhenShown) requestConfirmationClose();
+		});
+
+		// Own the secondary action explicitly; both it and Escape use the same
+		// transition-aware close path.
 		confirmation
 			.get_secondary_btn()
 			.off("click")
 			.on("click.fxrDiscardConfirmation", (event) => {
 				event.preventDefault();
-				confirmation.hide();
+				requestConfirmationClose();
 			});
 
-		// Handle Escape at the confirmation itself. This works even when the
-		// Frappe/Bootstrap modal keyboard option is disabled and prevents the same
-		// key event from reaching the config modal's global Escape shortcut.
+		// Handle Escape at the confirmation itself and stop the same key event
+		// from reaching the config modal's global Escape shortcut.
 		confirmation.$wrapper.on("keydown.fxrDiscardConfirmation", (event) => {
 			if (event.key !== "Escape" && event.which !== 27) return;
 			event.preventDefault();
 			event.stopPropagation();
-			confirmation.hide();
+			requestConfirmationClose();
 		});
 
 		// Resume editing only after Bootstrap has removed the dialog backdrop.
-		// This avoids running draft navigation during the modal's hide lifecycle.
 		confirmation.$wrapper.one("hidden.bs.modal", () => {
-			confirmation.$wrapper.off("keydown.fxrDiscardConfirmation");
+			confirmation.$wrapper.off(".fxrDiscardConfirmation");
 			if (showDiscardConfirmation.value) keepEditing();
 		});
 		return false;
