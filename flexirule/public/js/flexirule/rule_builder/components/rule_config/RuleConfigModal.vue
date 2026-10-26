@@ -62,7 +62,11 @@
 										{{ title }}
 									</h3>
 									<div
-										v-if="hasUnsavedChanges && !ruleStore.is_read_only && !isMobile"
+										v-if="
+											hasUnsavedChanges &&
+											!ruleStore.is_read_only &&
+											!isMobile
+										"
 										class="dirty-badge"
 									>
 										<i class="fa fa-circle"></i>
