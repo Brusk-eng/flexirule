@@ -29,7 +29,9 @@ function createNode(id, data = {}) {
 	assert.equal(isConfigDraftEntryDirty(draftA), true);
 	assert.equal(isConfigDraftEntryDirty(draftB), true);
 	assert.deepEqual(
-		getDirtyConfigDraftEntries(entries).map((entry) => entry.nodeId).sort(),
+		getDirtyConfigDraftEntries(entries)
+			.map((entry) => entry.nodeId)
+			.sort(),
 		["action-a", "action-b"]
 	);
 	assert.deepEqual(
