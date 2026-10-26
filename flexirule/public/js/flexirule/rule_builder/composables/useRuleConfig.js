@@ -406,13 +406,21 @@ export function useRuleConfig(props, emit) {
 			),
 		].join("<br><br>");
 		showDiscardConfirmation.value = true;
-		frappe.confirm(
+		const confirmation = frappe.confirm(
 			message,
 			() => discardChanges(),
-			() => keepEditing(),
+			null,
 			__("Discard changes"),
 			__("Keep editing")
 		);
+
+		// Frappe's reject callback runs during Bootstrap's hide event, before
+		// the modal transition removes its backdrop. Resume editing only after
+		// hidden.bs.modal so navigation cannot interrupt the native dialog's
+		// close lifecycle. This also handles Escape and backdrop dismissal.
+		confirmation.$wrapper.one("hidden.bs.modal", () => {
+			if (showDiscardConfirmation.value) keepEditing();
+		});
 		return false;
 	}
 
