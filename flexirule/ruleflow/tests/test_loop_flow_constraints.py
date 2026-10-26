@@ -1,3 +1,5 @@
+import json
+
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.validation_service import _validate_flow_constraints
@@ -210,6 +212,47 @@ class TestLoopFlowConstraints(FrappeTestCase):
 				},
 				{
 					"action_id": "done",
+					"action_type": "Stop",
+					"action_label": "End",
+					"next_step_if_true": None,
+					"next_step_if_false": None,
+				},
+			],
+		)
+
+		self.assertFalse(
+			any("no body path that returns to the Loop" in error for error in result["errors"]),
+			result["errors"],
+		)
+
+	def test_loop_body_can_return_through_switch_case_when_fallback_does_not(self):
+		result = _validate_flow_constraints(
+			{"is_active": 0},
+			[
+				{
+					"action_id": "loop",
+					"action_type": "Loop",
+					"action_label": "Loop Items",
+					"next_step_if_true": "switch",
+					"next_step_if_false": "after",
+				},
+				{
+					"action_id": "switch",
+					"action_type": "Switch",
+					"action_label": "Route Item",
+					"config": json.dumps({"expression": "doc.status", "cases": {"Done": "loop"}}),
+					"next_step_if_true": "fallback",
+					"next_step_if_false": "fallback",
+				},
+				{
+					"action_id": "fallback",
+					"action_type": "Stop",
+					"action_label": "Fallback Stop",
+					"next_step_if_true": None,
+					"next_step_if_false": None,
+				},
+				{
+					"action_id": "after",
 					"action_type": "Stop",
 					"action_label": "End",
 					"next_step_if_true": None,

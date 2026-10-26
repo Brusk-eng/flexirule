@@ -742,12 +742,22 @@ def _loop_body_returns_to_loop(body_action_id, loop_action_id, action_index) -> 
 		if contract.get("terminal"):
 			continue
 
+		# Switch routes to configured case targets; next_step_if_true is its
+		# fallback destination rather than a guaranteed route to every case.
+		if action_type == "Switch":
+			config = _parse_json_value(_safe_get(current_action, "config"), {})
+			cases = config.get("cases", {}) if isinstance(config, Mapping) else {}
+			if isinstance(cases, Mapping):
+				pending.extend(target for target in cases.values() if isinstance(target, str) and target)
+
 		next_true = _safe_get(current_action, "next_step_if_true")
 		if next_true:
 			pending.append(next_true)
 
+		# SwitchHandler executes case targets and next_step_if_true fallback only;
+		# its generic false pointer is not a runtime destination.
 		next_false = _safe_get(current_action, "next_step_if_false")
-		if contract.get("has_next_false") and next_false:
+		if action_type != "Switch" and contract.get("has_next_false") and next_false:
 			pending.append(next_false)
 
 	return False
