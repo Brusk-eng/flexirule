@@ -615,16 +615,8 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const {
-	draftNode,
-	panelRefs,
-	save,
-	cancel,
-	isDirty,
-	hasUnsavedChanges,
-	isSaving,
-	showValidation,
-} = useRuleConfig(props, emit);
+const { draftNode, panelRefs, save, cancel, isDirty, hasUnsavedChanges, isSaving, showValidation } =
+	useRuleConfig(props, emit);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,
