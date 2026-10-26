@@ -31,6 +31,9 @@ export function useRuleConfig(props, emit) {
 
 	const isDirty = ref(false);
 	const isSaving = ref(false);
+	const showDiscardConfirmation = ref(false);
+	const keepEditingButtonRef = ref(null);
+	let discardReturnFocus = null;
 	// Invalidates pending saves when the modal is cancelled or the editing context changes.
 	let saveContextGeneration = 0;
 	// Reactive Map entries preserve visited drafts and drive session-wide dirty tracking.
@@ -307,9 +310,36 @@ export function useRuleConfig(props, emit) {
 		return true;
 	}
 
-	let discardConfirmation = null;
+	function keepEditing() {
+		if (!showDiscardConfirmation.value) return;
+
+		showDiscardConfirmation.value = false;
+		const target = discardReturnFocus;
+		discardReturnFocus = null;
+		nextTick(() => {
+			if (target?.isConnected && typeof target.focus === "function") target.focus();
+		});
+	}
+
+	function discardChanges() {
+		if (isSaving.value || !showDiscardConfirmation.value) return false;
+
+		showDiscardConfirmation.value = false;
+		discardReturnFocus = null;
+		// Pending save attempts are invalidated only after explicit discard.
+		saveContextGeneration += 1;
+		emit("update:modelValue", false);
+		return true;
+	}
 
 	function cancel() {
+		// Escape while the confirmation is open means the safe action:
+		// dismiss the prompt and continue editing.
+		if (showDiscardConfirmation.value) {
+			keepEditing();
+			return false;
+		}
+
 		// Don't interrupt an async validation/commit. Save owns the editing
 		// context until it has settled.
 		if (isSaving.value || !props.modelValue) return false;
@@ -320,28 +350,10 @@ export function useRuleConfig(props, emit) {
 			return true;
 		}
 
-		// Avoid stacking dialogs when Escape and a close gesture happen together.
-		if (discardConfirmation) return false;
-
-		discardConfirmation = frappe.warn(
-			__("Discard unsaved configuration?"),
-			__(
-				"Only unsaved configuration edits in this modal will be discarded, including edits in the current action and any other step you visited. Changes already saved to individual actions remain in the rule builder. You may still need to click Save Rule to persist the rule."
-			),
-			() => {
-				discardConfirmation = null;
-				// Invalidate async operations only after the user explicitly chooses
-				// to discard. Dismissing the warning keeps the current draft usable.
-				saveContextGeneration += 1;
-				emit("update:modelValue", false);
-			},
-			__("Discard changes")
-		);
-		discardConfirmation.set_secondary_action_label(__("Keep editing"));
-		discardConfirmation.onhide = () => {
-			discardConfirmation = null;
-		};
-
+		discardReturnFocus =
+			typeof document !== "undefined" ? document.activeElement : null;
+		showDiscardConfirmation.value = true;
+		nextTick(() => keepEditingButtonRef.value?.focus());
 		return false;
 	}
 
@@ -351,6 +363,8 @@ export function useRuleConfig(props, emit) {
 		([newNode, isOpen]) => {
 			saveContextGeneration += 1;
 			if (!isOpen) {
+				showDiscardConfirmation.value = false;
+				discardReturnFocus = null;
 				resetDraftSession();
 				return;
 			}
@@ -376,11 +390,15 @@ export function useRuleConfig(props, emit) {
 		isDirty,
 		hasUnsavedChanges,
 		isSaving,
+		showDiscardConfirmation,
+		keepEditingButtonRef,
 		panelRefs,
 		showValidation,
 		updateField,
 		validate,
 		save,
 		cancel,
+		keepEditing,
+		discardChanges,
 	};
 }
