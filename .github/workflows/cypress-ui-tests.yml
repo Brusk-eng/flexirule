@@ -95,15 +95,18 @@ jobs:
 
       - name: Ensure Frappe uses the non-TLS MariaDB client
         run: |
-          MARIADB_CLIENT="$(command -v mariadb)"
-          test -x "$MARIADB_CLIENT"
-          sudo tee /usr/local/bin/mysql >/dev/null <<EOF
+          MARIADB_REAL_CLIENT="$(command -v mariadb)"
+          test -x "$MARIADB_REAL_CLIENT"
+          for client_name in mariadb mysql; do
+            sudo tee "/usr/local/bin/$client_name" >/dev/null <<EOF
           #!/usr/bin/env bash
-          exec "$MARIADB_CLIENT" --skip-ssl "\$@"
+          exec "$MARIADB_REAL_CLIENT" --skip-ssl "\$@"
           EOF
-          sudo chmod +x /usr/local/bin/mysql
-          test "$(command -v mysql)" = "/usr/local/bin/mysql"
-          mysql --host 127.0.0.1 --port 3306 -u root -proot -e "SELECT VERSION()"
+            sudo chmod +x "/usr/local/bin/$client_name"
+          done
+          # Frappe 15 prefers `mariadb` over `mysql` in frappe.database.get_command().
+          test "$(command -v mariadb)" = "/usr/local/bin/mariadb"
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SELECT VERSION()"
 
       - name: Initialize Frappe bench
         run: |
