@@ -9,9 +9,18 @@ on:
       - "cypress/support/**"
       - "package.json"
       - "yarn.lock"
+      # Frontend assets and templates used by the builder/list/workspace UI.
       - "flexirule/public/**"
       - "flexirule/templates/**"
-      - "flexirule/ruleflow/**"
+      # Backend contracts and Rule persistence/validation directly exercised by
+      # these browser specs. Avoid running the full browser suite for unrelated
+      # ruleflow internals; those changes are covered by server tests instead.
+      - "flexirule/ruleflow/api.py"
+      - "flexirule/ruleflow/core/**"
+      - "flexirule/ruleflow/doctype/rule/**"
+      - "flexirule/fixtures/**"
+      - "flexirule/workspace/**"
+      - "flexirule/hooks.py"
   workflow_dispatch:
 
 permissions:
