@@ -93,6 +93,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y mariadb-client xvfb
 
+      - name: Ensure Frappe uses the non-TLS MariaDB client
+        run: |
+          MARIADB_CLIENT="$(command -v mariadb)"
+          test -x "$MARIADB_CLIENT"
+          sudo tee /usr/local/bin/mysql >/dev/null <<EOF
+          #!/usr/bin/env bash
+          exec "$MARIADB_CLIENT" --skip-ssl "\$@"
+          EOF
+          sudo chmod +x /usr/local/bin/mysql
+          test "$(command -v mysql)" = "/usr/local/bin/mysql"
+          mysql --host 127.0.0.1 --port 3306 -u root -proot -e "SELECT VERSION()"
+
       - name: Initialize Frappe bench
         run: |
           set -euo pipefail
