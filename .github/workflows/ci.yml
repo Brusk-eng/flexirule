@@ -59,7 +59,9 @@ jobs:
               - 'pyproject.toml'
               - '.github/workflows/**'
             backend:
-              - '**/*.py'
+              - 'flexirule/**/*.py'
+              - 'setup.py'
+              - 'setup.cfg'
               - 'flexirule/**/*.json'
               - 'requirements.txt'
               - 'pyproject.toml'
